@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Mis tareas - Cocina</title>
+  <link rel="stylesheet" href="../src/css/generarReceta.css">
+</head>
+<body>
+
+<header>
+  <h1>👨‍🍳 Mis tareas de cocina</h1>
+  <a href="../index.html">Volver</a>
+</header>
+
+<main class="wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Pedido</th>
+        <th>Plato</th>
+        <th>Cantidad</th>
+        
+        <th>Estado</th>
+        <th></th>
+        <th>Fecha</th>
+      </tr>
+    </thead>
+    <div style="margin-bottom: 1rem;">
+  <label for="selectCocinero"><strong>Seleccionar cocinero:</strong></label>
+  <select id="selectCocinero">
+    <option value="">-- Elegí un cocinero --</option>
+  </select>
+</div>
+
+    <tbody id="tablaTareas">
+      <tr><td colspan="5">Cargando tareas...</td></tr>
+    </tbody>
+  </table>
+</main>
+
+<script src="../src/js/cocinero.js"></script>
+</body>
+</html>

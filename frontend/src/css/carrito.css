@@ -1,0 +1,86 @@
+/* ===================================================
+   CARRITO.CSS - Módulo independiente del carrito (Fast Good)
+   =================================================== */
+
+.carrito-lateral {
+    position: fixed;
+    top: 0;
+    right: -350px;
+    width: 320px;
+    height: 100%;
+    background-color: #fff;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.15);
+    padding: 1.5rem 1rem;
+    transition: right 0.3s ease;
+    z-index: 9999;
+    overflow-y: auto;
+    border-top-left-radius: 12px;
+    border-bottom-left-radius: 12px;
+}
+
+.carrito-lateral.mostrar {
+    right: 0;
+}
+
+.carrito-lateral h3 {
+    font-size: 1.4rem;
+    color: #4CAF50;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 0.5rem;
+    text-align: center;
+}
+
+.carrito-lateral ul li {
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.carrito-lateral button {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    padding: 0.3rem 0.6rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background-color 0.3s ease;
+}
+
+.carrito-lateral button:hover {
+    background-color: #d32f2f;
+}
+
+.btn-cerrar-carrito {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 0.6rem 1.5rem;
+    border-radius: 25px;
+    cursor: pointer;
+    display: block;
+    margin: 2rem auto 0 auto;
+    font-weight: bold;
+    font-size: 1rem;
+}
+
+/* --- RESPONSIVE CARRITO --- */
+@media (max-width: 768px) {
+    .carrito-lateral {
+        width: 100%;
+        max-width: 100vw;
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        right: -100vw;
+        z-index: 99999;
+        transition: right 0.3s ease;
+    }
+
+    .carrito-lateral.mostrar {
+        right: 0 !important;
+    }
+}

@@ -1,0 +1,208 @@
+/* =========================================
+   VARIABLES & RESET
+   ========================================= */
+:root {
+  --primary-green: #28a745;
+  --bg-color: #f4f6f9;
+  --white: #ffffff;
+  --text-dark: #343a40;
+  --text-muted: #6c757d;
+  --border-light: #DEE2E6;
+  --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --radius: 8px;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-dark);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* =========================================
+   HEADER & FOOTER (BRAND GREEN)
+   ========================================= */
+.page-header,
+.page-footer {
+  background-color: var(--primary-green);
+  color: var(--white);
+  padding: 1rem 2rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-inner img {
+  height: 40px;
+  border-radius: 4px;
+}
+
+.header-inner h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 500;
+}
+
+.page-header nav a {
+  color: var(--white);
+  text-decoration: none;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  transition: 0.2s;
+}
+
+.page-header nav a:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.page-footer {
+  margin-top: auto;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+/* =========================================
+   MAIN TABLE LAYOUT
+   ========================================= */
+.page-container {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.table-wrapper {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.5rem;
+  overflow-x: auto;
+}
+
+.standard-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 1000px;
+}
+
+/* Table Head - Diseño Sutil */
+.standard-table thead th {
+  background-color: #e8f5e9;
+  /* Verde muy claro (Google Material Green 50) */
+  color: #4CAF50;
+  /* Verde oscuro para texto */
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  padding: 1.1rem;
+  text-align: left;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid var(--primary-green);
+}
+
+.standard-table thead th:first-child {
+  border-top-left-radius: var(--radius);
+}
+
+.standard-table thead th:last-child {
+  border-top-right-radius: var(--radius);
+}
+
+/* Table Body */
+.standard-table tbody td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.9rem;
+  vertical-align: middle;
+}
+
+.standard-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.standard-table tbody tr:hover {
+  background-color: #f1f8f3;
+}
+
+/* Especial Styling */
+.loading-text {
+  text-align: center;
+  font-style: italic;
+  color: var(--text-muted);
+  padding: 2rem;
+}
+
+ul.ingredientes-list {
+  padding-left: 1rem;
+  margin: 0;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+/* =========================================
+   BADGES & STATUS
+   ========================================= */
+.badge-status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-block;
+  text-transform: uppercase;
+}
+
+/* Colores Estado */
+.bg-reg {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
+.bg-prep {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.bg-listo {
+  background: #d4edda;
+  color: #155724;
+}
+
+/* Método Pago Info */
+.pago-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metodo-tag {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.status-paid {
+  color: var(--primary-green);
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.status-pending {
+  color: #dc3545;
+  font-weight: 700;
+  font-size: 0.75rem;
+}

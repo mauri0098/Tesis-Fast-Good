@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Formulario de Entrega - Fast Good</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/formulario.css">
+  <link rel="icon" href="../src/assets/img/logo.webp" type="image/png">
+
+</head>
+
+<body>
+  <div class="container">
+    <h2>Datos para la Entrega</h2>
+
+    <div class="pedido-resumen">
+      <h3>🛒 Resumen de tu Pedido</h3>
+      <ul id="resumenPedido"></ul>
+    </div>
+
+    <form id="pedidoForm">
+
+      <label for="nombre">Nombre</label>
+      <input type="text" id="nombre" required>
+
+      <label for="apellido">Apellido</label>
+      <input type="text" id="apellido" required>
+
+      <label for="direccion">Dirección</label>
+      <input type="text" id="direccion" required>
+
+      <label for="telefono">Teléfono</label>
+      <input type="tel" id="telefono" required>
+
+      <label for="email">Email (opcional)</label>
+      <input type="email" id="email">
+
+      <label for="fecha">Fecha de entrega</label>
+      <input type="date" id="fecha" required>
+
+      <label for="metodoPago">Método de Pago</label>
+      <select id="metodoPago" required>
+        <option value="Efectivo">Efectivo</option>
+        <option value="Transferencia">Transferencia</option>
+      </select>
+
+      <div class="form-group">
+        <label for="observaciones">Observaciones <span style="font-weight: normal;">(opcional)</span></label>
+        <textarea id="observaciones" rows="4" placeholder="Ej: Que el pollo al disco no tenga cebolla"
+          class="campo-observaciones"></textarea>
+      </div>
+
+
+
+
+      <button type="submit">Finalizar Pedido</button>
+      <a href="./viandasSaludables.html" class="btn-volver">← Volver a los Menús</a>
+    </form>
+  </div>
+
+  <script src="../src/js/formulario.js" defer></script>
+</body>
+
+</html>

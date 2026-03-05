@@ -1,0 +1,31 @@
+body{font-family:Poppins,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;color:#333}
+header{background:#4CAF50;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;position:sticky;top:0;z-index:10}
+header h1{margin:0;font-size:1.3rem}
+header a{color:#fff;text-decoration:none;font-weight:600}
+.section{max-width:1200px;margin:2rem auto;padding:0 1rem}
+h2{color:#4CAF50;margin:0 0 1rem}
+.filters{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:1rem;align-items:end;margin-bottom:1rem}
+.filters label{display:block;font-size:.9rem;color:#555;margin-bottom:.35rem}
+.filters input,.filters select{width:100%;padding:.6rem;border:1px solid #ddd;border-radius:8px}
+.btn{padding:.7rem 1.2rem;border:none;border-radius:8px;background:#1976D2;color:#fff;font-weight:600;cursor:pointer}
+.table-wrap{overflow:auto;border:1px solid #eee;border-radius:12px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:.75rem;border-bottom:1px solid #eee;text-align:left;white-space:nowrap}
+thead tr{background:#fafafa}
+.pill{padding:.15rem .55rem;border-radius:999px;border:1px solid #a5d6a7;background:#e8f5e9;color:#1b5e20;font-weight:600;font-size:.9rem}
+.pill--low{border-color:#ef9a9a;background:#ffebee;color:#c62828}
+.row--low{background:rgba(244,67,54,.06)}
+.empty{display:none;text-align:center;color:#777;padding:1rem}
+.pager{display:flex;justify-content:flex-end;gap:.6rem;align-items:center;margin-top:1rem}
+.pager button{padding:.4rem .8rem;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer}
+/* modal */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000}
+.modal-content{background:#fff;max-width:600px;margin:6% auto;padding:1.2rem 1.2rem 1rem;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+.close{float:right;font-size:28px;cursor:pointer;color:#888}
+.grid2{display:grid;grid-template-columns:180px 1fr;gap:.7rem;align-items:center;margin-top:.5rem}
+.grid2 input,.grid2 select,.grid2 textarea{padding:.55rem;border:1px solid #ddd;border-radius:8px;width:100%}
+.err{color:#d32f2f;margin-top:.4rem;display:none}
+.actions{display:flex;justify-content:flex-end;gap:.6rem;margin-top:1rem}
+.btn-sec{padding:.6rem 1rem;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer}
+.btn-ok{padding:.6rem 1rem;border:none;border-radius:8px;background:#2E7D32;color:#fff;font-weight:600;cursor:pointer}
+small.muted{color:#666}

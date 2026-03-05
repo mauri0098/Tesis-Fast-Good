@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Fast Good - Viandas Saludables</title>
+
+  <!-- Fuente -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/webp" href="./src/assets/img/logo.webp">
+
+  <!-- CSS Global (Fuente de Verdad) -->
+  <link rel="stylesheet" href="./src/css/global.css">
+  <!-- CSS del Carrito -->
+  <link rel="stylesheet" href="./src/css/carrito.css">
+  <!-- CSS específico de la página -->
+  <link rel="stylesheet" href="./src/css/index.css">
+</head>
+
+
+<body>
+
+  <!-- Carrito Lateral -->
+  <div id="carrito" class="carrito-lateral">
+    <h3>🛒 Tu Carrito</h3>
+    <ul id="carrito-items" style="list-style: none; padding: 0; margin-top: 1rem;"></ul>
+    <button onclick="confirmarPedido()" class="btn-cerrar-carrito" style="background-color: #2196F3;">Confirmar
+      Pedido</button>
+    <button onclick="cerrarCarrito()" class="btn-cerrar-carrito">Cerrar</button>
+  </div>
+
+  <header>
+    <div class="container-centrado">
+      <div style="display: flex; align-items: center;">
+        <button class="menu-btn" onclick="openSidebar()">☰</button>
+        <img src="src/assets/img/logo.webp" alt="Fast Good Logo" style="height: 50px; margin: 0 1rem;" />
+        <h1>FAST GOOD</h1>
+      </div>
+
+      <nav style="display: flex; align-items: center; gap: 1.5rem;">
+        <a href="#menu">Categorías</a>
+        <a onclick="openContactModal()">Contacto</a>
+        <a onclick="openModal()">Sucursales</a>
+
+        <!-- Ícono de Carrito -->
+        <div style="position: relative; cursor: pointer;" onclick="toggleCarrito()">
+          <img src="https://cdn-icons-png.flaticon.com/512/107/107831.png" alt="Carrito" style="height: 27px;" />
+          <span id="cart-count"
+            style="position: absolute; top: -8px; right: -8px; background: red; color: white; font-size: 12px; padding: 2px 6px; border-radius: 50%;">0</span>
+        </div>
+      </nav>
+    </div>
+
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar">
+      <button class="close-btn" onclick="closeSidebar()">×</button>
+      <nav class="sidebar-nav">
+        <a href="./index.html">🏠 Inicio</a>
+        <a href="./pages/ConsultarPedidos.html">🧾 Consultar pedidos</a>
+        <a href="./pages/cocinero.html">🥗 Tareas de Cocina</a>
+        <a href="./pages/stock.html">📦 Generar Stock</a>
+        <a href="./pages/generarReceta.html">📝 Generar Receta</a>
+        <a href="./pages/asignarCocineros.html">👨‍🍳 Asignar Cocineros</a>
+        <a onclick="openModal()">🚪 Cerrar Sesión</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <h2>¡Come rico y saludable con Fast Good!</h2>
+  </section>
+
+  <!-- MINI DESCRIPCIÓN DE LA EMPRESA -->
+  <section class="section" style="text-align: center;">
+    <p style="font-size: 1.2rem; max-width: 1000px; margin: 0 auto; color: #555;">
+      Fast Good Villa Allende te ofrece viandas saludables, frescas y caseras, ideales para acompañarte en tu día a día.
+      Diseñamos planes adaptados a cada necesidad: saludable, deportivo, keto, veggie y más. ¡Comé rico, sano y práctico
+      con nosotros!
+    </p>
+  </section>
+
+  <!-- SECCIÓN CATEGORÍA -->
+  <section class="section" id="menu">
+    <h2>Categorías</h2>
+    <div class="grid">
+
+      <div class="card">
+        <img src="src/assets/img/vianda 1.png" alt="Viandas Saludables" />
+        <h3>Viandas Saludables</h3>
+        <a href="pages/viandasSaludables.html" class="btn">Mostrar</a>
+      </div>
+
+      <div class="card">
+        <img src="src/assets/img/sinGluten.png" alt="Viandas Sin Gluten" />
+        <h3>Viandas Sin Gluten</h3>
+        <a href="pages/sinGluten.html" class="btn">Mostrar</a>
+      </div>
+
+      <div class="card">
+        <img src="src/assets/img/pastel.png" alt="Pastelería Saludable" />
+        <h3>Pastelería Saludable</h3>
+        <a href="pages/pasteleria.html" class="btn">Mostrar</a>
+      </div>
+
+      <div class="card">
+        <img src="src/assets/img/combo.png" alt="Combos Saludables" />
+        <h3>Combos Saludables</h3>
+        <a href="pages/combos.html" class="btn">Mostrar</a>
+      </div>
+
+    </div>
+  </section>
+
+  <footer id="contacto">
+    <p>&copy; 2025 Fast Good - Viandas Saludables</p>
+  </footer>
+
+  <!-- MODAL SUCURSALES -->
+  <div id="sucursalesModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <h3>NUEVA CÓRDOBA</h3>
+      <p>Whatsapp: 0351 206-7895</p>
+      <p>Dirección: Ituzaingó 431</p>
+      <hr>
+      <h3>VILLA ALLENDE</h3>
+      <p>Whatsapp: 0351 229-4243</p>
+      <p>Dirección: 9 de Julio 179</p>
+    </div>
+  </div>
+
+
+  <!-- MODAL CONTACTO -->
+  <div id="contactModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeContactModal()">&times;</span>
+      <h3>Contacto</h3>
+      <p>
+        <img src="https://cdn-icons-png.flaticon.com/512/733/733547.png" alt="Facebook" class="icon">
+        <a href="https://www.facebook.com/fastgood.va/?locale=es_LA" target="_blank">Fast Good - Viandas saludables</a>
+      </p>
+      <p>
+        <img src="https://cdn-icons-png.flaticon.com/512/2111/2111463.png" alt="Instagram" class="icon">
+        <a href="https://www.instagram.com/fastgood.va/?hl=es" target="_blank">fastgood.va</a>
+      </p>
+      <p>
+        <img src="https://cdn-icons-png.flaticon.com/512/724/724664.png" alt="Teléfono" class="icon">
+        <a href="tel:03512294243">0351 229-4243</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- SCRIPTS (orden: global → carrito → página) -->
+  <script src="./src/js/global.js"></script>
+  <script src="./src/js/carrito.js"></script>
+  <script src="./src/js/index.js"></script>
+
+</body>
+
+</html>

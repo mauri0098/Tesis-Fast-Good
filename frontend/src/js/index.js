@@ -1,0 +1,1 @@
+// Lógica exclusiva de la página de inicio (portada).

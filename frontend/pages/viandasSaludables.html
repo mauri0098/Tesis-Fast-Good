@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Viandas Saludables - Fast Good</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <link rel="icon" href="../src/assets/img/logo.webp" type="image/webp" />
+  <!-- CSS Global (Fuente de Verdad) -->
+  <link rel="stylesheet" href="../src/css/global.css" />
+  <!-- CSS del Carrito -->
+  <link rel="stylesheet" href="../src/css/carrito.css" />
+  <!-- CSS específico de la página -->
+  <link rel="stylesheet" href="../src/css/viandasSaludables.css" />
+</head>
+
+<body>
+
+  <!-- Carrito Lateral -->
+  <div id="carrito" class="carrito-lateral">
+    <h3>🛒 Tu Carrito</h3>
+    <ul id="carrito-items" style="list-style: none; padding: 0; margin-top: 1rem;"></ul>
+    <button onclick="confirmarPedido()" class="btn-cerrar-carrito" style="background-color: #2196F3;">Confirmar
+      Pedido</button>
+    <button onclick="cerrarCarrito()" class="btn-cerrar-carrito">Cerrar</button>
+  </div>
+
+  <header>
+    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+      <!-- LOGO -->
+      <div style="display: flex; align-items: center;">
+        <img src="../src/assets/img/logo.webp" alt="Fast Good Logo" style="height: 50px; margin-right: 1rem;" />
+        <h1 style="margin: 0;">FAST GOOD</h1>
+      </div>
+
+      <!-- NAV + CARRITO -->
+      <nav style="display: flex; align-items: center; gap: 2rem;">
+        <a href="../index.html">Inicio</a>
+
+        <!-- Ícono del carrito -->
+        <div id="carrito-icono" style="position: relative; cursor: pointer;" onclick="toggleCarrito()">
+          <img src="https://cdn-icons-png.flaticon.com/512/107/107831.png" alt="Carrito" style="height: 28px;" />
+          <span id="cart-count"
+            style="position: absolute; top: -8px; right: -8px; background: red; color: white; font-size: 12px; padding: 2px 6px; border-radius: 50%;">0</span>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <section class="section">
+    <h2>Planes de Viandas Saludables</h2>
+
+    <!-- PLAN DESCENSO -->
+    <button class="accordion">Plan Descenso</button>
+    <div class="panel">
+      <div class="platos-grid">
+        <!-- PLATO 1 -->
+        <div class="plato">
+          <img src="../src/assets/img/lasagnaCarne.png" alt="Lasagna de carne" class="plato-img" />
+          <div class="plato-info">
+            <span class="plato-nombre">Lasagna de carne</span>
+            <div class="counter">
+              <button onclick="restarProducto(0)">-</button>
+              <span id="cantidadProducto0">0</span>
+              <button onclick="sumarProducto(0)">+</button>
+              <button onclick="agregarProductoAlCarrito(0)" class="btn">Agregar al carrito</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PLATO 2 -->
+        <div class="plato">
+          <img src="../src/assets/img/polloDisco.png" alt="Pollo al disco con arroz" class="plato-img" />
+          <div class="plato-info">
+            <span class="plato-nombre">Pollo al disco con arroz</span>
+            <div class="counter">
+              <button onclick="restarProducto(1)">-</button>
+              <span id="cantidadProducto1">0</span>
+              <button onclick="sumarProducto(1)">+</button>
+              <button onclick="agregarProductoAlCarrito(1)" class="btn">Agregar al carrito</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PLATO 3 -->
+        <div class="plato">
+          <img src="../src/assets/img/milaNapo.png" alt="Milanesas de pechuga a la napolitana"
+            class="plato-img small" />
+          <div class="plato-info">
+            <span class="plato-nombre">Milanesas de pechuga a la napolitana</span>
+            <div class="counter">
+              <button onclick="restarProducto(2)">-</button>
+              <span id="cantidadProducto2">0</span>
+              <button onclick="sumarProducto(2)">+</button>
+              <button onclick="agregarProductoAlCarrito(2)" class="btn">Agregar al carrito</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PLATO 4 -->
+        <div class="plato">
+          <img src="../src/assets/img/pastelCalabaza.png" alt="Pastel de calabaza y carne" class="plato-img small" />
+          <div class="plato-info">
+            <span class="plato-nombre">Pastel de calabaza y carne</span>
+            <div class="counter">
+              <button onclick="restarProducto(3)">-</button>
+              <span id="cantidadProducto3">0</span>
+              <button onclick="sumarProducto(3)">+</button>
+              <button onclick="agregarProductoAlCarrito(3)" class="btn">Agregar al carrito</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PLATO 5 -->
+        <div class="plato">
+          <img src="../src/assets/img/barbacoa.png" alt="Costillitas de cerdo a la barbacoa" class="plato-img xsmall" />
+          <div class="plato-info">
+            <span class="plato-nombre">Costillitas de cerdo a la barbacoa</span>
+            <div class="counter">
+              <button onclick="restarProducto(4)">-</button>
+              <span id="cantidadProducto4">0</span>
+              <button onclick="sumarProducto(4)">+</button>
+              <button onclick="agregarProductoAlCarrito(4)" class="btn">Agregar al carrito</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PLATO 6 -->
+        <div class="plato">
+          <img src="../src/assets/img/hamburguesaLenteja.png" alt="Hamburguesas de lentejas a la napolitana"
+            class="plato-img small" />
+          <div class="plato-info">
+            <span class="plato-nombre">Hamburguesas de lentejas a la napolitana</span>
+            <div class="counter">
+              <button onclick="restarProducto(5)">-</button>
+              <span id="cantidadProducto5">0</span>
+              <button onclick="sumarProducto(5)">+</button>
+              <button onclick="agregarProductoAlCarrito(5)" class="btn">Agregar al carrito</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PLATO 7 -->
+        <div class="plato">
+          <img src="../src/assets/img/tu-imagen-tartines.png" alt="Tartines de verduras" class="plato-img" />
+          <div class="plato-info">
+            <span class="plato-nombre">Tartines de verduras</span>
+            <div class="counter">
+              <button onclick="restarProducto(6)">-</button>
+              <span id="cantidadProducto6">0</span>
+              <button onclick="sumarProducto(6)">+</button>
+              <button onclick="agregarProductoAlCarrito(6)" class="btn">Agregar al carrito</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PLATO 8 -->
+        <div class="plato">
+          <img src="../src/assets/img/tu-imagen-strogonoff.png" alt="Strogonoff de pechuga" class="plato-img" />
+          <div class="plato-info">
+            <span class="plato-nombre">Strogonoff de pechuga</span>
+            <div class="counter">
+              <button onclick="restarProducto(7)">-</button>
+              <span id="cantidadProducto7">0</span>
+              <button onclick="sumarProducto(7)">+</button>
+              <button onclick="agregarProductoAlCarrito(7)" class="btn">Agregar al carrito</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PLATO 9 -->
+        <div class="plato">
+          <img src="../src/assets/img/tu-imagen-guisito.png" alt="Guisito de lentejas" class="plato-img" />
+          <div class="plato-info">
+            <span class="plato-nombre">Guisito de lentejas</span>
+            <div class="counter">
+              <button onclick="restarProducto(8)">-</button>
+              <span id="cantidadProducto8">0</span>
+              <button onclick="sumarProducto(8)">+</button>
+              <button onclick="agregarProductoAlCarrito(8)" class="btn">Agregar al carrito</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PLATO 10 -->
+        <div class="plato">
+          <img src="../src/assets/img/tu-imagen-humita.png" alt="Humita" class="plato-img" />
+          <div class="plato-info">
+            <span class="plato-nombre">Humita</span>
+            <div class="counter">
+              <button onclick="restarProducto(9)">-</button>
+              <span id="cantidadProducto9">0</span>
+              <button onclick="sumarProducto(9)">+</button>
+              <button onclick="agregarProductoAlCarrito(9)" class="btn">Agregar al carrito</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="counter">
+        <button class="more-info-btn" onclick="toggleMoreInfo(0)">Más Información</button>
+      </div>
+      <div id="moreInfo0" class="more-info">
+        <!-- (contenido original del plan descenso) -->
+        Un plan pensado para personas que quieren descender de peso de forma saludable...
+      </div>
+    </div>
+
+    <!-- PLAN VEGGIE -->
+    <button class="accordion">Plan Veggie</button>
+    <div class="panel">
+      <img src="../src/assets/img/planVeggie.png" alt="Plan Veggie" class="plan-img" />
+      <ul>
+        <li>Lasagna de verduras</li>
+        <li>Cazuela de garbanzos</li>
+        <li>Milanesas de berenjena a la napolitana</li>
+        <li>Pastel de calabaza vegetariano</li>
+        <li>Hamburguesas de lentejas con tortilla de verduras</li>
+        <li>Albóndigas veggie con fideos y salsa</li>
+        <li>Tartines de verduras con zanahorias al horno</li>
+        <li>Canelones vegetarianos con salsa mixta</li>
+        <li>Guisito de lentejas</li>
+        <li>Humita</li>
+      </ul>
+      <div class="counter">
+        <button class="more-info-btn" onclick="toggleMoreInfo(1)">Más Información</button>
+      </div>
+      <div id="moreInfo1" class="more-info">
+        <!-- (contenido original del plan veggie) -->
+        Plan vegetariano, pensado para aquellas personas...
+      </div>
+    </div>
+
+    <!-- PLAN MANTENIMIENTO -->
+    <button class="accordion">Plan Mantenimiento</button>
+    <div class="panel">
+      <img src="../src/assets/img/3.webp" alt="Plan Mantenimiento" class="plan-img" />
+      <ul>
+        <li>Lasagna de carne</li>
+        <li>Pollo al disco con arroz</li>
+        <li>Milanesas de pechuga a la napolitana con mil hojas de papa</li>
+        <li>Osobuco al disco con arroz pilaf</li>
+        <li>Costillitas de cerdo con puré mixto</li>
+        <li>Hamburguesas de lentejas con tortilla de verduras</li>
+        <li>Tartines de verduras con zanahorias al horno</li>
+        <li>Strogonoff de pechuga con arroz pilaf</li>
+        <li>Guisito de lentejas con albóndigas</li>
+        <li>Humita</li>
+      </ul>
+      <div class="counter">
+        <button class="more-info-btn" onclick="toggleMoreInfo(2)">Más Información</button>
+      </div>
+      <div id="moreInfo2" class="more-info">
+        <!-- (contenido original mantenimiento) -->
+        Es un plan pensado para aquellas personas que no buscan bajar peso...
+      </div>
+    </div>
+
+    <!-- PLAN KETO -->
+    <button class="accordion">Plan Keto</button>
+    <div class="panel">
+      <img src="../src/assets/img/4.webp" alt="Plan Keto" class="plan-img" />
+      <ul>
+        <li>Lasagna Keto</li>
+        <li>Pollo al disco con verduras salteadas</li>
+        <li>Pechuga a la pizzaiola con verduras</li>
+        <li>Pastel de calabaza y carne</li>
+        <li>Costillitas de cerdo con puré de zanahorias y calabazas</li>
+        <li>Canelones keto con carne</li>
+        <li>Roulade de pechuga con calabacín al horno</li>
+        <li>Merluza con salsa de champiñones y zapallitos</li>
+        <li>Strogonoff de pechuga con zanahorias al horno</li>
+        <li>Cazuela de carne</li>
+      </ul>
+      <div class="counter">
+        <button class="more-info-btn" onclick="toggleMoreInfo(3)">Más Información</button>
+      </div>
+      <div id="moreInfo3" class="more-info">
+        <!-- (contenido original keto) -->
+        Un plan pensado para personas que tienen como objetivo bajar de peso sin harinas...
+      </div>
+    </div>
+
+    <!-- PLAN DEPORTIVO -->
+    <button class="accordion">Plan Deportivo Alto Rendimiento</button>
+    <div class="panel">
+      <img src="../src/assets/img/6.webp" alt="Plan Deportivo" class="plan-img" />
+      <ul>
+        <li>Lasagna proteica con fideos</li>
+        <li>Pollo al disco con arroz</li>
+        <li>Milanesas de pechuga a la napolitana con mil hojas de papa</li>
+        <li>Pastel de papa y carne</li>
+        <li>Costillitas de cerdo con puré mixto</li>
+        <li>Canelones proteicos con carne</li>
+        <li>Roulade de pechuga con calabacín al horno</li>
+        <li>Merluza con salsa de champiñones y zapallitos</li>
+        <li>Osobuco al disco con arroz pilaf</li>
+        <li>Guisito de lentejas con albóndigas</li>
+      </ul>
+      <div class="counter">
+        <button class="more-info-btn" onclick="toggleMoreInfo(4)">Más Información</button>
+      </div>
+      <div id="moreInfo4" class="more-info">
+        <!-- (contenido original deportivo) -->
+        Este plan da preferencia a alimentos con alto valor nutritivo...
+      </div>
+    </div>
+
+    <!-- BOTÓN VOLVER -->
+    <div style="text-align: center;">
+      <a href="../index.html" class="btn">← Volver a Categorías</a>
+    </div>
+  </section>
+
+  <footer id="contacto">
+    <p>&copy; 2025 Fast Good - Viandas Saludables </p>
+  </footer>
+
+  <!-- SCRIPTS (orden: carrito → página) -->
+  <script src="../src/js/carrito.js" type="module"></script>
+  <script src="../src/js/viandasSaludables.js"></script>
+</body>
+
+</html>

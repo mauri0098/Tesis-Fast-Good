@@ -1,0 +1,125 @@
+body {
+  font-family: 'Poppins', sans-serif;
+  margin: 0;
+  background: linear-gradient(135deg, #e0f7fa, #ffffff);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.container {
+  background-color: #ffffff;
+  padding: 3rem;
+  max-width: 600px;
+  width: 100%;
+  border-radius: 16px;
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+  color: #2e7d32;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+h3 {
+  color: #4CAF50;
+  margin-bottom: 1rem;
+}
+
+label {
+  font-weight: 600;
+  display: block;
+  margin-top: 1.2rem;
+}
+
+input {
+  width: 100%;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.pedido-resumen {
+  background-color: #f1f8e9;
+  padding: 1rem;
+  border-left: 5px solid #81c784;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+}
+
+ul {
+  padding-left: 1.2rem;
+  margin: 0;
+}
+
+button[type="submit"] {
+  background-color: #4CAF50;
+  color: white;
+  padding: 0.8rem 2rem;
+  border: none;
+  border-radius: 25px;
+  font-size: 1rem;
+  cursor: pointer;
+  margin: 2rem auto 0 auto;
+  display: block;
+  transition: background-color 0.3s ease;
+}
+
+button[type="submit"]:hover {
+  background-color: #388e3c;
+}
+
+.btn-volver {
+  display: inline-block;
+  background-color: #FF9800;
+  color: white;
+  padding: 0.7rem 1.8rem;
+  border-radius: 25px;
+  text-decoration: none;
+  font-weight: 600;
+  text-align: center;
+  margin: 1.5rem auto 0 auto;
+  display: block;
+  transition: background-color 0.3s ease;
+}
+
+.btn-volver:hover {
+  background-color: #e07f00;
+}
+
+@media (max-width: 600px) {
+  .container {
+    padding: 2rem;
+  }
+
+  input {
+    font-size: 0.95rem;
+  }
+}
+
+.campo-observaciones {
+  width: 100%;
+  padding: 0.8rem;
+  margin-top: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  line-height: 1.5;
+  background-color: #fdfdfd;
+  transition: border 0.3s, box-shadow 0.3s;
+}
+
+.campo-observaciones:focus {
+  outline: none;
+  border-color: #4CAF50;
+  box-shadow: 0 0 6px rgba(76, 175, 80, 0.3);
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}

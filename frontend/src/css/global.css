@@ -1,0 +1,312 @@
+/* ===================================================
+   GLOBAL.CSS - Fuente de Verdad (Fast Good)
+   Estilos centralizados para todo el sitio.
+   =================================================== */
+
+/* --- RESET --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: var(--font-main);
+}
+
+/* --- VARIABLES (Custom Properties) --- */
+:root {
+    --color-primary: #28a745;
+    --color-primary-dark: #388E3C;
+    --color-secondary: #ff9800;
+    --color-accent: #00ff22;
+    --color-bg: #f8f9fa;
+    --color-white: #fff;
+    --color-text: #333;
+    --color-muted: #aaa;
+    --color-overlay: rgba(0, 0, 0, 0.6);
+    --font-main: 'Poppins', sans-serif;
+    --radius-sm: 5px;
+    --radius-md: 10px;
+    --radius-pill: 25px;
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.15);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 5px 15px rgba(0, 0, 0, 0.3);
+    --transition-fast: 0.3s ease;
+}
+
+/* --- BODY BASE --- */
+body {
+    background: var(--color-white);
+    color: var(--color-text);
+    line-height: 1.6;
+}
+
+/* --- LAYOUT: HEADER --- */
+header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    width: 100%;
+    padding: 1rem 2rem;
+    background: var(--color-primary);
+    color: var(--color-white);
+    box-shadow: var(--shadow-sm);
+}
+
+header h1 {
+    font-size: 1.8rem;
+}
+
+header nav a {
+    margin-left: 1.5rem;
+    color: var(--color-white);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+
+header nav a:hover {
+    color: var(--color-accent);
+}
+
+/* --- LAYOUT: FOOTER --- */
+footer {
+    width: 100%;
+    margin-top: auto;
+    padding: 2rem 1rem;
+    background: var(--color-primary);
+    color: var(--color-white);
+    text-align: center;
+}
+
+/* --- SECCIONES --- */
+.section {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 4rem 2rem;
+}
+
+.section h2 {
+    margin-bottom: 2rem;
+    font-size: 2rem;
+    color: var(--color-primary);
+    text-align: center;
+}
+
+/* --- GRILLAS Y TARJETAS --- */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+}
+
+.card {
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    background: var(--color-white);
+    text-align: center;
+    box-shadow: var(--shadow-md);
+    transition: transform var(--transition-fast);
+}
+
+.card img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.card h3 {
+    margin: 1rem 0;
+    font-size: 1.2rem;
+    color: var(--color-text);
+}
+
+/* --- BOTONES --- */
+.btn {
+    display: inline-block;
+    margin: 1rem 0;
+    padding: 0.8rem 2rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-secondary);
+    color: var(--color-white);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* --- UTILITIES --- */
+.container-centrado {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0 20px;
+}
+
+.icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+/* --- MODALES --- */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 999;
+    inset: 0;
+    overflow: auto;
+    background: var(--color-overlay);
+}
+
+.modal-content {
+    width: 80%;
+    max-width: 600px;
+    margin: 10% auto;
+    padding: 2rem;
+    border-radius: var(--radius-md);
+    background: var(--color-white);
+    text-align: center;
+    box-shadow: var(--shadow-lg);
+    animation: fadeIn var(--transition-fast);
+}
+
+.modal-content h3 {
+    margin-bottom: 0.5rem;
+    font-size: 1.8rem;
+    color: var(--color-primary);
+}
+
+.modal-content p,
+.modal-content a {
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    color: var(--color-text);
+    text-decoration: none;
+}
+
+.modal-content a:hover {
+    color: var(--color-primary);
+}
+
+.close {
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--color-muted);
+    cursor: pointer;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* --- MENÚ LATERAL (SIDEBAR) --- */
+.menu-btn {
+    margin-right: 1rem;
+    border: none;
+    background: none;
+    font-size: 1.5rem;
+    color: var(--color-white);
+    cursor: pointer;
+}
+
+.sidebar {
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 100%;
+    padding-top: 60px;
+    overflow-x: hidden;
+    background: var(--color-primary);
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+    transition: 0.4s;
+}
+
+.sidebar a {
+    display: block;
+    padding: 15px 25px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--color-white);
+    font-size: 1.1rem;
+    text-decoration: none;
+    transition: var(--transition-fast);
+}
+
+.sidebar a:hover {
+    background: var(--color-primary-dark);
+}
+
+.close-btn {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    border: none;
+    background: none;
+    font-size: 30px;
+    color: var(--color-white);
+    cursor: pointer;
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- RESPONSIVE GLOBAL --- */
+@media (max-width: 768px) {
+    header {
+        padding: 0.8rem 1rem;
+        flex-wrap: wrap;
+    }
+
+    header nav:not(.sidebar-nav):not(:first-of-type) {
+        display: none !important;
+    }
+
+    header>div {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    header h1 {
+        font-size: 1.4rem;
+    }
+
+    .section {
+        padding: 2rem 1rem;
+    }
+
+    .section h2 {
+        font-size: 1.6rem;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .card img {
+        height: 180px;
+    }
+
+    .modal-content {
+        width: 90%;
+        margin: 20% auto;
+    }
+}

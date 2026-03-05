@@ -1,0 +1,10 @@
+.wrap { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+.title-small { font-size: 1.1rem; margin-bottom: .4rem; }
+.badge-cocinero { display:inline-block; padding:2px 8px; border-radius:12px; background:#e3f2fd; font-size:.8rem; margin-right:4px; }
+.asig-grid { display:flex; flex-wrap:wrap; gap:.4rem; }
+.asig-celda { border:1px solid #ddd; border-radius:8px; padding:.3rem .5rem; font-size:.8rem; }
+.asig-celda label { display:block; font-weight:600; margin-bottom:2px; }
+.asig-celda input { width:70px; padding:2px 4px; font-size:.8rem; }
+.alert { padding:.6rem .8rem; border-radius:6px; background:#fff3cd; border:1px solid #ffeeba; color:#856404; margin:.8rem 0; }
+.summary-list { margin-top:.7rem; font-size:.9rem; }
+.summary-list li { margin-bottom:.2rem; }

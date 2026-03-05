@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fast Good - CU8 Gestionar Recetas</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+  <link rel="icon" href="../src/assets/img/logo.webp" type="image/png">
+
+  <link rel="stylesheet" href="../src/css/generarReceta.css"/>
+</head>
+<body>
+<header>
+  <div style="display:flex;align-items:center;">
+    
+    <img src="../src/assets/img/logo.webp" alt="Fast Good Logo" style="height:44px;margin:0 .8rem;">
+    <h1>Gestionar Recetas </h1>
+  </div>
+  <nav>
+    <a href="../index.html">Inicio</a>
+    <a href="#!" onclick="window.print()">Imprimir</a>
+  </nav>
+</header>
+
+<main class="wrap">
+  <h2 class="title"> Gestionar Recetas</h2>
+
+  <!-- FILTROS -->
+  <section class="filters" id="filters">
+    <div class="field">
+      <label for="fPlan">Código de Plan</label>
+      <select id="fPlan"></select>
+    </div>
+    <div class="field">
+      <label for="fCategoria">Categoría</label>
+      <select id="fCategoria"></select>
+    </div>
+    <div class="field">
+      <label for="fNombre">Nombre del Producto</label>
+      <input id="fNombre" type="search" placeholder="Buscar por nombre (coincidencia parcial)">
+    </div>
+  </section>
+
+  <div class="toolbar">
+    <button class="btn secondary" id="btnNueva">+ Nueva Receta</button>
+    <span class="muted">Tip: la columna “Cant. posible” se calcula con el <strong>stock actual</strong> y las <strong>cantidades por unidad</strong>.</span>
+  </div>
+
+  <!-- GRILLA -->
+  <section>
+    <table id="tabla">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Plan</th>
+          <th>Producto</th>
+          <th>Categoría</th>
+          <th>Receta (por unidad)</th>
+          <th>Cant. posible</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="empty" class="empty" style="display:none;">No existen productos que cumplan los filtros especificados.</div>
+  </section>
+</main>
+
+<footer>
+  <p>&copy; 2025 Fast Good - Viandas Saludables</p>
+</footer>
+
+<!-- MODAL DETALLES -->
+<div id="modalDetalles" class="modal" role="dialog" aria-modal="true">
+  <div class="box">
+    <div class="head">
+      <h3 id="detTitulo">Detalles de Receta</h3>
+      <button class="close-x" onclick="cerrar('modalDetalles')">×</button>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="row"><strong>Producto:</strong> <span id="detProd"></span></div>
+        <div class="row"><strong>Plan:</strong> <span id="detPlan"></span></div>
+        <div class="row"><strong>Categoría:</strong> <span id="detCat"></span></div>
+        <div class="row"><strong>Últ. actualización:</strong> <span id="detFecha"></span></div>
+        <div class="row"><strong>Cant. posible:</strong> <span id="detPosible" class="badge"></span></div>
+        <table class="table-mini" id="detTabla">
+          <thead><tr><th>Insumo</th><th>Qty/unid</th><th>Unidad</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="row" style="margin-top:.6rem;">
+          <button class="btn" id="btnCocinar">Marcar Cocinado (1 unidad)</button>
+          <span class="muted">Descuenta stock según receta.</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row"><strong>Historial de versiones</strong></div>
+        <div class="hist" id="detHist"></div>
+        <div class="row" style="justify-content:flex-end; margin-top:.5rem;">
+          <button class="btn secondary" id="btnEditarDesdeDetalles">Editar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR / NUEVA -->
+<div id="modalEditar" class="modal" role="dialog" aria-modal="true">
+  <div class="box">
+    <div class="head">
+      <h3 id="edTitulo">Editar Receta</h3>
+      <button class="close-x" onclick="cerrar('modalEditar')">×</button>
+    </div>
+    <div class="row">
+      <label>Producto</label>
+      <input id="edNombre" type="text" style="flex:1">
+      <label>Plan</label>
+      <select id="edPlan" style="min-width:150px"></select>
+      <label>Categoría</label>
+      <select id="edCat" style="min-width:150px"></select>
+    </div>
+    <table class="table-mini" id="edTabla">
+      <thead><tr><th>Insumo</th><th>Qty/unid</th><th>Unidad</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="row">
+      <button class="btn ghost" id="btnAddInsumo">+ Agregar insumo</button>
+      <span class="muted">Unidades válidas: <strong>g</strong>, <strong>ml</strong>, <strong>u</strong>.</span>
+    </div>
+    <div class="row" style="justify-content:flex-end; gap:.5rem;">
+      <button class="btn secondary" id="btnGuardarReceta">Guardar (versionar)</button>
+    </div>
+  </div>
+</div>
+
+<script src="../src/js/generarReceta.js" defer></script>
+</body>
+</html>

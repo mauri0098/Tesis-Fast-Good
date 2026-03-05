@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tesis - Consultar Pedidos</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="../src/css/ConsultarPedidos.css">
+</head>
+
+<body>
+
+  <header class="page-header">
+    <div class="header-inner">
+      <img src="../src/assets/img/logo.webp" alt="Fast Good" onerror="this.style.display='none'">
+      <h1>Administración de Pedidos</h1>
+    </div>
+    <nav>
+      <a href="../index.html">Volver al Inicio</a>
+    </nav>
+  </header>
+
+  <main class="page-container">
+    <div class="table-wrapper">
+      <table class="standard-table">
+        <thead>
+          <tr>
+            <th>N° Pedido</th>
+            <th>Fecha</th>
+            <th>Cliente</th>
+            <th>Dirección</th>
+            <th>Teléfono</th>
+            <th>Mail</th>
+            <th>Viandas</th>
+            <th>Costo</th>
+            <th>Estado</th>
+            <th>Método Pago</th>
+          </tr>
+        </thead>
+        <tbody id="pedidosBody">
+          <!-- JS Render -->
+          <tr>
+            <td colspan="10" class="loading-text">Cargando datos...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <footer class="page-footer">
+    <p>&copy; 2024 Fast Good - Panel de Administración Tesis</p>
+  </footer>
+
+  <script src="../src/js/ListarPedidos.js"></script>
+</body>
+
+</html>

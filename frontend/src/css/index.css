@@ -1,0 +1,40 @@
+/* ===================================================
+   INDEX.CSS - Estilos exclusivos de la página principal
+   (Todo lo demás está en global.css y carrito.css)
+   =================================================== */
+
+/* --- HERO (Banner principal) --- */
+.hero {
+    background: url('../assets/img/medinabanner3.png') no-repeat center center;
+    background-size: cover;
+    background-color: #fff;
+    min-height: 850px;
+    max-height: 1000px;
+    height: 50vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.hero h2 {
+    padding: 1rem 2rem;
+    font-size: 2rem;
+    border-radius: 10px;
+    color: black;
+    text-shadow: none;
+}
+
+/* --- HERO RESPONSIVE --- */
+@media (max-width: 768px) {
+    .hero {
+        min-height: auto;
+        height: 60vh;
+        background-attachment: scroll;
+    }
+
+    .hero h2 {
+        font-size: 1.5rem;
+        padding: 0.5rem 1rem;
+    }
+}
