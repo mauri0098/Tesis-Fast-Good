@@ -122,9 +122,14 @@ app.get('/api/pedidos', async (req, res) => {
       pagado,
       cliente_nombre,
       cliente_direccion,
+      cliente_telefono,
+      cliente_email,
+      observaciones,
+      id_estado,
       estados ( nombre ),
       pedido_detalles (
         cantidad,
+        precio_unitario,
         productos ( nombre )
       )
     `)
@@ -207,7 +212,7 @@ app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
 
   const { data, error } = await supabase
     .from('pedidos')
-    .update({ estado_id })
+    .update({ id_estado: estado_id })
     .eq('id', pedidoId)
     .select()
     .single();

@@ -22,59 +22,7 @@ body {
   min-height: 100vh;
 }
 
-/* =========================================
-   HEADER & FOOTER (BRAND GREEN)
-   ========================================= */
-.page-header,
-.page-footer {
-  background-color: var(--primary-green);
-  color: var(--white);
-  padding: 1rem 2rem;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.header-inner {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.header-inner img {
-  height: 40px;
-  border-radius: 4px;
-}
-
-.header-inner h1 {
-  margin: 0;
-  font-size: 1.4rem;
-  font-weight: 500;
-}
-
-.page-header nav a {
-  color: var(--white);
-  text-decoration: none;
-  font-weight: 500;
-  padding: 0.5rem 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
-  transition: 0.2s;
-}
-
-.page-header nav a:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.page-footer {
-  margin-top: auto;
-  text-align: center;
-  font-size: 0.9rem;
-}
+/* Header y footer vienen de global.css */
 
 /* =========================================
    MAIN TABLE LAYOUT
@@ -99,6 +47,7 @@ body {
   border-collapse: separate;
   border-spacing: 0;
   min-width: 1000px;
+  table-layout: fixed;
 }
 
 /* Table Head - Diseño Sutil */
@@ -124,12 +73,52 @@ body {
   border-top-right-radius: var(--radius);
 }
 
+/* Anchos fijos por columna */
+.standard-table thead th:nth-child(1),
+.standard-table tbody td:nth-child(1) { width: 75px; }   /* N° Pedido */
+
+.standard-table thead th:nth-child(2),
+.standard-table tbody td:nth-child(2) { width: 105px; }  /* Fecha */
+
+.standard-table thead th:nth-child(3),
+.standard-table tbody td:nth-child(3) { width: 150px; }  /* Cliente */
+
+.standard-table thead th:nth-child(4),
+.standard-table tbody td:nth-child(4) { width: 110px; }  /* Dirección */
+
+.standard-table thead th:nth-child(5),
+.standard-table tbody td:nth-child(5) { width: 105px; }  /* Teléfono */
+
+.standard-table thead th:nth-child(6),
+.standard-table tbody td:nth-child(6) { width: 175px; }  /* Mail */
+
+.standard-table thead th:nth-child(7),
+.standard-table tbody td:nth-child(7) { width: 160px; }  /* Viandas */
+
+.standard-table thead th:nth-child(8),
+.standard-table tbody td:nth-child(8) { width: 92px; }   /* Costo */
+
+.standard-table thead th:nth-child(9),
+.standard-table tbody td:nth-child(9) { width: 130px; }  /* Estado */
+
+.standard-table thead th:nth-child(10),
+.standard-table tbody td:nth-child(10) { width: 125px; } /* Método Pago */
+
 /* Table Body */
 .standard-table tbody td {
   padding: 1rem;
   border-bottom: 1px solid var(--border-light);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   vertical-align: middle;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 0;
+}
+
+/* Mail: cortar si es muy largo */
+.standard-table tbody td:nth-child(6) {
+  font-size: 0.85rem;
+  word-break: break-all;
 }
 
 .standard-table tbody tr:last-child td {
