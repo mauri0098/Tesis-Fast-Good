@@ -1,3 +1,251 @@
+/* =====================================================
+   SECCIÓN DE PRODUCTOS DINÁMICOS (desde la BD)
+   ===================================================== */
+
+.buscador-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 2rem;
+}
+
+.buscador {
+    width: 100%;
+    max-width: 500px;
+    padding: 0.8rem 1.2rem;
+    font-size: 1rem;
+    border: 2px solid #4CAF50;
+    border-radius: 25px;
+    outline: none;
+    font-family: 'Poppins', sans-serif;
+    transition: border-color 0.3s;
+}
+
+.buscador:focus {
+    border-color: #2E7D32;
+}
+
+.productos-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+}
+
+.productos {
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 1px solid #f0f0f0;
+}
+
+.productos:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.productos__fig {
+    margin: 0;
+    height: 200px;
+    overflow: hidden;
+    background-color: #f9f9f9;
+}
+
+.productos__fig img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s;
+}
+
+.productos:hover .productos__fig img {
+    transform: scale(1.05);
+}
+
+.Datos-productos {
+    padding: 1rem 1.2rem;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.Datos-productos h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #333;
+}
+
+.Datos-productos p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #777;
+    flex-grow: 1;
+}
+
+.productos__precio {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #4CAF50;
+    margin-top: 0.5rem;
+}
+
+.counter {
+    margin: 1.2rem 0;
+}
+
+.counter-btn {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 1.3rem;
+    line-height: 1;
+    cursor: pointer;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    transition: background-color 0.2s;
+}
+
+.counter-btn:hover {
+    background-color: #2E7D32;
+}
+
+.counter-cantidad {
+    font-size: 1.2rem;
+    font-weight: 700;
+    min-width: 28px;
+    text-align: center;
+    color: #333;
+}
+
+.boton-Productos {
+    margin: 0 1.2rem 1.2rem 1.2rem;
+    padding: 0.7rem 1.2rem;
+    background-color: #FF9800;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    font-size: 1rem;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.boton-Productos:hover {
+    background-color: #e07f00;
+}
+
+.cargando-texto {
+    text-align: center;
+    color: #777;
+    font-size: 1.1rem;
+}
+
+.sin-resultados {
+    text-align: center;
+    color: #999;
+    font-size: 1.1rem;
+}
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+}
+
+.breadcrumb button {
+    background: none;
+    border: none;
+    color: #4CAF50;
+    font-family: 'Poppins', sans-serif;
+    font-size: inherit;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+}
+
+.breadcrumb button:hover {
+    color: #2E7D32;
+}
+
+.breadcrumb .separador {
+    color: #ccc;
+}
+
+.breadcrumb .actual {
+    color: #333;
+    font-weight: 600;
+}
+
+.planes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.plan-card {
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    border: 1px solid #f0f0f0;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.plan-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.plan-card h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #333;
+}
+
+.plan-card p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #777;
+    flex-grow: 1;
+    line-height: 1.5;
+}
+
+.btn-ver-plan {
+    align-self: flex-start;
+    padding: 0.7rem 1.4rem;
+    background-color: #FF9800;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    font-size: 1rem;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.btn-ver-plan:hover {
+    background-color: #e07f00;
+}
+
+/* =====================================================
+   FIN SECCIÓN PRODUCTOS DINÁMICOS
+   ===================================================== */
+
 body {
     font-family: 'Poppins', sans-serif;
     margin: 0;
@@ -384,5 +632,13 @@ footer {
         max-width: 100%;
         right: -100%;
         border-radius: 0;
+    }
+
+    .productos-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .planes-grid {
+        grid-template-columns: 1fr;
     }
 }

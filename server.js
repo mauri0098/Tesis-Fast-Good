@@ -49,6 +49,74 @@ app.get('/api/productos-test', async (req, res) => {
 });
 
 /* ======================================================
+   API v1 — CATÁLOGO (Categorías → Planes → Productos)
+   ====================================================== */
+
+// GET /api/v1/categorias → todas las categorías
+app.get('/api/v1/categorias', async (req, res) => {
+  const { data, error } = await supabase
+    .from('categorias')
+    .select('id, nombre');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+// GET /api/v1/categorias/:id/planes → planes activos de una categoría
+app.get('/api/v1/categorias/:id/planes', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'ID de categoría inválido' });
+  const { data, error } = await supabase
+    .from('planes')
+    .select('id, nombre, descripcion_nutricional')
+    .eq('id_categoria', id)
+    .eq('activo', true);
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data || data.length === 0) return res.status(404).json({ error: 'No se encontraron planes para esta categoría' });
+  res.json(data);
+});
+
+// GET /api/v1/planes/:id/productos → productos activos de un plan
+app.get('/api/v1/planes/:id/productos', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'ID de plan inválido' });
+  const { data, error } = await supabase
+    .from('productos')
+    .select('id, nombre, descripcion, imagen, precio')
+    .eq('id_plan', id)
+    .eq('activo', true);
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data || data.length === 0) return res.status(404).json({ error: 'No se encontraron productos para este plan' });
+  res.json(data);
+});
+
+// GET /api/v1/productos → todos los productos activos
+app.get('/api/v1/productos', async (req, res) => {
+  const { data, error } = await supabase
+    .from('productos')
+    .select('id, nombre, descripcion, imagen, precio')
+    .eq('activo', true);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+// GET /api/v1/productos/:id → producto por ID
+app.get('/api/v1/productos/:id', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'ID de producto inválido' });
+  const { data, error } = await supabase
+    .from('productos')
+    .select('id, nombre, descripcion, imagen, precio')
+    .eq('id', id)
+    .eq('activo', true)
+    .single();
+  if (error) {
+    if (error.code === 'PGRST116') return res.status(404).json({ error: 'Producto no encontrado' });
+    return res.status(500).json({ error: error.message });
+  }
+  res.json(data);
+});
+
+/* ======================================================
    API PEDIDOS
    ====================================================== */
 
