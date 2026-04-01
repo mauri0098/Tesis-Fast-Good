@@ -1,12 +1,39 @@
-document.addEventListener('DOMContentLoaded', fetchPedidos);
+let todosPedidos = []; // guarda todos los pedidos para poder filtrarlos
+
+document.addEventListener('DOMContentLoaded', () => {
+  fetchPedidos();
+  iniciarFiltro();
+});
+
+async function fetchEstados() {
+  const response = await fetch('http://localhost:3000/api/estados');
+  const data = await response.json();
+  return data;
+}
+
+const coloresEstado = {
+  1: { bg: '#e2e3e5', color: '#383d41' },
+  2: { bg: '#fff3cd', color: '#856404' },
+  3: { bg: '#d4edda', color: '#155724' },
+  4: { bg: '#28a745', color: '#ffffff' },
+  5: { bg: '#f8d7da', color: '#721c24' }
+};
+
+function aplicarColorEstado(select, estadoId) {
+  const c = coloresEstado[estadoId] || coloresEstado[1];
+  select.style.backgroundColor = c.bg;
+  select.style.color = c.color;
+}
 
 async function fetchPedidos() {
   const tbody = document.getElementById('pedidosBody');
 
   try {
+    const estadoOptions = await fetchEstados();
     const response = await fetch('http://localhost:3000/api/pedidos');
     const data = await response.json();
 
+    todosPedidos = data; // guardamos para que el filtro los pueda usar
     tbody.innerHTML = '';
 
     if (data.length === 0) {
@@ -17,7 +44,7 @@ async function fetchPedidos() {
     data.forEach(pedido => {
       const tr = document.createElement('tr');
 
-      // 1. N° Pedido (#001)
+      // 1. N° Pedido
       const idFormatted = '#' + String(pedido.id).padStart(3, '0');
 
       // 2. Fecha
@@ -35,7 +62,7 @@ async function fetchPedidos() {
       const telefono = pedido.cliente_telefono || '-';
       const email = pedido.cliente_email || '-';
 
-      // 7. Viandas (Lista)
+      // 7. Viandas
       let viandasHtml = '<ul class="ingredientes-list">';
       if (pedido.pedido_detalles && pedido.pedido_detalles.length > 0) {
         pedido.pedido_detalles.forEach(d => {
@@ -49,12 +76,6 @@ async function fetchPedidos() {
       // 8. Costo
       const costo = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(pedido.total);
 
-      // 9. Estado
-      const estado = pedido.estados?.nombre || 'Registrado';
-      let estadoClass = 'bg-reg';
-      if (estado.toLowerCase().includes('prepara')) estadoClass = 'bg-prep';
-      if (estado.toLowerCase().includes('listo')) estadoClass = 'bg-listo';
-
       // 10. Método Pago
       const metodo = pedido.metodo_pago || 'Efectivo';
       const isPaid = pedido.pagado;
@@ -67,6 +88,7 @@ async function fetchPedidos() {
         </div>
       `;
 
+      // Armar fila (col 9 queda vacía, la llenamos con el select abajo)
       tr.innerHTML = `
         <td style="font-weight:bold">${idFormatted}</td>
         <td>${fecha}</td>
@@ -76,10 +98,49 @@ async function fetchPedidos() {
         <td>${email}</td>
         <td>${viandasHtml}</td>
         <td style="font-weight:700">${costo}</td>
-        <td><span class="badge-status ${estadoClass}">${estado}</span></td>
+        <td></td>
         <td>${pagoHtml}</td>
       `;
 
+      // 9. Select Estado
+      const estadoActualId = pedido.id_estado || 1;
+      const selectEstado = document.createElement('select');
+      selectEstado.className = 'select-estado';
+      selectEstado.dataset.estadoActual = estadoActualId;
+
+      estadoOptions.forEach(op => {
+        const option = document.createElement('option');
+        option.value = op.id;
+        option.textContent = op.nombre;
+        if (op.id === estadoActualId) option.selected = true;
+        selectEstado.appendChild(option);
+      });
+
+      aplicarColorEstado(selectEstado, estadoActualId);
+
+      selectEstado.addEventListener('change', async () => {
+        const nuevoId = parseInt(selectEstado.value);
+        const anteriorId = parseInt(selectEstado.dataset.estadoActual);
+
+        try {
+          const res = await fetch(`http://localhost:3000/api/pedidos/${pedido.id}/estado`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estado_id: nuevoId })
+          });
+
+          if (!res.ok) throw new Error('Error al actualizar');
+
+          selectEstado.dataset.estadoActual = nuevoId;
+          aplicarColorEstado(selectEstado, nuevoId);
+        } catch (err) {
+          alert('No se pudo actualizar el estado. Intentá de nuevo.');
+          selectEstado.value = anteriorId;
+          aplicarColorEstado(selectEstado, anteriorId);
+        }
+      });
+
+      tr.cells[8].appendChild(selectEstado);
       tbody.appendChild(tr);
     });
 
@@ -88,3 +149,56 @@ async function fetchPedidos() {
     tbody.innerHTML = '<tr><td colspan="10" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
   }
 }
+
+function iniciarFiltro() {
+  const FiltradodeProductos = document.getElementById('CampoBusqueda');
+  const FechaDesde = document.getElementById('FechaDesde');
+  const FechaHasta = document.getElementById('FechaHasta');
+  if (!FiltradodeProductos) return;
+
+  FiltradodeProductos.addEventListener('input', () => {
+    const TextoDeBusqueda = FiltradodeProductos.value.toLowerCase();
+
+    // filtra el array de pedidos por nombre de cliente o por número de pedido
+    const ProductosFiltrados = todosPedidos.filter(pedido =>
+      pedido.cliente_nombre.toLowerCase().includes(TextoDeBusqueda) ||
+      pedido.id.toString().includes(TextoDeBusqueda)
+    );
+
+    // muestra u oculta cada fila según si pasó el filtro
+    const tbody = document.getElementById('pedidosBody');
+    const filas = Array.from(tbody.querySelectorAll('tr:not(.no-results-row)'));
+
+    const noResultRow = tbody.querySelector('.no-results-row');
+    if (noResultRow) noResultRow.remove();
+
+    const idsFiltrados = ProductosFiltrados.map(p => p.id);
+    let visibles = 0;
+
+    filas.forEach(fila => {
+      const celdaId = fila.cells?.[0];
+      if (!celdaId) return;
+      // el id en la celda está como "#001", lo convertimos a número
+      const idFila = parseInt(celdaId.textContent.replace('#', ''));
+      if (idsFiltrados.includes(idFila)) {
+        fila.style.display = '';
+        visibles++;
+      } else {
+        fila.style.display = 'none';
+      }
+    });
+
+    if (visibles === 0 && TextoDeBusqueda !== '') {
+      const tr = document.createElement('tr');
+      tr.className = 'no-results-row';
+      tr.innerHTML = `<td colspan="10" class="loading-text">No se encontraron pedidos con ese nombre</td>`;
+      tbody.appendChild(tr);
+    }
+  });
+  
+}
+
+
+
+
+

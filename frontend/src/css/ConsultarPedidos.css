@@ -195,3 +195,58 @@ ul.ingredientes-list {
   font-weight: 700;
   font-size: 0.75rem;
 }
+
+/* =========================================
+   SELECT ESTADO
+   ========================================= */
+.select-estado {
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: center;
+  outline: none;
+  transition: opacity 0.15s;
+}
+
+.select-estado:hover {
+  opacity: 0.85;
+}
+
+.select-estado:focus {
+  box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.35);
+}
+
+/* =========================================
+   FILTRO CLIENTE
+   ========================================= */
+.filtros-container {
+  margin-bottom: 1rem;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.filtro-input {
+  padding: 0.6rem 1rem;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.9rem;
+  width: 300px;
+  transition: border-color 0.2s;
+}
+
+.filtro-input:focus {
+  outline: none;
+  border-color: #28a745;
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.15);
+}
