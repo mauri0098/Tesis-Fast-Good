@@ -460,8 +460,8 @@
             <button class="logout-btn-header" onclick="cerrarSesion()">Salir</button>
           </div>
         `;
-        // Mostrar sidebar para usuarios logueados
-        document.getElementById('sidebar').style.display = 'block';
+        // Mantener sidebar cerrado (el usuario lo abre presionando el botón hamburguesa)
+        document.getElementById('sidebar').style.display = 'none';
       } else {
         // Sin loguear
         authContainer.innerHTML = `
