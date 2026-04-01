@@ -10,23 +10,29 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 
   <!-- CSS -->
+  <link rel="stylesheet" href="../src/css/global.css">
   <link rel="stylesheet" href="../src/css/ConsultarPedidos.css">
 </head>
 
 <body>
 
-  <header class="page-header">
-    <div class="header-inner">
-      <img src="../src/assets/img/logo.webp" alt="Fast Good" onerror="this.style.display='none'">
-      <h1>Administración de Pedidos</h1>
+  <header>
+    <div class="container-centrado">
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <img src="../src/assets/img/logo.webp" alt="Fast Good" style="height:40px; border-radius:4px;" onerror="this.style.display='none'">
+        <h1>Administración de Pedidos</h1>
+      </div>
+      <nav>
+        <a href="../index.html">Volver al Inicio</a>
+      </nav>
     </div>
-    <nav>
-      <a href="../index.html">Volver al Inicio</a>
-    </nav>
   </header>
 
   <main class="page-container">
     <div class="table-wrapper">
+      <input type="text" id="CampoBusqueda" placeholder="Buscar pedidos...">
+      <input type="date" id="FechaDesde">
+      <input type="date" id="FechaHasta">
       <table class="standard-table">
         <thead>
           <tr>
@@ -52,10 +58,11 @@
     </div>
   </main>
 
-  <footer class="page-footer">
+  <footer>
     <p>&copy; 2024 Fast Good - Panel de Administración Tesis</p>
   </footer>
 
+  <script src="../src/js/global.js"></script>
   <script src="../src/js/ListarPedidos.js"></script>
 </body>
 

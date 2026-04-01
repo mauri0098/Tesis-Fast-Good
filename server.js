@@ -1,26 +1,26 @@
-require('dotenv').config();
+require('dotenv').config();// credeceales secretas de supabase (URL Y CLAVE) en .env SIN ESTO EL SERVIDOR NO PUEDE HABLAR CON LA BASE DE DATOS
 
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
+const express = require('express');// Framework para crear el servidor y manejar rutas
+const cors = require('cors');// Middleware para permitir solicitudes desde el frontend (CORS)
+const path = require('path');// Módulo para manejar rutas de archivos (para servir el frontend)
 
-const app = express();
+const app = express();// Crear instancia del servidor Express
 
 app.use(cors());
 app.use(express.json());
 
-const supabase = require('./config/supabaseClient');
+const supabase = require('./config/supabaseClient');// Cliente de Supabase para interactuar con la base de datos
 
 /* ======================================================
    SERVIR FRONTEND (ESTÁTICO)
    ====================================================== */
 
 // 👉 carpeta frontend
-app.use(express.static(path.join(__dirname, 'frontend')));
+app.use(express.static(path.join(__dirname, 'frontend')));// Sirve archivos estáticos (HTML, CSS, JS) desde la carpeta 'frontend'
 
 // 👉 ruta raíz → index.html
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
+app.get('/', (req, res) => {// Cuando se accede a la raíz, se envía el archivo index.html
+  res.sendFile(path.join(__dirname, 'frontend', 'index.html'));// Asegura que se sirva el index.html correcto
 });
 
 /* ======================================================
@@ -52,7 +52,7 @@ app.get('/api/productos-test', async (req, res) => {
    API PEDIDOS
    ====================================================== */
 
-app.post('/api/pedidos', async (req, res) => {
+app.post('/api/pedidos', async (req, res) => {// Endpoint para crear un nuevo pedido
   const {
     usuario_id,
     total,
@@ -67,7 +67,7 @@ app.post('/api/pedidos', async (req, res) => {
   } = req.body;
 
   // UUID fijo si no viene usuario_id
-  const finalUserId = usuario_id || 'cabb426e-a977-411a-88b6-e1db2490d1b2';
+  const finalUserId = usuario_id || 'cabb426e-a977-411a-88b6-e1db2490d1b2';// Esto es para no romper la inserción si el frontend no envía un usuario_id (ejemplo: pedidos desde el admin)
 
   const { data: pedido, error: errorPedido } = await supabase
     .from('pedidos')
@@ -122,9 +122,14 @@ app.get('/api/pedidos', async (req, res) => {
       pagado,
       cliente_nombre,
       cliente_direccion,
+      cliente_telefono,
+      cliente_email,
+      observaciones,
+      id_estado,
       estados ( nombre ),
       pedido_detalles (
         cantidad,
+        precio_unitario,
         productos ( nombre )
       )
     `)
@@ -207,7 +212,7 @@ app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
 
   const { data, error } = await supabase
     .from('pedidos')
-    .update({ estado_id })
+    .update({ id_estado: estado_id })
     .eq('id', pedidoId)
     .select()
     .single();
@@ -235,6 +240,23 @@ app.put('/api/pedidos/:pedidoId/pagado', async (req, res) => {
   }
 
   res.json({ mensaje: 'Pago actualizado', pedido: data });
+});
+
+/* ======================================================
+   API ESTADOS
+   ====================================================== */
+
+app.get('/api/estados', async (req, res) => {
+  const { data, error } = await supabase
+    .from('estados')
+    .select('id, nombre')
+    .order('id', { ascending: true });
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json(data);
 });
 
 /* ======================================================
