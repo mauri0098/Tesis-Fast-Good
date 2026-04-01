@@ -12,15 +12,66 @@ app.use(express.json());
 const supabase = require('./config/supabaseClient');// Cliente de Supabase para interactuar con la base de datos
 
 /* ======================================================
-   SERVIR FRONTEND (ESTÁTICO)
+   API AUTENTICACIÓN
    ====================================================== */
 
-// 👉 carpeta frontend
-app.use(express.static(path.join(__dirname, 'frontend')));// Sirve archivos estáticos (HTML, CSS, JS) desde la carpeta 'frontend'
+// POST /api/login → Validar credenciales de usuario
+app.post('/api/login', async (req, res) => {
+  const { nombre, contraseña } = req.body;
 
-// 👉 ruta raíz → index.html
-app.get('/', (req, res) => {// Cuando se accede a la raíz, se envía el archivo index.html
-  res.sendFile(path.join(__dirname, 'frontend', 'index.html'));// Asegura que se sirva el index.html correcto
+  console.log('=== LOGIN INTENTADO ===');
+  console.log('Usuario enviado:', nombre);
+  console.log('Contraseña enviada:', contraseña);
+
+  // Validar que se envíen nombre y contraseña
+  if (!nombre || !contraseña) {
+    return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
+  }
+
+  try {
+    // Buscar usuario por nombre (case-insensitive)
+    const { data: usuarios, error: errorBusqueda } = await supabase
+      .from('usuarios')
+      .select('id, nombre, apellido, email, id_rol, contraseña')
+      .ilike('nombre', nombre)  // ilike = case-insensitive
+      .single();
+
+    console.log('Error de búsqueda:', errorBusqueda);
+    console.log('Usuario encontrado:', usuarios);
+
+    if (errorBusqueda || !usuarios) {
+      console.log('Usuario no encontrado o error en BD');
+      return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+    }
+
+    console.log('Contraseña en BD:', usuarios.contraseña);
+    console.log('Contraseña enviada:', contraseña);
+    console.log('¿Contraseñas coinciden?', usuarios.contraseña === contraseña);
+
+    // Validar contraseña (comparación simple - en producción usar bcrypt)
+    if (usuarios.contraseña !== contraseña) {
+      console.log('Contraseña incorrecta');
+      return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+    }
+
+    console.log('LOGIN EXITOSO para:', usuarios.nombre);
+
+    // El login fue exitoso, devolver datos del usuario
+    return res.json({
+      mensaje: 'Login exitoso',
+      usuario: {
+        id: usuarios.id,
+        nombre: usuarios.nombre,
+        apellido: usuarios.apellido,
+        email: usuarios.email,
+        id_rol: usuarios.id_rol
+      }
+    });
+
+  } catch (error) {
+    console.error('Error en login:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 /* ======================================================
@@ -325,6 +376,18 @@ app.get('/api/estados', async (req, res) => {
   }
 
   res.json(data);
+});
+
+/* ======================================================
+   SERVIR FRONTEND (ESTÁTICO)
+   ====================================================== */
+
+// 👉 carpeta frontend - DEBE SER AL FINAL DESPUÉS DE TODAS LAS APIS
+app.use(express.static(path.join(__dirname, 'frontend')));// Sirve archivos estáticos (HTML, CSS, JS) desde la carpeta 'frontend'
+
+// 👉 ruta raíz → index.html
+app.get('/', (req, res) => {// Cuando se accede a la raíz, se envía el archivo index.html
+  res.sendFile(path.join(__dirname, 'frontend', 'index.html'));// Asegura que se sirva el index.html correcto
 });
 
 /* ======================================================
