@@ -117,6 +117,34 @@ app.get('/api/v1/productos/:id', async (req, res) => {
 });
 
 /* ======================================================
+   API COCINEROS POR PEDIDO
+   ====================================================== */
+
+// GET /api/pedidos/:id/cocineros → cocineros asignados a un pedido
+app.get('/api/pedidos/:id/cocineros', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+
+  const { data: asignaciones, error } = await supabase
+    .from('pedido_cocineros')
+    .select('cocinero_id')
+    .eq('pedido_id', id);
+
+  if (error) return res.status(500).json({ error: error.message });
+  if (!asignaciones || asignaciones.length === 0) return res.json([]);
+
+  const ids = [...new Set(asignaciones.map(r => r.cocinero_id))];
+
+  const { data: usuarios, error: err2 } = await supabase
+    .from('usuarios')
+    .select('id, nombre')
+    .in('id', ids);
+
+  if (err2) return res.status(500).json({ error: err2.message });
+  res.json(usuarios || []);
+});
+
+/* ======================================================
    API PEDIDOS
    ====================================================== */
 
