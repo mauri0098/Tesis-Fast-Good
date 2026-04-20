@@ -1,276 +1,336 @@
-/* ====== Datos (mock) con LOTES ====== */
-let STOCK_DATA = [
-  {
-    id:'101', nombre:'Café molido', unidad:'kg', categoria:'Bebidas',
-    lotes:[
-      { loteId:'LCAF1', cantidad:5,  ingreso:'2025-02-01', vence:'2025-03-15' },
-      { loteId:'LCAF2', cantidad:3,  ingreso:'2025-02-10', vence:'2025-04-10' }
-    ]
-  },
-  {
-    id:'102', nombre:'Leche', unidad:'u', categoria:'Lácteos',
-    lotes:[ { loteId:'LLEC1', cantidad:35, ingreso:'2025-02-18', vence:'2025-03-01' } ]
-  },
-  {
-    id:'103', nombre:'Arroz', unidad:'kg', categoria:'Secos',
-    lotes:[ { loteId:'LARR1', cantidad:9,  ingreso:'2025-02-05', vence:'2026-02-01' } ]
-  },
-  {
-    id:'104', nombre:'Harina', unidad:'kg', categoria:'Secos',
-    lotes:[ { loteId:'LHAR1', cantidad:50, ingreso:'2025-02-02', vence:'2026-01-10' } ]
-  },
-  {
-    id:'105', nombre:'Yogur', unidad:'u', categoria:'Lácteos',
-    lotes:[ { loteId:'LYOG1', cantidad:12, ingreso:'2025-02-17', vence:'2025-02-28' } ]
-  }
-];
+let todosInsumos = []; //array para todos los insumos 
 
-const PAGE = { size: 10, index: 0 };
-const $ = (id)=>document.getElementById(id);
-
-/* Helpers de lotes */
-function totalStock(item){
-  return (item.lotes||[]).reduce((a,l)=> a + (l.cantidad||0), 0);
-}
-function nearestExpiry(item){
-  const vivos = (item.lotes||[]).filter(l => l.cantidad > 0 && l.vence);
-  if (!vivos.length) return '';
-  const d = vivos.map(l=> new Date(l.vence)).sort((a,b)=> a-b)[0];
-  return d.toLocaleDateString('es-AR');
-}
-function estadoPorTotal(n){ return n <= 10 ? 'Bajo mínimo' : 'Normal'; }
-
-/* ====== Filtros ====== */
-function cargarCategorias(){
-  const sel = $('filtroCategoria');
-  sel.innerHTML = '<option value="">Todas</option>';
-  const cats = [...new Set(STOCK_DATA.map(x=>x.categoria))].sort();
-  cats.forEach(c => {
-    const o = document.createElement('option');
-    o.value=c; o.textContent=c;
-    sel.appendChild(o);
-  });
-}
-
-function getFiltros(){
-  return {
-    nombre: ($('filtroNombre').value||'').toLowerCase(),
-    categoria: $('filtroCategoria').value || '',
-    estado: $('filtroEstado').value || ''
-  };
-}
-function filtrar(rows, f){
-  return rows.filter(r=>{
-    const stock = totalStock(r);
-    const okN = !f.nombre || r.nombre.toLowerCase().includes(f.nombre);
-    const okC = !f.categoria || r.categoria===f.categoria;
-    const okE = !f.estado || estadoPorTotal(stock)===f.estado;
-    return okN && okC && okE;
-  });
-}
-
-/* ====== Render ====== */
-function render(){
-  const f = getFiltros();
-  const data = filtrar(STOCK_DATA, f);
-  const start = PAGE.index * PAGE.size;
-  const view = data.slice(start, start + PAGE.size);
-
-  const body = $('stockBody');
-  body.innerHTML = '';
-
-  if (view.length === 0){ $('stockEmpty').style.display='block'; }
-  else { $('stockEmpty').style.display='none'; }
-
-  view.forEach(r=>{
-    const stockTotal = totalStock(r);
-    const est = estadoPorTotal(stockTotal);
-    const tr = document.createElement('tr');
-    if (est==='Bajo mínimo') tr.className='row--low';
-    const pill = `<span class="pill ${est==='Bajo mínimo'?'pill--low':''}">${est}</span>`;
-    tr.innerHTML = `
-      <td>${r.id}</td>
-      <td>${r.nombre}</td>
-      <td style="font-weight:600">${stockTotal}</td>
-      <td>${r.unidad}</td>
-      <td>${r.categoria}</td>
-      <td>${nearestExpiry(r) || '-'}</td>
-      <td>${pill}</td>
-      <td><button class="btn-sec" onclick="openMerma('${r.id}')">Registrar merma</button></td>
-    `;
-    body.appendChild(tr);
-  });
-
-  $('pageInfo').textContent = `${Math.min(start+1,data.length)}–${Math.min(start+view.length,data.length)} de ${data.length}`;
-  $('prevPage').disabled = PAGE.index===0;
-  $('nextPage').disabled = (start + PAGE.size) >= data.length;
-}
-
-/* ====== Paginación / eventos ====== */
-document.addEventListener('DOMContentLoaded', ()=>{
-  cargarCategorias();
-  $('btnAplicarFiltros').onclick = ()=>{ PAGE.index=0; render(); };
-  $('prevPage').onclick = ()=>{ if(PAGE.index>0){ PAGE.index--; render(); } };
-  $('nextPage').onclick = ()=>{ PAGE.index++; render(); };
-  render();
+document.addEventListener('DOMContentLoaded', () => {//CUAANDO TODO EL HTML ESTE CARGADO SE EJECUTA ESTA FUNCION QUE TRAE LOS INSUMOS Y INICIA LOS FILTROS
+  fetchInsumos();   
+  iniciarFiltros();
 });
 
-/* ====== Modal Merma (por lote) ====== */
-let ITEM = null;
+// ==========================================
+// TRAER INSUMOS DEL SERVIDOR
+// ==========================================w
 
-function openMerma(id){
-  const it = STOCK_DATA.find(x=>x.id===id);
-  if(!it) return;
-  ITEM = it;
+async function fetchInsumos() {//Un fetch aclara lo que es un fetch
+  const tbody = document.getElementById('stockBody');//esto selecciona una parte del html que vamos a trabjar
 
-  $('mNombre').value = it.nombre;
-  $('mCodigo').value = it.id;
-  $('mUnidad').textContent = it.unidad;
+  try {//usamos el try catch para manejar errores por si el servidor no reponde 
+   
+    const response = await fetch('http://localhost:3000/api/insumos');// AWAIT ESPERABA UNA REPUESTA, ACA LO QUE HACEMOS ES TRAER TODOS LOS INSUMOS DE LA BASE DE DATOS 
+    const data = await response.json();//Y NOS VA A REPONDER CON UN JSON PARA QUE LO PODAMOS USAR EN JS 
 
-  // Cargar lotes vivos por vencimiento asc
-  const sel = $('mLote');
-  sel.innerHTML = '';
-  const lotesOrdenados = (it.lotes||[])
-    .filter(l=> l.cantidad>0)
-    .sort((a,b)=> new Date(a.vence) - new Date(b.vence));
-  lotesOrdenados.forEach(l=>{
-    const opt = document.createElement('option');
-    const v = new Date(l.vence).toLocaleDateString('es-AR');
-    const i = l.ingreso ? new Date(l.ingreso).toLocaleDateString('es-AR') : '-';
-    opt.value = l.loteId;
-    opt.textContent = `${l.loteId} — vence ${v} — ${l.cantidad} ${it.unidad}`;
-    opt.dataset.ingreso = i;
-    opt.dataset.vence = v;
-    opt.dataset.cantidad = l.cantidad;
-    sel.appendChild(opt);
-  });
+    todosInsumos = data; // PONEMOS LOS INSUMOS EN EL ARRAY
 
-  actualizarDetalleLoteMerma();
-  $('mMotivo').value = '';
-  $('mCantidad').value = '';
-  $('mObs').value = '';
-  $('mError').style.display = 'none';
-  $('mermaModal').style.display = 'block';
+    
+    cargarCategoriasEnFiltro();//ESTO DEBE SER UNA FUNCION PARA LOS FILTROS NOSE QUE HACE ACA 
 
-  sel.onchange = actualizarDetalleLoteMerma;
+    
+    renderizarInsumos(todosInsumos);//REDERIZAMOS LOS INSUMOS CON ESTA FUNCION DE MAS ABAJO QUE HACE LA TABLA tr td etc
+
+  } catch (error) {// si hay un error al traer los insumos, lo mostramos en consola y en la tabla
+    console.error(error);
+    tbody.innerHTML = '<tr><td colspan="8" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
+  }
 }
 
-function actualizarDetalleLoteMerma(){
-  const opt = $('mLote').selectedOptions[0];
-  if (!opt){
-    $('mStockLote').value = '0';
-    $('mIngreso').value = '';
-    $('mVence').value = '';
+// ==========================================
+// DIBUJAR LA TABLA
+// ==========================================
+
+function renderizarInsumos(insumos) {//funcion para hacer la tabla de insumos. es como renderizar productos pero para insumos. recibe un array de insumos y los dibuja en la tabla del html
+  const tbody = document.getElementById('stockBody');//volvemos a secleccionar la parte del html donde va la tabla de insumos para mostrarlo ahi
+  tbody.innerHTML = ''; // limpiar lo que había antes
+
+  
+  if (insumos.length === 0) {//si no hay ningun insumo se muesta este mensaje 
+    tbody.innerHTML = '<tr><td colspan="9" class="loading-text">No se encontraron insumos</td></tr>';
     return;
   }
-  $('mStockLote').value = opt.dataset.cantidad + ' ' + $('mUnidad').textContent;
-  $('mIngreso').value = opt.dataset.ingreso || '';
-  $('mVence').value = opt.dataset.vence || '';
+  //DUDA RAPIDA SE MEZCLA EL HTML ACA CON EL JAVASCRIP ESTA BIEN ESTO O TIENE QUE VENIR EN VARIABLES
+  
+  insumos.forEach(insumo => {// SE RECORRE CADA INSUMOS Y SE HACAE UNA GRILLA PARA CADA DE ELLOS 
+    const tr = document.createElement('tr');// ESTE TR ES CADA FILA DE LA TABLA, SE CREA POR CADA INSUMO
+
+    
+    const idFormatted = '#' + String(insumo.id).padStart(3, '0');//SE METE EN VARIABLES LOS DISTITOS DATOS DEL INSUMO, NOSOTROS RECORRIMOS EL JSON ACA Y LOS VAMOS GUARDANDO EN VARIABLES PARA USARLAS EN EL HTML DE MAS ABAJO, POR EJEMPLO EL ID LO FORMATEAMOS PARA QUE TENGA 3 DIGITOS Y UN # AL PRINCIPIO
+
+    
+    const nombre = insumo.nombre;
+
+    
+    const stockActual = insumo.stock_actual;
+
+    
+    const unidad = insumo.unidad_medida || '-';
+
+    
+    const categoria = insumo.categorias_insumos?.nombre || '-';
+
+    
+    const fecha = insumo.fecha_ingreso
+      ? new Date(insumo.fecha_ingreso).toLocaleDateString('es-AR', {
+          day: '2-digit', month: '2-digit', year: 'numeric'
+        })
+      : '-';
+
+    
+    // Fecha de caducidad (puede venir null si el insumo no vence)
+    let fechaCaducidad;
+    if (insumo.fecha_caducidad) {
+      fechaCaducidad = new Date(insumo.fecha_caducidad).toLocaleDateString('es-AR', {
+        day: '2-digit', month: '2-digit', year: 'numeric'
+      });
+    } else {
+      fechaCaducidad = '-';
+    }
+
+    const esBajo = insumo.stock_actual <= insumo.stock_minimo;//ESTO ES PARA SABER SI EL STOCK ESTA BAJO O NO, COMPARANDO EL STOCK ACTUAL CON EL MINIMO
+
+    let estado;
+    if (esBajo) {
+      estado = 'Bajo mínimo';
+    } else {
+      estado = 'Normal';
+    }
+
+    let badgeClass;
+    if (esBajo) {
+      badgeClass = 'badge-bajo';
+    } else {
+      badgeClass = 'badge-normal';
+    }
+
+    
+    if (esBajo) tr.classList.add('row-bajo');
+
+    // ACA SE AGARRA LO DEL HTML NO ME ACUERDO PORQUE PERO SE AGARRA UNA PARTE DE AHI QUE ESTA CREADO EN EL HTML Y SE METE LAS VARIABLES DE LOS INSUMOS 
+    tr.innerHTML = `
+      <td style="font-weight:bold">${idFormatted}</td>
+      <td><strong>${nombre}</strong></td>
+      <td style="font-weight:600">${stockActual}</td>
+      <td>${unidad}</td>
+      <td>${categoria}</td>
+      <td>${fecha}</td>
+      <td>${fechaCaducidad}</td>
+      <td><span class="badge-estado ${badgeClass}">${estado}</span></td>
+      <td><button class="btn-merma" disabled>Registrar merma</button></td>
+    `;
+
+    tbody.appendChild(tr);//Y ESTO NOSE QUE HACE 
+  });
 }
 
-function closeMerma(){ $('mermaModal').style.display='none'; ITEM=null; }
+// ==========================================
+// FILTROS
+// ==========================================
 
-/* ===== Agregar Stock (nuevo lote / nuevo insumo) ===== */
-function openAddStock(){
-  // llenar combo de existentes
-  const sel = document.getElementById('axItem');
-  sel.innerHTML = '';
-  STOCK_DATA.forEach(r=>{
-    const o = document.createElement('option');
-    o.value = r.id;
-    o.textContent = `${r.nombre} — total ${totalStock(r)} ${r.unidad}`;
-    sel.appendChild(o);
+
+function cargarCategoriasEnFiltro() {
+  const select = document.getElementById('filtroCategoria');
+  select.innerHTML = '<option value="">Todas las categorías</option>';
+
+  
+  const cats = [...new Set(todosInsumos.map(i => i.categorias_insumos?.nombre).filter(Boolean))].sort();
+
+  cats.forEach(c => {
+    const option = document.createElement('option');
+    option.value = c;
+    option.textContent = c;
+    select.appendChild(option);
   });
-  // set modo por defecto
-  document.querySelectorAll('input[name="addMode"]').forEach(r => r.checked = (r.value === 'nuevo'));
+}
+
+function iniciarFiltros() {
+  const filtroNombre    = document.getElementById('filtroNombre');
+  const filtroCategoria = document.getElementById('filtroCategoria');
+  const filtroEstado    = document.getElementById('filtroEstado');
+
+  
+  function aplicarFiltros() {
+    const texto     = filtroNombre.value.toLowerCase();
+    const categoria = filtroCategoria.value;
+    const estado    = filtroEstado.value;
+
+    
+    const filtrados = todosInsumos.filter(insumo => {
+      
+      const cumpleTexto     = insumo.nombre.toLowerCase().includes(texto);
+
+     
+      const cumpleCategoria = !categoria || insumo.categorias_insumos?.nombre === categoria;
+
+      
+      const esBajo = insumo.stock_actual <= insumo.stock_minimo;
+
+      let estadoInsumo;
+      if (esBajo) {
+        estadoInsumo = 'Bajo mínimo';
+      } else {
+        estadoInsumo = 'Normal';
+      }
+
+      const cumpleEstado = !estado || estadoInsumo === estado;
+
+      
+      return cumpleTexto && cumpleCategoria && cumpleEstado;
+    });
+
+    
+    renderizarInsumos(filtrados);
+  }
+
+  
+  filtroNombre.addEventListener('input', aplicarFiltros);    // se dispara al escribir
+  filtroCategoria.addEventListener('change', aplicarFiltros); // se dispara al elegir
+  filtroEstado.addEventListener('change', aplicarFiltros);    // se dispara al elegir
+}
+
+// ==========================================
+// MODAL AGREGAR STOCK
+// ==========================================
+
+async function abrirModalAgregarStock() {
+  
+  try {
+    const res = await fetch('http://localhost:3000/api/categorias-insumos');
+    const categorias = await res.json();
+
+    const select = document.getElementById('aCategoria');
+    select.innerHTML = '<option value="">Seleccione una categoría...</option>';
+
+    categorias.forEach(c => {
+      const option = document.createElement('option');
+      option.value = c.id;
+      option.textContent = c.nombre;
+      select.appendChild(option);
+    });
+  } catch {
+    document.getElementById('aCategoria').innerHTML = '<option value="">Error al cargar categorías</option>';
+  }
+
+  
+  const axItem = document.getElementById('axItem');
+  axItem.innerHTML = '';
+  todosInsumos.forEach(insumo => {
+    const option = document.createElement('option');
+    option.value = insumo.id;
+    option.textContent = `${insumo.nombre} (stock actual: ${insumo.stock_actual} ${insumo.unidad_medida || ''})`;
+    axItem.appendChild(option);
+  });
+
+  
+  document.querySelectorAll('input[name="addMode"]').forEach(r => r.checked = r.value === 'nuevo');
   swapAddMode();
-  // limpiar campos
-  ['aNombre','aCodigo','aCantidad','aUnidad','aCategoria','aIngreso','aVence','axCantidad','axIngreso','axVence'].forEach(id=>{
+  ['aNombre', 'aCantidad', 'aStockMinimo', 'aIngreso', 'aVence', 'axCantidad'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  document.getElementById('aUnidad').value = '';
   document.getElementById('aError').style.display = 'none';
+
+  
   document.getElementById('addStockModal').style.display = 'block';
 }
 
-function closeAddStock(){
+function cerrarModalAgregarStock() {
   document.getElementById('addStockModal').style.display = 'none';
 }
 
-function swapAddMode(){
+
+function swapAddMode() {
   const mode = document.querySelector('input[name="addMode"]:checked')?.value || 'nuevo';
-  document.getElementById('addNuevo').style.display     = (mode === 'nuevo') ? 'grid' : 'none';
-  document.getElementById('addExistente').style.display = (mode === 'existente') ? 'grid' : 'none';
+  if (mode === 'nuevo') {
+    document.getElementById('addNuevo').style.display = 'grid';
+  } else {
+    document.getElementById('addNuevo').style.display = 'none';
+  }
+
+  if (mode === 'existente') {
+    document.getElementById('addExistente').style.display = 'grid';
+  } else {
+    document.getElementById('addExistente').style.display = 'none';
+  }
   document.getElementById('aError').style.display = 'none';
 }
 
-function confirmarAddStock(){
-  const mode = document.querySelector('input[name="addMode"]:checked')?.value || 'nuevo';
-  const showErr = (msg)=>{
-    const e = document.getElementById('aError');
-    e.textContent = msg || 'Completá los campos obligatorios con valores válidos.';
-    e.style.display = 'block';
-  };
+async function confirmarAgregarStock() {
+  const mode  = document.querySelector('input[name="addMode"]:checked')?.value || 'nuevo';
+  const errEl = document.getElementById('aError');
 
-  if (mode === 'nuevo'){
-    const nombre = document.getElementById('aNombre').value.trim();
-    const codigo = document.getElementById('aCodigo').value.trim();
-    const cantidad = parseFloat(document.getElementById('aCantidad').value);
-    const unidad = document.getElementById('aUnidad').value;
-    const categoria = document.getElementById('aCategoria').value.trim();
-    const ingreso = document.getElementById('aIngreso').value;
-    const vence   = document.getElementById('aVence').value;
+  
+  function mostrarError(msg) {
+    errEl.textContent = msg || 'Completá los campos obligatorios.';
+    errEl.style.display = 'block';
+  }
 
-    if (!nombre || !codigo || !unidad || !categoria || !ingreso || !vence || !cantidad || cantidad <= 0){
-      return showErr();
+  if (mode === 'nuevo') {
+   
+    const nombre      = document.getElementById('aNombre').value.trim();
+    const stockActual = parseFloat(document.getElementById('aCantidad').value);
+    const stockMinimo = parseFloat(document.getElementById('aStockMinimo').value);
+    const unidad      = document.getElementById('aUnidad').value;
+    const idCategoria = document.getElementById('aCategoria').value;
+    const ingreso     = document.getElementById('aIngreso').value;
+    const vence       = document.getElementById('aVence').value;
+
+    if (!nombre || !unidad || !idCategoria || !ingreso || isNaN(stockActual) || stockActual < 0 || isNaN(stockMinimo) || stockMinimo < 0) {
+      return mostrarError();
     }
-    if (STOCK_DATA.some(x=>x.id === codigo)){
-      return showErr('Ya existe un insumo con ese Código/ID.');
+
+    try {
+      
+      const res = await fetch('http://localhost:3000/api/insumos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre,
+          stock_actual: stockActual,
+          stock_minimo: stockMinimo,
+          unidad_medida: unidad,
+          id_categoria_insumo: parseInt(idCategoria),
+          fecha_ingreso: ingreso,
+          fecha_caducidad: vence || null
+        })
+      });
+
+      if (!res.ok) throw new Error();
+
+      cerrarModalAgregarStock();
+      await fetchInsumos(); // recargar la tabla con el nuevo insumo incluido
+
+    } catch {
+      mostrarError('Error al guardar. Intentá de nuevo.');
     }
 
-    STOCK_DATA.push({
-      id: codigo,
-      nombre,
-      unidad,
-      categoria,
-      lotes: [{
-        loteId: 'L' + Math.random().toString(36).slice(2,7).toUpperCase(),
-        cantidad: +cantidad.toFixed(2),
-        ingreso,
-        vence
-      }]
-    });
-
-    cargarCategorias(); // por si hay nueva categoría
-    closeAddStock();
-    PAGE.index = 0;
-    render();
   } else {
-    // EXISTENTE: crear un lote nuevo
-    const id = document.getElementById('axItem').value;
-    const cant = parseFloat(document.getElementById('axCantidad').value);
-    const ingreso = document.getElementById('axIngreso').value;
-    const vence   = document.getElementById('axVence').value;
+    
+    const id    = document.getElementById('axItem').value;
+    const sumar = parseFloat(document.getElementById('axCantidad').value);
 
-    if (!id || !ingreso || !vence || !cant || cant <= 0) return showErr();
+    if (!id || isNaN(sumar) || sumar <= 0) return mostrarError();
 
-    const item = STOCK_DATA.find(x=>x.id === id);
-    if (!item) return showErr('Insumo no encontrado.');
+    
+    const insumo = todosInsumos.find(i => i.id === parseInt(id));
+    if (!insumo) return mostrarError('Insumo no encontrado.');
 
-    if (!item.lotes) item.lotes = [];
-    item.lotes.push({
-      loteId: 'L' + Math.random().toString(36).slice(2,7).toUpperCase(),
-      cantidad: +cant.toFixed(2),
-      ingreso, vence
-    });
+    try {
+      
+      const res = await fetch(`http://localhost:3000/api/insumos/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stock_actual: insumo.stock_actual + sumar })
+      });
 
-    closeAddStock();
-    render();
+      if (!res.ok) throw new Error();
+
+      cerrarModalAgregarStock();
+      await fetchInsumos(); // recargar la tabla con el stock actualizado
+
+    } catch {
+      mostrarError('Error al actualizar. Intentá de nuevo.');
+    }
   }
 }
 
-// cerrar modales al click afuera (ambos)
-window.addEventListener('click', (e)=>{
-  if (e.target === document.getElementById('addStockModal')) closeAddStock();
-  if (e.target === document.getElementById('mermaModal')) closeMerma();
+
+window.addEventListener('click', (e) => {
+  if (e.target === document.getElementById('addStockModal')) cerrarModalAgregarStock();
 });

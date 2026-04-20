@@ -1,153 +1,142 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fast Good — Stock</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet" />
-  <link rel="icon" href="../src/assets/img/logo.webp" type="image/webp" />
-  <link rel="stylesheet" href="../src/css/stock.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/global.css">
+  <link rel="stylesheet" href="../src/css/stock.css">
 </head>
+
 <body>
 
-<header>
-  <h1>FAST GOOD — Stock</h1>
-  <a href="../index.html">← Volver</a>
-</header>
-
-<section class="section">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem">
-    <h2>Consultar Stock</h2>
-    <button class="btn" onclick="openAddStock()">➕ Agregar stock</button>
-  </div>
-
-  <div class="filters">
-    <div>
-      <label>Nombre de insumo</label>
-      <input id="filtroNombre" type="text" placeholder="Buscar por nombre">
-    </div>
-    <div>
-      <label>Categoría del insumo</label>
-      <select id="filtroCategoria"><option value="">Todas</option></select>
-    </div>
-    <div>
-      <label>Estado de stock</label>
-      <select id="filtroEstado">
-        <option value="">Todos</option>
-        <option value="Normal">Normal</option>
-        <option value="Bajo mínimo">Bajo mínimo</option>
-      </select>
-    </div>
-    <button id="btnAplicarFiltros" class="btn">Aplicar filtros</button>
-  </div>
-
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Código/ID</th>
-          <th>Nombre</th>
-          <th>Stock actual</th>
-          <th>Unidad</th>
-          <th>Categoría</th>
-          <th>Vence (más cercano)</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="stockBody"></tbody>
-    </table>
-  </div>
-  <div id="stockEmpty" class="empty">No existen insumos que cumplan los filtros especificados</div>
-
-  <div class="pager">
-    <button id="prevPage">←</button>
-    <span id="pageInfo" style="color:#555"></span>
-    <button id="nextPage">→</button>
-  </div>
-</section>
-
-<!-- MODAL: Registrar Merma -->
-<div id="mermaModal" class="modal">
-  <div class="modal-content">
-    <span class="close" onclick="closeMerma()">&times;</span>
-    <h3>Registrar Merma</h3>
-    <div class="grid2">
-      <label>Nombre del insumo</label><input id="mNombre" type="text" readonly>
-      <label>Código/ID</label><input id="mCodigo" type="text" readonly>
-      <label>Lote</label>
-      <select id="mLote"></select>
-      <label>Stock del lote</label><input id="mStockLote" type="text" readonly>
-      <label>Ingreso</label><input id="mIngreso" type="text" readonly>
-      <label>Vencimiento</label><input id="mVence" type="text" readonly>
-      <label>Motivo de merma</label>
-      <select id="mMotivo">
-        <option value="">Seleccione un motivo</option>
-        <option>Vencimiento</option><option>Rotura</option>
-        <option>Desperdicio</option><option>Otros</option>
-      </select>
-      <label>Cantidad</label>
-      <div style="display:flex;gap:.5rem;align-items:center">
-        <input id="mCantidad" type="number" min="0" step="0.01" style="flex:1">
-        <span id="mUnidad" style="padding:.4rem .6rem;border:1px solid #ddd;border-radius:8px;background:#f7f7f7">u</span>
+  <header>
+    <div class="container-centrado">
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <img src="../src/assets/img/logo.webp" alt="Fast Good" style="height:40px; border-radius:4px;" onerror="this.style.display='none'">
+        <h1>Gestión de Stock</h1>
       </div>
-      <label>Observaciones</label><textarea id="mObs" rows="3"></textarea>
+      <nav>
+        <a href="../index.html">Volver al Inicio</a>
+      </nav>
     </div>
-    <div id="mError" class="err">Debe ingresar una cantidad válida, seleccionar lote y motivo.</div>
-    <div class="actions">
-      <button class="btn-sec" onclick="closeMerma()">Cancelar</button>
-      <button class="btn-ok" onclick="confirmarMerma()">Confirmar</button>
+  </header>
+
+  <main class="page-container">
+    <div class="table-wrapper">
+
+      <div class="tabla-header">
+        <div class="filtros-container">
+          <input type="text" id="filtroNombre" class="filtro-input" placeholder="Buscar por nombre...">
+          <select id="filtroCategoria" class="filtro-input">
+            <option value="">Todas las categorías</option>
+          </select>
+          <select id="filtroEstado" class="filtro-input">
+            <option value="">Todos los estados</option>
+            <option value="Normal">Normal</option>
+            <option value="Bajo mínimo">Bajo mínimo</option>
+          </select>
+        </div>
+        <button class="btn-agregar" onclick="abrirModalAgregarStock()">+ Agregar stock</button>
+      </div>
+
+      <table class="standard-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Stock actual</th>
+            <th>Unidad</th>
+            <th>Categoría</th>
+            <th>Fecha ingreso</th>
+            <th>Fecha caducidad</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="stockBody">
+          <tr>
+            <td colspan="8" class="loading-text">Cargando datos...</td>
+          </tr>
+        </tbody>
+      </table>
+
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 Fast Good - Panel de Administración</p>
+  </footer>
+
+  <!-- MODAL: Agregar Stock -->
+  <div id="addStockModal" class="modal">
+    <div class="modal-content modal-stock">
+      <span class="close" onclick="cerrarModalAgregarStock()">&times;</span>
+      <h3>Agregar Stock</h3>
+
+      <div class="modal-tabs">
+        <label>
+          <input type="radio" name="addMode" value="nuevo" checked onchange="swapAddMode()"> Nuevo insumo
+        </label>
+        <label>
+          <input type="radio" name="addMode" value="existente" onchange="swapAddMode()"> Sumar a existente
+        </label>
+      </div>
+
+      <!-- NUEVO INSUMO -->
+      <div id="addNuevo" class="modal-grid">
+        <label>Nombre*</label>
+        <input id="aNombre" type="text" placeholder="Ej: Avena">
+
+        <label>Stock inicial*</label>
+        <input id="aCantidad" type="number" min="0" step="0.01" placeholder="Ej: 10">
+
+        <label>Stock mínimo*</label>
+        <input id="aStockMinimo" type="number" min="0" step="0.01" placeholder="Ej: 5">
+
+        <label>Unidad*</label>
+        <select id="aUnidad">
+          <option value="">Seleccione...</option>
+          <option value="kg">kg (kilogramos)</option>
+          <option value="g">g (gramos)</option>
+          <option value="lts">lts (litros)</option>
+          <option value="ml">ml (mililitros)</option>
+          <option value="u">u (unidades)</option>
+        </select>
+
+        <label>Categoría*</label>
+        <select id="aCategoria">
+          <option value="">Cargando categorías...</option>
+        </select>
+
+        <label>Fecha ingreso*</label>
+        <input id="aIngreso" type="date">
+
+        <label>Fecha caducidad</label>
+        <input id="aVence" type="date">
+      </div>
+
+      <!-- SUMAR A EXISTENTE -->
+      <div id="addExistente" class="modal-grid" style="display:none">
+        <label>Insumo*</label>
+        <select id="axItem"></select>
+
+        <label>Cantidad a sumar*</label>
+        <input id="axCantidad" type="number" min="0" step="0.01" placeholder="Ej: 5">
+      </div>
+
+      <div id="aError" class="modal-error">Completá los campos obligatorios.</div>
+
+      <div class="modal-actions">
+        <button class="btn-cancelar" onclick="cerrarModalAgregarStock()">Cancelar</button>
+        <button class="btn-confirmar" onclick="confirmarAgregarStock()">Confirmar</button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- MODAL: Agregar Stock -->
-<div id="addStockModal" class="modal">
-  <div class="modal-content">
-    <span class="close" onclick="closeAddStock()">&times;</span>
-    <h3>Agregar Stock</h3>
-
-    <div style="display:flex;gap:1rem;margin:.5rem 0 1rem">
-      <label><input type="radio" name="addMode" value="nuevo" checked onchange="swapAddMode()"> Nuevo insumo</label>
-      <label><input type="radio" name="addMode" value="existente" onchange="swapAddMode()"> Sumar a existente</label>
-    </div>
-
-    <!-- NUEVO INSUMO -->
-    <div id="addNuevo" class="grid2">
-      <label>Nombre*</label><input id="aNombre" type="text" placeholder="Ej: Avena">
-      <label>Código/ID*</label><input id="aCodigo" type="text" placeholder="Ej: 201">
-      <label>Cantidad inicial*</label><input id="aCantidad" type="number" min="0" step="0.01" placeholder="Ej: 10">
-      <label>Unidad*</label>
-      <select id="aUnidad">
-        <option value="">Seleccione…</option>
-        <option value="kg">kg</option>
-        <option value="u">u</option>
-        <option value="lts">lts</option>
-      </select>
-      <label>Categoría*</label><input id="aCategoria" type="text" placeholder="Ej: Secos">
-      <label>Fecha de ingreso*</label><input id="aIngreso" type="date">
-      <label>Fecha de vencimiento*</label><input id="aVence" type="date">
-    </div>
-
-    <!-- EXISTENTE -->
-    <div id="addExistente" class="grid2" style="display:none">
-      <label>Insumo*</label>
-      <select id="axItem"></select>
-      <label>Cantidad a sumar*</label><input id="axCantidad" type="number" min="0" step="0.01" placeholder="Ej: 5">
-      <label>Fecha de ingreso*</label><input id="axIngreso" type="date">
-      <label>Fecha de vencimiento*</label><input id="axVence" type="date">
-      <div></div><small class="muted">La unidad se toma del insumo existente.</small>
-    </div>
-
-    <div id="aError" class="err">Completá los campos obligatorios con valores válidos.</div>
-
-    <div class="actions">
-      <button class="btn-sec" onclick="closeAddStock()">Cancelar</button>
-      <button class="btn-ok" onclick="confirmarAddStock()">Confirmar</button>
-    </div>
-  </div>
-</div>
-
-<script src="../src/js/stock.js" defer></script>
+  <script src="../src/js/stock.js"></script>
 </body>
+
 </html>

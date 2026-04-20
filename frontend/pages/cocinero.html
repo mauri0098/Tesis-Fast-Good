@@ -1,43 +1,59 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
-  <title>Mis tareas - Cocina</title>
-  <link rel="stylesheet" href="../src/css/generarReceta.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fast Good — Cocina</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/global.css">
+  <link rel="stylesheet" href="../src/css/cocinero.css">
 </head>
+
 <body>
 
-<header>
-  <h1>👨‍🍳 Mis tareas de cocina</h1>
-  <a href="../index.html">Volver</a>
-</header>
+  <header>
+    <div class="container-centrado">
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <img src="../src/assets/img/logo.webp" alt="Fast Good" style="height:40px; border-radius:4px;" onerror="this.style.display='none'">
+        <h1>Tareas de Cocina</h1>
+        <span id="badgeContador" class="badge-contador">0</span>
+      </div>
+      <nav>
+        <a href="../index.html">Volver al Inicio</a>
+      </nav>
+    </div>
+  </header>
 
-<main class="wrap">
-  <table>
-    <thead>
-      <tr>
-        <th>Pedido</th>
-        <th>Plato</th>
-        <th>Cantidad</th>
-        
-        <th>Estado</th>
-        <th></th>
-        <th>Fecha</th>
-      </tr>
-    </thead>
-    <div style="margin-bottom: 1rem;">
-  <label for="selectCocinero"><strong>Seleccionar cocinero:</strong></label>
-  <select id="selectCocinero">
-    <option value="">-- Elegí un cocinero --</option>
-  </select>
-</div>
+  <main class="page-container">
+    <div class="table-wrapper">
 
-    <tbody id="tablaTareas">
-      <tr><td colspan="5">Cargando tareas...</td></tr>
-    </tbody>
-  </table>
-</main>
+      <table class="standard-table">
+        <thead>
+          <tr>
+            <th>N° Pedido</th>
+            <th>Fecha</th>
+            <th>Plato</th>
+            <th>Cocineros</th>
+            <th>Observaciones</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody id="cocinerosBody">
+          <tr>
+            <td colspan="6" class="loading-text">Cargando pedidos en preparación...</td>
+          </tr>
+        </tbody>
+      </table>
 
-<script src="../src/js/cocinero.js"></script>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 Fast Good - Panel de Cocina</p>
+  </footer>
+
+  <script src="../src/js/cocinero.js"></script>
 </body>
+
 </html>
