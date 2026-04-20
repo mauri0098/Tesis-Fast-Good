@@ -23,183 +23,16 @@
   <style>
     .login-btn-header {
       padding: 0.6rem 1.2rem;
-      background: var(--color-secondary);
-      color: white;
-      border: none;
       border-radius: var(--radius-sm);
       cursor: pointer;
       font-weight: 600;
       font-size: 0.9rem;
       transition: all var(--transition-fast);
+      text-decoration: none;
     }
 
     .login-btn-header:hover {
-      background: #e08700;
-      transform: translateY(-2px);
-    }
-
-    .logout-btn-header {
-      padding: 0.6rem 1rem;
-      background: #d32f2f;
-      color: white;
-      border: none;
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.85rem;
-    }
-
-    .logout-btn-header:hover {
-      background: #b71c1c;
-    }
-
-    .header-user-info {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding: 0.5rem 1rem;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: var(--radius-sm);
-      color: white;
-      font-size: 0.9rem;
-    }
-
-    /* Modal de Login */
-    .login-modal {
-      display: none;
-      position: fixed;
-      z-index: 2000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.6);
-      animation: fadeIn 0.3s;
-    }
-
-    .login-modal.show {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .login-modal-content {
-      background: white;
-      padding: 2rem;
-      border-radius: var(--radius-md);
-      box-shadow: var(--shadow-lg);
-      width: 90%;
-      max-width: 400px;
-      animation: slideUp 0.3s;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    @keyframes slideUp {
-      from {
-        transform: translateY(20px);
-        opacity: 0;
-      }
-      to {
-        transform: translateY(0);
-        opacity: 1;
-      }
-    }
-
-    .login-modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-      border-bottom: 2px solid var(--color-primary);
-      padding-bottom: 1rem;
-    }
-
-    .login-modal-header h2 {
-      color: var(--color-primary);
-      margin: 0;
-    }
-
-    .login-modal-close {
-      background: none;
-      border: none;
-      font-size: 1.5rem;
-      cursor: pointer;
-      color: var(--color-text);
-    }
-
-    .login-form-group {
-      margin-bottom: 1.5rem;
-    }
-
-    .login-form-group label {
-      display: block;
-      margin-bottom: 0.5rem;
-      color: var(--color-text);
-      font-weight: 600;
-      font-size: 0.95rem;
-    }
-
-    .login-form-group input {
-      width: 100%;
-      padding: 0.8rem;
-      border: 2px solid #e0e0e0;
-      border-radius: var(--radius-sm);
-      font-family: var(--font-main);
-      font-size: 1rem;
-      transition: border-color var(--transition-fast);
-    }
-
-    .login-form-group input:focus {
-      outline: none;
-      border-color: var(--color-primary);
-      box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
-    }
-
-    .login-submit-btn {
-      width: 100%;
-      padding: 0.85rem;
-      background: var(--color-secondary);
-      color: white;
-      border: none;
-      border-radius: var(--radius-sm);
-      font-size: 1rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all var(--transition-fast);
-    }
-
-    .login-submit-btn:hover {
-      background: #e08700;
-      transform: translateY(-2px);
-    }
-
-    .login-error {
-      color: #d32f2f;
-      background: #ffebee;
-      padding: 0.75rem;
-      border-radius: var(--radius-sm);
-      margin-bottom: 1rem;
-      display: none;
-      border-left: 3px solid #d32f2f;
-    }
-
-    .login-error.show {
-      display: block;
-    }
-
-    .login-loading {
-      text-align: center;
-      color: var(--color-primary);
-      font-weight: 600;
-      display: none;
-    }
-
-    .login-loading.show {
-      display: block;
+      background: rgba(255, 255, 255, 0.15) !important;
     }
   </style>
 </head>
@@ -219,7 +52,6 @@
   <header>
     <div class="container-centrado">
       <div style="display: flex; align-items: center;">
-        <button class="menu-btn" onclick="openSidebar()">☰</button>
         <img src="src/assets/img/logo.webp" alt="Fast Good Logo" style="height: 50px; margin: 0 1rem;" />
         <h1>FAST GOOD</h1>
       </div>
@@ -236,24 +68,8 @@
             style="position: absolute; top: -8px; right: -8px; background: red; color: white; font-size: 12px; padding: 2px 6px; border-radius: 50%;">0</span>
         </div>
 
-        <!-- Botón de Login / Info de Usuario -->
-        <div id="authContainer" style="display: flex; gap: 1rem; align-items: center;">
-          <button class="login-btn-header" id="loginBtnHeader" onclick="abrirModalLogin()">🔐 Iniciar Sesión</button>
-        </div>
-      </nav>
-    </div>
-
-    <!-- Sidebar -->
-    <div id="sidebar" class="sidebar" style="display: none;">
-      <button class="close-btn" onclick="closeSidebar()">×</button>
-      <nav class="sidebar-nav">
-        <a href="./index.html">🏠 Inicio</a>
-        <a href="./pages/ConsultarPedidos.html">🧾 Consultar pedidos</a>
-        <a href="./pages/cocinero.html">🥗 Tareas de Cocina</a>
-        <a href="./pages/stock.html">📦 Generar Stock</a>
-        <a href="./pages/generarReceta.html">📝 Generar Receta</a>
-        <a href="./pages/asignarCocineros.html">👨‍🍳 Asignar Cocineros</a>
-        <a onclick="cerrarSesion()">🚪 Cerrar Sesión</a>
+        <!-- Acceso Empleados -->
+        <a href="login.html" class="login-btn-header" style="background: none; color: white; border: 1px solid white;">Acceso Empleados</a>
       </nav>
     </div>
   </header>
@@ -307,33 +123,6 @@
     <p>&copy; 2025 Fast Good - Viandas Saludables</p>
   </footer>
 
-  <!-- MODAL LOGIN -->
-  <div id="loginModal" class="login-modal">
-    <div class="login-modal-content">
-      <div class="login-modal-header">
-        <h2>Iniciar Sesión</h2>
-        <button class="login-modal-close" onclick="cerrarModalLogin()">×</button>
-      </div>
-
-      <form id="formLoginModal" onsubmit="manejarLoginModal(event)">
-        <div class="login-error" id="loginErrorMsg"></div>
-        <div class="login-loading" id="loginLoading">Iniciando sesión...</div>
-
-        <div class="login-form-group">
-          <label for="loginUsername">👤 Usuario</label>
-          <input type="text" id="loginUsername" name="username" required placeholder="lucas" />
-        </div>
-
-        <div class="login-form-group">
-          <label for="loginPassword">🔐 Contraseña</label>
-          <input type="password" id="loginPassword" name="password" required placeholder="••••••••" />
-        </div>
-
-        <button type="submit" class="login-submit-btn">Iniciar Sesión</button>
-      </form>
-    </div>
-  </div>
-
   <!-- MODAL SUCURSALES -->
   <div id="sucursalesModal" class="modal">
     <div class="modal-content">
@@ -347,7 +136,6 @@
       <p>Dirección: 9 de Julio 179</p>
     </div>
   </div>
-
 
   <!-- MODAL CONTACTO -->
   <div id="contactModal" class="modal">
@@ -369,117 +157,11 @@
     </div>
   </div>
 
-  <!-- SCRIPTS (orden: auth → global → funciones → carrito → página) -->
-  <script src="./src/js/auth.js"></script>
+  <!-- SCRIPTS -->
   <script src="./src/js/global.js"></script>
   <script src="./src/js/funciones.js"></script>
   <script src="./src/js/carrito.js"></script>
   <script src="./src/js/index.js"></script>
-
-  <script>
-    // Cuando carga la página, verificar si hay admin logueado
-    window.addEventListener('load', () => {
-      if (esAdmin()) {
-        // Si es admin, redirigir a panel de admin
-        window.location.href = 'index-admin.html';
-      }
-
-      // Actualizar UI según estado de login
-      actualizarUILogin();
-    });
-
-    // Funciones de modal de login
-    function abrirModalLogin() {
-      document.getElementById('loginModal').classList.add('show');
-    }
-
-    function cerrarModalLogin() {
-      document.getElementById('loginModal').classList.remove('show');
-      document.getElementById('formLoginModal').reset();
-      document.getElementById('loginErrorMsg').classList.remove('show');
-      document.getElementById('loginLoading').classList.remove('show');
-    }
-
-    async function manejarLoginModal(e) {
-      e.preventDefault();
-
-      const username = document.getElementById('loginUsername').value.trim();
-      const password = document.getElementById('loginPassword').value;
-      const errorMsg = document.getElementById('loginErrorMsg');
-      const loading = document.getElementById('loginLoading');
-
-      errorMsg.classList.remove('show');
-      loading.classList.add('show');
-
-      try {
-        const response = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nombre: username, contraseña: password })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Error al iniciar sesión');
-        }
-
-        // Guardar datos
-        localStorage.setItem('usuario_id', data.usuario.id);
-        localStorage.setItem('usuario_nombre', data.usuario.nombre);
-        localStorage.setItem('usuario_rol', data.usuario.id_rol);
-        localStorage.setItem('usuario_email', data.usuario.email);
-
-        // Redirigir según rol
-        if (data.usuario.id_rol === 1) {
-          window.location.href = 'index-admin.html';
-        } else {
-          cerrarModalLogin();
-          // Recargar página para actualizar UI
-          window.location.reload();
-        }
-
-      } catch (error) {
-        console.error('Error:', error);
-        errorMsg.textContent = error.message;
-        errorMsg.classList.add('show');
-        loading.classList.remove('show');
-      }
-    }
-
-    function actualizarUILogin() {
-      const authContainer = document.getElementById('authContainer');
-      const usuarioId = localStorage.getItem('usuario_id');
-      const usuarioNombre = localStorage.getItem('usuario_nombre');
-
-      if (usuarioId) {
-        // Usuario logueado
-        authContainer.innerHTML = `
-          <div class="header-user-info">
-            <span>👤 ${usuarioNombre}</span>
-            <button class="logout-btn-header" onclick="cerrarSesion()">Salir</button>
-          </div>
-        `;
-        // Mostrar sidebar para usuarios logueados
-        document.getElementById('sidebar').style.display = 'block';
-      } else {
-        // Sin loguear
-        authContainer.innerHTML = `
-          <button class="login-btn-header" onclick="abrirModalLogin()">🔐 Iniciar Sesión</button>
-        `;
-        // Ocultar sidebar
-        document.getElementById('sidebar').style.display = 'none';
-      }
-    }
-
-    // Cerrar modal al hacer click afuera
-    document.addEventListener('click', (e) => {
-      const modal = document.getElementById('loginModal');
-      if (e.target === modal) {
-        cerrarModalLogin();
-      }
-    });
-  </script>
 
 </body>
 

@@ -51,10 +51,10 @@ async function manejarLogin(e) {
     // Redirigir según rol
     if (data.usuario.id_rol === 1) {
       // Admin
-      window.location.href = 'index-admin.html';
+      window.location.href = 'admin.html';
     } else {
-      // Usuario normal
-      window.location.href = 'index-usuario.html';
+     // Si entra alguien que no es admin (ej: un cliente por error)
+      mostrarError('loginError', 'No tienes permisos de administrador.');
     }
 
   } catch (error) {
@@ -128,11 +128,6 @@ function cerrarSesion() {
   localStorage.removeItem('usuario_rol');
   localStorage.removeItem('usuario_email');
 
-  // Si estamos en index.html, actualizar UI
-  if (window.location.pathname.includes('index.html') || window.location.pathname === '/') {
-    actualizarUILogin();
-  } else {
-    // Si estamos en otra página, redirigir a index
-    window.location.href = 'index.html';
-  }
+  // Redirigir siempre a la vidriera pública
+  window.location.href = 'index.html';
 }
