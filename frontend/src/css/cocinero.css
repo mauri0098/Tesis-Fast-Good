@@ -1,0 +1,175 @@
+/* =========================================
+   VARIABLES & RESET
+   ========================================= */
+:root {
+  --primary-green: #28a745;
+  --bg-color: #f4f6f9;
+  --white: #ffffff;
+  --text-dark: #343a40;
+  --text-muted: #6c757d;
+  --border-light: #DEE2E6;
+  --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --radius: 8px;
+}
+
+body {
+  background-color: var(--bg-color);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* =========================================
+   BADGE CONTADOR EN EL HEADER
+   ========================================= */
+.badge-contador {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 7px;
+  border-radius: 50px;
+  background-color: #6c757d;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: background-color 0.3s;
+}
+
+.badge-contador.badge-activo {
+  background-color: #dc3545;
+}
+
+/* =========================================
+   LAYOUT PRINCIPAL
+   ========================================= */
+.page-container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.table-wrapper {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.5rem;
+  overflow-x: auto;
+}
+
+/* =========================================
+   TABLA
+   ========================================= */
+.standard-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 880px;
+  table-layout: fixed;
+}
+
+.standard-table thead th {
+  background-color: #e8f5e9;
+  color: #4CAF50;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  padding: 1.1rem;
+  text-align: left;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid var(--primary-green);
+}
+
+.standard-table thead th:first-child { border-top-left-radius: var(--radius); }
+.standard-table thead th:last-child  { border-top-right-radius: var(--radius); }
+
+/* Anchos fijos por columna — total: 880px */
+.standard-table thead th:nth-child(1),
+.standard-table tbody td:nth-child(1) { width: 90px; }   /* N° Pedido */
+
+.standard-table thead th:nth-child(2),
+.standard-table tbody td:nth-child(2) { width: 100px; }  /* Fecha */
+
+.standard-table thead th:nth-child(3),
+.standard-table tbody td:nth-child(3) { width: 210px; }  /* Plato */
+
+.standard-table thead th:nth-child(4),
+.standard-table tbody td:nth-child(4) { width: 160px; }  /* Cocineros */
+
+.standard-table thead th:nth-child(5),
+.standard-table tbody td:nth-child(5) { width: 180px; }  /* Observaciones */
+
+.standard-table thead th:nth-child(6),
+.standard-table tbody td:nth-child(6) { width: 140px; }  /* Acción */
+
+.standard-table tbody td {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.82rem;
+  vertical-align: middle;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 0;
+}
+
+.standard-table tbody tr:last-child td { border-bottom: none; }
+.standard-table tbody tr:hover         { background-color: #f1f8f3; }
+
+.loading-text {
+  text-align: center;
+  font-style: italic;
+  color: var(--text-muted);
+  padding: 2rem;
+}
+
+/* =========================================
+   LISTA DE PLATOS
+   ========================================= */
+ul.platos-list {
+  padding-left: 1rem;
+  margin: 0;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+ul.platos-list li {
+  margin-bottom: 0.25rem;
+}
+
+/* =========================================
+   BOTÓN LISTO PARA ENTREGAR
+   ========================================= */
+.btn-listo {
+  padding: 0.4rem 0.9rem;
+  background-color: var(--primary-green);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  transition: background-color 0.2s, opacity 0.2s;
+}
+
+.btn-listo:hover {
+  background-color: #218838;
+}
+
+.btn-listo:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* =========================================
+   ANIMACIÓN DE SALIDA AL MARCAR LISTO
+   ========================================= */
+.fila-saliendo {
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}

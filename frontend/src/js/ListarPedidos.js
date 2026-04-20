@@ -88,19 +88,28 @@ async function fetchPedidos() {
         </div>
       `;
 
-      // Armar fila (col 9 queda vacía, la llenamos con el select abajo)
+      // Armar fila — las celdas con datos del usuario quedan vacías y se llenan abajo con textContent
       tr.innerHTML = `
         <td style="font-weight:bold">${idFormatted}</td>
         <td>${fecha}</td>
-        <td><strong>${cliente}</strong></td>
-        <td>${direccion}</td>
-        <td>${telefono}</td>
-        <td>${email}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
         <td>${viandasHtml}</td>
         <td style="font-weight:700">${costo}</td>
         <td></td>
         <td>${pagoHtml}</td>
       `;
+
+      // Celdas con datos ingresados por el usuario público — se usan textContent para evitar XSS
+      const strong = document.createElement('strong');
+      strong.textContent = cliente;       // columna 3: nombre del cliente
+      tr.cells[2].appendChild(strong);
+
+      tr.cells[3].textContent = direccion; // columna 4: dirección
+      tr.cells[4].textContent = telefono;  // columna 5: teléfono
+      tr.cells[5].textContent = email;     // columna 6: email
 
       // 9. Select Estado
       const estadoActualId = pedido.id_estado || 1;

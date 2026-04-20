@@ -168,6 +168,34 @@ app.get('/api/v1/productos/:id', async (req, res) => {
 });
 
 /* ======================================================
+   API COCINEROS POR PEDIDO
+   ====================================================== */
+
+// GET /api/pedidos/:id/cocineros → cocineros asignados a un pedido
+app.get('/api/pedidos/:id/cocineros', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+
+  const { data: asignaciones, error } = await supabase
+    .from('pedido_cocineros')
+    .select('cocinero_id')
+    .eq('pedido_id', id);
+
+  if (error) return res.status(500).json({ error: error.message });
+  if (!asignaciones || asignaciones.length === 0) return res.json([]);
+
+  const ids = [...new Set(asignaciones.map(r => r.cocinero_id))];
+
+  const { data: usuarios, error: err2 } = await supabase
+    .from('usuarios')
+    .select('id, nombre')
+    .in('id', ids);
+
+  if (err2) return res.status(500).json({ error: err2.message });
+  res.json(usuarios || []);
+});
+
+/* ======================================================
    API PEDIDOS
    ====================================================== */
 
@@ -261,70 +289,6 @@ app.get('/api/pedidos', async (req, res) => {
   res.json(data);
 });
 
-/* ======================================================
-   API COCINEROS
-   ====================================================== */
-
-app.get('/api/cocineros', async (req, res) => {
-  const { data, error } = await supabase
-    .from('usuarios')
-    .select('id, nombre, rol_id')
-    .eq('rol_id', 3);
-
-  if (error) {
-    return res.status(500).json({ error: error.message });
-  }
-
-  res.json(data);
-});
-
-app.post('/api/asignar-cocineros', async (req, res) => {
-  const { pedido_id, tareas } = req.body;
-
-  if (!pedido_id || !Array.isArray(tareas) || tareas.length === 0) {
-    return res.status(400).json({ error: 'Datos incompletos' });
-  }
-
-  const registros = tareas.map(t => ({
-    pedido_id,
-    cocinero_id: t.cocineroId,
-    producto_id: t.producto_id,
-    cantidad: t.cantidad
-  }));
-
-  const { error } = await supabase
-    .from('pedido_cocineros')
-    .insert(registros);
-
-  if (error) {
-    return res.status(500).json({ error: error.message });
-  }
-
-  res.json({ mensaje: 'Cocineros asignados correctamente' });
-});
-
-app.get('/api/tareas-cocinero/:cocineroId', async (req, res) => {
-  const { cocineroId } = req.params;
-
-  const { data, error } = await supabase
-    .from('pedido_cocineros')
-    .select(`
-      cantidad,
-      productos ( nombre ),
-      pedidos (
-        id,
-        estados ( nombre )
-      )
-    `)
-    .eq('cocinero_id', cocineroId);
-
-  if (error) {
-    return res.status(500).json({ error: error.message });
-  }
-
-  res.json(data);
-});
-
 app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
   const { pedidoId } = req.params;
   const { estado_id } = req.body;
@@ -343,24 +307,6 @@ app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
   res.json({ mensaje: 'Estado actualizado', pedido: data });
 });
 
-app.put('/api/pedidos/:pedidoId/pagado', async (req, res) => {
-  const { pedidoId } = req.params;
-  const { pagado } = req.body; // Expect boolean
-
-  const { data, error } = await supabase
-    .from('pedidos')
-    .update({ pagado: pagado })
-    .eq('id', pedidoId)
-    .select()
-    .single();
-
-  if (error) {
-    return res.status(500).json({ error: error.message });
-  }
-
-  res.json({ mensaje: 'Pago actualizado', pedido: data });
-});
-
 /* ======================================================
    API ESTADOS
    ====================================================== */
@@ -375,6 +321,74 @@ app.get('/api/estados', async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 
+  res.json(data);
+});
+/* ======================================================
+   API STOCK
+   ====================================================== */
+app.get('/api/insumos', async (req, res) => {
+  const { data, error } = await supabase
+    .from('insumos')
+    .select(`
+      id, nombre, stock_actual, stock_minimo, unidad_medida, 
+      fecha_ingreso, fecha_caducidad, activo,
+      categorias_insumos ( nombre )
+    `)
+    .order('nombre', { ascending: true });
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json(data);
+});
+
+app.post('/api/insumos', async (req, res) => {
+  const { nombre, stock_actual, stock_minimo, unidad_medida, fecha_ingreso, fecha_caducidad, id_categoria_insumo } = req.body;
+
+  const { data, error } = await supabase
+    .from('insumos')
+    .insert({
+      nombre,
+      stock_actual,
+      stock_minimo,
+      unidad_medida,
+      fecha_ingreso,
+      fecha_caducidad,
+      id_categoria_insumo
+    })
+    .select()
+    .single();
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json({ mensaje: 'Insumo creado correctamente', insumo: data });
+});
+app.put('/api/insumos/:id', async (req, res) => {
+  const { id } = req.params;
+  const { stock_actual } = req.body;
+
+  const { data, error } = await supabase
+    .from('insumos')
+    .update({ stock_actual })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json({ mensaje: 'Stock actualizado', insumo: data });
+});
+app.get('/api/categorias-insumos', async (req, res) => {
+  const { data, error } = await supabase
+    .from('categorias_insumos')
+    .select('id, nombre')
+    .order('nombre', { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
@@ -399,5 +413,4 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
   console.log(`Accesible en red local via IP:3000`);
 });
-
 

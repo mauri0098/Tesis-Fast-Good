@@ -1,116 +1,148 @@
 document.addEventListener('DOMContentLoaded', async () => {
 
-  const select = document.getElementById('selectCocinero');
-  const tbody = document.getElementById('tablaTareas');
+  const tbody          = document.getElementById('tablaTareas');
+  const contadorBadge  = document.getElementById('contador-badge');
 
-  // ===== Cargar cocineros =====
-  async function cargarCocineros() {
-    const res = await fetch('http://localhost:3000/api/cocineros');
-    const cocineros = await res.json();
+  // ── Recetas del localStorage (cargadas por generarReceta.js) ──────────────
+  const recetas = JSON.parse(localStorage.getItem('FG_RECETAS') || '[]');
 
-    cocineros.forEach(c => {
-      const option = document.createElement('option');
-      option.value = c.id;
-      option.textContent = c.nombre;
-      select.appendChild(option);
+  function buscarReceta(nombreProducto) {
+    const nombre = nombreProducto.toLowerCase();
+    return recetas.find(r =>
+      r.nombre.toLowerCase().includes(nombre) ||
+      nombre.includes(r.nombre.toLowerCase())
+    ) || null;
+  }
+
+  function renderReceta(nombreProducto) {
+    const receta = buscarReceta(nombreProducto);
+    if (!receta) {
+      return `<span class="sin-receta">Sin receta cargada</span>`;
+    }
+    const items = receta.receta
+      .map(i => `<span>${i.qty}${i.unit} ${i.insumo}</span>`)
+      .join('');
+    return `<div class="receta-text">${items}</div>`;
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function formatFecha(isoString) {
+    if (!isoString) return '—';
+    return new Date(isoString).toLocaleDateString('es-AR', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
     });
   }
 
-  // ===== Cargar tareas del cocinero =====
-  async function cargarTareas(cocineroId) {
-    tbody.innerHTML =
-      '<tr><td colspan="5">Cargando tareas...</td></tr>';
+  function setVacio(msg) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${msg}</td></tr>`;
+    contadorBadge.textContent = '0';
+  }
 
-    if (!cocineroId) {
-      tbody.innerHTML =
-        '<tr><td colspan="5">Seleccioná un cocinero</td></tr>';
-      return;
-    }
+  // ── 1. Traer todos los pedidos ────────────────────────────────────────────
+  let pedidos;
+  try {
+    const res = await fetch('/api/pedidos');
+    pedidos = await res.json();
+  } catch {
+    setVacio('Error al cargar pedidos. Verificá que el servidor esté corriendo.');
+    return;
+  }
 
-    const res = await fetch(
-      `http://localhost:3000/api/tareas-cocinero/${cocineroId}`
-    );
-    const tareas = await res.json();
+  // ── 2. Filtrar solo "En preparación" ─────────────────────────────────────
+  const enPrep = pedidos.filter(p => p.id_estado === 2);
 
-    tbody.innerHTML = '';
+  if (enPrep.length === 0) {
+    setVacio('No hay pedidos en preparación en este momento.');
+    return;
+  }
 
-    if (!tareas.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="5">Este cocinero no tiene tareas asignadas</td></tr>';
-      return;
-    }
+  contadorBadge.textContent = enPrep.length;
 
-    tareas.forEach(t => {
-
-      const estado = t.pedidos?.estados || { nombre: 'Sin estado' };
-      let boton = '—';
-
-      // ✅ COMPARAR POR NOMBRE (NO POR ID)
-      if (estado.nombre === 'Pendiente') {
-        boton = `<button onclick="cambiarEstado(${t.pedidos.id}, 2)">
-                   Iniciar
-                 </button>`;
-      } 
-      else if (estado.nombre === 'En preparación') {
-        boton = `<button onclick="cambiarEstado(${t.pedidos.id}, 3)">
-                   Marcar listo
-                 </button>`;
-      } 
-      else if (estado.nombre === 'Listo') {
-        boton = `<button onclick="cambiarEstado(${t.pedidos.id}, 4)">
-                   Marcar entregado
-                 </button>`;
+  // ── 3. Para cada pedido, traer sus cocineros asignados ───────────────────
+  const pedidosConCocineros = await Promise.all(
+    enPrep.map(async (p) => {
+      try {
+        const res = await fetch(`/api/pedidos/${p.id}/cocineros`);
+        const cocineros = res.ok ? await res.json() : [];
+        return { ...p, cocineros };
+      } catch {
+        return { ...p, cocineros: [] };
       }
+    })
+  );
+
+  // ── 4. Renderizar filas ───────────────────────────────────────────────────
+  tbody.innerHTML = '';
+
+  pedidosConCocineros.forEach(pedido => {
+    const detalles      = pedido.pedido_detalles || [];
+    const cocineroNames = pedido.cocineros.length
+      ? pedido.cocineros.map(c => c.nombre).join(', ')
+      : '<span style="color:#aaa">Sin asignar</span>';
+    const fecha = formatFecha(pedido.fecha_pedido);
+
+    // Si el pedido no tiene productos, igual mostramos una fila
+    const filas = detalles.length > 0 ? detalles : [null];
+
+    filas.forEach(det => {
+      const nombrePlato = det?.productos?.nombre || '—';
+      const cantidad    = det ? `x${det.cantidad}` : '';
 
       const tr = document.createElement('tr');
+      tr.dataset.pedidoId = pedido.id;
       tr.innerHTML = `
-        <td>#${t.pedidos?.id ?? '—'}</td>
-        <td>${t.productos?.nombre ?? '—'}</td>
-        <td>${t.cantidad}</td>
-        <td>${estado.nombre}</td>
-        <td>${boton}</td>
+        <td><strong>#${pedido.id}</strong></td>
+        <td>${fecha}</td>
+        <td>
+          <span class="plato-nombre">${nombrePlato}</span>
+          <br><span class="plato-cant">${cantidad}</span>
+        </td>
+        <td>${cocineroNames}</td>
+        <td>${pedido.observaciones || 'Sin observaciones'}</td>
+        <td>
+          <button class="btn-listo" onclick="marcarListo(${pedido.id}, this)">
+            ✓ Listo para entregar
+          </button>
+        </td>
       `;
       tbody.appendChild(tr);
     });
-  }
-
-  // Eventos
-  select.addEventListener('change', () => {
-    cargarTareas(select.value);
   });
-
-  // INIT
-  await cargarCocineros();
-  cargarTareas('');
 });
 
-// ===== Cambiar estado del pedido =====
-window.cambiarEstado = async function (pedidoId, nuevoEstado) {
-  if (!confirm('¿Confirmar cambio de estado del pedido?')) return;
+// ── Cambiar estado del pedido a "Listo para entregar" ────────────────────────
+window.marcarListo = async function (pedidoId, btnEl) {
+  if (!confirm(`¿Marcar el pedido #${pedidoId} como "Listo para entregar"?`)) return;
+
+  btnEl.disabled = true;
+  btnEl.textContent = 'Actualizando...';
 
   try {
-    const res = await fetch(
-      `http://localhost:3000/api/pedidos/${pedidoId}/estado`,
-      {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ estado_id: nuevoEstado })
-      }
-    );
+    const res = await fetch(`/api/pedidos/${pedidoId}/estado`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado_id: 3 }) // 3 = Listo para entregar
+    });
 
-    if (!res.ok) {
-      throw new Error('Error al cambiar estado');
+    if (!res.ok) throw new Error();
+
+    // Eliminar todas las filas de ese pedido de la tabla
+    const filas = document.querySelectorAll(`tr[data-pedido-id="${pedidoId}"]`);
+    filas.forEach(f => f.remove());
+
+    // Actualizar badge contador
+    const badge = document.getElementById('contador-badge');
+    const actual = parseInt(badge.textContent) - 1;
+    badge.textContent = actual;
+
+    if (actual === 0) {
+      const tbody = document.getElementById('tablaTareas');
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No hay pedidos en preparación en este momento.</td></tr>';
     }
 
-    alert('Estado actualizado correctamente');
-
-    // Recargar tareas del cocinero seleccionado
-    const select = document.getElementById('selectCocinero');
-    if (select && select.value) {
-      select.dispatchEvent(new Event('change'));
-    }
-
-  } catch (err) {
-    alert('❌ No se pudo cambiar el estado');
+  } catch {
+    btnEl.disabled = false;
+    btnEl.textContent = '✓ Listo para entregar';
+    alert('Error al actualizar el estado. Intentá de nuevo.');
   }
 };

@@ -1,42 +1,105 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Mis tareas - Cocina</title>
-  <link rel="stylesheet" href="../src/css/generarReceta.css">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fast Good - Tareas de Cocina</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+  <link rel="icon" href="../src/assets/img/logo.webp" type="image/webp"/>
+  <link rel="stylesheet" href="../src/css/generarReceta.css"/>
+  <style>
+    .badge-estado {
+      display: inline-block;
+      background: #fff3e0;
+      color: #e65100;
+      border: 1px solid #ffcc80;
+      border-radius: 999px;
+      padding: .2rem .75rem;
+      font-size: .82rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .btn-listo {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: .45rem 1rem;
+      border-radius: 999px;
+      font-family: 'Poppins', sans-serif;
+      font-weight: 700;
+      font-size: .88rem;
+      cursor: pointer;
+      transition: background .2s;
+      white-space: nowrap;
+    }
+    .btn-listo:hover { background: #2E7D32; }
+    .receta-text {
+      font-size: .82rem;
+      color: #555;
+      line-height: 1.5;
+    }
+    .receta-text span {
+      display: inline-block;
+      background: #f1f8f1;
+      border: 1px solid #d6ead6;
+      border-radius: 6px;
+      padding: .1rem .4rem;
+      margin: .1rem .1rem;
+      font-size: .78rem;
+    }
+    .sin-receta {
+      color: #aaa;
+      font-size: .85rem;
+      font-style: italic;
+    }
+    .plato-nombre { font-weight: 600; }
+    .plato-cant   { color: #777; font-size: .88rem; }
+    #contador-badge {
+      background: #e53935;
+      color: white;
+      border-radius: 999px;
+      padding: .1rem .6rem;
+      font-size: .85rem;
+      margin-left: .5rem;
+    }
+    .empty-row td { color: #999; text-align: center; padding: 2rem; }
+  </style>
 </head>
 <body>
 
 <header>
-  <h1>👨‍🍳 Mis tareas de cocina</h1>
-  <a href="../index.html">Volver</a>
+  <div style="display:flex;align-items:center;">
+    <img src="../src/assets/img/logo.webp" alt="Logo" style="height:44px;margin:0 .8rem;">
+    <h1>Tareas de Cocina <span id="contador-badge">0</span></h1>
+  </div>
+  <nav>
+    <a href="../index.html">Volver al Inicio</a>
+  </nav>
 </header>
 
 <main class="wrap">
-  <table>
+  <h2 class="title">Pedidos en Preparación</h2>
+
+  <table id="tablaPedidos">
     <thead>
       <tr>
-        <th>Pedido</th>
-        <th>Plato</th>
-        <th>Cantidad</th>
-        
-        <th>Estado</th>
-        <th></th>
+        <th>N° Pedido</th>
         <th>Fecha</th>
+        <th>Plato</th>
+        <th>Cocineros</th>
+        <th>Observaciones</th>
+        <th>Estado</th>
       </tr>
     </thead>
-    <div style="margin-bottom: 1rem;">
-  <label for="selectCocinero"><strong>Seleccionar cocinero:</strong></label>
-  <select id="selectCocinero">
-    <option value="">-- Elegí un cocinero --</option>
-  </select>
-</div>
-
     <tbody id="tablaTareas">
-      <tr><td colspan="5">Cargando tareas...</td></tr>
+      <tr class="empty-row"><td colspan="6">Cargando tareas...</td></tr>
     </tbody>
   </table>
 </main>
+
+<footer>
+  <p>&copy; 2025 Fast Good - Viandas Saludables</p>
+</footer>
 
 <script src="../src/js/cocinero.js"></script>
 </body>
