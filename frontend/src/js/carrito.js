@@ -3,8 +3,6 @@
 // Gestiona: estado del carrito, panel lateral, vista, y persistencia.
 // ====================================================================
 
-import { gestionarCarrito, calcularTotales, persistirDatos } from './funciones.js';
-
 // ====================================================================
 // 1. ESTADO DEL CARRITO
 // ====================================================================

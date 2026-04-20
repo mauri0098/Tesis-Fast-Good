@@ -1,5 +1,5 @@
 // Trae todos los productos activos
-export async function traerProductos() {
+async function traerProductos() {
   try {
     const respuesta = await fetch('/api/v1/productos');
     return await respuesta.json();
@@ -10,7 +10,7 @@ export async function traerProductos() {
 }
 
 // Trae un producto por ID
-export async function traerProductoPorId(id) {
+async function traerProductoPorId(id) {
   try {
     const respuesta = await fetch(`/api/v1/productos/${id}`);
     if (!respuesta.ok) throw new Error(`Error: ${respuesta.status}`);
@@ -22,7 +22,7 @@ export async function traerProductoPorId(id) {
 }
 
 // Trae todas las categorías
-export async function traerCategorias() {
+async function traerCategorias() {
   try {
     const respuesta = await fetch('/api/v1/categorias');
     if (!respuesta.ok) throw new Error(`Error: ${respuesta.status}`);
@@ -34,7 +34,7 @@ export async function traerCategorias() {
 }
 
 // Trae los planes activos de una categoría
-export async function traerPlanesPorCategoria(idCategoria) {
+async function traerPlanesPorCategoria(idCategoria) {
   try {
     const respuesta = await fetch(`/api/v1/categorias/${idCategoria}/planes`);
     if (!respuesta.ok) throw new Error(`Error: ${respuesta.status}`);
@@ -46,7 +46,7 @@ export async function traerPlanesPorCategoria(idCategoria) {
 }
 
 // Trae los productos activos de un plan
-export async function traerProductosPorPlan(idPlan) {
+async function traerProductosPorPlan(idPlan) {
   try {
     const respuesta = await fetch(`/api/v1/planes/${idPlan}/productos`);
     if (!respuesta.ok) throw new Error(`Error: ${respuesta.status}`);

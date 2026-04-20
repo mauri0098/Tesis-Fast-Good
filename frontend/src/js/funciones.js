@@ -6,7 +6,7 @@
  * @param {number} cantidad - Cantidad a agregar
  * @returns {Array} - El carrito actualizado
  */
-export function gestionarCarrito(carrito, producto, cantidad) {
+function gestionarCarrito(carrito, producto, cantidad) {
     // Crear copia superficial para no mutar directamente el argumento si se quisiera ser estricto,
     // pero mantendremos la referencia si es lo esperado por el manejo de estado global simple.
     // Para este refactor, trabajaremos sobre el array pasado pero asegurando lógica encapsulada.
@@ -35,7 +35,7 @@ export function gestionarCarrito(carrito, producto, cantidad) {
  * @param {Array} carrito - Array de items
  * @returns {Object} - { cantidadItems, totalPrecio }
  */
-export function calcularTotales(carrito) {
+function calcularTotales(carrito) {
     return carrito.reduce((acc, item) => {
         acc.cantidadItems += item.cantidad;
         acc.totalPrecio += (item.precio * item.cantidad);
@@ -48,7 +48,7 @@ export function calcularTotales(carrito) {
  * @param {string} clave - Clave para localStorage
  * @param {any} data - Datos a guardar (se stringificarán si son objetos)
  */
-export function persistirDatos(clave, data) {
+function persistirDatos(clave, data) {
     try {
         const valor = typeof data === 'object' ? JSON.stringify(data) : data;
         localStorage.setItem(clave, valor);
@@ -62,7 +62,7 @@ export function persistirDatos(clave, data) {
  * @param {string} clave 
  * @returns {any} - Datos parseados o null
  */
-export function recuperarDatos(clave) {
+function recuperarDatos(clave) {
     try {
         const item = localStorage.getItem(clave);
         return item ? JSON.parse(item) : null;
@@ -76,7 +76,7 @@ export function recuperarDatos(clave) {
 // RENDERIZADO DEL CATÁLOGO
 // ============================================================
 
-export function renderizarproductos(arregloProductos, contenedorproductos) {
+function renderizarproductos(arregloProductos, contenedorproductos) {
     if (arregloProductos.length === 0) {
         contenedorproductos.innerHTML = '<p class="sin-resultados">No hay productos disponibles.</p>';
         return;
@@ -109,7 +109,7 @@ export function renderizarproductos(arregloProductos, contenedorproductos) {
     contenedorproductos.innerHTML = contenidoHTML;
 }
 
-export function buscarProductos(buscadorProductos, arregloProductos, contenedorproductos) {
+function buscarProductos(buscadorProductos, arregloProductos, contenedorproductos) {
     const textoBusqueda = buscadorProductos.value.toLowerCase();
     const productosFiltrados = arregloProductos.filter((producto) =>
         producto.nombre.toLowerCase().startsWith(textoBusqueda)
@@ -125,7 +125,7 @@ const IMAGENES_CATEGORIAS = {
 };
 const IMG_CATEGORIA_DEFAULT = '../src/assets/img/logo.webp';
 
-export function renderizarCategorias(categorias, contenedor, onCategoriaClick) {
+function renderizarCategorias(categorias, contenedor, onCategoriaClick) {
     if (categorias.length === 0) {
         contenedor.innerHTML = '<p class="sin-resultados">No hay categorías disponibles.</p>';
         return;
@@ -154,7 +154,7 @@ export function renderizarCategorias(categorias, contenedor, onCategoriaClick) {
     contenedor.appendChild(grid);
 }
 
-export function renderizarPlanes(planes, contenedor, onPlanClick) {
+function renderizarPlanes(planes, contenedor, onPlanClick) {
     if (planes.length === 0) {
         contenedor.innerHTML = '<p class="sin-resultados">No hay planes disponibles para esta categoría.</p>';
         return;
