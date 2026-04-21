@@ -1,10 +1,13 @@
 /* ===================================================
-   INDEX.CSS - Estilos exclusivos de la página principal
-   (Todo lo demás está en global.css y carrito.css)
+   INDEX.CSS — Fast Good (Motion Design Edition)
+   Estilos exclusivos de la página principal.
    =================================================== */
 
-/* --- HERO (Banner principal) --- */
+/* ===================================================
+   HERO — Glassmorphism pill + animación de entrada
+   =================================================== */
 .hero {
+    position: relative;
     background: url('../assets/img/medinabanner3.png') no-repeat center center;
     background-size: cover;
     background-color: #fff;
@@ -15,26 +18,66 @@
     justify-content: center;
     align-items: center;
     text-align: center;
+    overflow: hidden;
 }
 
+/* Sin overlay — la imagen tiene fondo blanco y debe verse nítida */
+
+/* Texto con glassmorphism pill blanco sobre imagen clara */
 .hero h2 {
-    padding: 1rem 2rem;
-    font-size: 2rem;
-    border-radius: 10px;
-    color: black;
-    text-shadow: none;
+    position: relative;
+    z-index: 1;
+    padding: 1.1rem 2.8rem;
+    font-size: 2.1rem;
+    font-weight: 700;
+    color: #1a4d25;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    border: 1.5px solid rgba(40, 167, 69, 0.25);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    animation: hero-text-in 0.85s 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    max-width: 80%;
+    letter-spacing: 0.01em;
 }
 
-/* --- HERO RESPONSIVE --- */
+@keyframes hero-text-in {
+    from {
+        opacity: 0;
+        transform: translateY(36px) scale(0.93);
+        filter: blur(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+    }
+}
+
+/* Descripción bajo el hero */
+.section > p[style] {
+    animation: fade-up-soft 0.7s 0.2s ease both;
+}
+
+@keyframes fade-up-soft {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ===================================================
+   RESPONSIVE HERO
+   =================================================== */
 @media (max-width: 768px) {
     .hero {
-        min-height: auto;
         height: 60vh;
+        min-height: auto;
         background-attachment: scroll;
     }
 
     .hero h2 {
         font-size: 1.5rem;
-        padding: 0.5rem 1rem;
+        padding: 0.8rem 1.4rem;
+        max-width: 90%;
     }
 }

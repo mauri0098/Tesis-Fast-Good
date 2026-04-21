@@ -162,6 +162,17 @@
   <script src="./src/js/funciones.js"></script>
   <script src="./src/js/carrito.js"></script>
   <script src="./src/js/index.js"></script>
+  <script src="./src/js/animations.js"></script>
+  <script>
+    // Si el admin ya tiene sesión activa, mostrar panel en vez de la vidriera pública
+    (function () {
+      var id  = localStorage.getItem('usuario_id');
+      var rol = parseInt(localStorage.getItem('usuario_rol') || '0');
+      if (id && rol === 1) {
+        window.location.replace('./admin.html');
+      }
+    })();
+  </script>
 
 </body>
 
