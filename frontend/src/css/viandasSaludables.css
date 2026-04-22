@@ -443,7 +443,7 @@ li {
 }
 
 footer {
-    background-color: #2E7D32;
+    background-color: var(--color-primary-glass);
     color: white;
     text-align: center;
     padding: 2rem 1rem;
