@@ -62,16 +62,8 @@ async function fetchPedidos() {
       const telefono = pedido.cliente_telefono || '-';
       const email = pedido.cliente_email || '-';
 
-      // 7. Viandas
-      let viandasHtml = '<ul class="ingredientes-list">';
-      if (pedido.pedido_detalles && pedido.pedido_detalles.length > 0) {
-        pedido.pedido_detalles.forEach(d => {
-          viandasHtml += `<li>${d.cantidad}x ${d.productos?.nombre || 'Producto'}</li>`;
-        });
-      } else {
-        viandasHtml += '<li>Sin detalle</li>';
-      }
-      viandasHtml += '</ul>';
+      // 7. Viandas → botón que abre modal con el detalle
+      const viandasHtml = `<button class="btn-detalles" onclick="abrirModalDetalles(${pedido.id})">Detalles</button>`;
 
       // 8. Costo
       const costo = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(pedido.total);
@@ -158,6 +150,52 @@ async function fetchPedidos() {
     tbody.innerHTML = '<tr><td colspan="10" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
   }
 }
+
+// ── MODAL DETALLES ────────────────────────────────────────────
+const formatPrecio = n => new Intl.NumberFormat('es-AR', {
+  style: 'currency', currency: 'ARS', minimumFractionDigits: 0
+}).format(n);
+
+function abrirModalDetalles(pedidoId) {
+  const pedido = todosPedidos.find(p => p.id === pedidoId);
+  if (!pedido) return;
+
+  document.getElementById('modalTitulo').textContent =
+    `Detalle del Pedido #${String(pedidoId).padStart(3, '0')}`;
+
+  const tbody = document.getElementById('modalDetallesBody');
+  tbody.innerHTML = '';
+
+  const detalles = pedido.pedido_detalles || [];
+
+  if (detalles.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#999;padding:1rem;">Sin detalles</td></tr>';
+  } else {
+    detalles.forEach(d => {
+      const tr = document.createElement('tr');
+      const precio = d.precio_unitario != null ? formatPrecio(d.precio_unitario) : '-';
+      tr.innerHTML = `
+        <td class="col-cant">${d.cantidad}</td>
+        <td>${d.productos?.nombre || 'Producto'}</td>
+        <td class="col-precio">${precio}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('modalDetalles').classList.add('visible');
+}
+
+function cerrarModalDetalles(e) {
+  if (!e || e.target === document.getElementById('modalDetalles')) {
+    document.getElementById('modalDetalles').classList.remove('visible');
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('modalDetalles')?.classList.remove('visible');
+});
+// ─────────────────────────────────────────────────────────────
 
 function iniciarFiltro() {
   const FiltradodeProductos = document.getElementById('CampoBusqueda');

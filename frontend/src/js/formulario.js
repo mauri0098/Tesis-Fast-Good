@@ -194,6 +194,7 @@ function prepararItemsParaServidor(carrito) {
   return carrito.map(item => ({
     producto_id: item.producto_id,
     cantidad: item.cantidad,
+    precio: item.precio,
     observaciones_plato: item.observaciones || null
   }));
 }
