@@ -114,7 +114,7 @@ footer {
     width: 100%;
     margin-top: auto;
     padding: 2.5rem 1rem;
-    background: var(--color-primary-dark);
+    background: var(--color-primary-glass);
     color: var(--color-white);
     text-align: center;
     letter-spacing: 0.03em;
