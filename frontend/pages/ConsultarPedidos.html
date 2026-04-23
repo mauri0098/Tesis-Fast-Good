@@ -64,6 +64,80 @@
     <p>&copy; 2024 Fast Good - Panel de Administración Tesis</p>
   </footer>
 
+  <!-- MODAL DETALLES DE PEDIDO -->
+  <div id="modalDetalles" class="modal-overlay" onclick="cerrarModalDetalles(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modalTitulo">Detalles del Pedido</h3>
+        <button class="modal-close-btn" onclick="cerrarModalDetalles()">✕</button>
+      </div>
+      <div class="modal-body">
+        <table class="modal-tabla">
+          <thead>
+            <tr>
+              <th class="col-cant">Cantidad</th>
+              <th>Plato</th>
+              <th class="col-precio">Precio unitario</th>
+            </tr>
+          </thead>
+          <tbody id="modalDetallesBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.50);
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .modal-overlay.visible { display: flex; }
+    .modal-box {
+      background: #fff;
+      border-radius: 10px;
+      padding: 2rem;
+      width: 90%;
+      max-width: 520px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--color-primary);
+      padding-bottom: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .modal-header h3 { color: var(--color-primary); font-size: 1.05rem; }
+    .modal-close-btn {
+      background: none; border: none; font-size: 1.2rem;
+      cursor: pointer; color: #888; padding: 0.1rem 0.4rem; border-radius: 4px;
+    }
+    .modal-close-btn:hover { color: #d32f2f; background: #fdecea; }
+    .modal-tabla { width: 100%; border-collapse: collapse; }
+    .modal-tabla th {
+      background: #f5f5f5; padding: 0.55rem 0.8rem;
+      font-size: 0.82rem; color: #555; border-bottom: 2px solid #e0e0e0; text-align: left;
+    }
+    .modal-tabla td { padding: 0.55rem 0.8rem; border-bottom: 1px solid #f0f0f0; font-size: 0.9rem; }
+    .modal-tabla tbody tr:last-child td { border-bottom: none; }
+    .col-cant { width: 80px; text-align: center; }
+    .modal-tabla td.col-cant { text-align: center; font-weight: 700; }
+    .col-precio { text-align: right; }
+    .modal-tabla td.col-precio { text-align: right; font-weight: 600; color: var(--color-primary); white-space: nowrap; }
+    .btn-detalles {
+      background: var(--color-secondary); color: white; border: none;
+      padding: 0.35rem 0.85rem; border-radius: 6px; cursor: pointer;
+      font-size: 0.82rem; font-weight: 600; transition: background 0.2s;
+    }
+    .btn-detalles:hover { background: #e08700; }
+  </style>
+
   <script src="../src/js/global.js"></script>
   <script src="../src/js/ListarPedidos.js"></script>
 </body>

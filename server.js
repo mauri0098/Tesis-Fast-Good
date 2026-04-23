@@ -293,14 +293,27 @@ app.post('/api/pedidos', async (req, res) => {// Endpoint para crear un nuevo pe
     return res.status(500).json({ error: errorPedido.message });
   }
 
+  // Buscar precios reales desde la tabla productos
+  const productoIds = items.map(item => item.producto_id);
+  const { data: productosDB, error: errorPrecios } = await supabase
+    .from('productos')
+    .select('id, precio')
+    .in('id', productoIds);
+
+  if (errorPrecios) {
+    return res.status(500).json({ error: errorPrecios.message });
+  }
+
+  const precioMap = {};
+  productosDB.forEach(p => { precioMap[p.id] = p.precio; });
+
   const itemsConPedido = items.map(item => ({
     id_pedido: pedido.id,
     id_producto: item.producto_id,
     cantidad: item.cantidad,
-    precio_unitario: item.precio || 0 // Asumir 0 o precio del front
+    precio_unitario: precioMap[item.producto_id] ?? 0
   }));
 
-  // Notar cambio de tabla: pedido_items -> pedido_detalles
   const { error: errorItems } = await supabase
     .from('pedido_detalles')
     .insert(itemsConPedido);
