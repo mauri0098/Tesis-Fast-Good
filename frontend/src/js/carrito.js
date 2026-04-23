@@ -57,11 +57,6 @@ function agregarItemAlCarrito(producto, cantidad) {
 
     // Actualizar la vista del carrito
     actualizarVistaCarrito();
-
-    // Mostrar el panel si estaba oculto
-    if (!carritoVisible) {
-        alternarCarrito();
-    }
 }
 
 // ====================================================================

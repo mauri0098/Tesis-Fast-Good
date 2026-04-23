@@ -11,9 +11,8 @@
     background: url('../assets/img/medinabanner3.png') no-repeat center center;
     background-size: cover;
     background-color: #fff;
-    min-height: 850px;
-    max-height: 1000px;
-    height: 50vh;
+    height: 100vh;
+    min-height: 600px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -66,8 +65,8 @@
    =================================================== */
 @media (max-width: 768px) {
     .hero {
-        height: 60vh;
-        min-height: auto;
+        height: 100vh;
+        min-height: 500px;
         background-attachment: scroll;
     }
 
