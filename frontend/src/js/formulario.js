@@ -13,20 +13,33 @@
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Vincular evento submit del formulario
   vincularFormulario();
-
-  // Mostrar resumen del carrito en la página
   mostrarResumenCarrito();
+  preLlenarFormulario();
 });
 
 // ============================================================================
 // 2. FUNCIONES DE INICIALIZACIÓN
 // ============================================================================
 
-/**
- * Vincula el evento submit del formulario a la función de envío
- */
+function preLlenarFormulario() {
+  const usuarioId = localStorage.getItem('usuario_id');
+  if (!usuarioId) return;
+
+  const campos = {
+    nombre:    localStorage.getItem('usuario_nombre')   || '',
+    apellido:  localStorage.getItem('usuario_apellido') || '',
+    email:     localStorage.getItem('usuario_email')    || '',
+    telefono:  localStorage.getItem('usuario_telefono') || '',
+    direccion: localStorage.getItem('usuario_direccion') || ''
+  };
+
+  Object.entries(campos).forEach(([id, valor]) => {
+    const el = document.getElementById(id);
+    if (el && valor) el.value = valor;
+  });
+}
+
 function vincularFormulario() {
   const formulario = document.getElementById('pedidoForm');
 
@@ -318,7 +331,7 @@ Espero tu respuesta para confirmar mi pedido`;
 // ============================================================================
 
 async function enviarFormulario() {
-  const usuarioId = 'd9b1ae00-fda5-4488-86b3-90d769b47a02'; // Consumidor Final
+  const usuarioId = localStorage.getItem('usuario_id') || 'd9b1ae00-fda5-4488-86b3-90d769b47a02';
 
 
   const carrito = obtenerCarritoDeStorage();
