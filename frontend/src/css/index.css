@@ -21,9 +21,6 @@
     overflow: hidden;
 }
 
-/* Sin overlay — la imagen tiene fondo blanco y debe verse nítida */
-
-/* Texto con glassmorphism pill blanco sobre imagen clara */
 .hero h2 {
     position: relative;
     z-index: 1;
@@ -55,7 +52,6 @@
     }
 }
 
-/* Descripción bajo el hero */
 .section > p[style] {
     animation: fade-up-soft 0.7s 0.2s ease both;
 }
@@ -79,5 +75,403 @@
         font-size: 1.5rem;
         padding: 0.8rem 1.4rem;
         max-width: 90%;
+    }
+}
+
+/* ===================================================
+   GLASSMORPHISM — Carrito lateral (mejora sobre carrito.css)
+   =================================================== */
+#carrito.carrito-lateral {
+    backdrop-filter: blur(22px) saturate(185%);
+    -webkit-backdrop-filter: blur(22px) saturate(185%);
+    background: rgba(255, 255, 255, 0.88) !important;
+    border-left: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: -8px 0 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* ===================================================
+   SPA — Sistema de vistas
+   =================================================== */
+.spa-view {
+    animation: spa-fade-in 0.42s var(--easing-out) both;
+}
+
+.spa-view--oculta {
+    display: none;
+}
+
+@keyframes spa-fade-in {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ===================================================
+   VISTA DE PLANES — Topbar + layout
+   =================================================== */
+.planes-topbar {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+}
+
+/* El h2 del topbar hereda .section h2 de global.css pero sin centering */
+.planes-topbar h2 {
+    flex: 1;
+    text-align: left;
+    margin-bottom: 0;
+}
+
+.planes-topbar h2::after {
+    margin: 0.4rem 0 0;
+}
+
+/* Botón "← Volver a Categorías" */
+.btn-volver {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.6rem 1.4rem;
+    border-radius: var(--radius-pill);
+    background: rgba(40, 167, 69, 0.1);
+    color: var(--color-primary);
+    font-family: var(--font-main);
+    font-size: 0.88rem;
+    font-weight: 600;
+    border: 1.5px solid rgba(40, 167, 69, 0.28);
+    cursor: pointer;
+    transition:
+        background 0.26s ease,
+        color 0.26s ease,
+        border-color 0.26s ease,
+        transform 0.26s var(--easing-spring);
+    flex-shrink: 0;
+}
+
+.btn-volver:hover {
+    background: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+    transform: translateX(-4px);
+}
+
+/* ===================================================
+   ACORDEÓN DE PLANES
+   =================================================== */
+.planes-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+/* Item contenedor */
+.plan-item {
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.32s ease;
+}
+
+.plan-item:has(.plan-panel.open) {
+    box-shadow: var(--shadow-lg);
+}
+
+/* Botón de cabecera del plan (estilo naranja de marca) */
+.plan-accordion-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 1.1rem 1.6rem;
+    background: linear-gradient(135deg, #ff9800, #f57c00);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-main);
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-align: left;
+    transition: filter 0.26s ease;
+}
+
+.plan-accordion-btn:hover {
+    filter: brightness(1.08);
+}
+
+.plan-accordion-btn.active {
+    filter: brightness(0.95);
+}
+
+/* Chevron giratorio */
+.plan-chevron {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    transition: transform 0.38s var(--easing-out);
+}
+
+.plan-chevron svg {
+    width: 18px;
+    height: 18px;
+    stroke: #fff;
+    fill: none;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.plan-accordion-btn.active .plan-chevron {
+    transform: rotate(180deg);
+}
+
+/* Panel expandible (grid-template-rows trick) */
+.plan-panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    background: #f0faf2;
+    transition:
+        grid-template-rows 0.4s var(--easing-out),
+        opacity 0.34s ease;
+}
+
+.plan-panel.open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+}
+
+.plan-panel-inner {
+    overflow: hidden;
+    min-height: 0;
+}
+
+.plan-panel-content {
+    padding: 1.4rem 1.6rem 2rem;
+}
+
+/* Estados internos del panel */
+.panel-cargando,
+.panel-vacio {
+    text-align: center;
+    padding: 2.5rem;
+    color: var(--color-muted);
+    font-size: 0.95rem;
+}
+
+/* ===================================================
+   GRILLA DE PRODUCTOS — 3 columnas exactas
+   =================================================== */
+.productos-catalogo {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.2rem;
+}
+
+/* ─── Tarjeta de plato ─── */
+.plato-card {
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.09);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    animation: plato-enter 0.42s var(--easing-out) both;
+    transition:
+        transform 0.38s var(--easing-spring),
+        box-shadow 0.32s ease;
+    will-change: transform;
+}
+
+.plato-card:hover {
+    transform: translateY(-7px);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
+}
+
+@keyframes plato-enter {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Imagen del plato */
+.plato-card__img {
+    height: 160px;
+    overflow: hidden;
+    background: #e8f5e9;
+    flex-shrink: 0;
+}
+
+.plato-card__img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.46s var(--easing-out);
+}
+
+.plato-card:hover .plato-card__img img {
+    transform: scale(1.09);
+}
+
+/* Cuerpo de la tarjeta */
+.plato-card__body {
+    padding: 0.85rem 1rem 0.4rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.plato-card__nombre {
+    font-size: 0.93rem;
+    font-weight: 700;
+    color: var(--color-text);
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.plato-card__desc {
+    font-size: 0.76rem;
+    color: var(--color-muted);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    flex: 1;
+}
+
+.plato-card__precio {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    margin-top: 0.3rem;
+}
+
+/* Footer: counter + botón */
+.plato-card__footer {
+    padding: 0.5rem 1rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.plato-counter {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-shrink: 0;
+}
+
+.plato-counter__btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(40, 167, 69, 0.12);
+    color: var(--color-primary);
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-main);
+    line-height: 1;
+    transition:
+        background 0.2s ease,
+        transform 0.2s var(--easing-spring);
+}
+
+.plato-counter__btn:hover {
+    background: var(--color-primary);
+    color: #fff;
+    transform: scale(1.15);
+}
+
+.plato-counter__qty {
+    font-size: 0.9rem;
+    font-weight: 700;
+    min-width: 20px;
+    text-align: center;
+    color: var(--color-text);
+}
+
+/* Botón "Agregar al carrito" */
+.plato-add-btn {
+    flex: 1;
+    padding: 0.5rem 0.65rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-primary);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-main);
+    white-space: nowrap;
+    transition:
+        background 0.26s ease,
+        transform 0.26s var(--easing-spring),
+        box-shadow 0.26s ease;
+}
+
+.plato-add-btn:hover {
+    background: var(--color-primary-dark);
+    transform: scale(1.05) translateY(-1px);
+    box-shadow: 0 5px 16px rgba(40, 167, 69, 0.38);
+}
+
+.plato-add-btn:active {
+    transform: scale(0.96);
+    box-shadow: none;
+}
+
+/* ===================================================
+   RESPONSIVE — Planes y catálogo
+   =================================================== */
+@media (max-width: 960px) {
+    .productos-catalogo {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .planes-topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .planes-topbar h2 {
+        font-size: 1.6rem;
+    }
+
+    .plan-accordion-btn {
+        font-size: 1rem;
+        padding: 0.95rem 1.2rem;
+    }
+
+    .plan-panel-content {
+        padding: 1rem 1.1rem 1.5rem;
+    }
+
+    .productos-catalogo {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 520px) {
+    .productos-catalogo {
+        grid-template-columns: 1fr;
     }
 }
