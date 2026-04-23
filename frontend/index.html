@@ -191,7 +191,106 @@
       if (id && rol === 1) {
         window.location.replace('./admin.html');
       }
-    })();
+
+
+      // Actualizar UI según estado de login
+      actualizarUILogin();
+    });
+
+    // Funciones de modal de login
+    function abrirModalLogin() {
+      document.getElementById('loginModal').classList.add('show');
+    }
+
+    function cerrarModalLogin() {
+      document.getElementById('loginModal').classList.remove('show');
+      document.getElementById('formLoginModal').reset();
+      document.getElementById('loginErrorMsg').classList.remove('show');
+      document.getElementById('loginLoading').classList.remove('show');
+    }
+
+    async function manejarLoginModal(e) {
+      e.preventDefault();
+
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const errorMsg = document.getElementById('loginErrorMsg');
+      const loading = document.getElementById('loginLoading');
+
+      errorMsg.classList.remove('show');
+      loading.classList.add('show');
+
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre: username, contraseña: password })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Error al iniciar sesión');
+        }
+
+        // Guardar datos
+        localStorage.setItem('usuario_id', data.usuario.id);
+        localStorage.setItem('usuario_nombre', data.usuario.nombre);
+        localStorage.setItem('usuario_rol', data.usuario.id_rol);
+        localStorage.setItem('usuario_email', data.usuario.email);
+
+        // Redirigir según rol
+        if (data.usuario.id_rol === 1) {
+          window.location.href = 'index-admin.html';
+        } else {
+          cerrarModalLogin();
+          // Recargar página para actualizar UI
+          window.location.reload();
+        }
+
+      } catch (error) {
+        console.error('Error:', error);
+        errorMsg.textContent = error.message;
+        errorMsg.classList.add('show');
+        loading.classList.remove('show');
+      }
+    }
+
+    function actualizarUILogin() {
+      const authContainer = document.getElementById('authContainer');
+      const usuarioId = localStorage.getItem('usuario_id');
+      const usuarioNombre = localStorage.getItem('usuario_nombre');
+
+      if (usuarioId) {
+        // Usuario logueado
+        authContainer.innerHTML = `
+          <div class="header-user-info">
+            <span>👤 ${usuarioNombre}</span>
+            <button class="logout-btn-header" onclick="cerrarSesion()">Salir</button>
+          </div>
+        `;
+        // Mantener sidebar cerrado (el usuario lo abre presionando el botón hamburguesa)
+        document.getElementById('sidebar').style.display = 'none';
+      } else {
+        // Sin loguear
+        authContainer.innerHTML = `
+          <button class="login-btn-header" onclick="abrirModalLogin()">🔐 Iniciar Sesión</button>
+        `;
+        // Ocultar sidebar
+        document.getElementById('sidebar').style.display = 'none';
+      }
+    }
+
+    // Cerrar modal al hacer click afuera
+    document.addEventListener('click', (e) => {
+      const modal = document.getElementById('loginModal');
+      if (e.target === modal) {
+        cerrarModalLogin();
+      }
+    });
+
+    
+ 
   </script>
 
 </body>
