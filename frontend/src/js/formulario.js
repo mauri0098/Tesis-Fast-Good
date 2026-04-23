@@ -305,7 +305,7 @@ Espero tu respuesta para confirmar mi pedido`;
 // ============================================================================
 
 async function enviarFormulario() {
-  const usuarioId = 'cabb426e-a977-411a-88b6-e1db2490d1b2';
+  const usuarioId = 'd9b1ae00-fda5-4488-86b3-90d769b47a02'; // Consumidor Final
 
   const carrito = obtenerCarritoDeStorage();
   const datos = obtenerDatosFormulario();
