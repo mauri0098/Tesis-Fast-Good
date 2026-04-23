@@ -22,14 +22,12 @@ body {
   min-height: 100vh;
 }
 
-/* Header y footer vienen de global.css */
-
 /* =========================================
-   MAIN TABLE LAYOUT
+   PAGE LAYOUT & CONTENEDORES GLOBALES
    ========================================= */
 .page-container {
-  padding: 2rem;
-  max-width: 1400px;
+  padding: 1.5rem 2rem;
+  max-width: 1300px;
   margin: 0 auto;
   width: 100%;
 }
@@ -38,87 +36,46 @@ body {
   background: var(--white);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 1.5rem;
+  padding: 1.2rem;
   overflow-x: auto;
 }
 
+/* =========================================
+   MAIN TABLE LAYOUT (Simétrico)
+   ========================================= */
 .standard-table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 1000px;
-  table-layout: fixed;
+  table-layout: fixed; /* Divide el espacio equitativamente */
 }
 
-/* Table Head - Diseño Sutil */
+/* Table Head - Letra Grande */
 .standard-table thead th {
   background-color: #e8f5e9;
-  /* Verde muy claro (Google Material Green 50) */
   color: #4CAF50;
-  /* Verde oscuro para texto */
   font-weight: 600;
   text-transform: uppercase;
-  font-size: 0.75rem;
-  padding: 1.1rem;
-  text-align: left;
+  font-size: 0.85rem; /* <-- LETRA GRANDE RECUPERADA */
+  padding: 0.9rem 0.4rem;
+  text-align: center;
   letter-spacing: 0.05em;
   border-bottom: 2px solid var(--primary-green);
 }
 
-.standard-table thead th:first-child {
-  border-top-left-radius: var(--radius);
-}
+.standard-table thead th:first-child { border-top-left-radius: var(--radius); }
+.standard-table thead th:last-child { border-top-right-radius: var(--radius); }
 
-.standard-table thead th:last-child {
-  border-top-right-radius: var(--radius);
-}
-
-/* Anchos fijos por columna */
-.standard-table thead th:nth-child(1),
-.standard-table tbody td:nth-child(1) { width: 75px; }   /* N° Pedido */
-
-.standard-table thead th:nth-child(2),
-.standard-table tbody td:nth-child(2) { width: 105px; }  /* Fecha */
-
-.standard-table thead th:nth-child(3),
-.standard-table tbody td:nth-child(3) { width: 150px; }  /* Cliente */
-
-.standard-table thead th:nth-child(4),
-.standard-table tbody td:nth-child(4) { width: 110px; }  /* Dirección */
-
-.standard-table thead th:nth-child(5),
-.standard-table tbody td:nth-child(5) { width: 105px; }  /* Teléfono */
-
-.standard-table thead th:nth-child(6),
-.standard-table tbody td:nth-child(6) { width: 175px; }  /* Mail */
-
-.standard-table thead th:nth-child(7),
-.standard-table tbody td:nth-child(7) { width: 160px; }  /* Viandas */
-
-.standard-table thead th:nth-child(8),
-.standard-table tbody td:nth-child(8) { width: 92px; }   /* Costo */
-
-.standard-table thead th:nth-child(9),
-.standard-table tbody td:nth-child(9) { width: 130px; }  /* Estado */
-
-.standard-table thead th:nth-child(10),
-.standard-table tbody td:nth-child(10) { width: 125px; } /* Método Pago */
-
-/* Table Body */
+/* =========================================
+   TABLE BODY & TIPOGRAFÍA
+   ========================================= */
 .standard-table tbody td {
-  padding: 1rem;
+  padding: 0.75rem 0.4rem;
   border-bottom: 1px solid var(--border-light);
-  font-size: 0.82rem;
+  font-size: 0.85rem; /* <-- LETRA GRANDE RECUPERADA */
   vertical-align: middle;
-  word-break: break-word;
-  overflow-wrap: break-word;
-  max-width: 0;
-}
-
-/* Mail: cortar si es muy largo */
-.standard-table tbody td:nth-child(6) {
-  font-size: 0.85rem;
-  word-break: break-all;
+  text-align: center;
+  word-wrap: break-word;
 }
 
 .standard-table tbody tr:last-child td {
@@ -129,7 +86,6 @@ body {
   background-color: #f1f8f3;
 }
 
-/* Especial Styling */
 .loading-text {
   text-align: center;
   font-style: italic;
@@ -137,63 +93,57 @@ body {
   padding: 2rem;
 }
 
+/* Listas de Viandas */
 ul.ingredientes-list {
-  padding-left: 1rem;
+  padding-left: 0;
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.85rem; /* <-- LETRA GRANDE RECUPERADA */
   color: #555;
+  list-style-position: inside;
+  text-align: left;
+  display: inline-block;
 }
 
 /* =========================================
    BADGES & STATUS
    ========================================= */
 .badge-status {
-  padding: 0.25rem 0.75rem;
+  padding: 0.35rem 0.6rem;
   border-radius: 50px;
-  font-size: 0.75rem;
+  font-size: 0.75rem; 
   font-weight: 700;
   display: inline-block;
   text-transform: uppercase;
+  word-break: keep-all;
 }
 
-/* Colores Estado */
-.bg-reg {
-  background: #e2e3e5;
-  color: #383d41;
-}
-
-.bg-prep {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.bg-listo {
-  background: #d4edda;
-  color: #155724;
-}
+.bg-reg { background: #e2e3e5; color: #383d41; }
+.bg-prep { background: #fff3cd; color: #856404; }
+.bg-listo { background: #d4edda; color: #155724; }
 
 /* Método Pago Info */
 .pago-info {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  align-items: center;
 }
 
 .metodo-tag {
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.85rem; /* <-- LETRA GRANDE RECUPERADA */
 }
 
 .status-paid {
   color: var(--primary-green);
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 0.75rem; 
 }
 
 .status-pending {
   color: #dc3545;
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 0.75rem; 
 }
 
 /* =========================================
@@ -201,14 +151,14 @@ ul.ingredientes-list {
    ========================================= */
 .select-estado {
   width: 100%;
-  padding: 0.3rem 0.5rem;
+  padding: 0.4rem 0.1rem;
   border: none;
   border-radius: 50px;
   font-family: 'Poppins', sans-serif;
-  font-size: 0.72rem;
+  font-size: 0.72rem; /* Tamaño optimizado para que no se corte el texto */
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: -0.02em;
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
@@ -217,13 +167,8 @@ ul.ingredientes-list {
   transition: opacity 0.15s;
 }
 
-.select-estado:hover {
-  opacity: 0.85;
-}
-
-.select-estado:focus {
-  box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.35);
-}
+.select-estado:hover { opacity: 0.85; }
+.select-estado:focus { box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.35); }
 
 /* =========================================
    FILTRO CLIENTE
@@ -247,10 +192,7 @@ ul.ingredientes-list {
   width: 280px;
 }
 
-.filtro-fecha {
-  width: 150px;
-}
-
+.filtro-fecha { width: 150px; }
 .filtro-input:focus {
   outline: none;
   border-color: #28a745;
