@@ -112,14 +112,9 @@ function limpiarCarritoDeStorage() {
  * @returns {object} Objeto con los datos completados
  */
 function obtenerDatosFormulario() {
-  // 1. BLINDAJE DE IDs: Buscamos el elemento, y si no está, buscamos variantes comunes
-  // Así evitamos el error "Cannot read property 'value' of null"
-
-  // Para la fecha:
   const inputFecha = document.getElementById('fecha') || document.getElementById('fecha_entrega');
-
-  // Para el pago (Si no agregaste el select en el HTML, esto evita que explote)
   const inputPago = document.getElementById('metodo_pago') || document.getElementById('metodoPago');
+  const inputEntrega = document.getElementById('tipoEntrega');
 
   return {
     nombre: document.getElementById('nombre').value.trim(),
@@ -127,11 +122,9 @@ function obtenerDatosFormulario() {
     direccion: document.getElementById('direccion').value.trim(),
     telefono: document.getElementById('telefono').value.trim(),
     email: document.getElementById('email').value.trim(),
-
-    // Usamos las variables seguras
     fechaEntrega: inputFecha ? inputFecha.value : '',
-    metodoPago: inputPago ? inputPago.value : 'Efectivo', // Si no hay select, asume Efectivo
-
+    metodoPago: inputPago ? inputPago.value : 'Efectivo',
+    tipoEntrega: inputEntrega ? inputEntrega.value : 'Delivery',
     observaciones: document.getElementById('observaciones').value
   };
 }
@@ -205,17 +198,16 @@ function armarObjetoPedido(datos, carrito, usuarioId) {
 
   return {
     usuario_id: usuarioId,
-    // estado_id: 1, // El backend ahora lo maneja por default
     total: total,
     observaciones: datos.observaciones,
     items: items,
-    // Nuevos campos para backend actualizado
     cliente_nombre: `${datos.nombre} ${datos.apellido}`,
     cliente_direccion: datos.direccion,
     cliente_telefono: datos.telefono,
     cliente_email: datos.email,
     fecha_entrega: datos.fechaEntrega,
-    metodo_pago: datos.metodoPago
+    metodo_pago: datos.metodoPago,
+    tipo_entrega: datos.tipoEntrega
   };
 }
 
@@ -252,8 +244,9 @@ function limpiarFormulario() {
 }
 
 // ============================================================================
-// 7. FUNCIÓN PRINCIPAL - Enviar Formulario
+// 7. WHATSAPP - Armar y enviar mensaje
 // ============================================================================
+
 
 /**
  * Función principal que coordina todo el proceso de crear un pedido
@@ -267,45 +260,93 @@ async function enviarFormulario() {
   const GUEST_UUID = 'd9b1ae00-fda5-4488-86b3-90d769b47a02';
   const usuarioId = localStorage.getItem('usuario_id') || GUEST_UUID;
 
-  // Obtener datos
+const WHATSAPP_NUMERO = '5493512294243'; // Villa Allende: 0351 229-4243
+const EMAIL_NEGOCIO = 'tesisfastgood@gmail.com';
+const ALIAS_TRANSFERENCIA = 'FAST.GOOD.VA cuenta a nombre de Fast and Good VA SRL';
+
+function redirigirAWhatsApp(pedidoId, datos, carrito) {
+  const ahora = new Date();
+  const fechaFormateada = ahora.toLocaleString('es-AR', {
+    day: '2-digit', month: '2-digit', year: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: true
+  }) + 'hs';
+
+  const total = calcularTotalPedido(carrito);
+  const totalFormateado = total.toLocaleString('es-AR');
+
+  const lineasItems = carrito
+    .map(item => `${item.cantidad}x ${item.nombre}: $${(item.precio * item.cantidad).toLocaleString('es-AR')}`)
+    .join('\n');
+
+  const lineaAlias = datos.metodoPago === 'Transferencia'
+    ? `► ALIAS: ${ALIAS_TRANSFERENCIA}\n\n`
+    : '\n';
+
+  const lineaEntrega = datos.tipoEntrega === 'Delivery'
+    ? `Entrega: Delivery\nDirección: ${datos.direccion}`
+    : 'Entrega: Retiro en local';
+
+  const mensaje =
+`¡Hola! Te paso el resumen de mi pedido
+
+Pedido: #${pedidoId}
+Tienda: fastandgood
+Fecha: ${fechaFormateada}
+Nombre: ${datos.nombre} ${datos.apellido}
+Teléfono: ${datos.telefono}
+
+Forma de pago: ${datos.metodoPago}
+Total: $${totalFormateado}
+${lineaAlias}${lineaEntrega}
+
+mail: ${EMAIL_NEGOCIO}
+
+Mi pedido es
+
+${lineasItems}
+
+TOTAL: $${totalFormateado}
+
+Espero tu respuesta para confirmar mi pedido`;
+
+  const url = `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(mensaje)}`;
+  window.open(url, '_blank');
+}
+
+// ============================================================================
+// 8. FUNCIÓN PRINCIPAL - Enviar Formulario
+// ============================================================================
+
+async function enviarFormulario() {
+  const usuarioId = 'd9b1ae00-fda5-4488-86b3-90d769b47a02'; // Consumidor Final
+
+
   const carrito = obtenerCarritoDeStorage();
   const datos = obtenerDatosFormulario();
 
-  // Validar carrito y datos
-  if (!validarCarritoNoVacio(carrito)) {
-    return;
-  }
+  if (!validarCarritoNoVacio(carrito)) return;
+  if (!validarDatosObligatorios(datos)) return;
 
-  if (!validarDatosObligatorios(datos)) {
-    return;
-  }
-
-  // Armar el objeto pedido
   const pedido = armarObjetoPedido(datos, carrito, usuarioId);
 
   try {
-    // Enviar al servidor
     const respuestaServidor = await enviarPedidoAlServidor(pedido);
+    const pedidoId = respuestaServidor.pedido?.id || '—';
 
-    // Mostrar confirmación
-    alert(`✅ Gracias ${datos.nombre} ${datos.apellido}. Tu pedido fue registrado correctamente.`);
-
-    // Guardar comanda para que cocina la vea
     guardarComandaParaCocina(respuestaServidor.pedido, carrito);
-
-    // Limpiar datos temporales
     limpiarCarritoDeStorage();
     limpiarFormulario();
 
+    // Redirigir a WhatsApp con el resumen del pedido
+    redirigirAWhatsApp(pedidoId, datos, carrito);
+
   } catch (error) {
-    // Mostrar error si algo falla
     alert('❌ ' + error.message);
   }
 }
 
 // ============================================================================
-// 8. EXPORTAR FUNCIONES PARA HTML
+// 9. EXPORTAR FUNCIONES PARA HTML
 // ============================================================================
 
-// Permitir que el HTML llame a esta función desde onclick
-window.enviarFormulario = enviarFormulario;
+window.enviarFormulario = enviarFormulario;``}

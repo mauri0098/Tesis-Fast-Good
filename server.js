@@ -214,7 +214,7 @@ app.post('/api/pedidos', async (req, res) => {// Endpoint para crear un nuevo pe
   } = req.body;
 
   // UUID fijo si no viene usuario_id
-  const finalUserId = usuario_id || 'cabb426e-a977-411a-88b6-e1db2490d1b2';// Esto es para no romper la inserción si el frontend no envía un usuario_id (ejemplo: pedidos desde el admin)
+  const finalUserId = usuario_id || 'd9b1ae00-fda5-4488-86b3-90d769b47a02'; // "Consumidor Final" para pedidos públicos sin login
 
   const { data: pedido, error: errorPedido } = await supabase
     .from('pedidos')
