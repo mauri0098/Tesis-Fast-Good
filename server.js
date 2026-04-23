@@ -29,18 +29,28 @@ app.post('/api/login', async (req, res) => {
   }
 
   try {
-    // Buscar usuario por nombre (case-insensitive)
-    const { data: usuarios, error: errorBusqueda } = await supabase
+    // Buscar usuario por nombre o email (case-insensitive)
+    let { data: porNombre } = await supabase
       .from('usuarios')
-      .select('id, nombre, apellido, email, id_rol, contraseña')
-      .ilike('nombre', nombre)  // ilike = case-insensitive
-      .single();
+      .select('id, nombre, apellido, email, id_rol, contraseña, telefono, direccion')
+      .ilike('nombre', nombre)
+      .limit(1);
 
-    console.log('Error de búsqueda:', errorBusqueda);
+    let usuarios = porNombre?.[0];
+
+    if (!usuarios) {
+      const { data: porEmail } = await supabase
+        .from('usuarios')
+        .select('id, nombre, apellido, email, id_rol, contraseña, telefono, direccion')
+        .ilike('email', nombre)
+        .limit(1);
+      usuarios = porEmail?.[0];
+    }
+
     console.log('Usuario encontrado:', usuarios);
 
-    if (errorBusqueda || !usuarios) {
-      console.log('Usuario no encontrado o error en BD');
+    if (!usuarios) {
+      console.log('Usuario no encontrado');
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
@@ -64,12 +74,57 @@ app.post('/api/login', async (req, res) => {
         nombre: usuarios.nombre,
         apellido: usuarios.apellido,
         email: usuarios.email,
-        id_rol: usuarios.id_rol
+        id_rol: usuarios.id_rol,
+        telefono: usuarios.telefono || '',
+        direccion: usuarios.direccion || ''
       }
     });
 
   } catch (error) {
     console.error('Error en login:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// POST /api/register → Crear cuenta de usuario (rol 4)
+app.post('/api/register', async (req, res) => {
+  const { nombre, apellido, direccion, telefono, email, contraseña } = req.body;
+
+  if (!nombre || !apellido || !email || !contraseña) {
+    return res.status(400).json({ error: 'Nombre, apellido, email y contraseña son requeridos' });
+  }
+
+  try {
+    // Verificar si ya existe una cuenta con ese email
+    const { data: existente } = await supabase
+      .from('usuarios')
+      .select('id')
+      .ilike('email', email)
+      .limit(1);
+
+    if (existente && existente.length > 0) {
+      return res.status(400).json({ error: 'Ya existe una cuenta con ese email' });
+    }
+
+    // Crear usuario con rol 4 (Usuario)
+    const { data: nuevoUsuario, error } = await supabase
+      .from('usuarios')
+      .insert([{ nombre, apellido, email, contraseña, telefono, direccion, id_rol: 4 }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error al registrar:', error);
+      return res.status(500).json({ error: 'Error al crear la cuenta: ' + error.message });
+    }
+
+    return res.json({
+      mensaje: 'Cuenta creada exitosamente',
+      usuario: { id: nuevoUsuario.id, nombre: nuevoUsuario.nombre, email: nuevoUsuario.email }
+    });
+
+  } catch (error) {
+    console.error('Error en registro:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });
   }
 });

@@ -120,3 +120,50 @@ body {
 .loading.show {
   display: block;
 }
+
+/* ===== TABS ===== */
+.tab-buttons {
+  display: flex;
+  margin-bottom: 2rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 2px solid var(--color-primary);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 0.75rem;
+  border: none;
+  background: transparent;
+  color: var(--color-primary);
+  font-family: var(--font-main);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tab-btn.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+.tab-btn:hover:not(.active) {
+  background: rgba(40, 167, 69, 0.1);
+}
+
+/* ===== MENSAJE ÉXITO ===== */
+.success-message {
+  color: #2e7d32;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  display: none;
+  padding: 0.5rem;
+  background: #e8f5e9;
+  border-left: 3px solid #2e7d32;
+  border-radius: var(--radius-sm);
+}
+
+.success-message.show {
+  display: block;
+}
