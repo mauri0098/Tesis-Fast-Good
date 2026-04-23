@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function setVacio(msg) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${msg}</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">${msg}</td></tr>`;
     contadorBadge.textContent = '0';
   }
 
@@ -85,16 +85,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const filas = detalles.length > 0 ? detalles : [null];
 
     filas.forEach(det => {
-      const nombrePlato = det?.productos?.nombre || '—';
-      const cantidad    = det ? `x${det.cantidad}` : '';
+      const codigo   = det?.productos?.codigo_plato || '—';
+      const nombre   = det?.productos?.nombre || '—';
+      const cantidad = det ? `x${det.cantidad}` : '';
 
       const tr = document.createElement('tr');
       tr.dataset.pedidoId = pedido.id;
       tr.innerHTML = `
         <td><strong>#${pedido.id}</strong></td>
         <td>${fecha}</td>
+        <td><strong>${codigo}</strong></td>
         <td>
-          <span class="plato-nombre">${nombrePlato}</span>
+          <span class="plato-nombre">${nombre}</span>
           <br><span class="plato-cant">${cantidad}</span>
         </td>
         <td>${cocineroNames}</td>
@@ -137,7 +139,7 @@ window.marcarListo = async function (pedidoId, btnEl) {
 
     if (actual === 0) {
       const tbody = document.getElementById('tablaTareas');
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No hay pedidos en preparación en este momento.</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No hay pedidos en preparación en este momento.</td></tr>';
     }
 
   } catch {

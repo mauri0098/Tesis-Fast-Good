@@ -277,7 +277,7 @@ app.get('/api/pedidos', async (req, res) => {
       pedido_detalles (
         cantidad,
         precio_unitario,
-        productos ( nombre )
+        productos ( nombre, codigo_plato )
       )
     `)
     .order('fecha_pedido', { ascending: false });

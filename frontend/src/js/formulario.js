@@ -264,8 +264,8 @@ function limpiarFormulario() {
  * 5. Limpia localStorage
  */
 async function enviarFormulario() {
-  // Usuario fijo (esto debería venir de autenticación en futuro)
-  const usuarioId = 'cabb426e-a977-411a-88b6-e1db2490d1b2';
+  const GUEST_UUID = 'd9b1ae00-fda5-4488-86b3-90d769b47a02';
+  const usuarioId = localStorage.getItem('usuario_id') || GUEST_UUID;
 
   // Obtener datos
   const carrito = obtenerCarritoDeStorage();

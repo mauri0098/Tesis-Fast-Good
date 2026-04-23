@@ -115,7 +115,7 @@ function confirmarPedido() {
     }
 
     persistirDatos('FG_CARRITO_ACTUAL', carrito);
-    window.location.href = './formulario.html';
+    window.location.href = '/pages/formulario.html';
 }
 
 // ====================================================================
