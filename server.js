@@ -391,6 +391,96 @@ app.get('/api/categorias-insumos', async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
+/* ======================================================
+   API RECETAS
+   ====================================================== */
+
+// GET /api/recetas → productos que tienen receta, con sus insumos
+app.get('/api/recetas', async (req, res) => {
+  const { data, error } = await supabase
+    .from('productos')
+    .select(`
+      id_producto:id,
+      nombre_producto:nombre,w
+      plan:planes ( nombre, codigo:codigo_plan ),
+      insumos:producto_insumo (
+        id_insumo,
+        cantidad_necesaria,
+        unidad_medida,
+        insumos ( nombre, stock_actual )
+      )
+    `)
+    .order('nombre', { ascending: true });
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  // Solo productos que tienen al menos un insumo en la receta
+  const conReceta = data.filter(p => p.insumos && p.insumos.length > 0);
+
+  // Aplanar los datos anidados de insumos al formato que espera el frontend
+  const resultado = conReceta.map(p => ({
+    id_producto:    p.id_producto,
+    nombre_producto: p.nombre_producto,
+    plan:           p.plan,
+    insumos: (p.insumos || []).map(ins => ({
+      id_insumo:          ins.id_insumo,
+      nombre_insumo:      ins.insumos ? ins.insumos.nombre      : '-',
+      cantidad_necesaria: ins.cantidad_necesaria,
+      unidad_medida:      ins.unidad_medida,
+      stock_actual:       ins.insumos ? ins.insumos.stock_actual : 0
+    }))
+  }));
+
+  res.json(resultado);
+});
+
+// POST /api/recetas → crear o reemplazar la receta de un producto
+// Body: { id_producto, insumos: [{ id_insumo, cantidad_necesaria, unidad_medida }] }
+app.post('/api/recetas', async (req, res) => {
+  const { id_producto, insumos } = req.body;
+
+  if (!id_producto || !insumos || insumos.length === 0) {
+    return res.status(400).json({ error: 'id_producto e insumos son requeridos' });
+  }
+
+  // 1. Borrar la receta anterior del producto (si existe)
+  const { error: errorDelete } = await supabase
+    .from('producto_insumo')
+    .delete()
+    .eq('id_producto', id_producto);
+
+  if (errorDelete) return res.status(500).json({ error: errorDelete.message });
+
+  // 2. Insertar los nuevos insumos
+  const filas = insumos.map(ins => ({
+    id_producto,
+    id_insumo:          ins.id_insumo,
+    cantidad_necesaria: ins.cantidad_necesaria,
+    unidad_medida:      ins.unidad_medida
+  }));
+
+  const { error: errorInsert } = await supabase
+    .from('producto_insumo')
+    .insert(filas);
+
+  if (errorInsert) return res.status(500).json({ error: errorInsert.message });
+
+  res.json({ mensaje: 'Receta guardada correctamente' });
+});
+
+// DELETE /api/recetas/:idProducto → borrar receta de un producto
+app.delete('/api/recetas/:idProducto', async (req, res) => {
+  const { idProducto } = req.params;
+
+  const { error } = await supabase
+    .from('producto_insumo')
+    .delete()
+    .eq('id_producto', idProducto);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json({ mensaje: 'Receta eliminada correctamente' });
+});
 
 /* ======================================================
    SERVIR FRONTEND (ESTÁTICO)
