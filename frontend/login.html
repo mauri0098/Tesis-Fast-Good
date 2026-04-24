@@ -14,7 +14,18 @@
 </head>
 
 <body>
+
+  <!-- Página de inicio como fondo -->
+  <iframe src="index.html" id="bg-frame" tabindex="-1" aria-hidden="true"></iframe>
+  <!-- Capa oscura semitransparente encima del iframe -->
+  <div class="bg-overlay"></div>
+
+  <div class="scroll-wrapper">
   <div class="login-container">
+
+    <!-- Botón cerrar → vuelve al inicio -->
+    <a href="index.html" class="btn-cerrar-login" title="Volver al inicio">✕</a>
+
     <div class="login-header">
       <img src="src/assets/img/logo.webp" alt="Fast Good Logo" />
       <h1>FAST GOOD</h1>
@@ -90,6 +101,7 @@
       </form>
     </div>
   </div>
+  </div><!-- fin scroll-wrapper -->
 
   <script src="src/js/auth.js"></script>
   <script>
