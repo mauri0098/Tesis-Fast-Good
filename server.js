@@ -461,6 +461,78 @@ app.get('/api/categorias-insumos', async (req, res) => {
 });
 
 /* ======================================================
+   API MOVIMIENTOS DE STOCK
+   ====================================================== */
+
+// GET /api/movimientos-stock → listar todos los movimientos
+app.get('/api/movimientos-stock', async (req, res) => {
+  const { data, error } = await supabase
+    .from('movimientos_stock')
+    .select(`
+      id, tipo, cantidad, motivo, fecha,
+      insumos ( id, nombre, unidad_medida )
+    `)
+    .order('fecha', { ascending: false });
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+// POST /api/movimientos-stock → registrar entrada o salida, actualiza stock_actual
+app.post('/api/movimientos-stock', async (req, res) => {
+  const { id_insumo, tipo, cantidad, motivo, fecha } = req.body;
+
+  if (!id_insumo || !tipo || !cantidad) {
+    return res.status(400).json({ error: 'id_insumo, tipo y cantidad son requeridos' });
+  }
+
+  try {
+    const { data: insumo, error: errInsumo } = await supabase
+      .from('insumos')
+      .select('id, stock_actual')
+      .eq('id', id_insumo)
+      .single();
+
+    if (errInsumo || !insumo) {
+      return res.status(404).json({ error: 'Insumo no encontrado' });
+    }
+
+    const nuevoStock = tipo === 'entrada'
+      ? Number(insumo.stock_actual) + Number(cantidad)
+      : Number(insumo.stock_actual) - Number(cantidad);
+
+    if (nuevoStock < 0) {
+      return res.status(400).json({ error: 'Stock insuficiente para registrar la salida' });
+    }
+
+    const { data: movimiento, error: errMov } = await supabase
+      .from('movimientos_stock')
+      .insert([{
+        id_insumo,
+        tipo,
+        cantidad: Number(cantidad),
+        motivo: motivo || null,
+        fecha: fecha || new Date().toISOString()
+      }])
+      .select()
+      .single();
+
+    if (errMov) return res.status(500).json({ error: errMov.message });
+
+    const { error: errUpdate } = await supabase
+      .from('insumos')
+      .update({ stock_actual: nuevoStock })
+      .eq('id', id_insumo);
+
+    if (errUpdate) return res.status(500).json({ error: errUpdate.message });
+
+    res.json({ mensaje: 'Movimiento registrado', movimiento });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ======================================================
    SERVIR FRONTEND (ESTÁTICO)
    ====================================================== */
 

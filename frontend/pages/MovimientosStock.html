@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Movimientos de Stock - Fast Good</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../src/css/global.css" />
+
+  <style>
+    /* ── Layout ── */
+    .page-container { max-width: 1300px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    /* ── Barra superior de acciones ── */
+    .acciones-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .acciones-bar h2 { font-size: 1.4rem; color: var(--color-primary); }
+    .acciones-btns { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+    .btn-entrada {
+      padding: 0.55rem 1.2rem; border: none; border-radius: var(--radius-sm);
+      background: #28a745; color: white; font-family: var(--font-main);
+      font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-entrada:hover { background: #218838; }
+
+    .btn-salida {
+      padding: 0.55rem 1.2rem; border: none; border-radius: var(--radius-sm);
+      background: #dc3545; color: white; font-family: var(--font-main);
+      font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-salida:hover { background: #c82333; }
+
+    /* ── Filtros ── */
+    .filtros-bar {
+      display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem;
+    }
+    .filtros-bar input, .filtros-bar select {
+      padding: 0.5rem 0.9rem; border: 1.5px solid #ddd; border-radius: var(--radius-sm);
+      font-family: var(--font-main); font-size: 0.88rem; background: white;
+    }
+    .filtros-bar input:focus, .filtros-bar select:focus {
+      outline: none; border-color: var(--color-primary);
+    }
+
+    /* ── Tabla ── */
+    .table-wrapper { overflow-x: auto; border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
+    table { width: 100%; border-collapse: collapse; background: white; }
+    thead th {
+      background: var(--color-primary); color: white; padding: 0.85rem 1rem;
+      text-align: left; font-size: 0.85rem; font-weight: 600; white-space: nowrap;
+    }
+    tbody td { padding: 0.75rem 1rem; border-bottom: 1px solid #f0f0f0; font-size: 0.88rem; vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: #fafafa; }
+
+    /* Filas coloreadas por tipo */
+    tbody tr.fila-entrada { border-left: 4px solid #28a745; }
+    tbody tr.fila-salida  { border-left: 4px solid #dc3545; }
+
+    /* Badge tipo */
+    .badge {
+      display: inline-block; padding: 0.2rem 0.7rem;
+      border-radius: var(--radius-pill); font-size: 0.78rem; font-weight: 700;
+    }
+    .badge-entrada { background: #d4edda; color: #155724; }
+    .badge-salida  { background: #f8d7da; color: #721c24; }
+
+    .empty-row td { text-align: center; padding: 3rem; color: var(--color-muted); }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.50); align-items: center;
+      justify-content: center; z-index: 9999;
+    }
+    .modal-overlay.visible { display: flex; }
+    .modal-box {
+      background: white; border-radius: var(--radius-md);
+      padding: 2rem; width: 90%; max-width: 480px;
+      box-shadow: var(--shadow-lg);
+      animation: modal-spring-in 0.35s var(--easing-spring,cubic-bezier(.34,1.56,.64,1)) both;
+    }
+    @keyframes modal-spring-in {
+      from { opacity:0; transform: translateY(-40px) scale(0.9); }
+      to   { opacity:1; transform: translateY(0)    scale(1);    }
+    }
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 2px solid var(--color-primary); padding-bottom: 0.75rem; margin-bottom: 1.5rem;
+    }
+    .modal-header h3 { font-size: 1.1rem; color: var(--color-primary); }
+    .modal-close-btn {
+      background: none; border: none; font-size: 1.3rem; cursor: pointer;
+      color: #888; border-radius: 4px; padding: 0 0.3rem;
+    }
+    .modal-close-btn:hover { color: #d32f2f; background: #fdecea; }
+
+    .form-field { margin-bottom: 1.1rem; }
+    .form-field label {
+      display: block; font-size: 0.85rem; font-weight: 600;
+      color: var(--color-text); margin-bottom: 0.35rem;
+    }
+    .form-field input, .form-field select, .form-field textarea {
+      width: 100%; padding: 0.65rem 0.85rem;
+      border: 1.5px solid #ddd; border-radius: var(--radius-sm);
+      font-family: var(--font-main); font-size: 0.9rem;
+    }
+    .form-field input:focus, .form-field select:focus, .form-field textarea:focus {
+      outline: none; border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(40,167,69,0.1);
+    }
+    .form-field textarea { resize: vertical; min-height: 70px; }
+
+    .error-msg {
+      display: none; color: #d32f2f; font-size: 0.85rem;
+      background: #fdecea; border-left: 3px solid #d32f2f;
+      padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); margin-top: 0.5rem;
+    }
+    .error-msg.visible { display: block; }
+
+    .btn-confirmar {
+      width: 100%; padding: 0.8rem; border: none; border-radius: var(--radius-sm);
+      font-family: var(--font-main); font-size: 1rem; font-weight: 700; cursor: pointer;
+      transition: background 0.2s, transform 0.15s; margin-top: 0.5rem;
+      color: white;
+    }
+    .btn-confirmar:hover { transform: translateY(-1px); }
+    .btn-confirmar:active { transform: translateY(0); }
+    .btn-confirmar.entrada { background: #28a745; }
+    .btn-confirmar.entrada:hover { background: #218838; }
+    .btn-confirmar.salida  { background: #dc3545; }
+    .btn-confirmar.salida:hover  { background: #c82333; }
+
+    /* Nota informativa en modal salida */
+    .info-nota {
+      background: #fff3cd; border-left: 3px solid #ff9800;
+      padding: 0.6rem 0.85rem; border-radius: var(--radius-sm);
+      font-size: 0.82rem; color: #6d4c00; margin-bottom: 1rem;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="container-centrado">
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <img src="../src/assets/img/logo.webp" alt="Fast Good" style="height:40px; border-radius:4px;" onerror="this.style.display='none'" />
+        <h1>Movimientos de Stock</h1>
+      </div>
+      <nav>
+        <a href="../admin.html">← Volver al Panel</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page-container">
+
+    <!-- Barra de acciones -->
+    <div class="acciones-bar">
+      <h2>Registro de Entradas y Salidas</h2>
+      <div class="acciones-btns">
+        <button class="btn-entrada" onclick="abrirModal('entrada')">+ Registrar Entrada</button>
+        <button class="btn-salida"  onclick="abrirModal('salida')">− Registrar Salida</button>
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filtros-bar">
+      <input type="text" id="filtroInsumo" placeholder="Buscar por insumo..." oninput="aplicarFiltros()" />
+      <select id="filtroTipo" onchange="aplicarFiltros()">
+        <option value="">Todos los movimientos</option>
+        <option value="entrada">Solo entradas</option>
+        <option value="salida">Solo salidas</option>
+      </select>
+      <input type="date" id="filtroDesde" onchange="aplicarFiltros()" title="Desde" />
+      <input type="date" id="filtroHasta" onchange="aplicarFiltros()" title="Hasta" />
+    </div>
+
+    <!-- Tabla -->
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha y Hora</th>
+            <th>Insumo</th>
+            <th>Tipo</th>
+            <th>Cantidad</th>
+            <th>Unidad</th>
+            <th>Motivo</th>
+          </tr>
+        </thead>
+        <tbody id="tablaBody">
+          <tr class="empty-row"><td colspan="6">Cargando movimientos...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MODAL MOVIMIENTO -->
+  <div id="modalMovimiento" class="modal-overlay" onclick="cerrarModalSiOverlay(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modalTitulo">Registrar Entrada</h3>
+        <button class="modal-close-btn" onclick="cerrarModal()">✕</button>
+      </div>
+
+      <div id="notaSalida" class="info-nota" style="display:none;">
+        ⚠️ Esta salida descontará la cantidad del stock actual del insumo.
+      </div>
+
+      <div class="form-field">
+        <label for="selectInsumo">Insumo</label>
+        <select id="selectInsumo" required>
+          <option value="">Seleccioná un insumo...</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label for="inputCantidad">Cantidad</label>
+        <input type="number" id="inputCantidad" min="0.01" step="0.01" placeholder="Ej: 10" required />
+      </div>
+
+      <div class="form-field">
+        <label for="inputMotivo">Motivo <span style="font-weight:400; color:var(--color-muted);">(opcional)</span></label>
+        <textarea id="inputMotivo" placeholder="Ej: Compra semanal, Preparación de pedido #012..."></textarea>
+      </div>
+
+      <div class="form-field">
+        <label for="inputFecha">Fecha</label>
+        <input type="datetime-local" id="inputFecha" required />
+      </div>
+
+      <div id="modalError" class="error-msg"></div>
+
+      <button id="btnConfirmar" class="btn-confirmar entrada" onclick="guardarMovimiento()">
+        Confirmar Entrada
+      </button>
+    </div>
+  </div>
+
+  <footer>
+    <p>&copy; 2025 Fast Good - Panel de Administración</p>
+  </footer>
+
+  <script src="../src/js/MovimientosStock.js"></script>
+</body>
+
+</html>
