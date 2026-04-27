@@ -121,6 +121,11 @@ function abrirModal(tipo) {
   document.getElementById('modalTitulo').textContent  = esEntrada ? 'Registrar Entrada' : 'Registrar Salida';
   document.getElementById('notaSalida').style.display = esEntrada ? 'none' : 'block';
 
+  // Campo de costo solo en entradas
+  document.getElementById('grupoCosto').style.display        = esEntrada ? 'block' : 'none';
+  document.getElementById('inputCostoUnit').value            = '';
+  document.getElementById('costoTotalDisplay').style.display = 'none';
+
   const btn = document.getElementById('btnConfirmar');
   btn.textContent = esEntrada ? 'Confirmar Entrada' : 'Confirmar Salida';
   btn.className   = `btn-confirmar ${tipo}`;
@@ -131,6 +136,18 @@ function abrirModal(tipo) {
   setFechaActual();
 
   document.getElementById('modalMovimiento').classList.add('visible');
+}
+
+function actualizarCostoTotal() {
+  const cantidad = parseFloat(document.getElementById('inputCantidad').value) || 0;
+  const costo    = parseFloat(document.getElementById('inputCostoUnit').value) || 0;
+  const display  = document.getElementById('costoTotalDisplay');
+  if (costo > 0 && cantidad > 0) {
+    display.textContent   = `Costo total: $${(cantidad * costo).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+    display.style.display = 'block';
+  } else {
+    display.style.display = 'none';
+  }
 }
 
 function cerrarModal() {
@@ -162,16 +179,21 @@ async function guardarMovimiento() {
   btn.disabled    = true;
   btn.textContent = 'Guardando...';
 
+  const costoUnit = tipoActual === 'entrada'
+    ? parseFloat(document.getElementById('inputCostoUnit').value) || null
+    : null;
+
   try {
     const res = await fetch(`${API}/api/movimientos-stock`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        id_insumo: Number(id_insumo),
-        tipo: tipoActual,
-        cantidad: Number(cantidad),
-        motivo: motivo || null,
-        fecha: fecha ? new Date(fecha).toISOString() : new Date().toISOString()
+        id_insumo:     Number(id_insumo),
+        tipo:          tipoActual,
+        cantidad:      Number(cantidad),
+        motivo:        motivo || null,
+        fecha:         fecha ? new Date(fecha).toISOString() : new Date().toISOString(),
+        costo_unitario: costoUnit
       })
     });
 

@@ -592,7 +592,7 @@ app.get('/api/movimientos-stock', async (req, res) => {
 
 // POST /api/movimientos-stock → registrar entrada o salida, actualiza stock_actual
 app.post('/api/movimientos-stock', async (req, res) => {
-  const { id_insumo, tipo, cantidad, motivo, fecha } = req.body;
+  const { id_insumo, tipo, cantidad, motivo, fecha, costo_unitario } = req.body;
 
   if (!id_insumo || !tipo || !cantidad) {
     return res.status(400).json({ error: 'id_insumo, tipo y cantidad son requeridos' });
@@ -617,6 +617,9 @@ app.post('/api/movimientos-stock', async (req, res) => {
       return res.status(400).json({ error: 'Stock insuficiente para registrar la salida' });
     }
 
+    const costoUnit  = costo_unitario ? Number(costo_unitario) : null;
+    const costoTotal = costoUnit ? costoUnit * Number(cantidad) : null;
+
     const { data: movimiento, error: errMov } = await supabase
       .from('movimientos_stock')
       .insert([{
@@ -624,7 +627,9 @@ app.post('/api/movimientos-stock', async (req, res) => {
         tipo,
         cantidad: Number(cantidad),
         motivo: motivo || null,
-        fecha: fecha || new Date().toISOString()
+        fecha: fecha || new Date().toISOString(),
+        costo_unitario: costoUnit,
+        costo_total:    costoTotal
       }])
       .select()
       .single();
@@ -642,6 +647,89 @@ app.post('/api/movimientos-stock', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+/* ======================================================
+   API REPORTES
+   ====================================================== */
+
+app.get('/api/reportes/resumen', async (req, res) => {
+  const { desde, hasta } = req.query;
+  try {
+    let qP = supabase.from('pedidos').select('total').neq('id_estado', 5);
+    let qM = supabase.from('movimientos_stock').select('costo_total').eq('tipo', 'entrada').not('costo_total', 'is', null);
+    if (desde) { qP = qP.gte('fecha_pedido', desde + 'T00:00:00'); qM = qM.gte('fecha', desde + 'T00:00:00'); }
+    if (hasta) { qP = qP.lte('fecha_pedido', hasta + 'T23:59:59'); qM = qM.lte('fecha', hasta + 'T23:59:59'); }
+    const [{ data: pedidos }, { data: movs }] = await Promise.all([qP, qM]);
+    const ingresos = (pedidos || []).reduce((s, p) => s + Number(p.total), 0);
+    const gastos   = (movs    || []).reduce((s, m) => s + Number(m.costo_total), 0);
+    res.json({ ingresos, gastos, ganancia: ingresos - gastos, cantidad_pedidos: (pedidos || []).length });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/reportes/ingresos-por-dia', async (req, res) => {
+  const { desde, hasta } = req.query;
+  let query = supabase.from('pedidos').select('fecha_pedido, total').neq('id_estado', 5);
+  if (desde) query = query.gte('fecha_pedido', desde + 'T00:00:00');
+  if (hasta) query = query.lte('fecha_pedido', hasta + 'T23:59:59');
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+  const map = {};
+  (data || []).forEach(p => { const d = p.fecha_pedido.slice(0,10); map[d] = (map[d]||0) + Number(p.total); });
+  res.json(Object.entries(map).map(([dia,ingresos])=>({dia,ingresos})).sort((a,b)=>a.dia.localeCompare(b.dia)));
+});
+
+app.get('/api/reportes/gastos-por-dia', async (req, res) => {
+  const { desde, hasta } = req.query;
+  let query = supabase.from('movimientos_stock').select('fecha, costo_total')
+    .eq('tipo', 'entrada').not('costo_total', 'is', null);
+  if (desde) query = query.gte('fecha', desde + 'T00:00:00');
+  if (hasta) query = query.lte('fecha', hasta + 'T23:59:59');
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+  const map = {};
+  (data || []).forEach(m => { const d = m.fecha.slice(0,10); map[d] = (map[d]||0) + Number(m.costo_total); });
+  res.json(Object.entries(map).map(([dia,gastos])=>({dia,gastos})).sort((a,b)=>a.dia.localeCompare(b.dia)));
+});
+
+app.get('/api/reportes/productos-mas-vendidos', async (req, res) => {
+  const { desde, hasta } = req.query;
+  try {
+    let qP = supabase.from('pedidos').select('id').neq('id_estado', 5);
+    if (desde) qP = qP.gte('fecha_pedido', desde + 'T00:00:00');
+    if (hasta) qP = qP.lte('fecha_pedido', hasta + 'T23:59:59');
+    const { data: pedidos } = await qP;
+    const ids = (pedidos || []).map(p => p.id);
+    if (!ids.length) return res.json([]);
+    const { data: detalles, error } = await supabase
+      .from('pedido_detalles').select('cantidad, precio_unitario, productos ( nombre )').in('id_pedido', ids);
+    if (error) return res.status(500).json({ error: error.message });
+    const map = {};
+    (detalles || []).forEach(d => {
+      const n = d.productos?.nombre || 'Desconocido';
+      if (!map[n]) map[n] = { nombre: n, total_vendido: 0, ingresos: 0 };
+      map[n].total_vendido += Number(d.cantidad);
+      map[n].ingresos      += Number(d.cantidad) * Number(d.precio_unitario);
+    });
+    res.json(Object.values(map).sort((a,b)=>b.total_vendido-a.total_vendido).slice(0,10));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/reportes/stock-movimientos', async (req, res) => {
+  const { desde, hasta } = req.query;
+  let query = supabase.from('movimientos_stock').select('fecha, tipo, cantidad');
+  if (desde) query = query.gte('fecha', desde + 'T00:00:00');
+  if (hasta) query = query.lte('fecha', hasta + 'T23:59:59');
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+  const map = {};
+  (data || []).forEach(m => {
+    const d = m.fecha.slice(0,10);
+    if (!map[d]) map[d] = { dia: d, entradas: 0, salidas: 0 };
+    if (m.tipo === 'entrada') map[d].entradas += Number(m.cantidad);
+    else                       map[d].salidas  += Number(m.cantidad);
+  });
+  res.json(Object.values(map).sort((a,b)=>a.dia.localeCompare(b.dia)));
 });
 
 /* ======================================================

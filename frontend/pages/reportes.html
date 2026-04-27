@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reportes - Fast Good</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../src/css/global.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    .page-container { max-width: 1300px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    /* ── Filtros ── */
+    .filtros-bar {
+      display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+      background: white; padding: 1rem 1.5rem;
+      border-radius: var(--radius-md); box-shadow: var(--shadow-sm); margin-bottom: 1.75rem;
+    }
+    .filtros-bar label { font-weight: 600; font-size: 0.88rem; color: var(--color-text); white-space: nowrap; }
+    .filtros-bar input[type="date"] {
+      padding: 0.48rem 0.85rem; border: 1.5px solid #ddd;
+      border-radius: var(--radius-sm); font-family: var(--font-main); font-size: 0.88rem;
+    }
+    .filtros-bar input:focus { outline: none; border-color: var(--color-primary); }
+
+    .btn-filtro {
+      padding: 0.5rem 1.2rem; border: none; border-radius: var(--radius-sm);
+      font-family: var(--font-main); font-size: 0.88rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-aplicar  { background: var(--color-primary); color: white; }
+    .btn-aplicar:hover  { background: #218838; }
+    .btn-export   { background: #1565c0; color: white; }
+    .btn-export:hover   { background: #0d47a1; }
+    .btn-export2  { background: #6c757d; color: white; }
+    .btn-export2:hover  { background: #5a6268; }
+
+    /* ── Tarjetas KPI ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem; margin-bottom: 1.75rem;
+    }
+    @media (max-width: 900px)  { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 500px)  { .kpi-grid { grid-template-columns: 1fr; } }
+
+    .kpi-card {
+      background: white; border-radius: var(--radius-md);
+      padding: 1.25rem 1.4rem; box-shadow: var(--shadow-sm);
+      border-top: 5px solid #ddd; position: relative; overflow: hidden;
+    }
+    .kpi-card.ingresos  { border-top-color: #28a745; }
+    .kpi-card.gastos    { border-top-color: #dc3545; }
+    .kpi-card.ganancia  { border-top-color: #1565c0; }
+    .kpi-card.pedidos   { border-top-color: #ff9800; }
+
+    .kpi-label { font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
+                 letter-spacing: 0.06em; color: var(--color-muted); margin-bottom: 0.4rem; }
+    .kpi-valor { font-size: 1.75rem; font-weight: 700; color: var(--color-text); line-height: 1.1; }
+    .kpi-valor.negativo { color: #dc3545; }
+    .kpi-icono { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%);
+                 font-size: 2.8rem; opacity: 0.08; }
+
+    /* ── Gráficos ── */
+    .charts-row {
+      display: grid; grid-template-columns: 3fr 2fr;
+      gap: 1.25rem; margin-bottom: 1.25rem;
+    }
+    @media (max-width: 850px) { .charts-row { grid-template-columns: 1fr; } }
+
+    .chart-card {
+      background: white; border-radius: var(--radius-md);
+      padding: 1.4rem; box-shadow: var(--shadow-sm);
+    }
+    .chart-title {
+      font-size: 0.95rem; font-weight: 700; color: var(--color-text);
+      margin-bottom: 1rem; padding-bottom: 0.5rem;
+      border-bottom: 2px solid #f0f0f0;
+    }
+    .chart-wrap { position: relative; }
+
+    /* ── Loading overlay ── */
+    .loading-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(255,255,255,0.7); z-index: 500;
+      align-items: center; justify-content: center;
+      font-size: 1.1rem; font-weight: 600; color: var(--color-primary);
+    }
+    .loading-overlay.visible { display: flex; }
+
+    /* ── Print ── */
+    @media print {
+      header, nav, .filtros-bar, .btn-filtro { display: none !important; }
+      .page-container { padding: 0; }
+      .chart-card { box-shadow: none; border: 1px solid #ccc; }
+      .kpi-card   { box-shadow: none; border: 1px solid #ccc; border-top: 5px solid #333; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="loading-overlay" id="loadingOverlay">Cargando reportes...</div>
+
+  <header>
+    <div class="container-centrado">
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <img src="../src/assets/img/logo.webp" alt="Fast Good" style="height:40px; border-radius:4px;" onerror="this.style.display='none'" />
+        <h1>Reportes</h1>
+      </div>
+      <nav>
+        <a href="../admin.html">← Volver al Panel</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page-container">
+
+    <!-- Filtros -->
+    <div class="filtros-bar">
+      <label>Desde:</label>
+      <input type="date" id="filtroDesde" />
+      <label>Hasta:</label>
+      <input type="date" id="filtroHasta" />
+      <button class="btn-filtro btn-aplicar" onclick="cargarReportes()">Aplicar</button>
+      <div style="margin-left:auto; display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button class="btn-filtro btn-export"  onclick="exportarCSV('pedidos')">↓ Exportar Ingresos</button>
+        
+      </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card ingresos">
+        <div class="kpi-label">Ingresos</div>
+        <div class="kpi-valor" id="kpiIngresos">—</div>
+        <div class="kpi-icono">💰</div>
+      </div>
+      <div class="kpi-card gastos">
+        <div class="kpi-label">Gastos (compras)</div>
+        <div class="kpi-valor" id="kpiGastos">—</div>
+        <div class="kpi-icono">📦</div>
+      </div>
+      <div class="kpi-card ganancia">
+        <div class="kpi-label">Ganancia neta</div>
+        <div class="kpi-valor" id="kpiGanancia">—</div>
+        <div class="kpi-icono">📈</div>
+      </div>
+      <div class="kpi-card pedidos">
+        <div class="kpi-label">Pedidos</div>
+        <div class="kpi-valor" id="kpiPedidos">—</div>
+        <div class="kpi-icono">🧾</div>
+      </div>
+    </div>
+
+    <!-- Fila 1: Ingresos vs Gastos + Top Productos -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">📊 Ingresos vs Gastos por día</div>
+        <div class="chart-wrap" style="height:280px;">
+          <canvas id="chartIngresosGastos"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🏆 Productos más vendidos</div>
+        <div class="chart-wrap" style="height:280px;">
+          <canvas id="chartTopProductos"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fila 2: Movimientos de stock -->
+    <div class="chart-card">
+      <div class="chart-title">📦 Movimientos de stock por día</div>
+      <div class="chart-wrap" style="height:240px;">
+        <canvas id="chartStock"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <p>&copy; 2025 Fast Good - Panel de Administración</p>
+  </footer>
+
+  <script src="../src/js/reportes.js"></script>
+</body>
+</html>
