@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Envíos del Día - Fast Good</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../src/css/global.css" />
+
+  <style>
+    /* ── Layout ── */
+    .page-container { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    /* ── Barra de filtros ── */
+    .filtros-bar {
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+      background: white; padding: 1rem 1.5rem; border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm); margin-bottom: 1.5rem;
+    }
+    .filtros-bar label { font-weight: 600; font-size: 0.9rem; color: var(--color-text); white-space: nowrap; }
+    .filtros-bar input[type="date"] {
+      padding: 0.5rem 0.9rem; border: 1.5px solid #ddd; border-radius: var(--radius-sm);
+      font-family: var(--font-main); font-size: 0.9rem; color: var(--color-text);
+    }
+    .filtros-bar input[type="date"]:focus { outline: none; border-color: var(--color-primary); }
+
+    .btn-accion {
+      padding: 0.55rem 1.2rem; border: none; border-radius: var(--radius-sm);
+      font-family: var(--font-main); font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-buscar  { background: var(--color-primary); color: white; }
+    .btn-buscar:hover { background: #218838; }
+    .btn-todos   { background: #6c757d; color: white; }
+    .btn-todos:hover { background: #5a6268; }
+    .btn-imprimir { background: #1565c0; color: white; margin-left: auto; }
+    .btn-imprimir:hover { background: #0d47a1; }
+
+    /* ── Stats ── */
+    .stats-bar { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.75rem; }
+    .stat-card {
+      flex: 1; min-width: 130px; background: white; border-radius: var(--radius-md);
+      padding: 1rem 1.25rem; box-shadow: var(--shadow-sm); text-align: center;
+      border-top: 4px solid #ddd;
+    }
+    .stat-card.total    { border-top-color: var(--color-primary); }
+    .stat-card.listos   { border-top-color: #ff9800; }
+    .stat-card.entregado { border-top-color: #28a745; }
+    .stat-numero { font-size: 2rem; font-weight: 700; color: var(--color-text); }
+    .stat-label  { font-size: 0.78rem; color: var(--color-muted); font-weight: 500; margin-top: 0.1rem; }
+
+    /* ── Grupo barrio ── */
+    .grupo-barrio { margin-bottom: 2.5rem; }
+    .grupo-titulo {
+      display: flex; align-items: center; gap: 0.6rem;
+      font-size: 1.1rem; font-weight: 700; color: var(--color-primary);
+      margin-bottom: 1rem; padding-bottom: 0.6rem;
+      border-bottom: 3px solid rgba(40,167,69,0.25);
+    }
+    .grupo-count {
+      background: var(--color-primary); color: white;
+      border-radius: var(--radius-pill); padding: 0.15rem 0.65rem;
+      font-size: 0.78rem; font-weight: 700;
+    }
+
+    /* ── Grid de cards ── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 1.1rem;
+    }
+
+    /* ── Card pedido ── */
+    .pedido-card {
+      background: white; border-radius: var(--radius-md);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      border-left: 6px solid #ccc;
+      overflow: hidden;
+      transition: box-shadow 0.2s, transform 0.15s;
+    }
+    .pedido-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.13); transform: translateY(-2px); }
+
+    /* colores por estado */
+    .pedido-card.estado-3 { border-left-color: #ff9800; }
+    .pedido-card.estado-4 { border-left-color: #28a745; }
+
+    /* top bar con número y estado */
+    .card-topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.6rem 1rem; background: #f8f9fa;
+      border-bottom: 1px solid #eee;
+    }
+    .card-num { font-weight: 700; font-size: 0.88rem; color: var(--color-muted); }
+
+    /* badge estado */
+    .badge-estado {
+      display: inline-block; padding: 0.2rem 0.7rem;
+      border-radius: var(--radius-pill); font-size: 0.75rem; font-weight: 700;
+    }
+    .badge-estado-3 { background: #fff3e0; color: #e65100; }
+    .badge-estado-4 { background: #e8f5e9; color: #2e7d32; }
+
+    /* cuerpo de la card */
+    .card-body { padding: 1rem 1.1rem; }
+
+    .card-nombre {
+      font-size: 1.1rem; font-weight: 700; color: var(--color-text);
+      margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .card-dato {
+      display: flex; align-items: flex-start; gap: 0.5rem;
+      font-size: 0.9rem; color: var(--color-text); margin-bottom: 0.3rem;
+      line-height: 1.4;
+    }
+    .card-dato .icono { font-size: 1rem; flex-shrink: 0; }
+
+    /* separador */
+    .card-sep { border: none; border-top: 1px dashed #e0e0e0; margin: 0.75rem 0; }
+
+    /* items */
+    .card-items {
+      font-size: 0.85rem; color: #444; line-height: 1.7;
+    }
+    .card-item-linea::before { content: "•"; margin-right: 0.4rem; color: var(--color-primary); }
+
+    /* obs */
+    .card-obs {
+      margin-top: 0.5rem; background: #fff8e1; border-left: 3px solid #ff9800;
+      padding: 0.4rem 0.7rem; border-radius: 4px;
+      font-size: 0.8rem; color: #5d4037;
+    }
+
+    /* footer */
+    .card-footer {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.75rem 1.1rem; background: #f8f9fa;
+      border-top: 1px solid #eee; flex-wrap: wrap; gap: 0.5rem;
+    }
+    .card-total-wrap { display: flex; flex-direction: column; gap: 0.1rem; }
+    .card-total { font-size: 1.15rem; font-weight: 700; color: var(--color-text); }
+
+    /* badge método de pago */
+    .badge-pago {
+      display: inline-block; padding: 0.15rem 0.6rem;
+      border-radius: var(--radius-pill); font-size: 0.75rem; font-weight: 600;
+    }
+    .badge-pago.efectivo     { background: #d4edda; color: #155724; }
+    .badge-pago.transferencia { background: #cce5ff; color: #004085; }
+
+    /* botón pagado */
+    .btn-pagado {
+      padding: 0.38rem 0.9rem; border: 2px solid; border-radius: var(--radius-sm);
+      font-family: var(--font-main); font-size: 0.8rem; font-weight: 700;
+      cursor: pointer; transition: all 0.2s; background: transparent;
+    }
+    .btn-pagado.pagado    { border-color: #28a745; color: #28a745; background: #e8f5e9; }
+    .btn-pagado.no-pagado { border-color: #dc3545; color: #dc3545; background: #fdecea; }
+    .btn-pagado:hover     { opacity: 0.75; }
+    .btn-pagado:disabled  { opacity: 0.5; cursor: not-allowed; }
+
+    /* selector estado */
+    .estado-select {
+      padding: 0.4rem 0.65rem; border: 1.5px solid #ddd;
+      border-radius: var(--radius-sm); font-family: var(--font-main);
+      font-size: 0.82rem; cursor: pointer; background: white;
+      transition: border-color 0.2s;
+    }
+    .estado-select:focus { outline: none; border-color: var(--color-primary); }
+
+    /* ── Estado vacío / loading ── */
+    .empty-state { text-align: center; padding: 4rem 2rem; color: var(--color-muted); }
+    .loading-msg  { text-align: center; padding: 3rem; color: var(--color-muted); font-weight: 500; }
+
+    /* ════════════════════════════════════════
+       ESTILOS DE IMPRESIÓN
+       ════════════════════════════════════════ */
+    .print-only { display: none; }
+
+    /* ── Estilos de la lista compacta (solo se ven al imprimir) ── */
+    .print-grupo { margin-bottom: 0.9rem; page-break-inside: avoid; }
+
+    .print-grupo-titulo {
+      font-size: 10.5pt; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.04em; background: #e0e0e0;
+      padding: 0.25rem 0.6rem; border-left: 5px solid #333;
+      margin-bottom: 0.15rem;
+    }
+
+    .print-row {
+      display: grid;
+      grid-template-columns: 1.2rem 2.8rem 1fr 1.5fr 1fr 0.6fr 1fr 0.85rem;
+      align-items: baseline; gap: 0 0.5rem;
+      padding: 0.22rem 0.6rem; border-bottom: 1px solid #ddd;
+      font-size: 9pt; page-break-inside: avoid;
+    }
+    .print-row:nth-child(even) { background: #fafafa; }
+
+    .pr-check   { font-size: 10pt; }
+    .pr-num     { font-weight: 700; white-space: nowrap; }
+    .pr-cliente { font-weight: 600; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pr-dir     { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #333; }
+    .pr-tel     { white-space: nowrap; color: #333; }
+    .pr-items   { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #444; font-size: 8.5pt; grid-column: 2 / 9; padding-top: 0; }
+    .pr-total   { font-weight: 700; white-space: nowrap; text-align: right; }
+    .pr-cobrado { font-weight: 700; white-space: nowrap; text-align: center; font-size: 8.5pt; }
+    .pr-cobrado.si { color: #2e7d32; }
+    .pr-cobrado.no { color: #c62828; }
+    .pr-obs {
+      grid-column: 2 / 9; font-size: 8pt; color: #795548;
+      font-style: italic; padding-bottom: 0.1rem;
+    }
+
+    /* cabecera de impresión */
+    .print-header {
+      text-align: center; margin-bottom: 1rem;
+      border-bottom: 3px double #000; padding-bottom: 0.6rem;
+    }
+    .print-header h1 { font-size: 15pt; margin: 0 0 0.2rem; }
+    .print-header p  { font-size: 9.5pt; color: #444; margin: 0.1rem 0; }
+
+    /* columnas cabecera de tabla */
+    .print-thead {
+      display: grid;
+      grid-template-columns: 1.2rem 2.8rem 1fr 1.5fr 1fr 0.6fr 1fr 0.85rem;
+      gap: 0 0.5rem; padding: 0.2rem 0.6rem;
+      font-size: 8pt; font-weight: 700; color: #555;
+      border-bottom: 2px solid #333; margin-bottom: 0.1rem;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+
+    @media print {
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      body { background: white !important; }
+
+      header, footer, nav,
+      .filtros-bar, .stats-bar,
+      .btn-accion, .btn-imprimir,
+      #contenidoEnvios { display: none !important; }
+
+      .print-only { display: block !important; }
+      .page-container { padding: 0 !important; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="container-centrado">
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <img src="../src/assets/img/logo.webp" alt="Fast Good" style="height:40px; border-radius:4px;" onerror="this.style.display='none'" />
+        <h1>Envíos del Día</h1>
+      </div>
+      <nav>
+        <a href="../admin.html">← Volver al Panel</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page-container">
+
+    <!-- Cabecera solo visible al imprimir -->
+    <div class="print-only print-header">
+      <h1>FAST GOOD — Hoja de Ruta de Envíos</h1>
+      <p id="printFechaHeader">Fecha de entrega: —</p>
+      <p id="printTotalHeader">— envíos en total</p>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filtros-bar">
+      <label for="filtroFecha">Fecha de entrega:</label>
+      <input type="date" id="filtroFecha" />
+      <button class="btn-accion btn-buscar" onclick="buscarEnvios()">Buscar</button>
+      <button class="btn-accion btn-todos"  onclick="limpiarFecha()">Todos</button>
+      <button class="btn-accion btn-imprimir" onclick="imprimirHojaRuta()">🖨️ Imprimir Hoja de Ruta</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat-card total">
+        <div class="stat-numero" id="statTotal">—</div>
+        <div class="stat-label">Total envíos</div>
+      </div>
+      <div class="stat-card listos">
+        <div class="stat-numero" id="statListos">—</div>
+        <div class="stat-label">Listos para entregar</div>
+      </div>
+      <div class="stat-card entregado">
+        <div class="stat-numero" id="statEntregado">—</div>
+        <div class="stat-label">Entregados</div>
+      </div>
+    </div>
+
+    <!-- Contenido agrupado por barrio (vista pantalla) -->
+    <div id="contenidoEnvios">
+      <div class="loading-msg">Cargando envíos...</div>
+    </div>
+
+    <!-- Contenido exclusivo para impresión (se genera al imprimir) -->
+    <div id="printContent" class="print-only"></div>
+
+  </div>
+
+  <footer>
+    <p>&copy; 2025 Fast Good - Panel de Administración</p>
+  </footer>
+
+  <script src="../src/js/Envios.js"></script>
+</body>
+
+</html>

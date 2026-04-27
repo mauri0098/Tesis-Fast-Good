@@ -265,7 +265,9 @@ app.post('/api/pedidos', async (req, res) => {// Endpoint para crear un nuevo pe
     cliente_email,
     fecha_entrega,
     metodo_pago,
-    observaciones
+    observaciones,
+    barrio_id,
+    tipo_entrega
   } = req.body;
 
   // UUID fijo si no viene usuario_id
@@ -284,6 +286,8 @@ app.post('/api/pedidos', async (req, res) => {// Endpoint para crear un nuevo pe
       fecha_entrega,
       metodo_pago,
       observaciones,
+      barrio_id: barrio_id || null,
+      tipo_entrega: tipo_entrega || 'Delivery',
       pagado: false // Default false
     })
     .select()
@@ -340,8 +344,11 @@ app.get('/api/pedidos', async (req, res) => {
       cliente_telefono,
       cliente_email,
       observaciones,
+      tipo_entrega,
+      barrio_id,
       id_estado,
       estados ( nombre ),
+      barrios ( id, nombre ),
       pedido_detalles (
         cantidad,
         precio_unitario,
@@ -355,6 +362,21 @@ app.get('/api/pedidos', async (req, res) => {
   }
 
   res.json(data);
+});
+
+app.put('/api/pedidos/:id/pagado', async (req, res) => {
+  const { id } = req.params;
+  const { pagado } = req.body;
+
+  const { data, error } = await supabase
+    .from('pedidos')
+    .update({ pagado: Boolean(pagado) })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ mensaje: 'Pago actualizado', pedido: data });
 });
 
 app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
@@ -530,6 +552,64 @@ app.post('/api/movimientos-stock', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+/* ======================================================
+   API BARRIOS
+   ====================================================== */
+
+app.get('/api/barrios', async (req, res) => {
+  const { data, error } = await supabase
+    .from('barrios')
+    .select('id, nombre')
+    .order('nombre', { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+/* ======================================================
+   API ENVÍOS (delivery del día, agrupado por barrio)
+   ====================================================== */
+
+app.get('/api/envios', async (req, res) => {
+  const { fecha } = req.query;
+
+  let query = supabase
+    .from('pedidos')
+    .select(`
+      id,
+      fecha_pedido,
+      fecha_entrega,
+      total,
+      metodo_pago,
+      pagado,
+      cliente_nombre,
+      cliente_direccion,
+      cliente_telefono,
+      cliente_email,
+      observaciones,
+      tipo_entrega,
+      barrio_id,
+      id_estado,
+      estados ( nombre ),
+      barrios ( id, nombre ),
+      pedido_detalles (
+        cantidad,
+        precio_unitario,
+        productos ( nombre )
+      )
+    `)
+    .eq('tipo_entrega', 'Delivery')
+    .in('id_estado', [3, 4])
+    .order('id', { ascending: true });
+
+  if (fecha) {
+    query = query.eq('fecha_entrega', fecha);
+  }
+
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
 /* ======================================================

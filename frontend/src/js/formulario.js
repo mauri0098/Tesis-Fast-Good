@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
   vincularFormulario();
   mostrarResumenCarrito();
   preLlenarFormulario();
+  cargarBarrios();
+  toggleBarrio();
 });
 
 // ============================================================================
@@ -39,6 +41,32 @@ function preLlenarFormulario() {
     if (el && valor) el.value = valor;
   });
 }
+
+async function cargarBarrios() {
+  try {
+    const res = await fetch('http://localhost:3000/api/barrios');
+    if (!res.ok) return;
+    const barrios = await res.json();
+    const select = document.getElementById('barrio');
+    if (!select) return;
+    barrios.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = b.nombre;
+      select.appendChild(opt);
+    });
+  } catch (e) {
+    console.error('Error al cargar barrios:', e);
+  }
+}
+
+function toggleBarrio() {
+  const tipo = document.getElementById('tipoEntrega')?.value;
+  const grupo = document.getElementById('grupoBarrio');
+  if (grupo) grupo.style.display = tipo === 'Delivery' ? 'block' : 'none';
+}
+
+window.toggleBarrio = toggleBarrio;
 
 function vincularFormulario() {
   const formulario = document.getElementById('pedidoForm');
@@ -129,6 +157,7 @@ function obtenerDatosFormulario() {
   const inputPago = document.getElementById('metodo_pago') || document.getElementById('metodoPago');
   const inputEntrega = document.getElementById('tipoEntrega');
 
+  const barrioEl = document.getElementById('barrio');
   return {
     nombre: document.getElementById('nombre').value.trim(),
     apellido: document.getElementById('apellido').value.trim(),
@@ -138,6 +167,7 @@ function obtenerDatosFormulario() {
     fechaEntrega: inputFecha ? inputFecha.value : '',
     metodoPago: inputPago ? inputPago.value : 'Efectivo',
     tipoEntrega: inputEntrega ? inputEntrega.value : 'Delivery',
+    barrioId: barrioEl && barrioEl.value ? Number(barrioEl.value) : null,
     observaciones: document.getElementById('observaciones').value
   };
 }
@@ -221,7 +251,8 @@ function armarObjetoPedido(datos, carrito, usuarioId) {
     cliente_email: datos.email,
     fecha_entrega: datos.fechaEntrega,
     metodo_pago: datos.metodoPago,
-    tipo_entrega: datos.tipoEntrega
+    tipo_entrega: datos.tipoEntrega,
+    barrio_id: datos.barrioId || null
   };
 }
 
