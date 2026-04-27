@@ -46,10 +46,17 @@
       </select>
 
       <label for="tipoEntrega">Tipo de Entrega</label>
-      <select id="tipoEntrega" required>
+      <select id="tipoEntrega" required onchange="toggleBarrio()">
         <option value="Delivery">Delivery</option>
         <option value="Retiro en local">Retiro en local</option>
       </select>
+
+      <div id="grupoBarrio">
+        <label for="barrio">Barrio de entrega</label>
+        <select id="barrio" style="width:100%; padding:0.75rem; margin-top:0.5rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; font-family:'Poppins',sans-serif;">
+          <option value="">Seleccioná tu barrio...</option>
+        </select>
+      </div>
 
       <div class="form-group">
         <label for="observaciones">Observaciones <span style="font-weight: normal;">(opcional)</span></label>
