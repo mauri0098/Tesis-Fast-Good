@@ -39,6 +39,7 @@
             <option value="Bajo mínimo">Bajo mínimo</option>
           </select>
         </div>
+        <button class="btn-nuevo-insumo" onclick="abrirModalNuevoInsumo()">+ Incorporar nuevo insumo</button>
       </div>
 
       <table class="standard-table">
@@ -66,6 +67,44 @@
   <footer>
     <p>&copy; 2024 Fast Good - Panel de Administración</p>
   </footer>
+
+  <!-- MODAL: Incorporar nuevo insumo -->
+  <div id="modalNuevoInsumo" class="modal">
+    <div class="modal-content modal-stock">
+      <span class="close" onclick="cerrarModalNuevoInsumo()">&times;</span>
+      <h3>Incorporar nuevo insumo</h3>
+
+      <div class="modal-grid">
+        <label>Nombre *</label>
+        <input id="niNombre" type="text" placeholder="Ej: Avena">
+
+        <label>Stock mínimo *</label>
+        <input id="niStockMinimo" type="number" min="0" step="0.01" placeholder="Ej: 5">
+
+        <label>Unidad *</label>
+        <select id="niUnidad">
+          <option value="">Seleccione...</option>
+          <option value="kg">kg (kilogramos)</option>
+          <option value="g">g (gramos)</option>
+          <option value="lts">lts (litros)</option>
+          <option value="ml">ml (mililitros)</option>
+          <option value="u">u (unidades)</option>
+        </select>
+
+        <label>Categoría *</label>
+        <select id="niCategoria">
+          <option value="">Cargando categorías...</option>
+        </select>
+      </div>
+
+      <div id="niError" class="modal-error">Completá todos los campos obligatorios.</div>
+
+      <div class="modal-actions">
+        <button class="btn-cancelar" onclick="cerrarModalNuevoInsumo()">Cancelar</button>
+        <button class="btn-confirmar" onclick="confirmarNuevoInsumo()">Confirmar</button>
+      </div>
+    </div>
+  </div>
 
   <script src="../src/js/stock.js"></script>
 </body>

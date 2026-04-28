@@ -174,3 +174,84 @@ function iniciarFiltros() {
   filtroEstado.addEventListener('change', aplicarFiltros);    // se dispara al elegir
 }
 
+// ==========================================
+// MODAL INCORPORAR NUEVO INSUMO
+// ==========================================
+
+async function abrirModalNuevoInsumo() {
+  // cargar categorías desde la API
+  try {
+    const res = await fetch('http://localhost:3000/api/categorias-insumos');
+    const categorias = await res.json();
+    const select = document.getElementById('niCategoria');
+    select.innerHTML = '<option value="">Seleccione una categoría...</option>';
+    categorias.forEach(c => {
+      const option = document.createElement('option');
+      option.value = c.id;
+      option.textContent = c.nombre;
+      select.appendChild(option);
+    });
+  } catch {
+    document.getElementById('niCategoria').innerHTML = '<option value="">Error al cargar categorías</option>';
+  }
+
+  // limpiar campos
+  ['niNombre', 'niStockMinimo'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('niUnidad').value = '';
+  document.getElementById('niError').style.display = 'none';
+
+  document.getElementById('modalNuevoInsumo').style.display = 'block';
+}
+
+function cerrarModalNuevoInsumo() {
+  document.getElementById('modalNuevoInsumo').style.display = 'none';
+}
+
+async function confirmarNuevoInsumo() {
+  const errEl = document.getElementById('niError');
+
+  const nombre      = document.getElementById('niNombre').value.trim();
+  const stockMinimo = parseFloat(document.getElementById('niStockMinimo').value);
+  const unidad      = document.getElementById('niUnidad').value;
+  const idCategoria = document.getElementById('niCategoria').value;
+
+  if (!nombre || !unidad || !idCategoria || isNaN(stockMinimo) || stockMinimo < 0) {
+    errEl.textContent = 'Completá todos los campos obligatorios.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const hoy = new Date().toISOString().split('T')[0];
+
+  try {
+    const res = await fetch('http://localhost:3000/api/insumos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nombre,
+        stock_actual: 0,
+        stock_minimo: stockMinimo,
+        unidad_medida: unidad,
+        id_categoria_insumo: parseInt(idCategoria),
+        fecha_ingreso: hoy,
+        fecha_caducidad: null
+      })
+    });
+
+    if (!res.ok) throw new Error();
+
+    cerrarModalNuevoInsumo();
+    await fetchInsumos();
+
+  } catch {
+    errEl.textContent = 'Error al guardar. Intentá de nuevo.';
+    errEl.style.display = 'block';
+  }
+}
+
+window.addEventListener('click', (e) => {
+  if (e.target === document.getElementById('modalNuevoInsumo')) cerrarModalNuevoInsumo();
+});
+

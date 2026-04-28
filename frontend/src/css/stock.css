@@ -283,3 +283,21 @@ body {
 }
 
 .btn-confirmar:hover { background-color: #218838; }
+
+.btn-nuevo-insumo {
+  padding: 0.55rem 1.4rem;
+  background-color: #1565C0;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.btn-nuevo-insumo:hover {
+  background-color: #0D47A1;
+}
