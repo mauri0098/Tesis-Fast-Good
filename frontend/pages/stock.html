@@ -39,7 +39,6 @@
             <option value="Bajo mínimo">Bajo mínimo</option>
           </select>
         </div>
-        <button class="btn-agregar" onclick="abrirModalAgregarStock()">+ Agregar stock</button>
       </div>
 
       <table class="standard-table">
@@ -50,15 +49,13 @@
             <th>Stock actual</th>
             <th>Unidad</th>
             <th>Categoría</th>
-            <th>Fecha ingreso</th>
             <th>Fecha caducidad</th>
             <th>Estado</th>
-            <th>Acciones</th>
           </tr>
         </thead>
         <tbody id="stockBody">
           <tr>
-            <td colspan="8" class="loading-text">Cargando datos...</td>
+            <td colspan="7" class="loading-text">Cargando datos...</td>
           </tr>
         </tbody>
       </table>
@@ -69,72 +66,6 @@
   <footer>
     <p>&copy; 2024 Fast Good - Panel de Administración</p>
   </footer>
-
-  <!-- MODAL: Agregar Stock -->
-  <div id="addStockModal" class="modal">
-    <div class="modal-content modal-stock">
-      <span class="close" onclick="cerrarModalAgregarStock()">&times;</span>
-      <h3>Agregar Stock</h3>
-
-      <div class="modal-tabs">
-        <label>
-          <input type="radio" name="addMode" value="nuevo" checked onchange="swapAddMode()"> Nuevo insumo
-        </label>
-        <label>
-          <input type="radio" name="addMode" value="existente" onchange="swapAddMode()"> Sumar a existente
-        </label>
-      </div>
-
-      <!-- NUEVO INSUMO -->
-      <div id="addNuevo" class="modal-grid">
-        <label>Nombre*</label>
-        <input id="aNombre" type="text" placeholder="Ej: Avena">
-
-        <label>Stock inicial*</label>
-        <input id="aCantidad" type="number" min="0" step="0.01" placeholder="Ej: 10">
-
-        <label>Stock mínimo*</label>
-        <input id="aStockMinimo" type="number" min="0" step="0.01" placeholder="Ej: 5">
-
-        <label>Unidad*</label>
-        <select id="aUnidad">
-          <option value="">Seleccione...</option>
-          <option value="kg">kg (kilogramos)</option>
-          <option value="g">g (gramos)</option>
-          <option value="lts">lts (litros)</option>
-          <option value="ml">ml (mililitros)</option>
-          <option value="u">u (unidades)</option>
-        </select>
-
-        <label>Categoría*</label>
-        <select id="aCategoria">
-          <option value="">Cargando categorías...</option>
-        </select>
-
-        <label>Fecha ingreso*</label>
-        <input id="aIngreso" type="date">
-
-        <label>Fecha caducidad</label>
-        <input id="aVence" type="date">
-      </div>
-
-      <!-- SUMAR A EXISTENTE -->
-      <div id="addExistente" class="modal-grid" style="display:none">
-        <label>Insumo*</label>
-        <select id="axItem"></select>
-
-        <label>Cantidad a sumar*</label>
-        <input id="axCantidad" type="number" min="0" step="0.01" placeholder="Ej: 5">
-      </div>
-
-      <div id="aError" class="modal-error">Completá los campos obligatorios.</div>
-
-      <div class="modal-actions">
-        <button class="btn-cancelar" onclick="cerrarModalAgregarStock()">Cancelar</button>
-        <button class="btn-confirmar" onclick="confirmarAgregarStock()">Confirmar</button>
-      </div>
-    </div>
-  </div>
 
   <script src="../src/js/stock.js"></script>
 </body>

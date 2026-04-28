@@ -27,7 +27,7 @@ async function fetchInsumos() {//Un fetch aclara lo que es un fetch
 
   } catch (error) {// si hay un error al traer los insumos, lo mostramos en consola y en la tabla
     console.error(error);
-    tbody.innerHTML = '<tr><td colspan="8" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
   }
 }
 
@@ -41,7 +41,7 @@ function renderizarInsumos(insumos) {//funcion para hacer la tabla de insumos. e
 
   
   if (insumos.length === 0) {//si no hay ningun insumo se muesta este mensaje 
-    tbody.innerHTML = '<tr><td colspan="9" class="loading-text">No se encontraron insumos</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="loading-text">No se encontraron insumos</td></tr>';
     return;
   }
   //DUDA RAPIDA SE MEZCLA EL HTML ACA CON EL JAVASCRIP ESTA BIEN ESTO O TIENE QUE VENIR EN VARIABLES
@@ -64,14 +64,7 @@ function renderizarInsumos(insumos) {//funcion para hacer la tabla de insumos. e
     
     const categoria = insumo.categorias_insumos?.nombre || '-';
 
-    
-    const fecha = insumo.fecha_ingreso
-      ? new Date(insumo.fecha_ingreso).toLocaleDateString('es-AR', {
-          day: '2-digit', month: '2-digit', year: 'numeric'
-        })
-      : '-';
 
-    
     // Fecha de caducidad (puede venir null si el insumo no vence)
     let fechaCaducidad;
     if (insumo.fecha_caducidad) {
@@ -108,10 +101,8 @@ function renderizarInsumos(insumos) {//funcion para hacer la tabla de insumos. e
       <td style="font-weight:600">${stockActual}</td>
       <td>${unidad}</td>
       <td>${categoria}</td>
-      <td>${fecha}</td>
       <td>${fechaCaducidad}</td>
       <td><span class="badge-estado ${badgeClass}">${estado}</span></td>
-      <td><button class="btn-merma" disabled>Registrar merma</button></td>
     `;
 
     tbody.appendChild(tr);//Y ESTO NOSE QUE HACE 
@@ -183,154 +174,3 @@ function iniciarFiltros() {
   filtroEstado.addEventListener('change', aplicarFiltros);    // se dispara al elegir
 }
 
-// ==========================================
-// MODAL AGREGAR STOCK
-// ==========================================
-
-async function abrirModalAgregarStock() {
-  
-  try {
-    const res = await fetch('http://localhost:3000/api/categorias-insumos');
-    const categorias = await res.json();
-
-    const select = document.getElementById('aCategoria');
-    select.innerHTML = '<option value="">Seleccione una categoría...</option>';
-
-    categorias.forEach(c => {
-      const option = document.createElement('option');
-      option.value = c.id;
-      option.textContent = c.nombre;
-      select.appendChild(option);
-    });
-  } catch {
-    document.getElementById('aCategoria').innerHTML = '<option value="">Error al cargar categorías</option>';
-  }
-
-  
-  const axItem = document.getElementById('axItem');
-  axItem.innerHTML = '';
-  todosInsumos.forEach(insumo => {
-    const option = document.createElement('option');
-    option.value = insumo.id;
-    option.textContent = `${insumo.nombre} (stock actual: ${insumo.stock_actual} ${insumo.unidad_medida || ''})`;
-    axItem.appendChild(option);
-  });
-
-  
-  document.querySelectorAll('input[name="addMode"]').forEach(r => r.checked = r.value === 'nuevo');
-  swapAddMode();
-  ['aNombre', 'aCantidad', 'aStockMinimo', 'aIngreso', 'aVence', 'axCantidad'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  document.getElementById('aUnidad').value = '';
-  document.getElementById('aError').style.display = 'none';
-
-  
-  document.getElementById('addStockModal').style.display = 'block';
-}
-
-function cerrarModalAgregarStock() {
-  document.getElementById('addStockModal').style.display = 'none';
-}
-
-
-function swapAddMode() {
-  const mode = document.querySelector('input[name="addMode"]:checked')?.value || 'nuevo';
-  if (mode === 'nuevo') {
-    document.getElementById('addNuevo').style.display = 'grid';
-  } else {
-    document.getElementById('addNuevo').style.display = 'none';
-  }
-
-  if (mode === 'existente') {
-    document.getElementById('addExistente').style.display = 'grid';
-  } else {
-    document.getElementById('addExistente').style.display = 'none';
-  }
-  document.getElementById('aError').style.display = 'none';
-}
-
-async function confirmarAgregarStock() {
-  const mode  = document.querySelector('input[name="addMode"]:checked')?.value || 'nuevo';
-  const errEl = document.getElementById('aError');
-
-  
-  function mostrarError(msg) {
-    errEl.textContent = msg || 'Completá los campos obligatorios.';
-    errEl.style.display = 'block';
-  }
-
-  if (mode === 'nuevo') {
-   
-    const nombre      = document.getElementById('aNombre').value.trim();
-    const stockActual = parseFloat(document.getElementById('aCantidad').value);
-    const stockMinimo = parseFloat(document.getElementById('aStockMinimo').value);
-    const unidad      = document.getElementById('aUnidad').value;
-    const idCategoria = document.getElementById('aCategoria').value;
-    const ingreso     = document.getElementById('aIngreso').value;
-    const vence       = document.getElementById('aVence').value;
-
-    if (!nombre || !unidad || !idCategoria || !ingreso || isNaN(stockActual) || stockActual < 0 || isNaN(stockMinimo) || stockMinimo < 0) {
-      return mostrarError();
-    }
-
-    try {
-      
-      const res = await fetch('http://localhost:3000/api/insumos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nombre,
-          stock_actual: stockActual,
-          stock_minimo: stockMinimo,
-          unidad_medida: unidad,
-          id_categoria_insumo: parseInt(idCategoria),
-          fecha_ingreso: ingreso,
-          fecha_caducidad: vence || null
-        })
-      });
-
-      if (!res.ok) throw new Error();
-
-      cerrarModalAgregarStock();
-      await fetchInsumos(); // recargar la tabla con el nuevo insumo incluido
-
-    } catch {
-      mostrarError('Error al guardar. Intentá de nuevo.');
-    }
-
-  } else {
-    
-    const id    = document.getElementById('axItem').value;
-    const sumar = parseFloat(document.getElementById('axCantidad').value);
-
-    if (!id || isNaN(sumar) || sumar <= 0) return mostrarError();
-
-    
-    const insumo = todosInsumos.find(i => i.id === parseInt(id));
-    if (!insumo) return mostrarError('Insumo no encontrado.');
-
-    try {
-      
-      const res = await fetch(`http://localhost:3000/api/insumos/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stock_actual: insumo.stock_actual + sumar })
-      });
-
-      if (!res.ok) throw new Error();
-
-      cerrarModalAgregarStock();
-      await fetchInsumos(); // recargar la tabla con el stock actualizado
-
-    } catch {
-      mostrarError('Error al actualizar. Intentá de nuevo.');
-    }
-  }
-}
-
-
-window.addEventListener('click', (e) => {
-  if (e.target === document.getElementById('addStockModal')) cerrarModalAgregarStock();
-});
