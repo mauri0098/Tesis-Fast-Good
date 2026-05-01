@@ -158,6 +158,49 @@ app.get('/api/productos-test', async (req, res) => {
    API v1 — CATÁLOGO (Categorías → Planes → Productos)
    ====================================================== */
 
+// GET /api/v1/catalogo → árbol completo en una sola consulta (performance)
+app.get('/api/v1/catalogo', async (req, res) => {
+  const { data, error } = await supabase
+    .from('categorias')
+    .select(`
+      id,
+      nombre,
+      planes (
+        id,
+        nombre,
+        descripcion_nutricional,
+        activo,
+        productos (
+          id,
+          nombre,
+          descripcion,
+          imagen,
+          precio,
+          descuento,
+          activo
+        )
+      )
+    `);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  // Filtrar planes y productos activos en el servidor
+  const catalogo = (data || []).map(cat => ({
+    id:     cat.id,
+    nombre: cat.nombre,
+    planes: (cat.planes || [])
+      .filter(p => p.activo)
+      .map(plan => ({
+        id:     plan.id,
+        nombre: plan.nombre,
+        descripcion_nutricional: plan.descripcion_nutricional,
+        productos: (plan.productos || []).filter(prod => prod.activo)
+      }))
+  }));
+
+  res.json(catalogo);
+});
+
 // GET /api/v1/categorias → todas las categorías
 app.get('/api/v1/categorias', async (req, res) => {
   const { data, error } = await supabase

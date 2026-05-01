@@ -1,6 +1,11 @@
 // ===================================================
-// INDEX.JS — SPA Catálogo (Categorías → Planes → Productos)
-// Fast Good — Motion Design Edition
+// INDEX.JS — SPA Catálogo · Single Fetch Edition
+// Fast Good — Performance & Motion Design
+//
+// Estrategia: UNA sola consulta profunda al iniciar
+// carga todo el árbol categorias→planes→productos en
+// memoria. Cada interacción del acordeón es O(1) y
+// no genera ninguna request adicional al servidor.
 // ===================================================
 
 (function () {
@@ -8,49 +13,54 @@
 
     const IMG_DEFAULT = './src/assets/img/logo.webp';
 
-    // Cache de productos por plan (evita re-fetch al reabrir)
-    const productosCache = {};
+    // ── Estado central ────────────────────────────────
+    let catalogoData  = [];   // árbol completo en memoria
+    let categoriasMap = {};   // nombre → objeto categoría (lookup O(1))
 
-    // Mapa de nombre → objeto categoría (cargado desde la API)
-    let categoriasMap = {};
-
-    // Plan actualmente abierto en el acordeón
+    // Plan activo en el acordeón
     let planActivoBtn   = null;
     let planActivoPanel = null;
 
-    // ── Fetch helpers ──────────────────────────────────────
-    async function fetchCategorias() {
+    // ── Single Fetch ──────────────────────────────────
+    async function fetchCatalogo() {
         try {
-            const r = await fetch('/api/v1/categorias');
-            if (!r.ok) throw new Error();
+            const r = await fetch('/api/v1/catalogo');
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
             return await r.json();
-        } catch { return []; }
+        } catch (err) {
+            console.error('[FastGood] Error cargando catálogo:', err);
+            return [];
+        }
     }
 
-    async function fetchPlanes(catId) {
-        try {
-            const r = await fetch(`/api/v1/categorias/${catId}/planes`);
-            if (!r.ok) throw new Error();
-            return await r.json();
-        } catch { return []; }
+    // ── Render de precio con descuento ────────────────
+    function renderPrecio(precio, descuento) {
+        if (precio == null) return '';
+
+        if (descuento && descuento > 0) {
+            const precioFinal = Math.round(precio * (1 - descuento / 100));
+            return `
+                <div class="plato-card__precio">
+                    <span class="precio-original">$ ${precio}</span>
+                    <span class="precio-final">$ ${precioFinal}</span>
+                    <span class="descuento-badge">−${descuento}%</span>
+                </div>`;
+        }
+
+        return `<div class="plato-card__precio">$ ${precio}</div>`;
     }
 
-    async function fetchProductos(planId) {
-        if (productosCache[planId]) return productosCache[planId];
-        try {
-            const r = await fetch(`/api/v1/planes/${planId}/productos`);
-            if (!r.ok) throw new Error();
-            const data = await r.json();
-            productosCache[planId] = data;
-            return data;
-        } catch { return []; }
+    // ── Precio efectivo para el carrito ───────────────
+    function precioEfectivo(precio, descuento) {
+        if (!precio) return 0;
+        if (descuento && descuento > 0) return Math.round(precio * (1 - descuento / 100));
+        return precio;
     }
 
-    // ── Render de tarjeta de producto ──────────────────────
+    // ── Render de tarjeta de producto ─────────────────
     function buildPlatoHTML(p, index) {
-        const img    = p.imagen || IMG_DEFAULT;
-        const precio = p.precio != null ? `$ ${p.precio}` : '';
-        const delay  = index * 65; // stagger en ms
+        const img   = p.imagen || IMG_DEFAULT;
+        const delay = index * 60;
         return `
             <article class="plato-card" data-id="${p.id}" style="animation-delay:${delay}ms">
                 <div class="plato-card__img">
@@ -60,7 +70,7 @@
                 <div class="plato-card__body">
                     <h3 class="plato-card__nombre">${p.nombre}</h3>
                     <p  class="plato-card__desc">${p.descripcion || ''}</p>
-                    ${precio ? `<div class="plato-card__precio">${precio}</div>` : ''}
+                    ${renderPrecio(p.precio, p.descuento)}
                 </div>
                 <div class="plato-card__footer">
                     <div class="plato-counter">
@@ -75,7 +85,7 @@
             </article>`;
     }
 
-    function renderProductos(contentEl, planId, productos) {
+    function renderProductos(contentEl, productos) {
         if (!productos.length) {
             contentEl.innerHTML = '<p class="panel-vacio">No hay productos disponibles en este plan.</p>';
             return;
@@ -87,8 +97,8 @@
         contentEl.appendChild(grid);
     }
 
-    // ── Delegación de eventos dentro del panel de un plan ──
-    function attachPanelEvents(contentEl, planId) {
+    // ── Delegación de eventos — productos viene de memoria
+    function attachPanelEvents(contentEl, productos) {
         contentEl.addEventListener('click', e => {
             const mas = e.target.closest('[data-btn-mas]');
             if (mas) {
@@ -107,19 +117,22 @@
             const carro = e.target.closest('[data-btn-carro]');
             if (!carro) return;
 
-            const id      = Number(carro.dataset.id);
-            const spanQty = contentEl.querySelector(`.plato-counter__qty[data-id="${id}"]`);
+            const id       = Number(carro.dataset.id);
+            const spanQty  = contentEl.querySelector(`.plato-counter__qty[data-id="${id}"]`);
             const cantidad = spanQty ? parseInt(spanQty.textContent) : 1;
-            const prods    = productosCache[planId] || [];
-            const prod     = prods.find(p => p.id === id);
+            const prod     = productos.find(p => p.id === id);
 
             if (prod && typeof window.agregarItemAlCarrito === 'function') {
-                window.agregarItemAlCarrito(prod, cantidad);
+                // Precio ya descontado para que el carrito calcule correctamente
+                window.agregarItemAlCarrito(
+                    { ...prod, precio: precioEfectivo(prod.precio, prod.descuento) },
+                    cantidad
+                );
             }
         });
     }
 
-    // ── Acordeón de planes ─────────────────────────────────
+    // ── Acordeón — ahora completamente sincrónico ─────
     function closePlanActivo() {
         if (planActivoBtn)   planActivoBtn.classList.remove('active');
         if (planActivoPanel) planActivoPanel.classList.remove('open');
@@ -127,13 +140,13 @@
         planActivoPanel = null;
     }
 
-    async function togglePlan(btn, panelEl, contentEl, plan) {
+    function togglePlan(btn, panelEl, contentEl, plan) {
         const estabaAbierto = btn.classList.contains('active');
         closePlanActivo();
 
         if (estabaAbierto) {
             btn.setAttribute('aria-expanded', 'false');
-            return; // era el mismo → solo cierra
+            return;
         }
 
         btn.classList.add('active');
@@ -142,15 +155,12 @@
         planActivoBtn   = btn;
         planActivoPanel = panelEl;
 
-        // Lazy-load: pide productos solo la primera vez
-        if (!contentEl.dataset.loaded) {
-            contentEl.innerHTML = '<p class="panel-cargando">Cargando productos…</p>';
-            const prods = await fetchProductos(plan.id);
-            contentEl.dataset.loaded = '1';
-            renderProductos(contentEl, plan.id, prods);
+        // Renderizado instantáneo desde memoria — sin await, sin fetch, sin lag
+        if (!contentEl.dataset.rendered) {
+            contentEl.dataset.rendered = '1';
+            renderProductos(contentEl, plan.productos || []);
         }
 
-        // Scroll suave al panel recién abierto
         setTimeout(() => {
             panelEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }, 420);
@@ -179,22 +189,21 @@
         const panel   = item.querySelector('.plan-panel');
         const content = item.querySelector('.plan-panel-content');
 
-        attachPanelEvents(content, plan.id);
+        attachPanelEvents(content, plan.productos || []);
         btn.addEventListener('click', () => togglePlan(btn, panel, content, plan));
 
         return item;
     }
 
-    // ── Transición entre vistas ────────────────────────────
+    // ── SPA: transición entre vistas ──────────────────
     function switchView(hide, show) {
         hide.classList.add('spa-view--oculta');
-        // Forzar reflow para que la animación se re-dispare
         void show.offsetWidth;
         show.classList.remove('spa-view--oculta');
     }
 
-    // ── VISTA DE PLANES (expuesto globalmente para onclick HTML) ──
-    async function mostrarPlanes(nombreCategoria) {
+    // ── VISTA DE PLANES — sin fetch, renderizado desde memoria
+    function mostrarPlanes(nombreCategoria) {
         const cat = categoriasMap[nombreCategoria];
         if (!cat) {
             console.warn('[FastGood] Categoría no encontrada:', nombreCategoria);
@@ -207,15 +216,13 @@
         const container = document.getElementById('planes-container');
 
         titulo.textContent = `Planes de ${cat.nombre}`;
-        container.innerHTML = '<p class="panel-cargando">Cargando planes…</p>';
-
         closePlanActivo();
         switchView(vCat, vPlanes);
         window.scrollTo({ top: document.getElementById('menu').offsetTop - 80, behavior: 'smooth' });
 
-        const planes = await fetchPlanes(cat.id);
         container.innerHTML = '';
 
+        const planes = cat.planes || [];
         if (!planes.length) {
             container.innerHTML = '<p class="panel-vacio">No hay planes disponibles para esta categoría.</p>';
             return;
@@ -226,24 +233,23 @@
         container.appendChild(frag);
     }
 
-    // ── VOLVER A CATEGORÍAS (expuesto globalmente para onclick HTML) ──
+    // ── VOLVER A CATEGORÍAS ────────────────────────────
     function volverACategorias() {
         closePlanActivo();
-        const vCat    = document.getElementById('vista-categorias');
-        const vPlanes = document.getElementById('vista-planes');
-        switchView(vPlanes, vCat);
+        switchView(
+            document.getElementById('vista-planes'),
+            document.getElementById('vista-categorias')
+        );
         window.scrollTo({ top: document.getElementById('menu').offsetTop - 80, behavior: 'smooth' });
     }
 
-    // ── Inicialización ─────────────────────────────────────
+    // ── Init: UNA sola consulta al arrancar ───────────
     async function init() {
-        // Exponer funciones al scope global (usadas en onclick del HTML)
         window.mostrarPlanes     = mostrarPlanes;
         window.volverACategorias = volverACategorias;
 
-        // Cargar categorías para obtener sus IDs antes de que el usuario haga clic
-        const categorias = await fetchCategorias();
-        categorias.forEach(c => { categoriasMap[c.nombre] = c; });
+        catalogoData = await fetchCatalogo();
+        catalogoData.forEach(cat => { categoriasMap[cat.nombre] = cat; });
     }
 
     if (document.readyState === 'loading') {
