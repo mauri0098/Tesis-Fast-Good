@@ -440,6 +440,32 @@ app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
   res.json({ mensaje: 'Estado actualizado', pedido: data });
 });
 
+app.delete('/api/pedidos/:id', async (req, res) => {
+  const { id } = req.params;
+
+  const { error: errorDetalles } = await supabase
+    .from('pedido_detalles')
+    .delete()
+    .eq('id_pedido', id);
+
+  if (errorDetalles) {
+    console.error('[DELETE pedido] error en pedido_detalles:', errorDetalles);
+    return res.status(500).json({ error: errorDetalles.message });
+  }
+
+  const { error } = await supabase
+    .from('pedidos')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('[DELETE pedido] error en pedidos:', error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json({ mensaje: 'Pedido eliminado correctamente' });
+});
+
 /* ======================================================
    API ESTADOS
    ====================================================== */

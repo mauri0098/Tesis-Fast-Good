@@ -1,4 +1,4 @@
-let todosPedidos = []; // guarda todos los pedidos para poder filtrarlos
+﻿let todosPedidos = []; // guarda todos los pedidos para poder filtrarlos
 
 document.addEventListener('DOMContentLoaded', () => {
   fetchPedidos();
@@ -37,7 +37,7 @@ async function fetchPedidos() {
     tbody.innerHTML = '';
 
     if (data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="10" class="loading-text">No hay pedidos registrados</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" class="loading-text">No hay pedidos registrados</td></tr>';
       return;
     }
 
@@ -92,6 +92,7 @@ async function fetchPedidos() {
         <td style="font-weight:700">${costo}</td>
         <td></td>
         <td>${pagoHtml}</td>
+        <td><button class="btn-eliminar" onclick="eliminarPedido(${pedido.id}, this)">Eliminar</button></td>
       `;
 
       // Celdas con datos ingresados por el usuario público — se usan textContent para evitar XSS
@@ -147,7 +148,7 @@ async function fetchPedidos() {
 
   } catch (error) {
     console.error(error);
-    tbody.innerHTML = '<tr><td colspan="10" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
   }
 }
 
@@ -238,14 +239,40 @@ function iniciarFiltro() {
     if (visibles === 0 && TextoDeBusqueda !== '') {
       const tr = document.createElement('tr');
       tr.className = 'no-results-row';
-      tr.innerHTML = `<td colspan="10" class="loading-text">No se encontraron pedidos con ese nombre</td>`;
+      tr.innerHTML = `<td colspan="11" class="loading-text">No se encontraron pedidos con ese nombre</td>`;
       tbody.appendChild(tr);
     }
   });
-  
+
 }
 
+// ── ELIMINAR PEDIDO ───────────────────────────────────────────
+async function eliminarPedido(pedidoId, btn) {
+  const idFormatted = '#' + String(pedidoId).padStart(3, '0');
+  const confirmar = confirm(`¿Estás seguro de que querés eliminar el Pedido ${idFormatted}?\nEsta acción no se puede deshacer.`);
+  if (!confirmar) return;
 
+  btn.disabled = true;
+  btn.textContent = 'Eliminando...';
 
+  try {
+    const res = await fetch(`http://localhost:3000/api/pedidos/${pedidoId}`, {
+      method: 'DELETE'
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Error al eliminar');
+    }
+
+    todosPedidos = todosPedidos.filter(p => p.id !== pedidoId);
+    btn.closest('tr').remove();
+  } catch (err) {
+    alert('No se pudo eliminar el pedido. Intentá de nuevo.');
+    btn.disabled = false;
+    btn.textContent = 'Eliminar';
+  }
+}
+// ─────────────────────────────────────────────────────────────
 
 

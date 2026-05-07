@@ -48,12 +48,13 @@
             <th>Costo</th>
             <th>Estado</th>
             <th>Método Pago</th>
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody id="pedidosBody">
           <!-- JS Render -->
           <tr>
-            <td colspan="10" class="loading-text">Cargando datos...</td>
+            <td colspan="11" class="loading-text">Cargando datos...</td>
           </tr>
         </tbody>
       </table>
@@ -136,6 +137,13 @@
       font-size: 0.82rem; font-weight: 600; transition: background 0.2s;
     }
     .btn-detalles:hover { background: #e08700; }
+    .btn-eliminar {
+      background: #dc3545; color: white; border: none;
+      padding: 0.35rem 0.7rem; border-radius: 6px; cursor: pointer;
+      font-size: 0.82rem; font-weight: 600; transition: background 0.2s;
+    }
+    .btn-eliminar:hover { background: #b02a37; }
+    .btn-eliminar:disabled { background: #adb5bd; cursor: not-allowed; }
   </style>
 
   <script src="../src/js/global.js"></script>
