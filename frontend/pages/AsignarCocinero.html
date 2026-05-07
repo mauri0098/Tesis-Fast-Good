@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fast Good - Asignar Cocineros</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/global.css">
+  <link rel="stylesheet" href="../src/css/ConsultarPedidos.css">
+</head>
+
+<body>
+
+  <header>
+    <div class="container-centrado">
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <img src="../src/assets/img/logo.webp" alt="Fast Good" style="height:50px; border-radius:4px;" onerror="this.style.display='none'">
+        <h1>Asignar Cocineros a Planes</h1>
+      </div>
+      <nav>
+        <a href="../admin.html">Volver al Panel</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page-container">
+    <div class="table-wrapper">
+      <table class="standard-table">
+        <thead>
+          <tr>
+            <th>Plan</th>
+            <th>Categoría</th>
+            <th>Estado</th>
+            <th>Cocinero Principal</th>
+            <th>Cocinero Suplente</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody id="planesBody">
+          <tr><td colspan="6" class="loading-text">Cargando datos...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 Fast Good - Panel de Administración Tesis</p>
+  </footer>
+
+  <style>
+    .badge-activo {
+      background: #d4edda; color: #155724;
+      padding: 0.25rem 0.65rem; border-radius: 50px;
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+    }
+    .badge-inactivo {
+      background: #f8d7da; color: #721c24;
+      padding: 0.25rem 0.65rem; border-radius: 50px;
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+    }
+    .select-cocinero {
+      width: 100%;
+      padding: 0.4rem 0.5rem;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.82rem;
+      background: #fff;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .select-cocinero:focus {
+      border-color: #28a745;
+      box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.15);
+    }
+    .btn-guardar {
+      background: #28a745; color: white; border: none;
+      padding: 0.35rem 0.9rem; border-radius: 6px; cursor: pointer;
+      font-size: 0.82rem; font-weight: 600; transition: background 0.2s;
+      white-space: nowrap;
+    }
+    .btn-guardar:hover { background: #218838; }
+    .btn-guardar:disabled { background: #adb5bd; cursor: not-allowed; }
+    .btn-guardar.guardado { background: #6c757d; }
+  </style>
+
+  <script src="../src/js/global.js"></script>
+  <script src="../src/js/AsignarCocinero.js"></script>
+</body>
+
+</html>

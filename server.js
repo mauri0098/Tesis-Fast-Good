@@ -467,6 +467,63 @@ app.delete('/api/pedidos/:id', async (req, res) => {
 });
 
 /* ======================================================
+   API COCINEROS / ASIGNACIÓN A PLANES
+   ====================================================== */
+
+app.get('/api/cocineros', async (req, res) => {
+  const { data, error } = await supabase
+    .from('usuarios')
+    .select('id, nombre, apellido')
+    .eq('id_rol', 2)
+    .order('nombre', { ascending: true });
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
+app.get('/api/planes/cocineros', async (req, res) => {
+  const { data: planes, error: errorPlanes } = await supabase
+    .from('planes')
+    .select('id, nombre, activo, id_cocinero, id_cocinero_suplente, categorias(nombre)')
+    .order('nombre', { ascending: true });
+
+  if (errorPlanes) return res.status(500).json({ error: errorPlanes.message });
+
+  const { data: usuarios } = await supabase
+    .from('usuarios')
+    .select('id, nombre, apellido');
+
+  const mapaUsuarios = {};
+  (usuarios || []).forEach(u => { mapaUsuarios[u.id] = u; });
+
+  const resultado = (planes || []).map(p => ({
+    ...p,
+    cocinero_principal: p.id_cocinero ? (mapaUsuarios[p.id_cocinero] || null) : null,
+    cocinero_suplente:  p.id_cocinero_suplente ? (mapaUsuarios[p.id_cocinero_suplente] || null) : null,
+  }));
+
+  res.json(resultado);
+});
+
+app.put('/api/planes/:id/cocinero', async (req, res) => {
+  const { id } = req.params;
+  const { id_cocinero, id_cocinero_suplente } = req.body;
+
+  const { data, error } = await supabase
+    .from('planes')
+    .update({
+      id_cocinero: id_cocinero || null,
+      id_cocinero_suplente: id_cocinero_suplente || null,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ mensaje: 'Cocinero actualizado correctamente', plan: data });
+});
+
+/* ======================================================
    API ESTADOS
    ====================================================== */
 
