@@ -775,6 +775,56 @@ app.post('/api/movimientos-stock', async (req, res) => {
   }
 });
 
+// DELETE /api/movimientos-stock/:id → eliminar movimiento y revertir stock
+app.delete('/api/movimientos-stock/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { data: mov, error: errMov } = await supabase
+      .from('movimientos_stock')
+      .select('id, id_insumo, tipo, cantidad')
+      .eq('id', id)
+      .single();
+
+    if (errMov || !mov) return res.status(404).json({ error: 'Movimiento no encontrado' });
+
+    const { data: insumo, error: errInsumo } = await supabase
+      .from('insumos')
+      .select('id, stock_actual')
+      .eq('id', mov.id_insumo)
+      .single();
+
+    if (errInsumo || !insumo) return res.status(404).json({ error: 'Insumo no encontrado' });
+
+    // Revertir el efecto del movimiento en el stock
+    const nuevoStock = mov.tipo === 'entrada'
+      ? Number(insumo.stock_actual) - Number(mov.cantidad)
+      : Number(insumo.stock_actual) + Number(mov.cantidad);
+
+    if (nuevoStock < 0) {
+      return res.status(400).json({ error: 'No se puede eliminar: el stock quedaría negativo' });
+    }
+
+    const { error: errDelete } = await supabase
+      .from('movimientos_stock')
+      .delete()
+      .eq('id', id);
+
+    if (errDelete) return res.status(500).json({ error: errDelete.message });
+
+    const { error: errUpdate } = await supabase
+      .from('insumos')
+      .update({ stock_actual: nuevoStock })
+      .eq('id', mov.id_insumo);
+
+    if (errUpdate) return res.status(500).json({ error: errUpdate.message });
+
+    res.json({ mensaje: 'Movimiento eliminado y stock revertido' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 /* ======================================================
    API REPORTES
    ====================================================== */

@@ -60,7 +60,7 @@ function renderTabla(movimientos) {
   const tbody = document.getElementById('tablaBody');
 
   if (!movimientos.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">No hay movimientos registrados todavía.</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No hay movimientos registrados todavía.</td></tr>`;
     return;
   }
 
@@ -89,6 +89,7 @@ function renderTabla(movimientos) {
       <td>${Number(m.cantidad).toLocaleString('es-AR')}</td>
       <td>${m.insumos?.unidad_medida || '-'}</td>
       <td style="color:var(--color-muted); font-size:0.83rem;">${m.motivo || '—'}</td>
+      <td><button class="btn-eliminar" onclick="eliminarMovimiento(${m.id}, '${m.insumos?.nombre || ''}', '${m.tipo}')">✕ Eliminar</button></td>
     `;
     tbody.appendChild(tr);
   });
@@ -221,4 +222,28 @@ function mostrarError(msg) {
   const el = document.getElementById('modalError');
   el.textContent = msg;
   el.classList.add('visible');
+}
+
+// ── Eliminar movimiento ───────────────────────────────────────
+async function eliminarMovimiento(id, nombreInsumo, tipo) {
+  const tipoLabel = tipo === 'entrada' ? 'entrada' : 'salida';
+  const confirmar = confirm(
+    `¿Eliminar este registro de ${tipoLabel} de "${nombreInsumo}"?\n\nEsto revertirá el efecto sobre el stock del insumo.`
+  );
+  if (!confirmar) return;
+
+  try {
+    const res = await fetch(`${API}/api/movimientos-stock/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || 'No se pudo eliminar el movimiento.');
+      return;
+    }
+
+    await cargarInsumos();
+    await cargarMovimientos();
+  } catch (e) {
+    alert('No se pudo conectar con el servidor.');
+  }
 }

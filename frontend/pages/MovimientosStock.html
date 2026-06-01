@@ -145,6 +145,13 @@
       padding: 0.6rem 0.85rem; border-radius: var(--radius-sm);
       font-size: 0.82rem; color: #6d4c00; margin-bottom: 1rem;
     }
+
+    .btn-eliminar {
+      padding: 0.3rem 0.65rem; border: none; border-radius: var(--radius-sm);
+      background: #f8d7da; color: #721c24; font-size: 0.8rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-eliminar:hover { background: #dc3545; color: white; }
   </style>
 </head>
 
@@ -196,10 +203,11 @@
             <th>Cantidad</th>
             <th>Unidad</th>
             <th>Motivo</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="tablaBody">
-          <tr class="empty-row"><td colspan="6">Cargando movimientos...</td></tr>
+          <tr class="empty-row"><td colspan="7">Cargando movimientos...</td></tr>
         </tbody>
       </table>
     </div>
