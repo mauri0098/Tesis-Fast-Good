@@ -131,7 +131,19 @@ async function fetchPedidos() {
             body: JSON.stringify({ estado_id: nuevoId })
           });
 
-          if (!res.ok) throw new Error('Error al actualizar');
+          const data = await res.json();
+
+          if (!res.ok) {
+            // 409 = stock insuficiente: mostrar alerta con el cuello de botella
+            if (res.status === 409) {
+              mostrarAlertaStock(data.error);
+            } else {
+              alert('No se pudo actualizar el estado. Intentá de nuevo.');
+            }
+            selectEstado.value = anteriorId;
+            aplicarColorEstado(selectEstado, anteriorId);
+            return;
+          }
 
           selectEstado.dataset.estadoActual = nuevoId;
           aplicarColorEstado(selectEstado, nuevoId);
@@ -245,6 +257,39 @@ function iniciarFiltro() {
   });
 
 }
+
+// ── ALERTA DE STOCK INSUFICIENTE ─────────────────────────────
+function mostrarAlertaStock(mensaje) {
+  // Eliminar alerta previa si existe
+  const anterior = document.getElementById('alertaStock');
+  if (anterior) anterior.remove();
+
+  const alerta = document.createElement('div');
+  alerta.id = 'alertaStock';
+  alerta.style.cssText = `
+    position: fixed; top: 1.5rem; right: 1.5rem; z-index: 9999;
+    background: #fff3cd; color: #856404;
+    border: 1px solid #ffc107; border-left: 4px solid #e0a800;
+    border-radius: 6px; padding: 1rem 1.25rem;
+    max-width: 420px; box-shadow: 0 4px 12px rgba(0,0,0,.15);
+    font-size: 0.9rem; line-height: 1.5;
+  `;
+  alerta.innerHTML = `
+    <strong style="display:block;margin-bottom:.35rem;">⚠ Stock insuficiente</strong>
+    <span id="alertaStockMensaje"></span>
+    <button onclick="this.parentElement.remove()" style="
+      position:absolute; top:.5rem; right:.75rem;
+      background:none; border:none; font-size:1.1rem;
+      cursor:pointer; color:#856404; line-height:1;
+    ">×</button>
+  `;
+  alerta.querySelector('#alertaStockMensaje').textContent = mensaje;
+  alerta.style.position = 'fixed';
+  document.body.appendChild(alerta);
+
+  setTimeout(() => alerta.remove(), 8000);
+}
+// ─────────────────────────────────────────────────────────────
 
 // ── ELIMINAR PEDIDO ───────────────────────────────────────────
 async function eliminarPedido(pedidoId, btn) {

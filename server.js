@@ -12,6 +12,154 @@ app.use(express.json());
 const supabase = require('./config/supabaseClient');// Cliente de Supabase para interactuar con la base de datos
 
 /* ======================================================
+   LÓGICA DE DESCUENTO DE STOCK POR RECETA
+   Retorna null si todo OK, o un string con el error.
+   Se activa cuando un pedido pasa al estado "En Preparación" (id=2).
+   ====================================================== */
+
+async function descontarStockPedido(pedidoId) {
+  try {
+    const motivoBase = `pedido #${String(pedidoId).padStart(3, '0')}`;
+
+    // 0. Idempotencia: si ya existe un movimiento para este pedido, no descontar de nuevo
+    const { data: movPrevio, error: errCheck } = await supabase
+      .from('movimientos_stock')
+      .select('id')
+      .ilike('motivo', `%${motivoBase}%`)
+      .limit(1);
+
+    if (errCheck) {
+      console.error('ERROR REAL DEL SERVIDOR [movimientos_stock check]:', errCheck);
+      return `Error al verificar movimientos previos: ${errCheck.message}`;
+    }
+    if (movPrevio && movPrevio.length > 0) {
+      console.log(`[STOCK] Pedido #${pedidoId} ya fue procesado — omitiendo descuento.`);
+      return null;
+    }
+
+    // 1. Productos y cantidades del pedido
+    const { data: detalles, error: errDetalles } = await supabase
+      .from('pedido_detalles')
+      .select('id_producto, cantidad')
+      .eq('id_pedido', pedidoId);
+
+    if (errDetalles) {
+      console.error('ERROR REAL DEL SERVIDOR [pedido_detalles]:', errDetalles);
+      return `Error al leer detalles del pedido: ${errDetalles.message}`;
+    }
+    if (!detalles || detalles.length === 0) return null;
+
+    // 2. Recetas desde producto_insumo — select(*) para no asumir nombre de columna
+    const productIds = detalles.map(d => d.id_producto);
+    const { data: recetas, error: errRecetas } = await supabase
+      .from('producto_insumo')
+      .select('*')
+      .in('id_producto', productIds);
+
+    if (errRecetas) {
+      console.error('ERROR REAL DEL SERVIDOR [producto_insumo]:', errRecetas);
+      return `Error al leer recetas: ${errRecetas.message}`;
+    }
+    if (!recetas || recetas.length === 0) return null;
+
+    // 3. Consumo total por insumo (cantidad_receta × platos_pedidos)
+    const consumo = {}; // { id_insumo: totalNecesario }
+    for (const detalle of detalles) {
+      const insumosDelProducto = recetas.filter(
+        r => String(r.id_producto) === String(detalle.id_producto)
+      );
+      for (const r of insumosDelProducto) {
+        console.log('[DEBUG RECETA]', r); // ← muestra los nombres reales de columnas en la terminal
+        const cantidadReceta = Number(r.cantidad || r.cantidad_insumo || r.cantidad_necesaria || 0);
+        const totalNecesario = cantidadReceta * Number(detalle.cantidad);
+        consumo[r.id_insumo] = (consumo[r.id_insumo] || 0) + totalNecesario;
+      }
+    }
+
+    const insumosIds = Object.keys(consumo).map(Number);
+    if (insumosIds.length === 0) return null;
+
+    // 4. Stock actual desde insumos
+    const { data: insumos, error: errInsumos } = await supabase
+      .from('insumos')
+      .select('id, nombre, stock_actual')
+      .in('id', insumosIds);
+
+    if (errInsumos) {
+      console.error('ERROR REAL DEL SERVIDOR [insumos select]:', errInsumos);
+      return `Error al leer stock: ${errInsumos.message}`;
+    }
+
+    // Mapa de stock con clave y valor forzados a Number para eliminar ambigüedad de tipos
+    const stockMap  = {}; // { id_num: stockActualNum }
+    const nombreMap = {}; // { id_num: nombre }
+    for (const fila of insumos) {
+      const idNum          = Number(fila.id);
+      stockMap[idNum]      = Number(fila.stock_actual ?? 0);
+      nombreMap[idNum]     = fila.nombre || String(fila.id);
+    }
+
+    // 5. Pre-flight check: comparación estrictamente numérica, antes de tocar nada
+    for (const [keyId, totalRaw] of Object.entries(consumo)) {
+      const idNum              = Number(keyId);
+      const stockActualNum     = stockMap[idNum] ?? 0;
+      const cantidadRequerida  = Number(totalRaw);
+
+      console.log(`[STOCK DEBUG] insumo ${idNum} | stock: ${stockActualNum} | requerido: ${cantidadRequerida}`);
+
+      if (stockActualNum < cantidadRequerida) {
+        return `Stock insuficiente de "${nombreMap[idNum]}": se necesitan ${cantidadRequerida}, hay ${stockActualNum} disponibles`;
+      }
+    }
+
+    // 6. Aplicar descuentos en insumos
+    const fechaHora = new Date().toISOString();
+    const movimientosAInsertar = [];
+
+    for (const [keyId, totalRaw] of Object.entries(consumo)) {
+      const idNum             = Number(keyId);
+      const cantidadRequerida = Number(totalRaw);
+      const nuevoStock        = (stockMap[idNum] ?? 0) - cantidadRequerida;
+
+      const { error: errUpdate } = await supabase
+        .from('insumos')
+        .update({ stock_actual: nuevoStock })
+        .eq('id', idNum);
+
+      if (errUpdate) {
+        console.error('ERROR REAL DEL SERVIDOR [insumos update]:', errUpdate);
+        return `Error al descontar stock de "${nombreMap[idNum]}": ${errUpdate.message}`;
+      }
+
+      movimientosAInsertar.push({
+        id_insumo: idNum,
+        tipo:      'salida',
+        cantidad:  cantidadRequerida,
+        motivo:    `Consumo por producción ${motivoBase}`,
+        fecha:     fechaHora
+      });
+    }
+
+    // 7. Registrar movimientos en movimientos_stock
+    const { error: errMov } = await supabase
+      .from('movimientos_stock')
+      .insert(movimientosAInsertar);
+
+    if (errMov) {
+      console.error('ERROR REAL DEL SERVIDOR [movimientos_stock insert]:', errMov);
+      return `Error al registrar movimientos de stock: ${errMov.message}`;
+    }
+
+    console.log(`[STOCK] Descuento registrado para ${motivoBase} (${insumos.length} insumos)`);
+    return null; // éxito
+
+  } catch (error) {
+    console.error('ERROR REAL DEL SERVIDOR en descontarStockPedido:', error);
+    return `Error inesperado al procesar stock: ${error.message}`;
+  }
+}
+
+/* ======================================================
    API AUTENTICACIÓN
    ====================================================== */
 
@@ -425,19 +573,46 @@ app.put('/api/pedidos/:id/pagado', async (req, res) => {
 app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
   const { pedidoId } = req.params;
   const { estado_id } = req.body;
+  const nuevoEstado = parseInt(estado_id);
 
-  const { data, error } = await supabase
-    .from('pedidos')
-    .update({ id_estado: estado_id })
-    .eq('id', pedidoId)
-    .select()
-    .single();
+  try {
+    // Verificar que el pedido existe
+    const { data: pedidoActual, error: errLectura } = await supabase
+      .from('pedidos')
+      .select('id, id_estado')
+      .eq('id', pedidoId)
+      .single();
 
-  if (error) {
-    return res.status(500).json({ error: error.message });
+    if (errLectura) {
+      console.error('[ESTADO] Error leyendo pedido:', errLectura.message);
+      return res.status(500).json({ error: `Error al leer pedido: ${errLectura.message}` });
+    }
+    if (!pedidoActual) {
+      return res.status(404).json({ error: 'Pedido no encontrado' });
+    }
+
+    // Disparar descuento si el nuevo estado requiere producción (2, 3 o 4).
+    // La idempotencia se maneja dentro de descontarStockPedido consultando movimientos_stock.
+    if ([3, 4].includes(nuevoEstado)) {
+      const errorStock = await descontarStockPedido(pedidoId);
+      if (errorStock) {
+        return res.status(409).json({ error: errorStock });
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('pedidos')
+      .update({ id_estado: nuevoEstado })
+      .eq('id', pedidoId)
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    res.json({ mensaje: 'Estado actualizado', pedido: data });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
-
-  res.json({ mensaje: 'Estado actualizado', pedido: data });
 });
 
 app.delete('/api/pedidos/:id', async (req, res) => {
