@@ -792,8 +792,15 @@ app.get('/api/recetas', async (req, res) => {
     .from('productos')
     .select(`
       id_producto:id,
-      nombre_producto:nombre,w
-      plan:planes ( nombre, codigo:codigo_plan ),
+      nombre_producto:nombre,
+      codigo_plato,
+      precio,
+      descuento,
+      plan:planes (
+        nombre,
+        codigo_plan,
+        categoria:categorias ( nombre )
+      ),
       insumos:producto_insumo (
         id_insumo,
         cantidad_necesaria,
@@ -808,11 +815,17 @@ app.get('/api/recetas', async (req, res) => {
   // Solo productos que tienen al menos un insumo en la receta
   const conReceta = data.filter(p => p.insumos && p.insumos.length > 0);
 
-  // Aplanar los datos anidados de insumos al formato que espera el frontend
   const resultado = conReceta.map(p => ({
-    id_producto:    p.id_producto,
+    id_producto:     p.id_producto,
     nombre_producto: p.nombre_producto,
-    plan:           p.plan,
+    codigo_plato:    p.codigo_plato || '-',
+    precio:          p.precio    != null ? Number(p.precio)    : null,
+    descuento:       p.descuento != null ? Number(p.descuento) : null,
+    plan: p.plan ? {
+      nombre:    p.plan.nombre,
+      codigo:    p.plan.codigo_plan || null,
+      categoria: p.plan.categoria ? p.plan.categoria.nombre : null
+    } : null,
     insumos: (p.insumos || []).map(ins => ({
       id_insumo:          ins.id_insumo,
       nombre_insumo:      ins.insumos ? ins.insumos.nombre      : '-',
@@ -825,16 +838,30 @@ app.get('/api/recetas', async (req, res) => {
   res.json(resultado);
 });
 
-// POST /api/recetas → crear o reemplazar la receta de un producto
-// Body: { id_producto, insumos: [{ id_insumo, cantidad_necesaria, unidad_medida }] }
+// POST /api/recetas → crear o reemplazar la receta de un producto y actualizar precio/descuento
+// Body: { id_producto, precio?, descuento?, insumos: [{ id_insumo, cantidad_necesaria, unidad_medida }] }
 app.post('/api/recetas', async (req, res) => {
-  const { id_producto, insumos } = req.body;
+  const { id_producto, precio, descuento, insumos } = req.body;
 
   if (!id_producto || !insumos || insumos.length === 0) {
     return res.status(400).json({ error: 'id_producto e insumos son requeridos' });
   }
 
-  // 1. Borrar la receta anterior del producto (si existe)
+  // 1. Actualizar precio y descuento en la tabla productos (si vienen en el body)
+  if (precio != null || descuento != null) {
+    const camposActualizar = {};
+    if (precio    != null) camposActualizar.precio    = Number(precio);
+    if (descuento != null) camposActualizar.descuento = Number(descuento);
+
+    const { error: errProd } = await supabase
+      .from('productos')
+      .update(camposActualizar)
+      .eq('id', id_producto);
+
+    if (errProd) return res.status(500).json({ error: errProd.message });
+  }
+
+  // 2. Borrar la receta anterior del producto (si existe)
   const { error: errorDelete } = await supabase
     .from('producto_insumo')
     .delete()
@@ -842,7 +869,7 @@ app.post('/api/recetas', async (req, res) => {
 
   if (errorDelete) return res.status(500).json({ error: errorDelete.message });
 
-  // 2. Insertar los nuevos insumos
+  // 3. Insertar los nuevos insumos
   const filas = insumos.map(ins => ({
     id_producto,
     id_insumo:          ins.id_insumo,
@@ -1156,6 +1183,136 @@ app.get('/api/envios', async (req, res) => {
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
+});
+
+/* ======================================================
+   API PLANES (para modal de recetas)
+   ====================================================== */
+
+// GET /api/planes → planes activos con su prefijo de código
+app.get('/api/planes', async (req, res) => {
+  const { data, error } = await supabase
+    .from('planes')
+    .select('id, nombre, codigo_plan, id_categoria')
+    .eq('activo', true)
+    .order('nombre', { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
+// GET /api/planes/:id/siguiente-codigo → calcula el próximo código correlativo del plan
+app.get('/api/planes/:id/siguiente-codigo', async (req, res) => {
+  const idPlan = parseInt(req.params.id, 10);
+  if (isNaN(idPlan)) return res.status(400).json({ error: 'ID de plan inválido' });
+
+  try {
+    const { data: plan, error: errPlan } = await supabase
+      .from('planes')
+      .select('codigo_plan')
+      .eq('id', idPlan)
+      .single();
+
+    if (errPlan || !plan) return res.status(404).json({ error: 'Plan no encontrado' });
+
+    const prefix = plan.codigo_plan || '';
+
+    const { data: productos, error: errProd } = await supabase
+      .from('productos')
+      .select('codigo_plato')
+      .eq('id_plan', idPlan);
+
+    if (errProd) return res.status(500).json({ error: errProd.message });
+
+    let maxNum = 0;
+    (productos || []).forEach(p => {
+      if (p.codigo_plato && p.codigo_plato.startsWith(prefix)) {
+        const num = parseInt(p.codigo_plato.slice(prefix.length), 10);
+        if (!isNaN(num) && num > maxNum) maxNum = num;
+      }
+    });
+
+    res.json({ codigo: prefix + (maxNum + 1) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/productos/con-receta → crea producto nuevo + receta de forma atómica
+// Body: { nombre, id_plan, insumos: [{ id_insumo, cantidad_necesaria, unidad_medida }] }
+app.post('/api/productos/con-receta', async (req, res) => {
+  const { nombre, id_plan, precio, descuento, insumos } = req.body;
+
+  if (!nombre || !nombre.trim()) return res.status(400).json({ error: 'El nombre del producto es requerido' });
+  if (!id_plan)                   return res.status(400).json({ error: 'El plan es requerido' });
+  if (!insumos || insumos.length === 0) return res.status(400).json({ error: 'Agregá al menos un insumo' });
+
+  try {
+    // Calcular el próximo código de plato para el plan
+    const { data: plan, error: errPlan } = await supabase
+      .from('planes')
+      .select('codigo_plan')
+      .eq('id', id_plan)
+      .single();
+
+    if (errPlan || !plan) return res.status(404).json({ error: 'Plan no encontrado' });
+
+    const prefix = plan.codigo_plan || '';
+
+    const { data: existentes, error: errExist } = await supabase
+      .from('productos')
+      .select('codigo_plato')
+      .eq('id_plan', id_plan);
+
+    if (errExist) return res.status(500).json({ error: errExist.message });
+
+    let maxNum = 0;
+    (existentes || []).forEach(p => {
+      if (p.codigo_plato && p.codigo_plato.startsWith(prefix)) {
+        const num = parseInt(p.codigo_plato.slice(prefix.length), 10);
+        if (!isNaN(num) && num > maxNum) maxNum = num;
+      }
+    });
+
+    const codigo_plato = prefix + (maxNum + 1);
+
+    // Paso 1: insertar el nuevo producto
+    const { data: producto, error: errProducto } = await supabase
+      .from('productos')
+      .insert({
+        nombre:       nombre.trim(),
+        id_plan:      parseInt(id_plan),
+        codigo_plato,
+        precio:       precio    != null ? Number(precio)    : null,
+        descuento:    descuento != null ? Number(descuento) : null,
+        activo:       true
+      })
+      .select()
+      .single();
+
+    if (errProducto) return res.status(500).json({ error: errProducto.message });
+
+    // Paso 2: insertar la receta (producto_insumo)
+    const filas = insumos.map(ins => ({
+      id_producto:        producto.id,
+      id_insumo:          parseInt(ins.id_insumo),
+      cantidad_necesaria: Number(ins.cantidad_necesaria),
+      unidad_medida:      ins.unidad_medida
+    }));
+
+    const { error: errReceta } = await supabase
+      .from('producto_insumo')
+      .insert(filas);
+
+    if (errReceta) {
+      // Rollback manual: borrar el producto recién creado
+      await supabase.from('productos').delete().eq('id', producto.id);
+      return res.status(500).json({ error: errReceta.message });
+    }
+
+    res.json({ mensaje: 'Producto y receta creados correctamente', producto });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* ======================================================

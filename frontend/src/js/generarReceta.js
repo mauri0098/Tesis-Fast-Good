@@ -1,33 +1,62 @@
 // Variables globales
-let todasRecetas   = [];  // todas las recetas traídas del servidor
-let todosInsumos   = [];  // insumos disponibles para el select del modal
-let todosProductos = [];  // productos activos para el select del modal
-let idProductoEditando = null; // null = nueva receta, number = editar
+let todasRecetas    = [];
+let todosInsumos    = [];
+let todosProductos  = [];
+let todasCategorias = [];
+let idProductoEditando = null;
+let modoCreacion       = false;
 
 // ==========================================
-// INICIO: cuando el HTML está listo
+// INICIO
 // ==========================================
 document.addEventListener('DOMContentLoaded', function () {
   fetchRecetas();
   iniciarFiltros();
 
-  // Cerrar modales al hacer click en el fondo oscuro
   window.addEventListener('click', function (e) {
     if (e.target === document.getElementById('modalDetalles')) cerrarModalDetalles();
     if (e.target === document.getElementById('modalEditar'))   cerrarModalEditar();
   });
 
-  // Botón "Editar" dentro del modal de detalles
   document.getElementById('btnEditarDesdeDetalles').addEventListener('click', function () {
     const id = idProductoEditando;
     cerrarModalDetalles();
     abrirModalEditar(id);
   });
+
+  // Cascada: categoría → plan
+  document.getElementById('edCategoria').addEventListener('change', function () {
+    const idCat       = this.value;
+    const planSelect  = document.getElementById('edPlan');
+    const codigoInput = document.getElementById('edCodigo');
+
+    codigoInput.value = '';
+
+    if (!idCat) {
+      planSelect.innerHTML = '<option value="">Seleccioná una categoría primero</option>';
+      planSelect.disabled  = true;
+      return;
+    }
+
+    cargarPlanesParaCategoria(parseInt(idCat));
+  });
+
+  // Cascada: plan → código automático
+  document.getElementById('edPlan').addEventListener('change', function () {
+    const idPlan      = this.value;
+    const codigoInput = document.getElementById('edCodigo');
+
+    if (!idPlan) {
+      codigoInput.value = '';
+      return;
+    }
+
+    actualizarCodigoAutomatico(parseInt(idPlan));
+  });
 });
 
 // ==========================================
-// TRAER RECETAS DEL SERVIDOR
-// NAVEGADOR → SERVIDOR → SUPABASE
+// TRAER RECETAS
 // ==========================================
 async function fetchRecetas() {
   const tbody = document.getElementById('recetasBody');
@@ -36,73 +65,87 @@ async function fetchRecetas() {
     const response = await fetch('/api/recetas');
     const data     = await response.json();
 
-    todasRecetas = data;
+    if (!response.ok) throw new Error(data.error || 'Error en el servidor');
 
+    todasRecetas = data;
     cargarPlanesEnFiltro();
+    cargarCategoriasEnFiltro();
     renderizarRecetas(todasRecetas);
 
   } catch (error) {
     console.error('Error al traer recetas:', error);
-    tbody.innerHTML = '<tr><td colspan="6" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
   }
 }
 
 // ==========================================
-// DIBUJAR LA TABLA
+// TABLA PRINCIPAL
 // ==========================================
 function renderizarRecetas(recetas) {
   const tbody = document.getElementById('recetasBody');
   tbody.innerHTML = '';
 
   if (recetas.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="loading-text">No se encontraron recetas</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="loading-text">No existen productos que cumplan los filtros especificados</td></tr>';
     return;
   }
 
   recetas.forEach(function (receta) {
     const tr = document.createElement('tr');
 
-    // — Columna ID —
+    // — ID —
     const tdId = document.createElement('td');
     tdId.style.fontWeight = 'bold';
     tdId.textContent = '#' + String(receta.id_producto).padStart(3, '0');
 
-    // — Columna Plan —
+    // — Código de Plato —
+    const tdCodigo = document.createElement('td');
+    tdCodigo.className   = 'td-codigo';
+    tdCodigo.textContent = receta.codigo_plato || '-';
+
+    // — Categoría —
+    const tdCategoria = document.createElement('td');
+    tdCategoria.textContent = (receta.plan && receta.plan.categoria) ? receta.plan.categoria : '-';
+
+    // — Plan (sin (null) si el código no existe) —
     const tdPlan = document.createElement('td');
     if (receta.plan) {
-      tdPlan.textContent = receta.plan.nombre + ' (' + receta.plan.codigo + ')';
+      tdPlan.textContent = receta.plan.codigo
+        ? receta.plan.nombre + ' (' + receta.plan.codigo + ')'
+        : receta.plan.nombre;
     } else {
       tdPlan.textContent = '-';
     }
 
-    // — Columna Nombre Producto —
+    // — Nombre Producto —
     const tdNombre = document.createElement('td');
-    const strong = document.createElement('strong');
+    const strong   = document.createElement('strong');
     strong.textContent = receta.nombre_producto || '-';
     tdNombre.appendChild(strong);
 
-    // — Columna Receta (resumen) —
-    const tdReceta = document.createElement('td');
-    tdReceta.className = 'receta-resumen';
-    tdReceta.textContent = armarResumenReceta(receta.insumos || []);
+    // — Precio —
+    const tdPrecio = document.createElement('td');
+    tdPrecio.textContent = receta.precio != null ? '$' + Number(receta.precio).toFixed(2) : '-';
 
-    // — Columna Cantidad Posible —
-    const tdCant = document.createElement('td');
-    const posible = calcularCantidadPosible(receta.insumos || []);
+    // — Descuento —
+    const tdDescuento = document.createElement('td');
+    tdDescuento.textContent = receta.descuento != null ? receta.descuento + '%' : '-';
+
+    // — Cantidad Posible —
+    const tdCant   = document.createElement('td');
+    const posible  = calcularCantidadPosible(receta.insumos || []);
     const spanCant = document.createElement('span');
     spanCant.textContent = posible;
-
-    if (posible === 0) {
-      spanCant.className = 'cant-cero';
-    } else if (posible < 5) {
-      spanCant.className = 'cant-baja';
-    } else {
-      spanCant.className = 'cant-ok';
-    }
+    spanCant.className   = posible === 0 ? 'cant-cero' : posible < 5 ? 'cant-baja' : 'cant-ok';
     tdCant.appendChild(spanCant);
 
-    // — Columna Acciones —
-    const tdAcciones = document.createElement('td');
+    // — Acciones —
+    const tdAcciones    = document.createElement('td');
+    tdAcciones.className = 'td-acciones';
+
+    // Div flex interno: evita que display:flex en el <td> rompa la tabla
+    const grupoAcciones    = document.createElement('div');
+    grupoAcciones.className = 'acciones-grupo';
 
     const btnDetalle = document.createElement('button');
     btnDetalle.className = 'btn-detalle';
@@ -119,25 +162,26 @@ function renderizarRecetas(recetas) {
     btnBorrar.textContent = 'Borrar';
     btnBorrar.onclick = function () { borrarReceta(receta.id_producto); };
 
-    tdAcciones.appendChild(btnDetalle);
-    tdAcciones.appendChild(btnEditar);
-    tdAcciones.appendChild(btnBorrar);
+    grupoAcciones.appendChild(btnDetalle);
+    grupoAcciones.appendChild(btnEditar);
+    grupoAcciones.appendChild(btnBorrar);
+    tdAcciones.appendChild(grupoAcciones);
 
     tr.appendChild(tdId);
+    tr.appendChild(tdCodigo);
+    tr.appendChild(tdCategoria);
     tr.appendChild(tdPlan);
     tr.appendChild(tdNombre);
-    tr.appendChild(tdReceta);
+    tr.appendChild(tdPrecio);
+    tr.appendChild(tdDescuento);
     tr.appendChild(tdCant);
     tr.appendChild(tdAcciones);
-
     tbody.appendChild(tr);
   });
 }
 
 // ==========================================
-// CALCULAR CANTIDAD POSIBLE
-// Por cada insumo: stock_actual / cantidad_necesaria
-// Se toma el mínimo — cuántas unidades se pueden preparar
+// CÁLCULOS
 // ==========================================
 function calcularCantidadPosible(insumos) {
   if (!insumos || insumos.length === 0) return 0;
@@ -146,41 +190,23 @@ function calcularCantidadPosible(insumos) {
 
   for (let i = 0; i < insumos.length; i++) {
     const ins = insumos[i];
-
-    if (!ins.cantidad_necesaria || ins.cantidad_necesaria <= 0) {
-      return 0;
-    }
-
-    const cantConEsteInsumo = Math.floor(ins.stock_actual / ins.cantidad_necesaria);
-
-    if (cantConEsteInsumo < posible) {
-      posible = cantConEsteInsumo;
-    }
+    if (!ins.cantidad_necesaria || ins.cantidad_necesaria <= 0) return 0;
+    const cant = Math.floor(ins.stock_actual / ins.cantidad_necesaria);
+    if (cant < posible) posible = cant;
   }
 
-  if (!isFinite(posible)) return 0;
-  return posible;
+  return isFinite(posible) ? posible : 0;
 }
 
-// ==========================================
-// ARMAR RESUMEN DE RECETA
-// Muestra los primeros 3 insumos y un "+N más" si hay más
-// ==========================================
 function armarResumenReceta(insumos) {
   if (!insumos || insumos.length === 0) return 'Sin insumos';
 
-  const primeros = insumos.slice(0, 3);
-  const partes   = primeros.map(function (ins) {
+  const partes = insumos.slice(0, 3).map(function (ins) {
     return ins.nombre_insumo + ' ' + ins.cantidad_necesaria + ' ' + ins.unidad_medida;
   });
 
   const resumen = partes.join(', ');
-
-  if (insumos.length > 3) {
-    return resumen + ' … (+' + (insumos.length - 3) + ')';
-  }
-
-  return resumen;
+  return insumos.length > 3 ? resumen + ' … (+' + (insumos.length - 3) + ')' : resumen;
 }
 
 // ==========================================
@@ -194,44 +220,70 @@ function cargarPlanesEnFiltro() {
 
   todasRecetas.forEach(function (receta) {
     if (!receta.plan) return;
+    const nombre = receta.plan.nombre;
+    if (planesVistos.indexOf(nombre) !== -1) return;
+    planesVistos.push(nombre);
 
-    const codigo = receta.plan.codigo;
-    const yaEsta = planesVistos.indexOf(codigo) !== -1;
+    const option = document.createElement('option');
+    option.value = nombre;
+    option.textContent = receta.plan.codigo
+      ? nombre + ' (' + receta.plan.codigo + ')'
+      : nombre;
+    select.appendChild(option);
+  });
+}
 
-    if (!yaEsta) {
-      planesVistos.push(codigo);
-      const option = document.createElement('option');
-      option.value = codigo;
-      option.textContent = receta.plan.nombre + ' (' + codigo + ')';
-      select.appendChild(option);
-    }
+function cargarCategoriasEnFiltro() {
+  const select = document.getElementById('filtroCategoria');
+  select.innerHTML = '<option value="">Todas las categorías</option>';
+
+  const categoriasVistas = [];
+
+  todasRecetas.forEach(function (receta) {
+    if (!receta.plan || !receta.plan.categoria) return;
+    const cat = receta.plan.categoria;
+    if (categoriasVistas.indexOf(cat) !== -1) return;
+    categoriasVistas.push(cat);
+
+    const option       = document.createElement('option');
+    option.value       = cat;
+    option.textContent = cat;
+    select.appendChild(option);
   });
 }
 
 function iniciarFiltros() {
-  const filtroNombre = document.getElementById('filtroNombre');
-  const filtroPlan   = document.getElementById('filtroPlan');
+  const filtroNombre         = document.getElementById('filtroNombre');
+  const filtroPlan           = document.getElementById('filtroPlan');
+  const filtroCategoria      = document.getElementById('filtroCategoria');
+  const filtroDisponibilidad = document.getElementById('filtroDisponibilidad');
 
   function aplicarFiltros() {
-    const texto = filtroNombre.value.toLowerCase();
-    const plan  = filtroPlan.value;
+    const texto         = filtroNombre.value.toLowerCase();
+    const plan          = filtroPlan.value;
+    const categoria     = filtroCategoria.value;
+    const disponibilidad = filtroDisponibilidad.value;
 
     const filtradas = todasRecetas.filter(function (receta) {
-      const cumpleNombre = receta.nombre_producto.toLowerCase().includes(texto);
+      const cumpleNombre     = receta.nombre_producto.toLowerCase().includes(texto);
+      const cumplePlan       = !plan      || (receta.plan && receta.plan.nombre === plan);
+      const cumpleCategoria  = !categoria || (receta.plan && receta.plan.categoria === categoria);
 
-      let cumplePlan = true;
-      if (plan) {
-        cumplePlan = receta.plan && receta.plan.codigo === plan;
-      }
+      const posible = calcularCantidadPosible(receta.insumos || []);
+      let cumpleDisp = true;
+      if (disponibilidad === 'disponible') cumpleDisp = posible > 0;
+      if (disponibilidad === 'sin_stock')  cumpleDisp = posible === 0;
 
-      return cumpleNombre && cumplePlan;
+      return cumpleNombre && cumplePlan && cumpleCategoria && cumpleDisp;
     });
 
     renderizarRecetas(filtradas);
   }
 
-  filtroNombre.addEventListener('input', aplicarFiltros);
-  filtroPlan.addEventListener('change', aplicarFiltros);
+  filtroNombre.addEventListener('input',   aplicarFiltros);
+  filtroPlan.addEventListener('change',    aplicarFiltros);
+  filtroCategoria.addEventListener('change', aplicarFiltros);
+  filtroDisponibilidad.addEventListener('change', aplicarFiltros);
 }
 
 // ==========================================
@@ -243,29 +295,17 @@ function abrirModalDetalles(idProducto) {
 
   idProductoEditando = idProducto;
 
-  document.getElementById('detTitulo').textContent = 'Receta de ' + receta.nombre_producto;
+  document.getElementById('detTitulo').textContent   = 'Receta de ' + receta.nombre_producto;
   document.getElementById('detProducto').textContent = receta.nombre_producto || '-';
+  document.getElementById('detPlan').textContent     = receta.plan
+    ? receta.plan.nombre + ' (' + receta.plan.codigo + ')'
+    : '-';
 
-  if (receta.plan) {
-    document.getElementById('detPlan').textContent = receta.plan.nombre + ' (' + receta.plan.codigo + ')';
-  } else {
-    document.getElementById('detPlan').textContent = '-';
-  }
-
-  // Badge cantidad posible
   const posible    = calcularCantidadPosible(receta.insumos || []);
   const spanPosible = document.getElementById('detPosible');
   spanPosible.textContent = posible + ' unidades';
+  spanPosible.className   = posible === 0 ? 'cant-cero' : posible < 5 ? 'cant-baja' : 'cant-ok';
 
-  if (posible === 0) {
-    spanPosible.className = 'cant-cero';
-  } else if (posible < 5) {
-    spanPosible.className = 'cant-baja';
-  } else {
-    spanPosible.className = 'cant-ok';
-  }
-
-  // Tabla de insumos
   const tbody  = document.getElementById('detInsumosBody');
   const insumos = receta.insumos || [];
   tbody.innerHTML = '';
@@ -280,17 +320,13 @@ function abrirModalDetalles(idProducto) {
     tbody.appendChild(tr);
   } else {
     insumos.forEach(function (ins) {
-      const tr = document.createElement('tr');
-
+      const tr      = document.createElement('tr');
       const tdNombre = document.createElement('td');
       tdNombre.textContent = ins.nombre_insumo || '-';
-
-      const tdCant = document.createElement('td');
+      const tdCant  = document.createElement('td');
       tdCant.textContent = ins.cantidad_necesaria;
-
       const tdUnidad = document.createElement('td');
       tdUnidad.textContent = ins.unidad_medida || '-';
-
       tr.appendChild(tdNombre);
       tr.appendChild(tdCant);
       tr.appendChild(tdUnidad);
@@ -306,39 +342,64 @@ function cerrarModalDetalles() {
 }
 
 // ==========================================
-// MODAL NUEVA / EDITAR RECETA
+// MODAL CREAR NUEVO PRODUCTO + RECETA
 // ==========================================
 function abrirModalNuevaReceta() {
-  abrirModalEditar(null);
+  modoCreacion       = true;
+  idProductoEditando = null;
+
+  document.getElementById('edTitulo').textContent      = 'Nuevo Producto y Receta';
+  document.getElementById('edError').style.display     = 'none';
+  document.getElementById('edInsumosBody').innerHTML   = '';
+
+  document.getElementById('bloqueNuevoProducto').style.display = 'block';
+  document.getElementById('bloqueEditar').style.display        = 'none';
+
+  // Limpiar campos
+  document.getElementById('edNombre').value    = '';
+  document.getElementById('edCodigo').value    = '';
+  document.getElementById('edPrecio').value    = '';
+  document.getElementById('edDescuento').value = '';
+
+  const planSelect = document.getElementById('edPlan');
+  planSelect.innerHTML = '<option value="">Seleccioná una categoría primero</option>';
+  planSelect.disabled  = true;
+
+  Promise.all([
+    cargarCategoriasEnSelect(),
+    cargarInsumosDisponibles()
+  ]).then(function () {
+    agregarFilaInsumo(null);
+  });
+
+  document.getElementById('modalEditar').style.display = 'block';
 }
 
+// ==========================================
+// MODAL EDITAR RECETA EXISTENTE
+// ==========================================
 async function abrirModalEditar(idProducto) {
+  modoCreacion       = false;
   idProductoEditando = idProducto;
-  document.getElementById('edError').style.display = 'none';
+
+  document.getElementById('edError').style.display   = 'none';
   document.getElementById('edInsumosBody').innerHTML = '';
 
-  if (idProducto === null) {
-    document.getElementById('edTitulo').textContent = 'Nueva Receta';
-  } else {
-    const receta = todasRecetas.find(function (r) { return r.id_producto === idProducto; });
-    if (receta) {
-      document.getElementById('edTitulo').textContent = 'Editar Receta — ' + receta.nombre_producto;
-    }
+  document.getElementById('bloqueNuevoProducto').style.display = 'none';
+  document.getElementById('bloqueEditar').style.display        = 'block';
+
+  const receta = todasRecetas.find(function (r) { return r.id_producto === idProducto; });
+  if (receta) {
+    document.getElementById('edTitulo').textContent                 = 'Editar Receta';
+    document.getElementById('edNombreProductoEditando').textContent = receta.nombre_producto;
+    document.getElementById('edPrecio').value    = receta.precio    != null ? receta.precio    : '';
+    document.getElementById('edDescuento').value = receta.descuento != null ? receta.descuento : '';
   }
 
-  // Cargar datos del servidor antes de mostrar el modal
-  // NAVEGADOR → SERVIDOR → SUPABASE
-  await cargarProductosEnSelect();
   await cargarInsumosDisponibles();
 
-  // Si es edición, preseleccionar el producto y cargar sus insumos
-  if (idProducto !== null) {
-    document.getElementById('edProducto').value = idProducto;
-
-    const receta = todasRecetas.find(function (r) { return r.id_producto === idProducto; });
-    if (receta && receta.insumos) {
-      receta.insumos.forEach(function (ins) { agregarFilaInsumo(ins); });
-    }
+  if (receta && receta.insumos) {
+    receta.insumos.forEach(function (ins) { agregarFilaInsumo(ins); });
   }
 
   document.getElementById('modalEditar').style.display = 'block';
@@ -346,45 +407,101 @@ async function abrirModalEditar(idProducto) {
 
 function cerrarModalEditar() {
   document.getElementById('modalEditar').style.display = 'none';
-  document.getElementById('edInsumosBody').innerHTML = '';
+  document.getElementById('edInsumosBody').innerHTML   = '';
+  document.getElementById('edError').style.display     = 'none';
+  document.getElementById('edNombre').value            = '';
+  document.getElementById('edCodigo').value            = '';
+  document.getElementById('edPrecio').value            = '';
+  document.getElementById('edDescuento').value         = '';
   idProductoEditando = null;
+  modoCreacion       = false;
 }
 
 // ==========================================
-// CARGAR PRODUCTOS EN EL SELECT DEL MODAL
-// NAVEGADOR → SERVIDOR → SUPABASE
+// CARGAR CATEGORÍAS (select modal creación)
 // ==========================================
-async function cargarProductosEnSelect() {
-  const select = document.getElementById('edProducto');
-  select.innerHTML = '<option value="">Cargando...</option>';
+async function cargarCategoriasEnSelect() {
+  const select = document.getElementById('edCategoria');
+  select.innerHTML = '<option value="">Cargando categorías...</option>';
 
   try {
-    const response = await fetch('/api/v1/productos');
-    todosProductos = await response.json();
+    const response    = await fetch('/api/v1/categorias');
+    todasCategorias   = await response.json();
 
-    select.innerHTML = '<option value="">Seleccione un producto...</option>';
-
-    todosProductos.forEach(function (prod) {
-      const option = document.createElement('option');
-      option.value = prod.id;
-      option.textContent = prod.nombre;
+    select.innerHTML = '<option value="">Seleccioná una categoría...</option>';
+    todasCategorias.forEach(function (cat) {
+      const option       = document.createElement('option');
+      option.value       = cat.id;
+      option.textContent = cat.nombre;
       select.appendChild(option);
     });
-
   } catch (error) {
-    console.error('Error al cargar productos:', error);
+    console.error('Error al cargar categorías:', error);
     select.innerHTML = '<option value="">Error al cargar</option>';
   }
 }
 
 // ==========================================
+// CARGAR PLANES (cascada desde categoría)
+// ==========================================
+async function cargarPlanesParaCategoria(idCategoria) {
+  const planSelect = document.getElementById('edPlan');
+  planSelect.innerHTML = '<option value="">Cargando planes...</option>';
+  planSelect.disabled  = true;
+
+  try {
+    const response = await fetch('/api/v1/categorias/' + idCategoria + '/planes');
+
+    if (!response.ok) {
+      planSelect.innerHTML = '<option value="">Sin planes para esta categoría</option>';
+      return;
+    }
+
+    const planes = await response.json();
+
+    planSelect.innerHTML = '<option value="">Seleccioná un plan...</option>';
+    planes.forEach(function (plan) {
+      const option       = document.createElement('option');
+      option.value       = plan.id;
+      option.textContent = plan.nombre;
+      planSelect.appendChild(option);
+    });
+
+    planSelect.disabled = false;
+  } catch (error) {
+    console.error('Error al cargar planes:', error);
+    planSelect.innerHTML = '<option value="">Error al cargar</option>';
+  }
+}
+
+// ==========================================
+// CÓDIGO AUTOMÁTICO (según plan seleccionado)
+// ==========================================
+async function actualizarCodigoAutomatico(idPlan) {
+  const codigoInput     = document.getElementById('edCodigo');
+  codigoInput.value     = 'Calculando...';
+  codigoInput.classList.add('calculando');
+
+  try {
+    const response = await fetch('/api/planes/' + idPlan + '/siguiente-codigo');
+    const data     = await response.json();
+
+    codigoInput.value = response.ok ? data.codigo : '';
+  } catch (error) {
+    console.error('Error al calcular código:', error);
+    codigoInput.value = '';
+  } finally {
+    codigoInput.classList.remove('calculando');
+  }
+}
+
+// ==========================================
 // CARGAR INSUMOS DISPONIBLES (para los selects de la tabla)
-// NAVEGADOR → SERVIDOR → SUPABASE
 // ==========================================
 async function cargarInsumosDisponibles() {
   try {
     const response = await fetch('/api/insumos');
-    todosInsumos = await response.json();
+    todosInsumos   = await response.json();
   } catch (error) {
     console.error('Error al cargar insumos:', error);
     todosInsumos = [];
@@ -392,8 +509,8 @@ async function cargarInsumosDisponibles() {
 }
 
 // ==========================================
-// AGREGAR FILA EDITABLE A LA TABLA DEL MODAL
-// insumoExistente puede ser null (fila vacía) o un objeto con datos
+// AGREGAR FILA EDITABLE DE INSUMO
+// insumoExistente: null = fila vacía | objeto = datos pre-cargados (modo edición)
 // ==========================================
 function agregarFilaInsumo(insumoExistente) {
   const tbody = document.getElementById('edInsumosBody');
@@ -404,14 +521,14 @@ function agregarFilaInsumo(insumoExistente) {
   const selectInsumo = document.createElement('select');
   selectInsumo.className = 'ed-insumo';
 
-  const optVacio = document.createElement('option');
-  optVacio.value = '';
+  const optVacio       = document.createElement('option');
+  optVacio.value       = '';
   optVacio.textContent = 'Seleccionar insumo...';
   selectInsumo.appendChild(optVacio);
 
   todosInsumos.forEach(function (ins) {
-    const opt = document.createElement('option');
-    opt.value = ins.id;
+    const opt       = document.createElement('option');
+    opt.value       = ins.id;
     opt.textContent = ins.nombre;
     selectInsumo.appendChild(opt);
   });
@@ -426,7 +543,7 @@ function agregarFilaInsumo(insumoExistente) {
   const tdCantidad    = document.createElement('td');
   const inputCantidad = document.createElement('input');
   inputCantidad.type      = 'number';
-  inputCantidad.min       = '0';
+  inputCantidad.min       = '0.01';
   inputCantidad.step      = '0.01';
   inputCantidad.className = 'ed-cantidad';
   if (insumoExistente && insumoExistente.cantidad_necesaria) {
@@ -434,22 +551,43 @@ function agregarFilaInsumo(insumoExistente) {
   }
   tdCantidad.appendChild(inputCantidad);
 
-  // — Celda: select de unidad —
-  const tdUnidad    = document.createElement('td');
+  // — Celda: unidad (select con opciones del sistema) —
+  const tdUnidad     = document.createElement('td');
   const selectUnidad = document.createElement('select');
   selectUnidad.className = 'ed-unidad';
 
-  const unidades = ['g', 'kg', 'ml', 'lts', 'u'];
+  const unidades = ['gr', 'kg', 'ml', 'lts', 'unidad'];
   unidades.forEach(function (u) {
-    const opt = document.createElement('option');
-    opt.value = u;
+    const opt       = document.createElement('option');
+    opt.value       = u;
     opt.textContent = u;
     selectUnidad.appendChild(opt);
   });
 
-  if (insumoExistente && insumoExistente.unidad_medida) {
-    selectUnidad.value = insumoExistente.unidad_medida;
+  // Pre-seleccionar: primero el valor guardado, luego el del insumo por defecto
+  function seleccionarUnidad(valor) {
+    if (!valor) return;
+    // Buscar coincidencia exacta primero, luego case-insensitive
+    const encontrado = unidades.find(function (u) {
+      return u === valor || u.toLowerCase() === valor.toLowerCase();
+    });
+    if (encontrado) selectUnidad.value = encontrado;
   }
+
+  if (insumoExistente && insumoExistente.unidad_medida) {
+    seleccionarUnidad(insumoExistente.unidad_medida);
+  } else if (insumoExistente && insumoExistente.id_insumo) {
+    const ins = todosInsumos.find(function (i) {
+      return String(i.id) === String(insumoExistente.id_insumo);
+    });
+    if (ins) seleccionarUnidad(ins.unidad_medida);
+  }
+
+  // Al cambiar el insumo, sugerir la unidad del insumo seleccionado
+  selectInsumo.addEventListener('change', function () {
+    const ins = todosInsumos.find(function (i) { return String(i.id) === this.value; }, this);
+    if (ins) seleccionarUnidad(ins.unidad_medida);
+  });
 
   tdUnidad.appendChild(selectUnidad);
 
@@ -466,39 +604,29 @@ function agregarFilaInsumo(insumoExistente) {
   tr.appendChild(tdCantidad);
   tr.appendChild(tdUnidad);
   tr.appendChild(tdEliminar);
-
   tbody.appendChild(tr);
 }
 
 // ==========================================
-// GUARDAR RECETA
-// POST /api/recetas → NAVEGADOR → SERVIDOR → SUPABASE
+// GUARDAR (crea producto + receta, o actualiza receta existente)
 // ==========================================
 async function guardarReceta() {
-  const errEl     = document.getElementById('edError');
+  const errEl = document.getElementById('edError');
   errEl.style.display = 'none';
 
-  const idProducto = document.getElementById('edProducto').value;
-
-  if (!idProducto) {
-    errEl.textContent = 'Seleccioná un producto.';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  // Recolectar filas de la tabla editable
+  // Recolectar filas de insumos
   const filas   = document.getElementById('edInsumosBody').querySelectorAll('tr');
   const insumos = [];
-  let   hayError = false;
+  let hayError  = false;
 
   filas.forEach(function (fila) {
     const selectInsumo  = fila.querySelector('.ed-insumo');
     const inputCantidad = fila.querySelector('.ed-cantidad');
-    const selectUnidad  = fila.querySelector('.ed-unidad');
+    const inputUnidad   = fila.querySelector('.ed-unidad');
 
-    const idInsumo = selectInsumo  ? selectInsumo.value  : '';
+    const idInsumo = selectInsumo  ? selectInsumo.value           : '';
     const cantidad = inputCantidad ? parseFloat(inputCantidad.value) : 0;
-    const unidad   = selectUnidad  ? selectUnidad.value  : '';
+    const unidad   = inputUnidad   ? inputUnidad.value.trim()     : '';
 
     if (!idInsumo || !unidad || isNaN(cantidad) || cantidad <= 0) {
       hayError = true;
@@ -512,43 +640,85 @@ async function guardarReceta() {
   });
 
   if (insumos.length === 0) {
-    errEl.textContent = 'Agregá al menos un insumo.';
-    errEl.style.display = 'block';
+    mostrarError('Agregá al menos un insumo.');
     return;
   }
 
   if (hayError) {
-    errEl.textContent = 'Completá todos los campos de cada insumo.';
-    errEl.style.display = 'block';
+    mostrarError('Completá todos los campos (insumo, cantidad mayor a cero).');
     return;
   }
 
+  if (modoCreacion) {
+    await guardarNuevoProductoConReceta(insumos);
+  } else {
+    await actualizarRecetaExistente(insumos);
+  }
+}
+
+// --- MODO CREACIÓN: POST /api/productos/con-receta ---
+async function guardarNuevoProductoConReceta(insumos) {
+  const nombre    = document.getElementById('edNombre').value.trim();
+  const idPlan    = document.getElementById('edPlan').value;
+  const precio    = document.getElementById('edPrecio').value    !== '' ? parseFloat(document.getElementById('edPrecio').value)    : null;
+  const descuento = document.getElementById('edDescuento').value !== '' ? parseFloat(document.getElementById('edDescuento').value) : null;
+
+  if (!nombre) { mostrarError('Ingresá el nombre del producto.'); return; }
+  if (!idPlan) { mostrarError('Seleccioná un plan.');             return; }
+  if (precio === null || isNaN(precio) || precio < 0) { mostrarError('Ingresá un precio válido.'); return; }
+
   try {
-    // NAVEGADOR → SERVIDOR → SUPABASE
-    const response = await fetch('/api/recetas', {
-      method: 'POST',
+    const response = await fetch('/api/productos/con-receta', {
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id_producto: parseInt(idProducto),
-        insumos: insumos
-      })
+      body:    JSON.stringify({ nombre, id_plan: parseInt(idPlan), precio, descuento, insumos })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error en el servidor');
+
+    cerrarModalEditar();
+    await fetchRecetas();
+
+  } catch (error) {
+    console.error('Error al crear producto y receta:', error);
+    mostrarError('Error: ' + error.message);
+  }
+}
+
+// --- MODO EDICIÓN: POST /api/recetas ---
+async function actualizarRecetaExistente(insumos) {
+  if (!idProductoEditando) { mostrarError('No hay producto seleccionado.'); return; }
+
+  const precio    = document.getElementById('edPrecio').value    !== '' ? parseFloat(document.getElementById('edPrecio').value)    : null;
+  const descuento = document.getElementById('edDescuento').value !== '' ? parseFloat(document.getElementById('edDescuento').value) : null;
+
+  try {
+    const response = await fetch('/api/recetas', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ id_producto: idProductoEditando, precio, descuento, insumos })
     });
 
     if (!response.ok) throw new Error('Error en el servidor');
 
     cerrarModalEditar();
-    await fetchRecetas(); // recargar tabla con los datos actualizados
+    await fetchRecetas();
 
   } catch (error) {
     console.error('Error al guardar receta:', error);
-    errEl.textContent = 'Error al guardar. Intentá de nuevo.';
-    errEl.style.display = 'block';
+    mostrarError('Error al guardar. Intentá de nuevo.');
   }
+}
+
+function mostrarError(texto) {
+  const errEl = document.getElementById('edError');
+  errEl.textContent    = texto;
+  errEl.style.display  = 'block';
 }
 
 // ==========================================
 // BORRAR RECETA
-// DELETE /api/recetas/:idProducto → NAVEGADOR → SERVIDOR → SUPABASE
 // ==========================================
 async function borrarReceta(idProducto) {
   const receta = todasRecetas.find(function (r) { return r.id_producto === idProducto; });
@@ -558,13 +728,9 @@ async function borrarReceta(idProducto) {
   if (!confirmar) return;
 
   try {
-    // NAVEGADOR → SERVIDOR → SUPABASE
     const response = await fetch('/api/recetas/' + idProducto, { method: 'DELETE' });
-
     if (!response.ok) throw new Error('Error en el servidor');
-
-    await fetchRecetas(); // recargar tabla
-
+    await fetchRecetas();
   } catch (error) {
     console.error('Error al borrar receta:', error);
     alert('Error al eliminar. Intentá de nuevo.');

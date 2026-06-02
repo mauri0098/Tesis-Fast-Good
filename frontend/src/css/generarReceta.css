@@ -24,9 +24,9 @@ body {
    ========================================= */
 .page-container {
   padding: 1.5rem 2rem;
-  max-width: 1300px;
+  max-width: 1350px;
   margin: 0 auto;
-  width: 100%;
+  width: 95%;
 }
 
 .table-wrapper {
@@ -97,7 +97,7 @@ body {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
 .standard-table thead th {
@@ -115,24 +115,42 @@ body {
 .standard-table thead th:first-child { border-top-left-radius: var(--radius); }
 .standard-table thead th:last-child  { border-top-right-radius: var(--radius); }
 
-/* Anchos por columna — suman 100% */
+/* Anchos por columna — 9 columnas, guías + mínimos garantizados */
 .standard-table thead th:nth-child(1),
-.standard-table tbody td:nth-child(1) { width: 6%; }   /* ID */
+.standard-table tbody td:nth-child(1) { width: 4%;  min-width: 60px;  white-space: nowrap; }  /* ID */
 
 .standard-table thead th:nth-child(2),
-.standard-table tbody td:nth-child(2) { width: 10%; }  /* Plan */
+.standard-table tbody td:nth-child(2) { width: 5%;  min-width: 58px; }   /* Código */
 
 .standard-table thead th:nth-child(3),
-.standard-table tbody td:nth-child(3) { width: 20%; }  /* Nombre Producto */
+.standard-table tbody td:nth-child(3) { width: 10%; min-width: 90px; }   /* Categoría */
 
 .standard-table thead th:nth-child(4),
-.standard-table tbody td:nth-child(4) { width: 34%; }  /* Receta */
+.standard-table tbody td:nth-child(4) { width: 10%; min-width: 90px; }   /* Plan */
 
 .standard-table thead th:nth-child(5),
-.standard-table tbody td:nth-child(5) { width: 12%; }  /* Cant. Posible */
+.standard-table tbody td:nth-child(5) { width: 16%; min-width: 110px; }  /* Nombre Producto */
 
 .standard-table thead th:nth-child(6),
-.standard-table tbody td:nth-child(6) { width: 18%; }  /* Acciones */
+.standard-table tbody td:nth-child(6) { width: 7%;  min-width: 72px; }   /* Precio */
+
+.standard-table thead th:nth-child(7),
+.standard-table tbody td:nth-child(7) { width: 7%;  min-width: 72px; }   /* Descuento */
+
+.standard-table thead th:nth-child(8),
+.standard-table tbody td:nth-child(8) { width: 9%;  min-width: 88px; }   /* Cant. Posible */
+
+.standard-table thead th:nth-child(9),
+.standard-table tbody td:nth-child(9) { width: 18%; min-width: 220px; }  /* Acciones */
+
+/* Código de plato en fuente monoespaciada */
+.td-codigo {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--primary-green);
+  letter-spacing: 0.04em;
+}
 
 .standard-table tbody td {
   padding: 0.75rem 0.4rem;
@@ -245,6 +263,87 @@ body {
 
 .btn-borrar:hover { background-color: #bd2130; }
 
+/* Celda Acciones: sólo padding — el flex va en el div interno */
+.td-acciones {
+  padding: 0.5rem 0.6rem;
+}
+
+/* Div contenedor de los botones — éste sí lleva flex */
+.acciones-grupo {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+/* =========================================
+   SECCIÓN SUBTÍTULO DENTRO DEL MODAL
+   ========================================= */
+.seccion-subtitulo {
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--primary-green);
+  letter-spacing: 0.06em;
+  margin: 1rem 0 0.55rem 0;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid #e8f5e9;
+}
+
+/* =========================================
+   INPUT TEXTO (nombre del nuevo producto)
+   ========================================= */
+.input-texto {
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.85rem;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+
+.input-texto:focus {
+  outline: none;
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.15);
+}
+
+/* =========================================
+   INPUT READONLY (código y unidad)
+   ========================================= */
+.input-readonly {
+  padding: 0.5rem 0.8rem;
+  border: 1px dashed var(--border-light);
+  border-radius: var(--radius);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.85rem;
+  width: 100%;
+  background-color: #f8f9fa;
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.input-readonly.calculando {
+  color: var(--primary-green);
+  font-style: italic;
+}
+
+/* =========================================
+   BANNER PRODUCTO EN MODO EDICIÓN
+   ========================================= */
+.info-producto-editar {
+  font-size: 0.88rem;
+  background-color: #e8f5e9;
+  border-left: 3px solid var(--primary-green);
+  border-radius: var(--radius);
+  padding: 0.55rem 0.9rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-dark);
+}
+
 /* =========================================
    MODAL RECETA (modificador sobre global.css)
    ========================================= */
@@ -300,6 +399,16 @@ body {
   outline: none;
   border-color: var(--primary-green);
   box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.15);
+}
+
+/* =========================================
+   FILA PRECIO / DESCUENTO EN EL MODAL
+   ========================================= */
+.precio-descuento-fila {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 1.2rem;
+  margin-bottom: 0.25rem;
 }
 
 /* =========================================

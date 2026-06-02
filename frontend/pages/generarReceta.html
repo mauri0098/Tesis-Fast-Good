@@ -29,9 +29,17 @@
 
       <div class="tabla-header">
         <div class="filtros-container">
-          <input type="text" id="filtroNombre" class="filtro-input" placeholder="Buscar por producto...">
+          <input type="text" id="filtroNombre" class="filtro-input" placeholder="Buscar por nombre...">
+          <select id="filtroCategoria" class="filtro-input">
+            <option value="">Todas las categorías</option>
+          </select>
           <select id="filtroPlan" class="filtro-input">
             <option value="">Todos los planes</option>
+          </select>
+          <select id="filtroDisponibilidad" class="filtro-input">
+            <option value="">Todos</option>
+            <option value="disponible">Disponibles para preparar</option>
+            <option value="sin_stock">Sin Stock</option>
           </select>
         </div>
         <button class="btn-agregar" onclick="abrirModalNuevaReceta()">+ Nueva Receta</button>
@@ -41,16 +49,19 @@
         <thead>
           <tr>
             <th>ID</th>
+            <th>Código</th>
+            <th>Categoría</th>
             <th>Plan</th>
             <th>Nombre Producto</th>
-            <th>Receta</th>
+            <th>Precio ($)</th>
+            <th>Descuento (%)</th>
             <th>Cant. Posible</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody id="recetasBody">
           <tr>
-            <td colspan="6" class="loading-text">Cargando datos...</td>
+            <td colspan="9" class="loading-text">Cargando datos...</td>
           </tr>
         </tbody>
       </table>
@@ -96,14 +107,53 @@
   <div id="modalEditar" class="modal">
     <div class="modal-content modal-receta">
       <span class="close" onclick="cerrarModalEditar()">&times;</span>
-      <h3 id="edTitulo">Nueva Receta</h3>
+      <h3 id="edTitulo">Nuevo Producto y Receta</h3>
 
-      <div class="modal-grid">
-        <label>Producto*</label>
-        <select id="edProducto">
-          <option value="">Cargando productos...</option>
-        </select>
+      <!-- BLOQUE CREACIÓN: visible solo al crear producto nuevo -->
+      <div id="bloqueNuevoProducto">
+        <div class="seccion-subtitulo">Datos del Producto</div>
+        <div class="modal-grid">
+          <label>Nombre*</label>
+          <input type="text" id="edNombre" class="input-texto" placeholder="Nombre del plato..." autocomplete="off" />
+        </div>
+        <div class="modal-grid">
+          <label>Categoría*</label>
+          <select id="edCategoria">
+            <option value="">Cargando categorías...</option>
+          </select>
+        </div>
+        <div class="modal-grid">
+          <label>Plan*</label>
+          <select id="edPlan" disabled>
+            <option value="">Seleccioná una categoría primero</option>
+          </select>
+        </div>
+        <div class="modal-grid">
+          <label>Código</label>
+          <input type="text" id="edCodigo" class="input-readonly" readonly placeholder="Se asignará automáticamente" />
+        </div>
       </div>
+
+      <!-- BLOQUE EDICIÓN: visible solo al editar receta existente -->
+      <div id="bloqueEditar" style="display:none;">
+        <div class="info-producto-editar">
+          Editando receta de: <strong id="edNombreProductoEditando"></strong>
+        </div>
+      </div>
+
+      <!-- PRECIO Y DESCUENTO: siempre visible, compartido entre ambos modos -->
+      <div class="precio-descuento-fila">
+        <div class="modal-grid">
+          <label>Precio ($)*</label>
+          <input type="number" id="edPrecio" class="input-texto" min="0" step="0.01" placeholder="0.00" />
+        </div>
+        <div class="modal-grid">
+          <label>Descuento (%)</label>
+          <input type="number" id="edDescuento" class="input-texto" min="0" max="100" step="1" placeholder="0" />
+        </div>
+      </div>
+
+      <div class="seccion-subtitulo">Ingredientes de la Receta</div>
 
       <table class="table-insumos">
         <thead>
@@ -121,7 +171,7 @@
         <button class="btn-agregar-insumo" onclick="agregarFilaInsumo(null)">+ Agregar insumo</button>
       </div>
 
-      <div id="edError" class="modal-error">Completá todos los campos.</div>
+      <div id="edError" class="modal-error"></div>
 
       <div class="modal-actions">
         <button class="btn-cancelar" onclick="cerrarModalEditar()">Cancelar</button>
