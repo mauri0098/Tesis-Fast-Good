@@ -87,7 +87,7 @@ function renderTabla(movimientos) {
       <td><strong>${m.insumos?.nombre || '-'}</strong></td>
       <td><span class="badge ${badgeClass}">${badgeLabel}</span></td>
       <td>${Number(m.cantidad).toLocaleString('es-AR')}</td>
-      <td>${m.insumos?.unidad_medida || '-'}</td>
+      <td>${m.unidad || m.insumos?.unidad_medida || '-'}</td>
       <td style="color:var(--color-muted); font-size:0.83rem;">${m.motivo || '—'}</td>
       <td><button class="btn-eliminar" onclick="eliminarMovimiento(${m.id}, '${m.insumos?.nombre || ''}', '${m.tipo}')">✕ Eliminar</button></td>
     `;
@@ -133,6 +133,7 @@ function abrirModal(tipo) {
 
   document.getElementById('modalError').classList.remove('visible');
   document.getElementById('inputCantidad').value = '';
+  document.getElementById('inputUnidad').value   = 'kg';
   document.getElementById('inputMotivo').value   = '';
   setFechaActual();
 
@@ -184,6 +185,8 @@ async function guardarMovimiento() {
     ? parseFloat(document.getElementById('inputCostoUnit').value) || null
     : null;
 
+  const unidad = document.getElementById('inputUnidad').value;
+
   try {
     const res = await fetch(`${API}/api/movimientos-stock`, {
       method: 'POST',
@@ -192,6 +195,7 @@ async function guardarMovimiento() {
         id_insumo:     Number(id_insumo),
         tipo:          tipoActual,
         cantidad:      Number(cantidad),
+        unidad:        unidad,
         motivo:        motivo || null,
         fecha:         fecha ? new Date(fecha).toISOString() : new Date().toISOString(),
         costo_unitario: costoUnit
