@@ -18,10 +18,81 @@ document.addEventListener('DOMContentLoaded', () => {
   preLlenarFormulario();
   cargarBarrios();
   toggleBarrio();
+  configurarFechaMinima();
 });
 
 // ============================================================================
-// 2. FUNCIONES DE INICIALIZACIÓN
+// 2. FECHAS HÁBILES - Configuración del calendario
+// ============================================================================
+
+// Cargá aquí los feriados nacionales en formato 'YYYY-MM-DD'
+const FERIADOS = [
+  // '2026-01-01', // Año Nuevo
+  // '2026-03-03', // Carnaval
+  // '2026-03-04', // Carnaval
+  // '2026-03-24', // Día de la Memoria
+  // '2026-04-02', // Malvinas
+  // '2026-04-03', // Viernes Santo
+  // '2026-05-01', // Día del Trabajador
+  // '2026-05-25', // Día de la Patria
+  // '2026-06-15', // Paso a la Inmortalidad del Gral. Belgrano
+  // '2026-07-09', // Día de la Independencia
+  // '2026-08-17', // Paso a la Inmortalidad del Gral. San Martín
+  // '2026-10-12', // Día del Respeto a la Diversidad Cultural
+  // '2026-11-23', // Día de la Soberanía Nacional
+  // '2026-12-08', // Inmaculada Concepción
+  // '2026-12-25', // Navidad
+];
+
+function esDiaHabil(fecha) {
+  const dia = fecha.getDay(); // 0 = Domingo, 6 = Sábado
+  if (dia === 0 || dia === 6) return false;
+  const yyyy = fecha.getFullYear();
+  const mm   = String(fecha.getMonth() + 1).padStart(2, '0');
+  const dd   = String(fecha.getDate()).padStart(2, '0');
+  return !FERIADOS.includes(`${yyyy}-${mm}-${dd}`);
+}
+
+function calcularPrimeraFechaDisponible() {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  // Contar 2 días hábiles de producción a partir de mañana
+  let count = 0;
+  const d = new Date(hoy);
+  while (count < 2) {
+    d.setDate(d.getDate() + 1);
+    if (esDiaHabil(d)) count++;
+  }
+
+  // Avanzar al siguiente día hábil disponible para el cliente
+  do { d.setDate(d.getDate() + 1); } while (!esDiaHabil(d));
+
+  const yyyy = d.getFullYear();
+  const mm   = String(d.getMonth() + 1).padStart(2, '0');
+  const dd   = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function configurarFechaMinima() {
+  const inputFecha = document.getElementById('fecha') || document.getElementById('fecha_entrega');
+  if (!inputFecha) return;
+
+  inputFecha.min = calcularPrimeraFechaDisponible();
+
+  // Bloquea feriados que caigan dentro del rango seleccionable
+  inputFecha.addEventListener('change', () => {
+    if (!inputFecha.value) return;
+    const [y, m, d] = inputFecha.value.split('-').map(Number);
+    if (!esDiaHabil(new Date(y, m - 1, d))) {
+      alert('Esa fecha no está disponible (feriado o fin de semana). Por favor elegí otra.');
+      inputFecha.value = '';
+    }
+  });
+}
+
+// ============================================================================
+// 3. FUNCIONES DE INICIALIZACIÓN
 // ============================================================================
 
 function preLlenarFormulario() {
@@ -103,7 +174,7 @@ function mostrarResumenCarrito() {
 }
 
 // ============================================================================
-// 3. FUNCIONES DE localStorage
+// 4. FUNCIONES DE localStorage
 // ============================================================================
 
 /**
@@ -141,7 +212,7 @@ function limpiarCarritoDeStorage() {
 }
 
 // ============================================================================
-// 4. FUNCIONES DE VALIDACIÓN
+// 5. FUNCIONES DE VALIDACIÓN
 // ============================================================================
 
 /**
@@ -201,7 +272,7 @@ function validarDatosObligatorios(datos) {
 }
 
 // ============================================================================
-// 5. FUNCIONES DE CÁLCULO
+// 6. FUNCIONES DE CÁLCULO
 // ============================================================================
 
 /**
@@ -257,7 +328,7 @@ function armarObjetoPedido(datos, carrito, usuarioId) {
 }
 
 // ============================================================================
-// 6. FUNCIONES DE SERVIDOR
+// 7. FUNCIONES DE SERVIDOR
 // ============================================================================
 
 /**
@@ -289,7 +360,7 @@ function limpiarFormulario() {
 }
 
 // ============================================================================
-// 7. WHATSAPP - Armar y enviar mensaje
+// 8. WHATSAPP - Armar y enviar mensaje
 // ============================================================================
 
 
@@ -359,7 +430,7 @@ Espero tu respuesta para confirmar mi pedido`;
 }
 
 // ============================================================================
-// 8. FUNCIÓN PRINCIPAL - Enviar Formulario
+// 9. FUNCIÓN PRINCIPAL - Enviar Formulario
 // ============================================================================
 
 async function enviarFormulario() {
@@ -391,7 +462,7 @@ async function enviarFormulario() {
 }
 
 // ============================================================================
-// 9. EXPORTAR FUNCIONES PARA HTML
+// 10. EXPORTAR FUNCIONES PARA HTML
 // ============================================================================
 
 window.enviarFormulario = enviarFormulario;``}
