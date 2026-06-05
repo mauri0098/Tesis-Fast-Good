@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fast Good — Gestión de Usuarios</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/global.css">
+  <link rel="stylesheet" href="../src/css/gestionUsuarios.css">
+</head>
+
+<body>
+
+  <header>
+    <div class="container-centrado">
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <img src="../src/assets/img/logo.webp" alt="Fast Good" style="height:40px; border-radius:4px;" onerror="this.style.display='none'">
+        <h1>Gestión de Usuarios</h1>
+      </div>
+      <nav>
+        <a href="../admin.html">Volver al Panel</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page-container">
+    <div class="table-wrapper">
+
+      <div class="tabla-header">
+        <div class="filtros-container">
+          <input type="text" id="filtroNombre" class="filtro-input" placeholder="Buscar por nombre...">
+          <select id="filtroRol" class="filtro-input">
+            <option value="">Todos los roles</option>
+            <option value="1">Admin</option>
+            <option value="2">Cocinero</option>
+            <option value="4">Usuario</option>
+          </select>
+        </div>
+        <button class="btn-agregar" onclick="abrirModalCrear()">+ Crear Nuevo Empleado</button>
+      </div>
+
+      <table class="standard-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre y Apellido</th>
+            <th>Usuario</th>
+            <th>Email</th>
+            <th>Teléfono</th>
+            <th>Rol</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="usuariosBody">
+          <tr>
+            <td colspan="7" class="loading-text">Cargando datos...</td>
+          </tr>
+        </tbody>
+      </table>
+
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 Fast Good - Panel de Administración</p>
+  </footer>
+
+  <!-- MODAL: Crear Nuevo Empleado -->
+  <div id="modalCrear" class="modal">
+    <div class="modal-content modal-usuario">
+      <span class="close" onclick="cerrarModalCrear()">&times;</span>
+      <h3>Crear Nuevo Empleado</h3>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nombre*</label>
+          <input type="text" id="uNombre" placeholder="Juan" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label>Apellido*</label>
+          <input type="text" id="uApellido" placeholder="García" autocomplete="off" />
+        </div>
+        <div class="form-group form-full">
+          <label>Nombre de Usuario*</label>
+          <input type="text" id="uNombreUsuario" placeholder="jgarcia" autocomplete="off" />
+        </div>
+        <div class="form-group form-full">
+          <label>Email*</label>
+          <input type="email" id="uEmail" placeholder="juan@fastgood.com" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label>Teléfono*</label>
+          <input type="text" id="uTelefono" placeholder="351 123-4567" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label>Contraseña Temporal*</label>
+          <input type="text" id="uContrasena" placeholder="ClaveCocina2026" autocomplete="off" />
+        </div>
+        <div class="form-group form-full">
+          <label>Rol*</label>
+          <select id="uRol">
+            <option value="">Seleccioná un rol...</option>
+            <option value="1">Admin</option>
+            <option value="2">Cocinero</option>
+            <option value="4">Usuario</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="uError" class="modal-error"></div>
+
+      <div class="modal-actions">
+        <button class="btn-cancelar" onclick="cerrarModalCrear()">Cancelar</button>
+        <button class="btn-confirmar" onclick="crearUsuario()">Crear Empleado</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Editar Usuario -->
+  <div id="modalEditar" class="modal">
+    <div class="modal-content modal-usuario">
+      <span class="close" onclick="cerrarModalEditar()">&times;</span>
+      <h3>Editar Usuario</h3>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nombre*</label>
+          <input type="text" id="eNombre" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label>Apellido*</label>
+          <input type="text" id="eApellido" autocomplete="off" />
+        </div>
+        <div class="form-group form-full">
+          <label>Nombre de Usuario*</label>
+          <input type="text" id="eNombreUsuario" autocomplete="off" />
+        </div>
+        <div class="form-group form-full">
+          <label>Email*</label>
+          <input type="email" id="eEmail" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label>Teléfono</label>
+          <input type="text" id="eTelefono" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label>Nueva Contraseña</label>
+          <input type="text" id="eContrasena" placeholder="Dejar vacío para no cambiar" autocomplete="off" />
+        </div>
+        <div class="form-group form-full">
+          <label>Rol*</label>
+          <select id="eRol">
+            <option value="1">Admin</option>
+            <option value="2">Cocinero</option>
+            <option value="4">Usuario</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="eError" class="modal-error"></div>
+
+      <div class="modal-actions">
+        <button class="btn-cancelar" onclick="cerrarModalEditar()">Cancelar</button>
+        <button class="btn-confirmar" onclick="guardarEdicion()">Guardar Cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../src/js/gestionUsuarios.js"></script>
+
+</body>
+
+</html>

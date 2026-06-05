@@ -1316,6 +1316,128 @@ app.post('/api/productos/con-receta', async (req, res) => {
 });
 
 /* ======================================================
+   API USUARIOS (gestión interna de personal)
+   ====================================================== */
+
+// GET /api/usuarios → lista completa de usuarios
+app.get('/api/usuarios', async (req, res) => {
+  const { data, error } = await supabase
+    .from('usuarios')
+    .select('id, nombre, apellido, nombre_usuario, email, telefono, id_rol')
+    .order('nombre', { ascending: true });
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
+// POST /api/usuarios/crear → dar de alta un nuevo empleado
+// Body: { nombre, apellido, nombre_usuario, email, telefono, contraseña, id_rol }
+// ⚠️ El campo usa la ñ literal para coincidir con la columna de Supabase
+app.post('/api/usuarios/crear', async (req, res) => {
+  const { nombre, apellido, nombre_usuario, email, telefono, id_rol } = req.body;
+  const contraseña = req.body['contraseña'];
+
+  if (!nombre || !apellido || !nombre_usuario || !email || !contraseña || !id_rol) {
+    return res.status(400).json({ error: 'Nombre, apellido, nombre de usuario, email, contraseña y rol son requeridos' });
+  }
+
+  // Verificar que el email no esté ya registrado
+  const { data: existente } = await supabase
+    .from('usuarios')
+    .select('id')
+    .ilike('email', email)
+    .limit(1);
+
+  if (existente && existente.length > 0) {
+    return res.status(400).json({ error: 'Ya existe un usuario registrado con ese email' });
+  }
+
+  const nuevoRegistro = {
+    nombre,
+    apellido,
+    nombre_usuario: nombre_usuario.trim(),
+    email,
+    telefono: telefono || null,
+    id_rol:   parseInt(id_rol)
+  };
+  nuevoRegistro['contraseña'] = contraseña;
+
+  try {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .insert(nuevoRegistro)
+      .select('id, nombre, apellido, nombre_usuario, email, telefono, id_rol')
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        return res.status(409).json({ error: 'El nombre de usuario ya está en uso. Por favor, elige otro.' });
+      }
+      return res.status(500).json({ error: error.message });
+    }
+    res.json({ mensaje: 'Usuario creado correctamente', usuario: data });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// PUT /api/usuarios/:id → editar datos de un usuario existente
+// Body: { nombre, apellido, nombre_usuario, email, telefono?, contraseña?, id_rol }
+app.put('/api/usuarios/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre, apellido, nombre_usuario, email, telefono, id_rol } = req.body;
+  const nuevaContrasena = req.body['contraseña'];
+
+  if (!nombre || !apellido || !nombre_usuario || !email || !id_rol) {
+    return res.status(400).json({ error: 'Nombre, apellido, nombre de usuario, email y rol son requeridos' });
+  }
+
+  const campos = {
+    nombre,
+    apellido,
+    nombre_usuario: nombre_usuario.trim(),
+    email,
+    telefono: telefono || null,
+    id_rol:   parseInt(id_rol)
+  };
+  if (nuevaContrasena && nuevaContrasena.trim()) {
+    campos['contraseña'] = nuevaContrasena.trim();
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .update(campos)
+      .eq('id', id)
+      .select('id, nombre, apellido, nombre_usuario, email, telefono, id_rol')
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        return res.status(409).json({ error: 'El nombre de usuario ya está en uso. Por favor, elige otro.' });
+      }
+      return res.status(500).json({ error: error.message });
+    }
+    res.json({ mensaje: 'Usuario actualizado correctamente', usuario: data });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE /api/usuarios/:id → eliminar un usuario
+app.delete('/api/usuarios/:id', async (req, res) => {
+  const { id } = req.params;
+
+  const { error } = await supabase
+    .from('usuarios')
+    .delete()
+    .eq('id', id);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ mensaje: 'Usuario eliminado correctamente' });
+});
+
+/* ======================================================
    SERVIR FRONTEND (ESTÁTICO)
    ====================================================== */
 

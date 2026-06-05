@@ -1,0 +1,343 @@
+/* =========================================
+   VARIABLES LOCALES (espejo de generarReceta)
+   ========================================= */
+:root {
+  --primary-green: #28a745;
+  --bg-color:      #f4f6f9;
+  --white:         #ffffff;
+  --text-dark:     #343a40;
+  --text-muted:    #6c757d;
+  --border-light:  #DEE2E6;
+  --shadow:        0 4px 6px rgba(0, 0, 0, 0.1);
+  --radius:        8px;
+}
+
+body {
+  background-color: var(--bg-color);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* =========================================
+   LAYOUT PRINCIPAL
+   ========================================= */
+.page-container {
+  padding: 1.5rem 2rem;
+  max-width: 1350px;
+  margin: 0 auto;
+  width: 95%;
+  flex: 1;
+}
+
+.table-wrapper {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.2rem;
+  overflow-x: auto;
+}
+
+/* =========================================
+   CABECERA (filtros + botón)
+   ========================================= */
+.tabla-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.2rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.filtros-container {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filtro-input {
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.88rem;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.filtro-input:focus {
+  outline: none;
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.15);
+}
+
+.btn-agregar {
+  padding: 0.55rem 1.4rem;
+  background-color: var(--primary-green);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.btn-agregar:hover { background-color: #218838; }
+
+/* =========================================
+   TABLA PRINCIPAL
+   ========================================= */
+.standard-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: auto;
+}
+
+.standard-table thead th {
+  background-color: #e8f5e9;
+  color: #4CAF50;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  padding: 0.9rem 0.75rem;
+  text-align: center;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid #28a745;
+}
+
+.standard-table thead th:first-child { border-top-left-radius:  var(--radius); }
+.standard-table thead th:last-child  { border-top-right-radius: var(--radius); }
+
+/* Anchos orientativos — 7 columnas */
+.standard-table thead th:nth-child(1),
+.standard-table tbody td:nth-child(1) { width: 10%;  min-width: 100px; } /* ID */
+
+.standard-table thead th:nth-child(2),
+.standard-table tbody td:nth-child(2) { width: 15%;  min-width: 130px; } /* Nombre */
+
+.standard-table thead th:nth-child(3),
+.standard-table tbody td:nth-child(3) { width: 12%;  min-width: 110px; } /* Usuario */
+
+.standard-table thead th:nth-child(4),
+.standard-table tbody td:nth-child(4) { width: 19%;  min-width: 150px; } /* Email */
+
+.standard-table thead th:nth-child(5),
+.standard-table tbody td:nth-child(5) { width: 10%;  min-width: 90px;  } /* Teléfono */
+
+.standard-table thead th:nth-child(6),
+.standard-table tbody td:nth-child(6) { width: 9%;   min-width: 85px;  } /* Rol */
+
+.standard-table thead th:nth-child(7),
+.standard-table tbody td:nth-child(7) { width: 14%;  min-width: 160px; } /* Acciones */
+
+.standard-table tbody td {
+  padding: 0.75rem 0.75rem;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.82rem;
+  vertical-align: middle;
+  text-align: center;
+  word-break: break-word;
+}
+
+.standard-table tbody tr:last-child td { border-bottom: none; }
+.standard-table tbody tr:hover         { background-color: #f1f8f3; }
+
+.loading-text {
+  text-align: center;
+  font-style: italic;
+  color: var(--text-muted);
+  padding: 2rem;
+}
+
+/* ID en monospace */
+.td-id {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* =========================================
+   BADGES DE ROL
+   ========================================= */
+.badge-rol {
+  display: inline-block;
+  padding: 0.25rem 0.8rem;
+  border-radius: 50px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge-admin {
+  background: #cfe2ff;
+  color: #0a58ca;
+}
+
+.badge-cocinero {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.badge-usuario {
+  background: #d4edda;
+  color: #155724;
+}
+
+/* =========================================
+   BOTONES DE ACCIÓN EN LA TABLA
+   ========================================= */
+.td-acciones { padding: 0.5rem 0.6rem; }
+
+.acciones-grupo {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+.btn-editar {
+  padding: 0.3rem 0.7rem;
+  background-color: var(--primary-green);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-editar:hover { background-color: #218838; }
+
+.btn-borrar {
+  padding: 0.3rem 0.7rem;
+  background-color: #dc3545;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-borrar:hover { background-color: #bd2130; }
+
+/* =========================================
+   MODAL USUARIO
+   ========================================= */
+.modal-usuario {
+  text-align: left;
+  max-width: 540px;
+}
+
+.modal-usuario h3 {
+  text-align: left;
+  font-size: 1.3rem;
+  margin-bottom: 1.2rem;
+  color: var(--text-dark);
+}
+
+/* =========================================
+   FORMULARIO INTERNO DEL MODAL
+   ========================================= */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1.2rem;
+  margin-bottom: 0.9rem;
+}
+
+.form-full { grid-column: 1 / -1; }
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.form-group label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-dark);
+}
+
+.form-group input,
+.form-group select {
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.85rem;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.15);
+}
+
+/* =========================================
+   ERROR Y ACCIONES DEL MODAL
+   ========================================= */
+.modal-error {
+  display: none;
+  color: #721c24;
+  background-color: #f8d7da;
+  border-radius: var(--radius);
+  padding: 0.5rem 0.9rem;
+  font-size: 0.82rem;
+  margin-bottom: 0.8rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.btn-cancelar {
+  padding: 0.55rem 1.4rem;
+  background-color: #e2e3e5;
+  color: var(--text-dark);
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-cancelar:hover { background-color: #ced4da; }
+
+.btn-confirmar {
+  padding: 0.55rem 1.4rem;
+  background-color: var(--primary-green);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-confirmar:hover { background-color: #218838; }
