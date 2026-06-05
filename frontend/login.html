@@ -58,6 +58,12 @@
 
         <button type="submit" class="login-btn">Iniciar Sesión</button>
       </form>
+
+      <div style="text-align:center; margin-top:0.9rem;">
+        <button type="button" class="btn-olvide" onclick="abrirModalRecuperar()">
+          ¿Olvidaste tu contraseña?
+        </button>
+      </div>
     </div>
 
     <!-- FORMULARIO REGISTRO -->
@@ -103,6 +109,31 @@
   </div>
   </div><!-- fin scroll-wrapper -->
 
+  <!-- MODAL: Recuperar Contraseña -->
+  <div id="modalRecuperar" class="modal">
+    <div class="modal-content" style="max-width:420px; margin:15% auto;">
+      <span class="close" onclick="cerrarModalRecuperar()">&times;</span>
+      <h3 style="font-size:1.3rem; margin-bottom:0.5rem;">Recuperar contraseña</h3>
+      <p style="font-size:0.9rem; color:#666; margin-bottom:1.2rem;">
+        Ingresá tu email y te enviaremos una contraseña temporal.
+      </p>
+
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label for="recuperarEmail">📧 Email registrado</label>
+        <input type="email" id="recuperarEmail" placeholder="tu@email.com" autocomplete="off" />
+      </div>
+
+      <div class="error-message"   id="recuperarError"></div>
+      <div class="success-message" id="recuperarExito"></div>
+      <div class="loading"         id="recuperarLoading">Enviando...</div>
+
+      <button type="button" class="login-btn" id="btnEnviarRecuperar"
+              onclick="enviarRecuperacion()" style="margin-top:0.5rem;">
+        Enviar contraseña temporal
+      </button>
+    </div>
+  </div>
+
   <script src="src/js/auth.js"></script>
   <script>
     document.getElementById('loginForm').addEventListener('submit', manejarLogin);
@@ -114,6 +145,71 @@
       document.getElementById('tabRegistro').classList.toggle('active', !esLogin);
       document.getElementById('seccionLogin').style.display = esLogin ? 'block' : 'none';
       document.getElementById('seccionRegistro').style.display = esLogin ? 'none' : 'block';
+    }
+
+    // ── Modal recuperar contraseña ──────────────────────────────────────────
+    function abrirModalRecuperar() {
+      document.getElementById('recuperarEmail').value = '';
+      document.getElementById('recuperarError').classList.remove('show');
+      document.getElementById('recuperarExito').classList.remove('show');
+      document.getElementById('recuperarLoading').classList.remove('show');
+      document.getElementById('modalRecuperar').style.display = 'block';
+    }
+
+    function cerrarModalRecuperar() {
+      document.getElementById('modalRecuperar').style.display = 'none';
+    }
+
+    // Cerrar al hacer clic fuera del contenido
+    window.addEventListener('click', function (e) {
+      if (e.target === document.getElementById('modalRecuperar')) cerrarModalRecuperar();
+    });
+
+    async function enviarRecuperacion() {
+      const emailEl   = document.getElementById('recuperarEmail');
+      const errorEl   = document.getElementById('recuperarError');
+      const exitoEl   = document.getElementById('recuperarExito');
+      const loadingEl = document.getElementById('recuperarLoading');
+      const btnEl     = document.getElementById('btnEnviarRecuperar');
+      const email     = emailEl.value.trim();
+
+      errorEl.classList.remove('show');
+      exitoEl.classList.remove('show');
+
+      if (!email) {
+        errorEl.textContent = 'Ingresá tu email.';
+        errorEl.classList.add('show');
+        return;
+      }
+
+      loadingEl.classList.add('show');
+      btnEl.disabled = true;
+
+      try {
+        const res  = await fetch('/api/recuperar-password', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ email })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          errorEl.textContent = data.error || 'Ocurrió un error. Intentá de nuevo.';
+          errorEl.classList.add('show');
+        } else {
+          exitoEl.textContent = data.mensaje || 'Te enviamos una contraseña temporal a tu correo.';
+          exitoEl.classList.add('show');
+          emailEl.value = '';
+          // Cerrar el modal automáticamente después de 3 segundos
+          setTimeout(cerrarModalRecuperar, 3000);
+        }
+      } catch {
+        errorEl.textContent = 'No se pudo conectar con el servidor.';
+        errorEl.classList.add('show');
+      } finally {
+        loadingEl.classList.remove('show');
+        btnEl.disabled = false;
+      }
     }
   </script>
 </body>

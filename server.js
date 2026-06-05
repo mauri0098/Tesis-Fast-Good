@@ -9,7 +9,8 @@ const app = express();// Crear instancia del servidor Express
 app.use(cors());
 app.use(express.json());
 
-const supabase = require('./config/supabaseClient');// Cliente de Supabase para interactuar con la base de datos
+const supabase   = require('./config/supabaseClient');// Cliente de Supabase para interactuar con la base de datos
+const nodemailer = require('nodemailer');              // Envío de emails (recuperación de contraseña)
 
 /* ======================================================
    LÓGICA DE DESCUENTO DE STOCK POR RECETA
@@ -1519,6 +1520,97 @@ app.get('/', (req, res) => {// Cuando se accede a la raíz, se envía el archivo
 /* ======================================================
    SERVER
    ====================================================== */
+
+/* ======================================================
+   API RECUPERAR CONTRASEÑA
+   ====================================================== */
+
+// POST /api/recuperar-password
+// Body: { email }
+// Genera una clave temporal, la persiste en usuarios.contraseña y la envía por email.
+app.post('/api/recuperar-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'El email es requerido' });
+
+  // 1. Buscar usuario por email
+  const { data: usuario, error: errBusca } = await supabase
+    .from('usuarios')
+    .select('id, nombre, email')
+    .ilike('email', email.trim())
+    .limit(1)
+    .maybeSingle();
+
+  if (errBusca || !usuario) {
+    return res.status(404).json({ error: 'No encontramos una cuenta con ese email' });
+  }
+
+  // 2. Generar contraseña temporal de 8 caracteres alfanuméricos
+  //    (sin letras/números ambiguos: O, 0, I, l, 1)
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let claveTemporal = '';
+  for (let i = 0; i < 8; i++) {
+    claveTemporal += chars[Math.floor(Math.random() * chars.length)];
+  }
+
+  // 3. Actualizar en Supabase
+  // ⚠️ La columna se llama exactamente "contraseña" (con ñ) en PostgreSQL
+  const campoActualizar = {};
+  campoActualizar['contraseña'] = claveTemporal;
+
+  const { error: errUpdate } = await supabase
+    .from('usuarios')
+    .update(campoActualizar)
+    .eq('id', usuario.id);
+
+  if (errUpdate) {
+    console.error('Error actualizando contraseña:', errUpdate.message);
+    return res.status(500).json({ error: 'No se pudo actualizar la contraseña. Intentá de nuevo.' });
+  }
+
+  // 4. Enviar email con Nodemailer
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASS, // App Password de Gmail (no la contraseña normal de la cuenta)
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"Fast Good" <${process.env.MAIL_USER}>`,
+      to:   usuario.email,
+      subject: 'Recuperación de acceso - Fast Good',
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;color:#333;">
+          <div style="background:#28a745;padding:1.2rem 1.5rem;border-radius:8px 8px 0 0;">
+            <h2 style="margin:0;color:#fff;font-size:1.3rem;">🌿 Fast Good — Viandas Saludables</h2>
+          </div>
+          <div style="background:#f9f9f9;padding:1.8rem 1.5rem;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px;">
+            <p>Hola <strong>${usuario.nombre}</strong>,</p>
+            <p>Recibimos una solicitud para restablecer tu contraseña de acceso al sistema.</p>
+            <p style="margin-bottom:0.5rem;">Tu nueva contraseña temporal es:</p>
+            <div style="background:#fff;border:2px dashed #28a745;padding:1rem 1.5rem;border-radius:6px;text-align:center;margin:1rem 0;">
+              <strong style="font-size:1.6rem;letter-spacing:0.12em;color:#28a745;">${claveTemporal}</strong>
+            </div>
+            <p>Iniciá sesión con esta contraseña y <strong>cámbiala cuanto antes</strong> desde tu perfil.</p>
+            <p style="font-size:0.83rem;color:#999;margin-top:1.5rem;">
+              Si no solicitaste este cambio, ignorá este email. Tu contraseña anterior sigue siendo válida solo si no hiciste esta solicitud.
+            </p>
+          </div>
+          <p style="text-align:center;font-size:0.78rem;color:#bbb;margin-top:1rem;">Fast Good · Viandas Saludables &copy; 2025</p>
+        </div>
+      `,
+    });
+
+    res.json({ mensaje: 'Te enviamos una contraseña temporal a tu correo' });
+
+  } catch (errMail) {
+    console.error('Error al enviar email:', errMail.message);
+    // La contraseña ya fue actualizada en la BD; informar al admin pero dar respuesta parcial
+    res.status(500).json({ error: 'La contraseña se actualizó pero no pudimos enviar el email. Contactá al administrador.' });
+  }
+});
 
 const PORT = 3000;
 app.listen(PORT, '0.0.0.0', () => {

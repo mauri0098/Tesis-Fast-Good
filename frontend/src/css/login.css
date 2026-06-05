@@ -191,6 +191,21 @@ body {
 
 .login-btn:active { transform: translateY(0); }
 
+/* ── Enlace "¿Olvidaste tu contraseña?" ── */
+.btn-olvide {
+  background: none;
+  border: none;
+  color: var(--color-muted, #888);
+  font-family: inherit;
+  font-size: 0.84rem;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.2s;
+}
+.btn-olvide:hover { color: var(--color-primary, #28a745); }
+
 /* ── Mensajes ── */
 .error-message {
   color: #d32f2f;
