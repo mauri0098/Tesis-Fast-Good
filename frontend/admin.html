@@ -17,133 +17,10 @@
   <link rel="stylesheet" href="./src/css/global.css">
   <link rel="stylesheet" href="./src/css/carrito.css">
   <link rel="stylesheet" href="./src/css/index.css">
-
-  <style>
-    body {
-      display: flex;
-    }
-
-    .admin-sidebar {
-      position: fixed;
-      left: 0;
-      top: 0;
-      width: 250px;
-      height: 100vh;
-      background: linear-gradient(135deg, #28a745 0%, #388E3C 100%);
-      color: white;
-      padding: 2rem 0;
-      overflow-y: auto;
-      z-index: 999;
-    }
-
-    .admin-sidebar h2 {
-      padding: 0 1rem;
-      margin-bottom: 1.5rem;
-      font-size: 1.2rem;
-      border-bottom: 2px solid rgba(255, 255, 255, 0.3);
-      padding-bottom: 1rem;
-    }
-
-    .admin-sidebar nav a {
-      display: block;
-      padding: 1rem 1.5rem;
-      color: white;
-      text-decoration: none;
-      transition: background 0.3s;
-      font-size: 0.95rem;
-    }
-
-    .admin-sidebar nav a:hover {
-      background: rgba(255, 255, 255, 0.2);
-    }
-
-    .admin-sidebar .logout-btn {
-      position: absolute;
-      bottom: 1rem;
-      left: 1rem;
-      right: 1rem;
-      padding: 0.75rem;
-      background: rgba(255, 255, 255, 0.2);
-      color: white;
-      border: 2px solid white;
-      border-radius: 5px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: background 0.3s;
-    }
-
-    .admin-sidebar .logout-btn:hover {
-      background: rgba(255, 255, 255, 0.3);
-    }
-
-    .admin-content {
-      flex: 1;
-      margin-left: 250px;
-      margin-top: 80px;
-    }
-
-    header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      z-index: 1001;
-    }
-
-    @media (max-width: 768px) {
-      .admin-sidebar {
-        width: 200px;
-      }
-
-      .admin-content {
-        margin-left: 200px;
-      }
-
-      header {
-        margin-left: -200px;
-      }
-    }
-
-    .user-info {
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-      margin-bottom: 1rem;
-      font-size: 0.9rem;
-    }
-
-    .user-info p {
-      margin: 0.25rem 0;
-    }
-  </style>
 </head>
 
 <body>
-
-  <!-- SIDEBAR ADMIN (SIEMPRE VISIBLE) -->
-  <div class="admin-sidebar">
-    <h2>📊 Panel Admin</h2>
-    
-    <div class="user-info" id="userInfo">
-      <p><strong>Usuario:</strong></p>
-      <p id="userName">-</p>
-      <p style="font-size: 0.8rem; color: #ccc; margin-top: 0.5rem;">ID: <span id="userId">-</span></p>
-    </div>
-
-    <nav>
-      <a href="./admin.html">🏠 Inicio</a>
-      <a href="./pages/ConsultarPedidos.html">🧾 Consultar Pedidos</a>
-      <a href="./pages/cocinero.html">🥗 Tareas de Cocina</a>
-      <a href="./pages/stock.html">📦 Gestión de Stock</a>
-      <a href="./pages/generarReceta.html">📝 Generar Receta</a>
-<a href="./pages/MovimientosStock.html">📋 Movimientos de Stock</a>
-      <a href="./pages/AsignarCocinero.html">👨‍🍳 Asignar Cocineros</a>
-      <a href="./pages/Envios.html">🚗 Envíos del Día</a>
-      <a href="./pages/reportes.html">📊 Reportes</a>
-      <a href="./pages/gestionUsuarios.html">👥 Gestión de Usuarios</a>
-    </nav>
-
-    <button class="logout-btn" onclick="cerrarSesion()">🚪 Cerrar Sesión</button>
-  </div>
+<script src="./src/js/adminSidebar.js"></script>
 
   <!-- CONTENIDO PRINCIPAL -->
   <div class="admin-content">
@@ -173,7 +50,7 @@
     </header>
 
     <section class="hero">
-      <h2>Bienvenido al Panel de Administración</h2>
+     
     </section>
 
     <!-- DESCRIPCIÓN -->
@@ -295,27 +172,11 @@
   <script src="src/js/auth.js"></script>
   <script src="src/js/global.js"></script>
   <script>
-    // Verificación SIMPLE - sin loops
     const usuarioId = localStorage.getItem('usuario_id');
     const usuarioRol = parseInt(localStorage.getItem('usuario_rol') || '0');
-    
-    console.log('Usuario ID:', usuarioId);
-    console.log('Usuario Rol:', usuarioRol);
-    
-    // Si NO está logueado O no es admin, redirigir INMEDIATAMENTE
+
     if (!usuarioId || usuarioRol !== 1) {
-      console.log('Redirigiendo a index.html');
-      window.location.replace('index.html'); // replace = no guarda en historial
-    } else {
-      console.log('✅ Admin autorizado');
-      // Solo al cargar, actualizar los datos
-      window.addEventListener('load', () => {
-        const usuario = obtenerDatosUsuario();
-        const nameEl = document.getElementById('userName');
-        const idEl = document.getElementById('userId');
-        if (nameEl) nameEl.textContent = usuario.nombre;
-        if (idEl) idEl.textContent = usuario.id;
-      });
+      window.location.replace('index.html');
     }
   </script>
 </body>

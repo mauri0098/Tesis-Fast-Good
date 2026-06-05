@@ -8,16 +8,32 @@
    =================================================== */
 .hero {
     position: relative;
-    background: url('../assets/img/medinabanner3.png') no-repeat center center;
+    background: url('../assets/img/bannerpro4.png') no-repeat center center;
     background-size: cover;
     background-color: #fff;
-    height: 100vh;
+
+    /* 100svh = "small viewport height": descuenta la barra del navegador en móviles.
+       El fallback 100vh mantiene compatibilidad en browsers sin soporte de svh. */
+    height: 100svh;
+    height: 100vh;             /* fallback para browsers sin svh */
     min-height: 600px;
+
+    /* width: 100% explícito garantiza que nunca herede un ancho reducido
+       de un contenedor padre con padding o max-width accidental. */
+    width: 100%;
+    box-sizing: border-box;    /* el ancho incluye padding, evita desbordes */
+
     display: flex;
     justify-content: center;
     align-items: center;
     text-align: center;
     overflow: hidden;
+
+    /* background-position: center 52% desplaza el punto de interés de la imagen
+       2% hacia abajo respecto al centro geométrico del elemento.
+       Compensa visualmente que el hero empieza DEBAJO del header sticky,
+       por lo que su mitad real queda ~40px más baja que el centro visual de pantalla. */
+    background-position: center 52%;
 }
 
 .hero h2 {

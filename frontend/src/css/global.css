@@ -13,6 +13,9 @@
 
 html {
     scroll-behavior: smooth;
+    scrollbar-gutter: stable; /* Reserva espacio para la barra de scroll en ambos lados,
+                                 evitando que aparezca/desaparezca y desplace el contenido.
+                                 Elimina la asimetría horizontal causada por la scrollbar de Windows. */
 }
 
 /* --- VARIABLES --- */
