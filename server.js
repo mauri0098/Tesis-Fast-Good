@@ -414,6 +414,73 @@ app.get('/api/v1/productos/:id', async (req, res) => {
 });
 
 /* ======================================================
+   API TAREAS DE COCINA (filtradas por cocinero asignado)
+   ====================================================== */
+
+// GET /api/cocina/tareas?cocinero_id=UUID
+// Si se pasa cocinero_id, devuelve solo los pedidos en estado 2 cuyos productos
+// pertenezcan a planes donde ese cocinero es principal o suplente.
+// Sin cocinero_id devuelve todos los pedidos en estado 2 (modo admin/debug).
+app.get('/api/cocina/tareas', async (req, res) => {
+  const { cocinero_id } = req.query;
+  let idsPedidos = null; // null = sin filtro de planes
+
+  if (cocinero_id) {
+    // 1. Planes donde el cocinero está asignado (principal o suplente)
+    const { data: planes } = await supabase
+      .from('planes')
+      .select('id')
+      .or(`id_cocinero.eq.${cocinero_id},id_cocinero_suplente.eq.${cocinero_id}`);
+
+    const planIds = (planes || []).map(p => p.id);
+    if (planIds.length === 0) return res.json([]);
+
+    // 2. Productos que pertenecen a esos planes
+    const { data: productos } = await supabase
+      .from('productos')
+      .select('id')
+      .in('id_plan', planIds);
+
+    const productoIds = (productos || []).map(p => p.id);
+    if (productoIds.length === 0) return res.json([]);
+
+    // 3. Pedidos que tienen al menos un detalle con esos productos
+    const { data: detalles } = await supabase
+      .from('pedido_detalles')
+      .select('id_pedido')
+      .in('id_producto', productoIds);
+
+    idsPedidos = [...new Set((detalles || []).map(d => d.id_pedido))];
+    if (idsPedidos.length === 0) return res.json([]);
+  }
+
+  // 4. Traer pedidos en estado 2, con sus detalles
+  let query = supabase
+    .from('pedidos')
+    .select(`
+      id,
+      fecha_pedido,
+      observaciones,
+      id_estado,
+      pedido_detalles (
+        cantidad,
+        precio_unitario,
+        productos ( nombre, codigo_plato )
+      )
+    `)
+    .eq('id_estado', 2)
+    .order('fecha_pedido', { ascending: true });
+
+  if (idsPedidos !== null) {
+    query = query.in('id', idsPedidos);
+  }
+
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
+/* ======================================================
    API COCINEROS POR PEDIDO
    ====================================================== */
 

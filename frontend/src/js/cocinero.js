@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const tbody          = document.getElementById('tablaTareas');
   const contadorBadge  = document.getElementById('contador-badge');
+  const cocineroId     = localStorage.getItem('usuario_id');
 
   // ── Recetas del localStorage (cargadas por generarReceta.js) ──────────────
   const recetas = JSON.parse(localStorage.getItem('FG_RECETAS') || '[]');
@@ -34,22 +35,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function setVacio(msg) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">${msg}</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${msg}</td></tr>`;
     contadorBadge.textContent = '0';
   }
 
-  // ── 1. Traer todos los pedidos ────────────────────────────────────────────
-  let pedidos;
+  // ── 1. Traer tareas filtradas por el cocinero logueado ───────────────────
+  let enPrep;
   try {
-    const res = await fetch('/api/pedidos');
-    pedidos = await res.json();
+    const url = cocineroId
+      ? `/api/cocina/tareas?cocinero_id=${encodeURIComponent(cocineroId)}`
+      : '/api/cocina/tareas';
+    const res = await fetch(url);
+    enPrep = await res.json();
   } catch {
     setVacio('Error al cargar pedidos. Verificá que el servidor esté corriendo.');
     return;
   }
-
-  // ── 2. Filtrar solo "En preparación" ─────────────────────────────────────
-  const enPrep = pedidos.filter(p => p.id_estado === 2);
 
   if (enPrep.length === 0) {
     setVacio('No hay pedidos en preparación en este momento.');
@@ -58,28 +59,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   contadorBadge.textContent = enPrep.length;
 
-  // ── 3. Para cada pedido, traer sus cocineros asignados ───────────────────
-  const pedidosConCocineros = await Promise.all(
-    enPrep.map(async (p) => {
-      try {
-        const res = await fetch(`/api/pedidos/${p.id}/cocineros`);
-        const cocineros = res.ok ? await res.json() : [];
-        return { ...p, cocineros };
-      } catch {
-        return { ...p, cocineros: [] };
-      }
-    })
-  );
-
-  // ── 4. Renderizar filas ───────────────────────────────────────────────────
+  // ── 3. Renderizar filas ───────────────────────────────────────────────────
   tbody.innerHTML = '';
 
-  pedidosConCocineros.forEach(pedido => {
-    const detalles      = pedido.pedido_detalles || [];
-    const cocineroNames = pedido.cocineros.length
-      ? pedido.cocineros.map(c => c.nombre).join(', ')
-      : '<span style="color:#aaa">Sin asignar</span>';
-    const fecha = formatFecha(pedido.fecha_pedido);
+  enPrep.forEach(pedido => {
+    const detalles = pedido.pedido_detalles || [];
+    const fecha    = formatFecha(pedido.fecha_pedido);
 
     // Si el pedido no tiene productos, igual mostramos una fila
     const filas = detalles.length > 0 ? detalles : [null];
@@ -99,7 +84,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           <span class="plato-nombre">${nombre}</span>
           <br><span class="plato-cant">${cantidad}</span>
         </td>
-        <td>${cocineroNames}</td>
         <td>${pedido.observaciones || 'Sin observaciones'}</td>
         <td>
           <button class="btn-listo" onclick="marcarListo(${pedido.id}, this)">
@@ -139,7 +123,7 @@ window.marcarListo = async function (pedidoId, btnEl) {
 
     if (actual === 0) {
       const tbody = document.getElementById('tablaTareas');
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No hay pedidos en preparación en este momento.</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No hay pedidos en preparación en este momento.</td></tr>';
     }
 
   } catch {

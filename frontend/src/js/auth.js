@@ -55,6 +55,8 @@ async function manejarLogin(e) {
     const rol = data.usuario.id_rol;
     if (rol === 1) {
       window.location.href = 'admin.html';
+    } else if (rol === 2) {
+      window.location.href = 'pages/cocinero.html';
     } else if (rol === 4) {
       window.location.href = 'index.html';
     } else {
