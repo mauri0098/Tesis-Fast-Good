@@ -55,6 +55,13 @@ body {
     line-height: 1.65;
 }
 
+/* Sticky footer: el contenido principal ocupa todo el espacio sobrante
+   dentro de .admin-content (el flex-column que envuelve header+main+footer) */
+main,
+.page-container {
+    flex: 1;
+}
+
 /* ===================================================
    HEADER — Glassmorphism + Entrada secuencial
    =================================================== */
