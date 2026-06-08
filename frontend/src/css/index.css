@@ -4,6 +4,33 @@
    =================================================== */
 
 /* ===================================================
+   BARRA DE ANUNCIO
+   =================================================== */
+.announcement-bar {
+    width: 100%;
+    padding: 0.6rem 1.5rem;
+    background: linear-gradient(135deg, #f1f8e9 0%, #e8f5e9 100%);
+    border-bottom: 1px solid #c8e6c9;
+    text-align: center;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #2e7d32;
+    letter-spacing: 0.015em;
+    animation: fade-up 0.5s 0.65s var(--easing-out) both;
+}
+
+.announcement-bar strong {
+    font-weight: 700;
+}
+
+@media (max-width: 768px) {
+    .announcement-bar {
+        font-size: 0.78rem;
+        padding: 0.5rem 1rem;
+    }
+}
+
+/* ===================================================
    HERO — Glassmorphism pill + animación de entrada
    =================================================== */
 .hero {
