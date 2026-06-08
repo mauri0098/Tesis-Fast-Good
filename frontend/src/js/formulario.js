@@ -1,15 +1,14 @@
 // ============================================================================
 // FORMULARIO DE ENTREGA - Gestión de Pedidos
 // ============================================================================
-// Este archivo gestiona:
-// 1. Lectura del carrito desde localStorage
-// 2. Validación de datos del cliente
-// 3. Envío del pedido al servidor
-// 4. Guardado de la comanda para cocina
-// ============================================================================
+
+const WHATSAPP_NUMERO        = '5493512294243';
+const EMAIL_NEGOCIO          = 'tesisfastgood@gmail.com';
+const ALIAS_TRANSFERENCIA    = 'FAST.GOOD.VA cuenta a nombre de Fast and Good VA SRL';
+const GUEST_UUID             = 'd9b1ae00-fda5-4488-86b3-90d769b47a02';
 
 // ============================================================================
-// 1. INICIALIZACIÓN - Cuando carga la página
+// 1. INICIALIZACIÓN
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -22,10 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================================================
-// 2. FECHAS HÁBILES - Configuración del calendario
+// 2. FECHAS HÁBILES
 // ============================================================================
 
-// Cargá aquí los feriados nacionales en formato 'YYYY-MM-DD'
 const FERIADOS = [
   // '2026-01-01', // Año Nuevo
   // '2026-03-03', // Carnaval
@@ -45,7 +43,7 @@ const FERIADOS = [
 ];
 
 function esDiaHabil(fecha) {
-  const dia = fecha.getDay(); // 0 = Domingo, 6 = Sábado
+  const dia = fecha.getDay();
   if (dia === 0 || dia === 6) return false;
   const yyyy = fecha.getFullYear();
   const mm   = String(fecha.getMonth() + 1).padStart(2, '0');
@@ -57,7 +55,6 @@ function calcularPrimeraFechaDisponible() {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
 
-  // Contar 2 días hábiles de producción a partir de mañana
   let count = 0;
   const d = new Date(hoy);
   while (count < 2) {
@@ -65,7 +62,6 @@ function calcularPrimeraFechaDisponible() {
     if (esDiaHabil(d)) count++;
   }
 
-  // Avanzar al siguiente día hábil disponible para el cliente
   do { d.setDate(d.getDate() + 1); } while (!esDiaHabil(d));
 
   const yyyy = d.getFullYear();
@@ -80,7 +76,6 @@ function configurarFechaMinima() {
 
   inputFecha.min = calcularPrimeraFechaDisponible();
 
-  // Bloquea feriados que caigan dentro del rango seleccionable
   inputFecha.addEventListener('change', () => {
     if (!inputFecha.value) return;
     const [y, m, d] = inputFecha.value.split('-').map(Number);
@@ -92,7 +87,7 @@ function configurarFechaMinima() {
 }
 
 // ============================================================================
-// 3. FUNCIONES DE INICIALIZACIÓN
+// 3. INICIALIZACIÓN DEL FORMULARIO
 // ============================================================================
 
 function preLlenarFormulario() {
@@ -100,10 +95,10 @@ function preLlenarFormulario() {
   if (!usuarioId) return;
 
   const campos = {
-    nombre:    localStorage.getItem('usuario_nombre')   || '',
-    apellido:  localStorage.getItem('usuario_apellido') || '',
-    email:     localStorage.getItem('usuario_email')    || '',
-    telefono:  localStorage.getItem('usuario_telefono') || '',
+    nombre:    localStorage.getItem('usuario_nombre')    || '',
+    apellido:  localStorage.getItem('usuario_apellido')  || '',
+    email:     localStorage.getItem('usuario_email')     || '',
+    telefono:  localStorage.getItem('usuario_telefono')  || '',
     direccion: localStorage.getItem('usuario_direccion') || ''
   };
 
@@ -141,25 +136,33 @@ window.toggleBarrio = toggleBarrio;
 
 function vincularFormulario() {
   const formulario = document.getElementById('pedidoForm');
+  if (!formulario) return;
 
-  if (formulario) {
-    formulario.addEventListener('submit', (evento) => {
-      evento.preventDefault(); // Evita recarga de página
-      enviarFormulario();
-    });
-  }
+  const btnSubmit = formulario.querySelector('button[type="submit"]');
+
+  formulario.addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+
+    // Bloqueo inmediato para evitar doble envío
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = 'Procesando pedido...';
+
+    const exito = await enviarFormulario();
+
+    if (!exito) {
+      // Restaurar si falló la validación o hubo un error de red
+      btnSubmit.disabled = false;
+      btnSubmit.textContent = 'Finalizar Pedido';
+    } else {
+      btnSubmit.textContent = 'Redirigiendo a WhatsApp...';
+    }
+  });
 }
 
-/**
- * Muestra un resumen visual del carrito en la página
- */
 function mostrarResumenCarrito() {
   const carritoGuardado = obtenerCarritoDeStorage();
   const elementoResumen = document.getElementById('resumenPedido');
-
-  if (!elementoResumen) {
-    return;
-  }
+  if (!elementoResumen) return;
 
   if (carritoGuardado.length > 0) {
     elementoResumen.innerHTML = '';
@@ -174,79 +177,54 @@ function mostrarResumenCarrito() {
 }
 
 // ============================================================================
-// 4. FUNCIONES DE localStorage
+// 4. localStorage
 // ============================================================================
 
-/**
- * Obtiene el carrito guardado en localStorage
- * @returns {array} Array de items del carrito
- */
 function obtenerCarritoDeStorage() {
   const carritoJSON = localStorage.getItem('FG_CARRITO_ACTUAL') || '[]';
   return JSON.parse(carritoJSON);
 }
 
-/**
- * Guarda la comanda para que cocina pueda verla
- * @param {object} pedidoCreado - Datos del pedido creado en servidor
- * @param {array} carrito - Items del carrito
- */
 function guardarComandaParaCocina(pedidoCreado, carrito) {
   const comanda = {
     id: pedidoCreado.id,
     items: carrito.map(item => ({
-      nombre: item.nombre,
+      nombre:      item.nombre,
       producto_id: item.producto_id,
-      cantidad: item.cantidad
+      cantidad:    item.cantidad
     }))
   };
-
   localStorage.setItem('pedidoFastGood', JSON.stringify(comanda));
 }
 
-/**
- * Limpia el carrito del localStorage después de crear el pedido
- */
 function limpiarCarritoDeStorage() {
   localStorage.removeItem('FG_CARRITO_ACTUAL');
 }
 
 // ============================================================================
-// 5. FUNCIONES DE VALIDACIÓN
+// 5. VALIDACIÓN
 // ============================================================================
 
-/**
- * Obtiene los datos del formulario del cliente
- * @returns {object} Objeto con los datos completados
- */
-/**
- * Obtiene los datos del formulario del cliente
- * @returns {object} Objeto con los datos completados
- */
 function obtenerDatosFormulario() {
-  const inputFecha = document.getElementById('fecha') || document.getElementById('fecha_entrega');
-  const inputPago = document.getElementById('metodo_pago') || document.getElementById('metodoPago');
+  const inputFecha   = document.getElementById('fecha')      || document.getElementById('fecha_entrega');
+  const inputPago    = document.getElementById('metodo_pago') || document.getElementById('metodoPago');
   const inputEntrega = document.getElementById('tipoEntrega');
+  const barrioEl     = document.getElementById('barrio');
 
-  const barrioEl = document.getElementById('barrio');
   return {
-    nombre: document.getElementById('nombre').value.trim(),
-    apellido: document.getElementById('apellido').value.trim(),
-    direccion: document.getElementById('direccion').value.trim(),
-    telefono: document.getElementById('telefono').value.trim(),
-    email: document.getElementById('email').value.trim(),
-    fechaEntrega: inputFecha ? inputFecha.value : '',
-    metodoPago: inputPago ? inputPago.value : 'Efectivo',
-    tipoEntrega: inputEntrega ? inputEntrega.value : 'Delivery',
-    barrioId: barrioEl && barrioEl.value ? Number(barrioEl.value) : null,
+    nombre:       document.getElementById('nombre').value.trim(),
+    apellido:     document.getElementById('apellido').value.trim(),
+    direccion:    document.getElementById('direccion').value.trim(),
+    telefono:     document.getElementById('telefono').value.trim(),
+    email:        document.getElementById('email').value.trim(),
+    fechaEntrega: inputFecha   ? inputFecha.value   : '',
+    metodoPago:   inputPago    ? inputPago.value    : 'Efectivo',
+    tipoEntrega:  inputEntrega ? inputEntrega.value : 'Delivery',
+    barrioId:     barrioEl && barrioEl.value ? Number(barrioEl.value) : null,
     observaciones: document.getElementById('observaciones').value
   };
 }
-/**
- * Valida que el carrito no esté vacío
- * @param {array} carrito - Items del carrito
- * @returns {boolean} True si es válido
- */
+
 function validarCarritoNoVacio(carrito) {
   if (carrito.length === 0) {
     alert('El pedido está vacío.');
@@ -255,87 +233,53 @@ function validarCarritoNoVacio(carrito) {
   return true;
 }
 
-/**
- * Valida que los datos obligatorios estén completos
- * @param {object} datos - Datos del formulario
- * @returns {boolean} True si es válido
- */
 function validarDatosObligatorios(datos) {
   const { nombre, apellido, direccion, telefono, fechaEntrega } = datos;
-
   if (!nombre || !apellido || !direccion || !telefono || !fechaEntrega) {
     alert('Completá todos los datos obligatorios.');
     return false;
   }
-
   return true;
 }
 
 // ============================================================================
-// 6. FUNCIONES DE CÁLCULO
+// 6. CÁLCULO Y ARMADO DEL PEDIDO
 // ============================================================================
 
-/**
- * Calcula el total del pedido multiplicando precio × cantidad
- * @param {array} carrito - Items del carrito
- * @returns {number} Total en pesos
- */
 function calcularTotalPedido(carrito) {
-  return carrito.reduce((acumulador, item) => {
-    return acumulador + (item.precio * item.cantidad);
-  }, 0);
+  return carrito.reduce((acc, item) => acc + item.precio * item.cantidad, 0);
 }
 
-/**
- * Prepara los items para enviar al servidor
- * @param {array} carrito - Items del carrito
- * @returns {array} Items con estructura para servidor
- */
 function prepararItemsParaServidor(carrito) {
   return carrito.map(item => ({
-    producto_id: item.producto_id,
-    cantidad: item.cantidad,
-    precio: item.precio,
+    producto_id:         item.producto_id,
+    cantidad:            item.cantidad,
+    precio:              item.precio,
     observaciones_plato: item.observaciones || null
   }));
 }
 
-/**
- * Arma el objeto pedido con toda la información
- * @param {object} datos - Datos del cliente
- * @param {array} carrito - Items del carrito
- * @param {string} usuarioId - ID del usuario
- * @returns {object} Objeto pedido listo para enviar
- */
 function armarObjetoPedido(datos, carrito, usuarioId) {
-  const total = calcularTotalPedido(carrito);
-  const items = prepararItemsParaServidor(carrito);
-
   return {
-    usuario_id: usuarioId,
-    total: total,
-    observaciones: datos.observaciones,
-    items: items,
-    cliente_nombre: `${datos.nombre} ${datos.apellido}`,
+    usuario_id:       usuarioId,
+    total:            calcularTotalPedido(carrito),
+    observaciones:    datos.observaciones,
+    items:            prepararItemsParaServidor(carrito),
+    cliente_nombre:   `${datos.nombre} ${datos.apellido}`,
     cliente_direccion: datos.direccion,
-    cliente_telefono: datos.telefono,
-    cliente_email: datos.email,
-    fecha_entrega: datos.fechaEntrega,
-    metodo_pago: datos.metodoPago,
-    tipo_entrega: datos.tipoEntrega,
-    barrio_id: datos.barrioId || null
+    cliente_telefono:  datos.telefono,
+    cliente_email:     datos.email,
+    fecha_entrega:     datos.fechaEntrega,
+    metodo_pago:       datos.metodoPago,
+    tipo_entrega:      datos.tipoEntrega,
+    barrio_id:         datos.barrioId || null
   };
 }
 
 // ============================================================================
-// 7. FUNCIONES DE SERVIDOR
+// 7. SERVIDOR
 // ============================================================================
 
-/**
- * Envía el pedido al servidor mediante fetch
- * @param {object} pedido - Objeto con los datos del pedido
- * @returns {Promise} Respuesta del servidor
- */
 async function enviarPedidoAlServidor(pedido) {
   const respuesta = await fetch('http://localhost:3000/api/pedidos', {
     method: 'POST',
@@ -344,41 +288,17 @@ async function enviarPedidoAlServidor(pedido) {
   });
 
   const datos = await respuesta.json();
-
-  if (!respuesta.ok) {
-    throw new Error(datos.error || 'Error al crear el pedido');
-  }
-
+  if (!respuesta.ok) throw new Error(datos.error || 'Error al crear el pedido');
   return datos;
 }
 
-/**
- * Limpia el formulario después de envío exitoso
- */
 function limpiarFormulario() {
   document.getElementById('pedidoForm').reset();
 }
 
 // ============================================================================
-// 8. WHATSAPP - Armar y enviar mensaje
+// 8. WHATSAPP
 // ============================================================================
-
-
-/**
- * Función principal que coordina todo el proceso de crear un pedido
- * 1. Valida datos
- * 2. Calcula totales
- * 3. Envía al servidor
- * 4. Guarda comanda para cocina
- * 5. Limpia localStorage
- */
-async function enviarFormulario() {
-  const GUEST_UUID = 'd9b1ae00-fda5-4488-86b3-90d769b47a02';
-  const usuarioId = localStorage.getItem('usuario_id') || GUEST_UUID;
-
-const WHATSAPP_NUMERO = '5493512294243'; // Villa Allende: 0351 229-4243
-const EMAIL_NEGOCIO = 'tesisfastgood@gmail.com';
-const ALIAS_TRANSFERENCIA = 'FAST.GOOD.VA cuenta a nombre de Fast and Good VA SRL';
 
 function redirigirAWhatsApp(pedidoId, datos, carrito) {
   const ahora = new Date();
@@ -387,7 +307,7 @@ function redirigirAWhatsApp(pedidoId, datos, carrito) {
     hour: '2-digit', minute: '2-digit', hour12: true
   }) + 'hs';
 
-  const total = calcularTotalPedido(carrito);
+  const total           = calcularTotalPedido(carrito);
   const totalFormateado = total.toLocaleString('es-AR');
 
   const lineasItems = carrito
@@ -430,18 +350,19 @@ Espero tu respuesta para confirmar mi pedido`;
 }
 
 // ============================================================================
-// 9. FUNCIÓN PRINCIPAL - Enviar Formulario
+// 9. FUNCIÓN PRINCIPAL
 // ============================================================================
 
+// Retorna true en caso de éxito, false si falló validación o hubo error de red.
+// vincularFormulario() usa este valor para decidir si restaurar el botón.
 async function enviarFormulario() {
-  const usuarioId = localStorage.getItem('usuario_id') || 'd9b1ae00-fda5-4488-86b3-90d769b47a02';
-
+  const usuarioId = localStorage.getItem('usuario_id') || GUEST_UUID;
 
   const carrito = obtenerCarritoDeStorage();
-  const datos = obtenerDatosFormulario();
+  const datos   = obtenerDatosFormulario();
 
-  if (!validarCarritoNoVacio(carrito)) return;
-  if (!validarDatosObligatorios(datos)) return;
+  if (!validarCarritoNoVacio(carrito))    return false;
+  if (!validarDatosObligatorios(datos))   return false;
 
   const pedido = armarObjetoPedido(datos, carrito, usuarioId);
 
@@ -453,16 +374,13 @@ async function enviarFormulario() {
     limpiarCarritoDeStorage();
     limpiarFormulario();
 
-    // Redirigir a WhatsApp con el resumen del pedido
     redirigirAWhatsApp(pedidoId, datos, carrito);
+    return true;
 
   } catch (error) {
     alert('❌ ' + error.message);
+    return false;
   }
 }
 
-// ============================================================================
-// 10. EXPORTAR FUNCIONES PARA HTML
-// ============================================================================
-
-window.enviarFormulario = enviarFormulario;``}
+window.enviarFormulario = enviarFormulario;
