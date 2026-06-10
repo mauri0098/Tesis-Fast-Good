@@ -11,6 +11,7 @@ app.use(express.json());
 
 const supabase   = require('./config/supabaseClient');// Cliente de Supabase para interactuar con la base de datos
 const nodemailer = require('nodemailer');              // Envío de emails (recuperación de contraseña)
+const bcrypt     = require('bcryptjs');                // Hash de contraseñas
 
 /* ======================================================
    LÓGICA DE DESCUENTO DE STOCK POR RECETA
@@ -170,7 +171,6 @@ app.post('/api/login', async (req, res) => {
 
   console.log('=== LOGIN INTENTADO ===');
   console.log('Usuario enviado:', nombre);
-  console.log('Contraseña enviada:', contraseña);
 
   // Validar que se envíen nombre y contraseña
   if (!nombre || !contraseña) {
@@ -196,20 +196,14 @@ app.post('/api/login', async (req, res) => {
       usuarios = porEmail?.[0];
     }
 
-    console.log('Usuario encontrado:', usuarios);
-
     if (!usuarios) {
       console.log('Usuario no encontrado');
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
-    console.log('Contraseña en BD:', usuarios.contraseña);
-    console.log('Contraseña enviada:', contraseña);
-    console.log('¿Contraseñas coinciden?', usuarios.contraseña === contraseña);
-
-    // Validar contraseña (comparación simple - en producción usar bcrypt)
-    if (usuarios.contraseña !== contraseña) {
-      console.log('Contraseña incorrecta');
+    // Validar contraseña con bcrypt
+    const contraseñaValida = await bcrypt.compare(contraseña, usuarios.contraseña);
+    if (!contraseñaValida) {
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
@@ -256,9 +250,10 @@ app.post('/api/register', async (req, res) => {
     }
 
     // Crear usuario con rol 4 (Usuario)
+    const hashContrasenaReg = await bcrypt.hash(contraseña, 10);
     const { data: nuevoUsuario, error } = await supabase
       .from('usuarios')
-      .insert([{ nombre, apellido, email, contraseña, telefono, direccion, id_rol: 4 }])
+      .insert([{ nombre, apellido, email, contraseña: hashContrasenaReg, telefono, direccion, id_rol: 4 }])
       .select()
       .single();
 
@@ -1428,7 +1423,8 @@ app.post('/api/usuarios/crear', async (req, res) => {
     telefono: telefono || null,
     id_rol:   parseInt(id_rol)
   };
-  nuevoRegistro['contraseña'] = contraseña;
+  const hashContrasenaCreate = await bcrypt.hash(contraseña, 10);
+  nuevoRegistro['contraseña'] = hashContrasenaCreate;
 
   try {
     const { data, error } = await supabase
@@ -1469,7 +1465,7 @@ app.put('/api/usuarios/:id', async (req, res) => {
     id_rol:   parseInt(id_rol)
   };
   if (nuevaContrasena && nuevaContrasena.trim()) {
-    campos['contraseña'] = nuevaContrasena.trim();
+    campos['contraseña'] = await bcrypt.hash(nuevaContrasena.trim(), 10);
   }
 
   try {
@@ -1552,10 +1548,11 @@ app.post('/api/recuperar-password', async (req, res) => {
     claveTemporal += chars[Math.floor(Math.random() * chars.length)];
   }
 
-  // 3. Actualizar en Supabase
+  // 3. Actualizar en Supabase — se guarda el HASH, no el texto plano
+  // La clave en texto plano sólo viaja por email para que el usuario la escriba
   // ⚠️ La columna se llama exactamente "contraseña" (con ñ) en PostgreSQL
   const campoActualizar = {};
-  campoActualizar['contraseña'] = claveTemporal;
+  campoActualizar['contraseña'] = await bcrypt.hash(claveTemporal, 10);
 
   const { error: errUpdate } = await supabase
     .from('usuarios')
