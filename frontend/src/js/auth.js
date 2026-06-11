@@ -42,7 +42,8 @@ async function manejarLogin(e) {
       throw new Error(data.error || 'Error al iniciar sesión');
     }
 
-    // Guardar datos de usuario en localStorage
+    // Guardar token JWT y datos de usuario en localStorage
+    localStorage.setItem('fg_token', data.token);
     localStorage.setItem('usuario_id', data.usuario.id);
     localStorage.setItem('usuario_nombre', data.usuario.nombre);
     localStorage.setItem('usuario_rol', data.usuario.id_rol);

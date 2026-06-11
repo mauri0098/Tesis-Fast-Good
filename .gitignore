@@ -1,0 +1,5 @@
+# Variables de entorno — NUNCA subir al repositorio
+.env
+
+# Dependencias
+node_modules/

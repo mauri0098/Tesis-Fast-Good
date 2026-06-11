@@ -226,9 +226,14 @@ async function confirmarNuevoInsumo() {
   const hoy = new Date().toISOString().split('T')[0];
 
   try {
+    const token = localStorage.getItem('fg_token');
+
     const res = await fetch('http://localhost:3000/api/insumos', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
       body: JSON.stringify({
         nombre,
         stock_actual: 0,

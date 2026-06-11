@@ -6,12 +6,57 @@ const path = require('path');// Módulo para manejar rutas de archivos (para ser
 
 const app = express();// Crear instancia del servidor Express
 
-app.use(cors());
+const origenesPermitidos = ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Las peticiones sin origen (Postman, curl, mismo servidor) se permiten
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    if (origenesPermitidos.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Bloqueado por política CORS'));
+    }
+  }
+}));
 app.use(express.json());
 
 const supabase   = require('./config/supabaseClient');// Cliente de Supabase para interactuar con la base de datos
 const nodemailer = require('nodemailer');              // Envío de emails (recuperación de contraseña)
 const bcrypt     = require('bcryptjs');                // Hash de contraseñas
+const jwt        = require('jsonwebtoken');            // Tokens de autenticación
+
+/* ======================================================
+   MIDDLEWARE DE AUTENTICACIÓN JWT
+   Lee el token del header Authorization: Bearer <token>
+   ====================================================== */
+function requireAuth(req, res, next) {
+  const authHeader = req.headers['authorization'];
+
+  if (!authHeader) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+
+  const partes = authHeader.split(' ');
+
+  if (partes.length !== 2 || partes[0] !== 'Bearer') {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+
+  const token = partes[1];
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    req.usuario = payload; // { id, rol, iat, exp }
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+}
 
 /* ======================================================
    LÓGICA DE DESCUENTO DE STOCK POR RECETA
@@ -209,9 +254,17 @@ app.post('/api/login', async (req, res) => {
 
     console.log('LOGIN EXITOSO para:', usuarios.nombre);
 
-    // El login fue exitoso, devolver datos del usuario
+    // Generar token JWT con id y rol del usuario, válido por 8 horas
+    const token = jwt.sign(
+      { id: usuarios.id, rol: usuarios.id_rol },
+      process.env.JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+
+    // El login fue exitoso, devolver token y datos del usuario
     return res.json({
       mensaje: 'Login exitoso',
+      token: token,
       usuario: {
         id: usuarios.id,
         nombre: usuarios.nombre,
@@ -797,7 +850,7 @@ app.get('/api/insumos', async (req, res) => {
   res.json(data);
 });
 
-app.post('/api/insumos', async (req, res) => {
+app.post('/api/insumos', requireAuth, async (req, res) => {
   const { nombre, stock_actual, stock_minimo, unidad_medida, fecha_ingreso, fecha_caducidad, id_categoria_insumo } = req.body;
 
   const { data, error } = await supabase
