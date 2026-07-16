@@ -1,10 +1,108 @@
+// ── Estado reactivo del módulo ────────────────────────────────────────────────
+// Se declara fuera de DOMContentLoaded para que marcarListo() también acceda.
+let _tareasActivas = [];
+
+// ── Escape seguro para inserción de texto en innerHTML ────────────────────────
+function _esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ── Normalización de observaciones ────────────────────────────────────────────
+// Vacíos, nulos y "sin observaciones" se tratan como la clave estándar.
+const _OBS_STD = 'Sin observaciones';
+function _normObs(obs) {
+  if (!obs || obs.trim() === '' || obs.trim().toLowerCase() === 'sin observaciones') {
+    return _OBS_STD;
+  }
+  return obs.trim();
+}
+
+// ── Construir / actualizar el panel de resumen del turno ──────────────────────
+function construirResumen(tareas) {
+  const panelBody = document.getElementById('panel-body');
+  const elPlatos  = document.getElementById('resumen-total-platos');
+  const elPorc    = document.getElementById('resumen-total-porciones');
+  if (!panelBody) return;
+
+  // Agrupar por (nombre de plato + observación normalizada).
+  // Clave compuesta con separador improbable en datos reales.
+  const grupos = {};
+  tareas.forEach(pedido => {
+    const obs = _normObs(pedido.observaciones);
+    (pedido.pedido_detalles || []).forEach(det => {
+      const nombre = det?.productos?.nombre;
+      if (!nombre || nombre === '—') return;
+      const clave = `${nombre}|||${obs}`;
+      if (!grupos[clave]) grupos[clave] = { nombre, obs, cantidad: 0 };
+      grupos[clave].cantidad += (det.cantidad || 0);
+    });
+  });
+
+  const entradas       = Object.values(grupos);
+  const platosUnicos   = new Set(entradas.map(e => e.nombre)).size;
+  const totalPorciones = entradas.reduce((s, e) => s + e.cantidad, 0);
+
+  if (elPlatos) elPlatos.textContent = platosUnicos;
+  if (elPorc)   elPorc.textContent   = totalPorciones;
+
+  if (entradas.length === 0) {
+    panelBody.innerHTML = '<p class="panel-vacio">Sin tareas activas.</p>';
+    return;
+  }
+
+  // Orden: por nombre de plato A→Z; dentro del mismo plato, estándar antes
+  // que especiales; dentro del mismo grupo, mayor cantidad primero.
+  entradas.sort((a, b) => {
+    const nc = a.nombre.localeCompare(b.nombre, 'es');
+    if (nc !== 0) return nc;
+    const aEsp = a.obs !== _OBS_STD ? 1 : 0;
+    const bEsp = b.obs !== _OBS_STD ? 1 : 0;
+    if (aEsp !== bEsp) return aEsp - bEsp;
+    return b.cantidad - a.cantidad;
+  });
+
+  panelBody.innerHTML = entradas.map(({ nombre, obs, cantidad }) => {
+    const esEspecial = obs !== _OBS_STD;
+    const cardClass  = esEspecial ? 'resumen-card resumen-card--especial' : 'resumen-card';
+    const obsHTML    = esEspecial
+      ? `<div class="resumen-card-obs">
+           <span class="resumen-card-obs-icon">⚠</span>${_esc(obs)}
+         </div>`
+      : '';
+    return `
+      <div class="${cardClass}">
+        <div class="resumen-card-info">
+          <div class="resumen-card-nombre">${_esc(nombre)}</div>
+          ${obsHTML}
+        </div>
+        <div class="resumen-card-right">
+          <span class="resumen-card-cantidad">${cantidad}</span>
+          <span class="resumen-card-label">porc.</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── DOMContentLoaded ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
 
   const tbody          = document.getElementById('tablaTareas');
   const contadorBadge  = document.getElementById('contador-badge');
   const cocineroId     = localStorage.getItem('usuario_id');
 
-  // ── Recetas del localStorage (cargadas por generarReceta.js) ──────────────
+  // ── Toggle del panel lateral ─────────────────────────────────────────────
+  const panelEl   = document.getElementById('panel-resumen');
+  const btnToggle = document.getElementById('btn-toggle-panel');
+  if (btnToggle && panelEl) {
+    btnToggle.addEventListener('click', () => {
+      panelEl.classList.toggle('panel-colapsado');
+    });
+  }
+
+  // ── Recetas del localStorage (cargadas por generarReceta.js) ────────────
   const recetas = JSON.parse(localStorage.getItem('FG_RECETAS') || '[]');
 
   function buscarReceta(nombreProducto) {
@@ -26,7 +124,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return `<div class="receta-text">${items}</div>`;
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Helpers ──────────────────────────────────────────────────────────────
   function formatFecha(isoString) {
     if (!isoString) return '—';
     return new Date(isoString).toLocaleDateString('es-AR', {
@@ -37,6 +135,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   function setVacio(msg) {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${msg}</td></tr>`;
     contadorBadge.textContent = '0';
+    _tareasActivas = [];
+    construirResumen([]);
   }
 
   // ── 1. Traer tareas filtradas por el cocinero logueado ───────────────────
@@ -59,14 +159,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   contadorBadge.textContent = enPrep.length;
 
-  // ── 3. Renderizar filas ───────────────────────────────────────────────────
+  // ── 2. Renderizar filas ───────────────────────────────────────────────────
   tbody.innerHTML = '';
 
   enPrep.forEach(pedido => {
     const detalles = pedido.pedido_detalles || [];
     const fecha    = formatFecha(pedido.fecha_pedido);
 
-    // Si el pedido no tiene productos, igual mostramos una fila
     const filas = detalles.length > 0 ? detalles : [null];
 
     filas.forEach(det => {
@@ -94,6 +193,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       tbody.appendChild(tr);
     });
   });
+
+  // ── 3. Sincronizar estado y pintar panel de resumen ───────────────────────
+  _tareasActivas = enPrep;
+  construirResumen(_tareasActivas);
 });
 
 // ── Cambiar estado del pedido a "Listo para entregar" ────────────────────────
@@ -113,18 +216,21 @@ window.marcarListo = async function (pedidoId, btnEl) {
     if (!res.ok) throw new Error();
 
     // Eliminar todas las filas de ese pedido de la tabla
-    const filas = document.querySelectorAll(`tr[data-pedido-id="${pedidoId}"]`);
-    filas.forEach(f => f.remove());
+    document.querySelectorAll(`tr[data-pedido-id="${pedidoId}"]`).forEach(f => f.remove());
 
     // Actualizar badge contador
-    const badge = document.getElementById('contador-badge');
+    const badge  = document.getElementById('contador-badge');
     const actual = parseInt(badge.textContent) - 1;
     badge.textContent = actual;
 
     if (actual === 0) {
-      const tbody = document.getElementById('tablaTareas');
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No hay pedidos en preparación en este momento.</td></tr>';
+      document.getElementById('tablaTareas').innerHTML =
+        '<tr class="empty-row"><td colspan="6">No hay pedidos en preparación en este momento.</td></tr>';
     }
+
+    // Actualizar estado reactivo y refrescar panel lateral
+    _tareasActivas = _tareasActivas.filter(p => String(p.id) !== String(pedidoId));
+    construirResumen(_tareasActivas);
 
   } catch {
     btnEl.disabled = false;

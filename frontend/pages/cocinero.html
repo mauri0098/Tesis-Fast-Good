@@ -24,23 +24,57 @@
   </div>
 </header>
 
-<main class="page-container">
-  <div class="table-wrapper">
-    <table id="tablaPedidos" class="standard-table">
-      <thead>
-        <tr>
-          <th>N° Pedido</th>
-          <th>Fecha</th>
-          <th>Código</th>
-          <th>Plato</th>
-          <th>Observaciones</th>
-          <th>Acción</th>
-        </tr>
-      </thead>
-      <tbody id="tablaTareas">
-        <tr><td colspan="6" class="loading-text">Cargando tareas...</td></tr>
-      </tbody>
-    </table>
+<main class="page-container pagina-cocina">
+  <div class="cocina-layout">
+
+    <!-- Columna principal: tabla de tareas -->
+    <div class="cocina-tabla-col">
+      <div class="table-wrapper">
+        <table id="tablaPedidos" class="standard-table">
+          <thead>
+            <tr>
+              <th>N° Pedido</th>
+              <th>Fecha</th>
+              <th>Código</th>
+              <th>Plato</th>
+              <th>Observaciones</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="tablaTareas">
+            <tr><td colspan="6" class="loading-text">Cargando tareas...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Panel lateral: resumen del turno -->
+    <aside id="panel-resumen" class="panel-resumen">
+      <div class="panel-header">
+        <div class="panel-header-info">
+          <p class="panel-title">Resumen del Turno</p>
+          <div class="panel-kpis">
+            <span class="kpi-chip">
+              <strong id="resumen-total-platos">0</strong> platos únicos
+            </span>
+            <span class="kpi-chip">
+              <strong id="resumen-total-porciones">0</strong> porciones totales
+            </span>
+          </div>
+        </div>
+        <button id="btn-toggle-panel" class="btn-toggle-panel" title="Contraer / Expandir panel">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2.5"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+      </div>
+      <div class="panel-body" id="panel-body">
+        <p class="panel-vacio">Cargando...</p>
+      </div>
+    </aside>
+
   </div>
 </main>
 
