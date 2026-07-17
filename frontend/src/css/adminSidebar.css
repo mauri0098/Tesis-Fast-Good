@@ -100,3 +100,9 @@ body.admin-layout {
     left: 200px;
   }
 }
+
+@media print {
+  .admin-sidebar    { display: none !important; }
+  .admin-content    { margin-left: 0 !important; }
+  body.admin-layout { display: block !important; }
+}
