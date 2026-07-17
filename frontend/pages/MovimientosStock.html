@@ -70,8 +70,17 @@
       display: inline-block; padding: 0.2rem 0.7rem;
       border-radius: var(--radius-pill); font-size: 0.78rem; font-weight: 700;
     }
-    .badge-entrada { background: #d4edda; color: #155724; }
-    .badge-salida  { background: #f8d7da; color: #721c24; }
+    .badge-entrada  { background: #d4edda; color: #155724; } /* legacy — no se usa en tabla */
+    .badge-salida   { background: #f8d7da; color: #721c24; } /* legacy — no se usa en tabla */
+
+    /* Badges por concepto de negocio (visualización) */
+    .badge-compra   { background: #d4edda; color: #155724; }   /* verde  — entrada */
+    .badge-venta    { background: #cce5ff; color: #004085; }   /* azul   — salida por venta */
+    .badge-descarte { background: #fdecea; color: #b71c1c; }   /* rojo   — salida por descarte/merma */
+
+    /* Filas por concepto de negocio */
+    tbody tr.fila-venta    { border-left: 4px solid #1565c0; }
+    tbody tr.fila-descarte { border-left: 4px solid #e53935; }
 
     .empty-row td { text-align: center; padding: 3rem; color: var(--color-muted); }
 

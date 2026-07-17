@@ -55,6 +55,28 @@ async function cargarInsumos() {
   }
 }
 
+// ── Clasificar movimiento por concepto de negocio ─────────────
+// La BD solo conoce 'entrada' / 'salida'. Esta función traduce
+// esos valores a los términos visuales Compra / Venta / Descarte
+// leyendo el campo `motivo` para distinguir las salidas.
+function clasificarMovimiento(m) {
+  if (m.tipo === 'entrada') {
+    return { filaClass: 'fila-entrada', badgeClass: 'badge-compra', icono: '▲', label: 'Compra' };
+  }
+
+  // Lista blanca de señales inequívocas de consumo productivo automatizado.
+  // Solo si el motivo contiene una de estas, la salida es "Venta".
+  // Cualquier otra cosa (texto libre, errores tipográficos, campo vacío) → "Descarte".
+  const PALABRAS_VENTA = ['consumo', 'produccion', 'pedido', '#'];
+  const motivo  = (m.motivo || '').toLowerCase();
+  const esVenta = PALABRAS_VENTA.some(kw => motivo.includes(kw));
+
+  if (esVenta) {
+    return { filaClass: 'fila-venta',    badgeClass: 'badge-venta',    icono: '💰', label: 'Venta'    };
+  }
+  return   { filaClass: 'fila-descarte', badgeClass: 'badge-descarte', icono: '✖', label: 'Descarte' };
+}
+
 // ── Render de tabla ───────────────────────────────────────────
 function renderTabla(movimientos) {
   const tbody = document.getElementById('tablaBody');
@@ -66,8 +88,10 @@ function renderTabla(movimientos) {
 
   tbody.innerHTML = '';
   movimientos.forEach(m => {
+    const { filaClass, badgeClass, icono, label } = clasificarMovimiento(m);
+
     const tr = document.createElement('tr');
-    tr.className = m.tipo === 'entrada' ? 'fila-entrada' : 'fila-salida';
+    tr.className      = filaClass;
     tr.dataset.tipo   = m.tipo;
     tr.dataset.insumo = (m.insumos?.nombre || '').toLowerCase();
     tr.dataset.fecha  = m.fecha || '';
@@ -79,8 +103,7 @@ function renderTabla(movimientos) {
         })
       : '-';
 
-    const badgeClass = m.tipo === 'entrada' ? 'badge-entrada' : 'badge-salida';
-    const badgeLabel = m.tipo === 'entrada' ? '▲ Entrada' : '▼ Salida';
+    const badgeLabel = `${icono} ${label}`;
 
     tr.innerHTML = `
       <td>${fecha}</td>
