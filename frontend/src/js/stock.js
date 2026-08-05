@@ -27,7 +27,7 @@ async function fetchInsumos() {//Un fetch aclara lo que es un fetch
 
   } catch (error) {// si hay un error al traer los insumos, lo mostramos en consola y en la tabla
     console.error(error);
-    tbody.innerHTML = '<tr><td colspan="7" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
   }
 }
 
@@ -41,7 +41,7 @@ function renderizarInsumos(insumos) {//funcion para hacer la tabla de insumos. e
 
   
   if (insumos.length === 0) {//si no hay ningun insumo se muesta este mensaje 
-    tbody.innerHTML = '<tr><td colspan="7" class="loading-text">No se encontraron insumos</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="loading-text">No se encontraron insumos</td></tr>';
     return;
   }
   //DUDA RAPIDA SE MEZCLA EL HTML ACA CON EL JAVASCRIP ESTA BIEN ESTO O TIENE QUE VENIR EN VARIABLES
@@ -103,9 +103,14 @@ function renderizarInsumos(insumos) {//funcion para hacer la tabla de insumos. e
       <td>${categoria}</td>
       <td>${fechaCaducidad}</td>
       <td><span class="badge-estado ${badgeClass}">${estado}</span></td>
+      <td class="td-acciones">
+        <div class="acciones-grupo">
+          <button class="btn-editar" onclick="abrirModalEditarInsumo(${insumo.id})">✎ Editar</button>
+        </div>
+      </td>
     `;
 
-    tbody.appendChild(tr);//Y ESTO NOSE QUE HACE 
+    tbody.appendChild(tr);//Y ESTO NOSE QUE HACE
   });
 }
 
@@ -253,5 +258,91 @@ async function confirmarNuevoInsumo() {
 
 window.addEventListener('click', (e) => {
   if (e.target === document.getElementById('modalNuevoInsumo')) cerrarModalNuevoInsumo();
+  if (e.target === document.getElementById('modalEditarInsumo')) cerrarModalEditarInsumo();
 });
+
+// ==========================================
+// MODAL EDITAR INSUMO
+// ==========================================
+
+let insumoEditandoId = null; // id del insumo que se está editando actualmente
+
+async function abrirModalEditarInsumo(id) {
+  const insumo = todosInsumos.find(i => i.id === id);
+  if (!insumo) return;
+
+  insumoEditandoId = id;
+  const errEl = document.getElementById('eiError');
+  errEl.style.display = 'none';
+
+  // cargar categorías desde la API y preseleccionar la actual del insumo
+  try {
+    const res = await fetch('http://localhost:3000/api/categorias-insumos');
+    const categorias = await res.json();
+    const select = document.getElementById('eiCategoria');
+    select.innerHTML = '<option value="">Seleccione una categoría...</option>';
+    categorias.forEach(c => {
+      const option = document.createElement('option');
+      option.value = c.id;
+      option.textContent = c.nombre;
+      select.appendChild(option);
+    });
+
+    const categoriaActual = categorias.find(c => c.nombre === insumo.categorias_insumos?.nombre);
+    if (categoriaActual) select.value = categoriaActual.id;
+  } catch {
+    document.getElementById('eiCategoria').innerHTML = '<option value="">Error al cargar categorías</option>';
+  }
+
+  document.getElementById('eiNombre').value       = insumo.nombre;
+  document.getElementById('eiStockMinimo').value  = insumo.stock_minimo;
+  document.getElementById('eiStockActual').value  = insumo.stock_actual;
+  document.getElementById('eiUnidad').value       = insumo.unidad_medida || '';
+
+  document.getElementById('modalEditarInsumo').style.display = 'block';
+}
+
+function cerrarModalEditarInsumo() {
+  document.getElementById('modalEditarInsumo').style.display = 'none';
+  insumoEditandoId = null;
+}
+
+async function confirmarEditarInsumo() {
+  const errEl = document.getElementById('eiError');
+
+  const nombre      = document.getElementById('eiNombre').value.trim();
+  const stockMinimo = parseFloat(document.getElementById('eiStockMinimo').value);
+  const stockActual = parseFloat(document.getElementById('eiStockActual').value);
+  const unidad      = document.getElementById('eiUnidad').value;
+  const idCategoria = document.getElementById('eiCategoria').value;
+
+  if (!nombre || !unidad || !idCategoria || isNaN(stockMinimo) || stockMinimo < 0 || isNaN(stockActual) || stockActual < 0) {
+    errEl.textContent = 'Completá todos los campos obligatorios.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    const res = await fetch(`http://localhost:3000/api/insumos/${insumoEditandoId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nombre,
+        stock_minimo: stockMinimo,
+        stock_actual: stockActual,
+        unidad_medida: unidad,
+        id_categoria_insumo: parseInt(idCategoria)
+      })
+    });
+
+    if (!res.ok) throw new Error();
+
+    cerrarModalEditarInsumo();
+    await fetchInsumos();
+
+  } catch {
+    errEl.textContent = 'Error al guardar. Intentá de nuevo.';
+    errEl.style.display = 'block';
+  }
+}
 

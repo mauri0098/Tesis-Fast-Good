@@ -47,12 +47,22 @@ async function cargarInsumos() {
     insumos.forEach(i => {
       const opt = document.createElement('option');
       opt.value = i.id;
+      opt.dataset.unidad = i.unidad_medida || '';
       opt.textContent = `${i.nombre} (Stock: ${i.stock_actual} ${i.unidad_medida})`;
       select.appendChild(opt);
     });
   } catch (e) {
     console.error('Error al cargar insumos:', e);
   }
+}
+
+// ── Sincronizar Unidad de Medida con el insumo seleccionado ───
+// La unidad es una propiedad fija del insumo (se define en Alta de
+// Insumos); acá solo se refleja, nunca se edita.
+function actualizarUnidadSegunInsumo() {
+  const select = document.getElementById('selectInsumo');
+  const opt    = select.selectedOptions[0];
+  document.getElementById('inputUnidad').value = opt ? (opt.dataset.unidad || '') : '';
 }
 
 // ── Clasificar movimiento por concepto de negocio ─────────────
@@ -145,8 +155,8 @@ function abrirModal(tipo) {
   document.getElementById('modalTitulo').textContent  = esEntrada ? 'Registrar Entrada' : 'Registrar Salida';
   document.getElementById('notaSalida').style.display = esEntrada ? 'none' : 'block';
 
-  // Campo de costo solo en entradas
-  document.getElementById('grupoCosto').style.display        = esEntrada ? 'block' : 'none';
+  // Campo de costo oculto en la interfaz (se mantiene la lógica/payload interna)
+  document.getElementById('grupoCosto').style.display        = 'none';
   document.getElementById('inputCostoUnit').value            = '';
   document.getElementById('costoTotalDisplay').style.display = 'none';
 
@@ -156,7 +166,7 @@ function abrirModal(tipo) {
 
   document.getElementById('modalError').classList.remove('visible');
   document.getElementById('inputCantidad').value = '';
-  document.getElementById('inputUnidad').value   = 'kg';
+  actualizarUnidadSegunInsumo();
   document.getElementById('inputMotivo').value   = '';
   setFechaActual();
 

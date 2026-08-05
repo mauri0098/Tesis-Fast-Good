@@ -547,3 +547,24 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* ===================================================
+   PANEL ADMIN — GRID "FUNCIONES PRINCIPALES" (3-3-3)
+   Modificador de .grid, no afecta el resto de las grillas
+   =================================================== */
+.menu-grid {
+    grid-template-columns: repeat(3, 1fr);
+    align-items: stretch;
+}
+
+@media (max-width: 960px) {
+    .menu-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .menu-grid {
+        grid-template-columns: 1fr;
+    }
+}

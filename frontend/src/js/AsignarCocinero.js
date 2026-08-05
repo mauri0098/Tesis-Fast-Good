@@ -41,7 +41,7 @@ async function cargarDatos() {
       selectSuplente.appendChild(crearOption('', 'Sin suplente'));
 
       cocineros.forEach(c => {
-        const label = `Cocinero #${c.id} — ${c.nombre} ${c.apellido}`;
+        const label = [c.nombre, c.apellido].filter(Boolean).join(' ');
         selectPrincipal.appendChild(crearOption(c.id, label));
         selectSuplente.appendChild(crearOption(c.id, label));
       });
