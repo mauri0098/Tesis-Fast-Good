@@ -10,7 +10,13 @@
 
   <style>
     /* ── Layout ── */
-    .page-container { max-width: 1300px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    .page-container { max-width: 1300px; margin: 0 auto; padding: 2rem 1.5rem 4rem; width: 100%; }
+
+    /* Evita que el ancho mínimo automático de .admin-content (flex item)
+       se infle por el contenido de la tabla (thead con nowrap) y rompa
+       el ancho de la página en mobile; el scroll debe quedar contenido
+       en .table-wrapper, no en toda la página. */
+    .admin-content { min-width: 0; }
 
     /* ── Barra superior de acciones ── */
     .acciones-bar {
@@ -171,6 +177,20 @@
       cursor: pointer; transition: background 0.2s;
     }
     .btn-eliminar:hover { background: #dc3545; color: white; }
+
+    /* ── Responsive — Mobile / Tablet ── */
+    @media (max-width: 768px) {
+      .page-container { padding: 1rem 0.75rem 2.5rem; }
+
+      .acciones-bar { flex-direction: column; align-items: stretch; }
+      .acciones-btns { flex-direction: column; }
+      .btn-entrada, .btn-salida { width: 100%; }
+
+      .filtros-bar { flex-direction: column; }
+      .filtros-bar input, .filtros-bar select { width: 100%; box-sizing: border-box; }
+
+      .modal-box { padding: 1.25rem; width: 94%; }
+    }
   </style>
 </head>
 

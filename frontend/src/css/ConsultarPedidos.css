@@ -198,3 +198,29 @@ ul.ingredientes-list {
   border-color: #28a745;
   box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.15);
 }
+
+/* =========================================
+   RESPONSIVE — Mobile / Tablet
+   ========================================= */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 1rem 0.75rem;
+  }
+
+  .filtros-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtro-input,
+  .filtro-fecha {
+    width: 100%;
+  }
+
+  /* table-layout:fixed + width:100% hace que las 11 columnas se
+     compriman en vez de desbordar; con min-width forzamos el overflow
+     real para que .table-wrapper pueda scrollear horizontalmente. */
+  .standard-table {
+    min-width: 1000px;
+  }
+}

@@ -10,7 +10,7 @@
 
   <style>
     /* ── Layout ── */
-    .page-container { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    .page-container { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem 4rem; width: 100%; }
 
     /* ── Barra de filtros ── */
     .filtros-bar {
@@ -335,6 +335,23 @@
       font-size: 8pt; font-weight: 700; color: #555;
       border-bottom: 2px solid #333; margin-bottom: 0.1rem;
       text-transform: uppercase; letter-spacing: 0.04em;
+    }
+
+    /* ── Responsive — Mobile / Tablet ── */
+    @media (max-width: 768px) {
+      .page-container { padding: 1rem 0.75rem 2.5rem; }
+
+      .admin-content { min-width: 0; }
+
+      .filtros-bar { flex-direction: column; align-items: stretch; }
+      .filtros-bar input[type="date"],
+      .filtros-bar .btn-accion { width: 100%; }
+      .btn-imprimir { margin-left: 0; }
+
+      .ruta-header { flex-wrap: wrap; row-gap: 0.6rem; }
+      .ruta-toggle-btn { width: 100%; }
+
+      .stat-card { min-width: 100px; }
     }
 
     @media print {
