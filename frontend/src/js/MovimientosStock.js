@@ -47,12 +47,44 @@ async function cargarInsumos() {
     insumos.forEach(i => {
       const opt = document.createElement('option');
       opt.value = i.id;
+      opt.dataset.unidad = i.unidad_medida || '';
       opt.textContent = `${i.nombre} (Stock: ${i.stock_actual} ${i.unidad_medida})`;
       select.appendChild(opt);
     });
   } catch (e) {
     console.error('Error al cargar insumos:', e);
   }
+}
+
+// ── Sincronizar Unidad de Medida con el insumo seleccionado ───
+// La unidad es una propiedad fija del insumo (se define en Alta de
+// Insumos); acá solo se refleja, nunca se edita.
+function actualizarUnidadSegunInsumo() {
+  const select = document.getElementById('selectInsumo');
+  const opt    = select.selectedOptions[0];
+  document.getElementById('inputUnidad').value = opt ? (opt.dataset.unidad || '') : '';
+}
+
+// ── Clasificar movimiento por concepto de negocio ─────────────
+// La BD solo conoce 'entrada' / 'salida'. Esta función traduce
+// esos valores a los términos visuales Compra / Venta / Descarte
+// leyendo el campo `motivo` para distinguir las salidas.
+function clasificarMovimiento(m) {
+  if (m.tipo === 'entrada') {
+    return { filaClass: 'fila-entrada', badgeClass: 'badge-compra', icono: '▲', label: 'Compra' };
+  }
+
+  // Lista blanca de señales inequívocas de consumo productivo automatizado.
+  // Solo si el motivo contiene una de estas, la salida es "Venta".
+  // Cualquier otra cosa (texto libre, errores tipográficos, campo vacío) → "Descarte".
+  const PALABRAS_VENTA = ['consumo', 'produccion', 'pedido', '#'];
+  const motivo  = (m.motivo || '').toLowerCase();
+  const esVenta = PALABRAS_VENTA.some(kw => motivo.includes(kw));
+
+  if (esVenta) {
+    return { filaClass: 'fila-venta',    badgeClass: 'badge-venta',    icono: '💰', label: 'Venta'    };
+  }
+  return   { filaClass: 'fila-descarte', badgeClass: 'badge-descarte', icono: '✖', label: 'Descarte' };
 }
 
 // ── Render de tabla ───────────────────────────────────────────
@@ -66,8 +98,10 @@ function renderTabla(movimientos) {
 
   tbody.innerHTML = '';
   movimientos.forEach(m => {
+    const { filaClass, badgeClass, icono, label } = clasificarMovimiento(m);
+
     const tr = document.createElement('tr');
-    tr.className = m.tipo === 'entrada' ? 'fila-entrada' : 'fila-salida';
+    tr.className      = filaClass;
     tr.dataset.tipo   = m.tipo;
     tr.dataset.insumo = (m.insumos?.nombre || '').toLowerCase();
     tr.dataset.fecha  = m.fecha || '';
@@ -79,8 +113,7 @@ function renderTabla(movimientos) {
         })
       : '-';
 
-    const badgeClass = m.tipo === 'entrada' ? 'badge-entrada' : 'badge-salida';
-    const badgeLabel = m.tipo === 'entrada' ? '▲ Entrada' : '▼ Salida';
+    const badgeLabel = `${icono} ${label}`;
 
     tr.innerHTML = `
       <td>${fecha}</td>
@@ -122,8 +155,8 @@ function abrirModal(tipo) {
   document.getElementById('modalTitulo').textContent  = esEntrada ? 'Registrar Entrada' : 'Registrar Salida';
   document.getElementById('notaSalida').style.display = esEntrada ? 'none' : 'block';
 
-  // Campo de costo solo en entradas
-  document.getElementById('grupoCosto').style.display        = esEntrada ? 'block' : 'none';
+  // Campo de costo oculto en la interfaz (se mantiene la lógica/payload interna)
+  document.getElementById('grupoCosto').style.display        = 'none';
   document.getElementById('inputCostoUnit').value            = '';
   document.getElementById('costoTotalDisplay').style.display = 'none';
 
@@ -133,7 +166,7 @@ function abrirModal(tipo) {
 
   document.getElementById('modalError').classList.remove('visible');
   document.getElementById('inputCantidad').value = '';
-  document.getElementById('inputUnidad').value   = 'kg';
+  actualizarUnidadSegunInsumo();
   document.getElementById('inputMotivo').value   = '';
   setFechaActual();
 

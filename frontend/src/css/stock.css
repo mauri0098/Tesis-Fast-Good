@@ -301,3 +301,102 @@ body {
 .btn-nuevo-insumo:hover {
   background-color: #0D47A1;
 }
+
+/* =========================================
+   BOTÓN EDITAR (columna Acciones)
+   ========================================= */
+.btn-editar {
+  padding: 0.3rem 0.7rem;
+  background-color: var(--primary-green);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-editar:hover { background-color: #218838; }
+
+.td-acciones {
+  padding: 0.5rem 0.6rem;
+}
+
+.acciones-grupo {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+/* =========================================
+   NOTA INFORMATIVA — MODAL EDITAR INSUMO
+   ========================================= */
+.nota-unidad {
+  background: #eef5fb;
+  border: 1px solid #b6d4ea;
+  border-left: 4px solid #1565C0;
+  border-radius: var(--radius);
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+  color: #2c3e50;
+  line-height: 1.5;
+}
+
+.nota-unidad strong { color: #1565C0; }
+
+.nota-unidad ul {
+  margin: 0.4rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.nota-unidad li { margin-bottom: 0.2rem; }
+
+/* =========================================
+   RESPONSIVE — Mobile / Tablet
+   ========================================= */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 1rem 0.75rem;
+  }
+
+  .tabla-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtros-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtro-input {
+    width: 100%;
+  }
+
+  .btn-nuevo-insumo {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* table-layout:fixed comprime las 8 columnas en vez de desbordar;
+     con min-width forzamos el overflow real para que .table-wrapper scrollee. */
+  .standard-table {
+    min-width: 850px;
+  }
+
+  /* Label + input del modal (Nuevo/Editar insumo): de fila a columna */
+  .modal-grid {
+    grid-template-columns: 1fr;
+    gap: 0.3rem 0;
+  }
+
+  .modal-grid label {
+    text-align: left;
+  }
+}

@@ -174,3 +174,264 @@ ul.platos-list li {
   transform: translateX(20px);
   transition: opacity 0.35s ease, transform 0.35s ease;
 }
+
+/* =========================================
+   LAYOUT DE DOS COLUMNAS (COCINA)
+   ========================================= */
+.pagina-cocina {
+  max-width: 1440px;
+}
+
+.cocina-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.cocina-tabla-col {
+  flex: 1;
+  min-width: 0; /* permite que el flex item encoja por debajo de su contenido */
+}
+
+/* =========================================
+   PANEL LATERAL DE RESUMEN
+   ========================================= */
+.panel-resumen {
+  width: 285px;
+  flex-shrink: 0;
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  position: sticky;
+  top: 82px; /* compensa el header sticky */
+  max-height: calc(100vh - 112px);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.panel-resumen.panel-colapsado {
+  width: 50px;
+}
+
+/* ---- Header del panel ---- */
+.panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: #e8f5e9;
+  border-bottom: 2px solid var(--primary-green);
+  flex-shrink: 0;
+}
+
+.panel-header-info {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 0.2s ease, max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  max-width: 220px;
+}
+
+.panel-colapsado .panel-header-info {
+  opacity: 0;
+  max-width: 0;
+  pointer-events: none;
+}
+
+.panel-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #4CAF50;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+
+.panel-kpis {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.45rem;
+}
+
+.kpi-chip {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.kpi-chip strong {
+  color: var(--primary-green);
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+/* ---- Botón toggle ---- */
+.btn-toggle-panel {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--border-light);
+  background: var(--white);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--primary-green);
+  transition: background 0.2s;
+}
+
+.btn-toggle-panel:hover {
+  background: #f1f8f3;
+}
+
+.btn-toggle-panel svg {
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.panel-colapsado .btn-toggle-panel svg {
+  transform: rotate(180deg);
+}
+
+/* ---- Cuerpo del panel ---- */
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  transition: opacity 0.2s ease;
+}
+
+.panel-colapsado .panel-body {
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ---- Tarjetas de resumen ---- */
+.resumen-card {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  background: #f4fbf5;
+  border: 1px solid #d4edd8;
+  border-left: 4px solid var(--primary-green);
+  border-radius: 8px;
+  padding: 0.65rem 0.8rem;
+  transition: box-shadow 0.2s;
+}
+
+.resumen-card:hover {
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.14);
+}
+
+/* Wrapper de texto (ocupa el espacio sobrante) */
+.resumen-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.resumen-card-nombre {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  line-height: 1.35;
+}
+
+.resumen-card-right {
+  text-align: center;
+  flex-shrink: 0;
+  min-width: 44px;
+}
+
+.resumen-card-cantidad {
+  display: block;
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: var(--primary-green);
+  line-height: 1;
+}
+
+.resumen-card-label {
+  display: block;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-top: 0.1rem;
+}
+
+/* ---- Tarjeta especial (con observación específica) ---- */
+.resumen-card--especial {
+  background: #fffbeb;
+  border-color: #fbbf24;
+  border-left-color: #f59e0b;
+  border-left-width: 4px;
+}
+
+.resumen-card--especial:hover {
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+}
+
+.resumen-card--especial .resumen-card-cantidad {
+  color: #d97706; /* ámbar oscuro en lugar de verde */
+}
+
+.resumen-card-obs {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+  font-size: 0.71rem;
+  font-weight: 700;
+  color: #92400e;
+  line-height: 1.3;
+}
+
+.resumen-card-obs-icon {
+  flex-shrink: 0;
+  font-style: normal;
+  font-size: 0.75rem;
+}
+
+.panel-vacio {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+  padding: 1.5rem 0.5rem;
+}
+
+/* =========================================
+   RESPONSIVE — Panel lateral
+   ========================================= */
+@media (max-width: 1024px) {
+  .cocina-layout {
+    flex-direction: column;
+  }
+
+  .panel-resumen {
+    width: 100% !important;
+    position: static;
+    max-height: none;
+  }
+
+  .panel-colapsado.panel-resumen {
+    width: 100% !important; /* sin colapso de ancho en mobile */
+  }
+
+  .panel-colapsado .panel-body {
+    display: none;
+  }
+
+  .panel-colapsado .panel-header-info {
+    opacity: 1;
+    max-width: 100%;
+    pointer-events: auto;
+  }
+}

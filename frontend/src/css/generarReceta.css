@@ -414,11 +414,21 @@ body {
 /* =========================================
    TABLA DE INSUMOS (dentro de modales)
    ========================================= */
+.table-insumos-wrapper {
+  overflow-x: auto;
+}
+
 .table-insumos {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 0.75rem;
   font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+  .table-insumos {
+    min-width: 480px;
+  }
 }
 
 .table-insumos thead th {
@@ -546,3 +556,47 @@ body {
 }
 
 .btn-confirmar:hover { background-color: #218838; }
+
+/* =========================================
+   RESPONSIVE — Mobile / Tablet
+   ========================================= */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 1rem 0.75rem;
+    width: 100%;
+  }
+
+  .tabla-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtros-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtro-input {
+    width: 100%;
+  }
+
+  .btn-agregar {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Label + select del modal editar: pasan de fila a columna */
+  .modal-grid {
+    grid-template-columns: 1fr;
+    gap: 0.3rem 0;
+  }
+
+  .modal-grid label {
+    text-align: left;
+  }
+
+  .precio-descuento-fila {
+    grid-template-columns: 1fr;
+    gap: 0.75rem 0;
+  }
+}

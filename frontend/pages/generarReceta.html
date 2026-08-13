@@ -86,16 +86,18 @@
         <div class="det-fila"><strong>Cant. posible:</strong> <span id="detPosible"></span></div>
       </div>
 
-      <table class="table-insumos">
-        <thead>
-          <tr>
-            <th>Insumo</th>
-            <th>Cantidad</th>
-            <th>Unidad</th>
-          </tr>
-        </thead>
-        <tbody id="detInsumosBody"></tbody>
-      </table>
+      <div class="table-insumos-wrapper">
+        <table class="table-insumos">
+          <thead>
+            <tr>
+              <th>Insumo</th>
+              <th>Cantidad</th>
+              <th>Unidad</th>
+            </tr>
+          </thead>
+          <tbody id="detInsumosBody"></tbody>
+        </table>
+      </div>
 
       <div class="modal-actions">
         <button class="btn-cancelar" onclick="cerrarModalDetalles()">Cerrar</button>
@@ -156,17 +158,19 @@
 
       <div class="seccion-subtitulo">Ingredientes de la Receta</div>
 
-      <table class="table-insumos">
-        <thead>
-          <tr>
-            <th>Insumo</th>
-            <th>Cantidad</th>
-            <th>Unidad</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="edInsumosBody"></tbody>
-      </table>
+      <div class="table-insumos-wrapper">
+        <table class="table-insumos">
+          <thead>
+            <tr>
+              <th>Insumo</th>
+              <th>Cantidad</th>
+              <th>Unidad</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="edInsumosBody"></tbody>
+        </table>
+      </div>
 
       <div class="ed-agregar-fila">
         <button class="btn-agregar-insumo" onclick="agregarFilaInsumo(null)">+ Agregar insumo</button>

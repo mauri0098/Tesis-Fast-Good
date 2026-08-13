@@ -7,6 +7,216 @@ const API = 'http://localhost:3000';
 let todosEnvios = [];
 let todosEstados = [];
 
+// ════════════════════════════════════════════════════════════════
+// MÓDULO: Hoja de Ruta Optimizada
+// Algoritmo Vecino Más Cercano + Fórmula de Haversine
+// Sin dependencias externas. 100% cliente.
+// ════════════════════════════════════════════════════════════════
+
+// ── Punto de origen: local Fast Good, Ituzaingó 431 ──────────
+const ORIGEN_FG = {
+  lat: -31.42491,
+  lng: -64.18567,
+  nombre: 'Local Fast Good — Ituzaingó 431'
+};
+
+// ── Diccionario de coordenadas aproximadas por barrio ─────────
+// Se usa cuando el pedido no tiene GPS exacto cargado.
+const BARRIOS_CBA = {
+  'Nueva Córdoba':               { lat: -31.4217, lng: -64.1842 },
+  'Centro':                      { lat: -31.4131, lng: -64.1813 },
+  'General Paz':                 { lat: -31.4050, lng: -64.1997 },
+  'Alberdi':                     { lat: -31.4152, lng: -64.2080 },
+  'Alto Alberdi':                { lat: -31.4261, lng: -64.2131 },
+  'Alta Córdoba':                { lat: -31.3944, lng: -64.1889 },
+  'Cofico':                      { lat: -31.4001, lng: -64.1897 },
+  'Güemes':                      { lat: -31.4269, lng: -64.1966 },
+  'Pueyrredón':                  { lat: -31.4072, lng: -64.1843 },
+  'Observatorio':                { lat: -31.4228, lng: -64.1931 },
+  'Parque República':            { lat: -31.4011, lng: -64.1783 },
+  'Independencia':               { lat: -31.4167, lng: -64.1869 },
+  'La France':                   { lat: -31.4050, lng: -64.1656 },
+  'San Martín':                  { lat: -31.4167, lng: -64.1667 },
+  'Yofre':                       { lat: -31.4272, lng: -64.1547 },
+  'Yofre Norte':                 { lat: -31.4197, lng: -64.1547 },
+  'Yofre Sur':                   { lat: -31.4347, lng: -64.1547 },
+  'San Vicente':                 { lat: -31.4378, lng: -64.1530 },
+  'Bajo Grande':                 { lat: -31.4564, lng: -64.1547 },
+  'Santa Isabel':                { lat: -31.4506, lng: -64.1881 },
+  'Villa El Libertador':         { lat: -31.4733, lng: -64.1897 },
+  'Buen Pastor':                 { lat: -31.4350, lng: -64.1950 },
+  'Talleres':                    { lat: -31.4072, lng: -64.2064 },
+  'Villa Páez':                  { lat: -31.4261, lng: -64.2211 },
+  'Bimaco':                      { lat: -31.4000, lng: -64.1990 },
+  'Palermo':                     { lat: -31.3878, lng: -64.1881 },
+  'Maipú':                       { lat: -31.3736, lng: -64.1897 },
+  'Juniors':                     { lat: -31.3944, lng: -64.2131 },
+  'Rogelio Martínez':            { lat: -31.3706, lng: -64.1733 },
+  'Barrio Jardín':               { lat: -31.3789, lng: -64.1856 },
+  'Jardín':                      { lat: -31.3789, lng: -64.1856 },
+  'Alta Gracia':                 { lat: -31.3789, lng: -64.1856 },
+  'Cerro de las Rosas':          { lat: -31.3675, lng: -64.2014 },
+  'Villa Belgrano':              { lat: -31.3561, lng: -64.2153 },
+  'Colinas de Vélez Sársfield':  { lat: -31.3833, lng: -64.2153 },
+  'Los Boulevares':              { lat: -31.3406, lng: -64.2242 },
+  'Argüello':                    { lat: -31.3319, lng: -64.2314 },
+  'Villa Rivera Indarte':        { lat: -31.3519, lng: -64.2394 },
+  'Alta Córdoba Norte':          { lat: -31.3850, lng: -64.1889 },
+  'Margarita Weiss':             { lat: -31.4100, lng: -64.2100 },
+  'Villa Allende':               { lat: -31.2972, lng: -64.2942 },
+  'Mendiolaza':                  { lat: -31.2806, lng: -64.3117 },
+  'Unquillo':                    { lat: -31.2361, lng: -64.3169 },
+  'La Calera':                   { lat: -31.3456, lng: -64.3369 },
+};
+
+// ── Haversine: distancia en km entre dos puntos GPS ───────────
+function haversine(lat1, lng1, lat2, lng2) {
+  const R     = 6371;
+  const toRad = deg => deg * Math.PI / 180;
+  const dLat  = toRad(lat2 - lat1);
+  const dLng  = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ── Resolver coordenadas de un pedido ─────────────────────────
+// Prioridad 1: GPS exacto en el objeto (campos lat / lng)
+// Prioridad 2: Diccionario de barrios (BARRIOS_CBA) con búsqueda flexible
+function getCoords(pedido) {
+  if (pedido.lat != null && pedido.lng != null) {
+    return { lat: Number(pedido.lat), lng: Number(pedido.lng) };
+  }
+  const barrio = pedido.barrios?.nombre;
+  if (!barrio) return null;
+  const norm = s =>
+    s.toLowerCase()
+     .normalize('NFD')
+     .replace(/[̀-ͯ]/g, '')
+     .trim();
+  const key = norm(barrio);
+  const match = Object.entries(BARRIOS_CBA).find(([k]) => {
+    const nk = norm(k);
+    return nk === key || nk.includes(key) || key.includes(nk);
+  });
+  return match ? match[1] : null;
+}
+
+// ── Algoritmo Vecino Más Cercano ──────────────────────────────
+// Ordena `pedidos` comenzando desde ORIGEN_FG.
+// Pedidos sin coordenadas van al final (no se pueden ubicar).
+function nearestNeighbor(pedidos) {
+  const conCoords  = pedidos.filter(p => getCoords(p) !== null);
+  const sinCoords  = pedidos.filter(p => getCoords(p) === null);
+  const ruta       = [];
+  const pendientes = [...conCoords];
+  let posActual    = ORIGEN_FG;
+
+  while (pendientes.length > 0) {
+    let minDist = Infinity, minIdx = 0;
+    pendientes.forEach((p, i) => {
+      const c = getCoords(p);
+      const d = haversine(posActual.lat, posActual.lng, c.lat, c.lng);
+      if (d < minDist) { minDist = d; minIdx = i; }
+    });
+    const sig = pendientes.splice(minIdx, 1)[0];
+    const coords = getCoords(sig);
+    ruta.push({ pedido: sig, distancia: minDist, coords });
+    posActual = coords;
+  }
+
+  sinCoords.forEach(p => ruta.push({ pedido: p, distancia: null, coords: null }));
+  return ruta;
+}
+
+// ── Render del Timeline de Ruta Optimizada ────────────────────
+function renderHojaRuta(envios) {
+  const body = document.getElementById('hojaRutaBody');
+  if (!body) return;
+
+  if (!envios.length) {
+    body.innerHTML = '<p class="ruta-sin-datos">Buscá envíos para calcular la ruta optimizada.</p>';
+    return;
+  }
+
+  const ruta      = nearestNeighbor(envios);
+  const totalKm   = ruta.reduce((s, r) => s + (r.distancia || 0), 0);
+  const minEst    = Math.ceil(totalKm / 30 * 60); // ~30 km/h ciudad
+
+  // Nodo origen
+  const origenNode = `
+    <div class="tl-stop">
+      <div class="tl-dot tl-dot-origen">🏠</div>
+      <div class="tl-card tl-origen">
+        <div class="tl-label">Punto de partida</div>
+        <div class="tl-nombre">${ORIGEN_FG.nombre}</div>
+        <div class="tl-info"><span>📍 Ituzaingó 431, Nueva Córdoba</span></div>
+      </div>
+    </div>`;
+
+  // Nodos de paradas
+  const paradasHTML = ruta.map(({ pedido: p, distancia, coords }, idx) => {
+    const num    = String(p.id).padStart(3, '0');
+    const barrio = p.barrios?.nombre || 'Sin barrio';
+    const dir    = p.cliente_direccion || '—';
+    const tel    = p.cliente_telefono  || '—';
+
+    // Origen del link de Maps: último punto con coordenadas conocidas
+    let origCoords = ORIGEN_FG;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (ruta[i].coords) { origCoords = ruta[i].coords; break; }
+    }
+
+    const mapsUrl = coords
+      ? `https://www.google.com/maps/dir/?api=1&origin=${origCoords.lat},${origCoords.lng}&destination=${coords.lat},${coords.lng}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dir + ', Córdoba, Argentina')}`;
+
+    const distHtml = distancia !== null
+      ? `<div class="tl-dist">📏 ~${distancia.toFixed(1)} km desde parada anterior</div>`
+      : `<div class="tl-dist warn">⚠️ Sin coordenadas — dirección estimada</div>`;
+
+    const dotClass  = coords ? 'tl-dot-parada' : 'tl-dot-sincrd';
+    const cardClass = coords ? ''               : ' tl-sincrd';
+
+    return `
+      <div class="tl-stop">
+        <div class="tl-dot ${dotClass}">${idx + 1}</div>
+        <div class="tl-card${cardClass}">
+          <div class="tl-label">Parada ${idx + 1} · Pedido #${num}</div>
+          <div class="tl-nombre">${barrio} — ${p.cliente_nombre || '—'}</div>
+          <div class="tl-info">
+            <span>📍 ${dir}</span>
+            <span>📞 ${tel}</span>
+          </div>
+          ${distHtml}
+          <a class="btn-maps" href="${mapsUrl}" target="_blank" rel="noopener noreferrer">
+            🧭 Iniciar navegación
+          </a>
+        </div>
+      </div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="ruta-stats">
+      <span>📦 ${ruta.length} entrega${ruta.length !== 1 ? 's' : ''}</span>
+      <span>📏 ~${totalKm.toFixed(1)} km estimados</span>
+      <span>🕐 ~${minEst} min en ciudad</span>
+    </div>
+    <div class="timeline">
+      ${origenNode}
+      ${paradasHTML}
+    </div>`;
+}
+
+// ── Toggle visibilidad del panel ──────────────────────────────
+function toggleHojaRuta() {
+  const body = document.getElementById('hojaRutaBody');
+  const btn  = document.getElementById('btnToggleRuta');
+  if (!body) return;
+  const visible = body.classList.toggle('visible');
+  if (btn) btn.textContent = visible ? '▲ Ocultar' : '▼ Ver ruta';
+}
+
 // ── Inicialización ────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   setFechaHoy();
@@ -43,6 +253,7 @@ async function buscarEnvios() {
 
     actualizarStats(todosEnvios);
     renderEnvios(todosEnvios);
+    renderHojaRuta(todosEnvios);
   } catch (e) {
     contenido.innerHTML = `<div class="empty-state"><p style="color:#d32f2f;">Error al conectar con el servidor</p></div>`;
   }
@@ -330,8 +541,9 @@ function formatFecha(fechaStr) {
 }
 
 // ── Exponer funciones globales ────────────────────────────────
-window.buscarEnvios    = buscarEnvios;
-window.limpiarFecha    = limpiarFecha;
-window.cambiarEstado   = cambiarEstado;
-window.togglePagado    = togglePagado;
+window.buscarEnvios     = buscarEnvios;
+window.limpiarFecha     = limpiarFecha;
+window.cambiarEstado    = cambiarEstado;
+window.togglePagado     = togglePagado;
 window.imprimirHojaRuta = imprimirHojaRuta;
+window.toggleHojaRuta   = toggleHojaRuta;

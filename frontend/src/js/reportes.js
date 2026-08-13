@@ -1,17 +1,26 @@
 // ============================================================
-// reportes.js — Dashboard de reportes financieros y stock
+// reportes.js — Dashboard de Reportes Operativos — Fast Good
 // ============================================================
 
 const API = 'http://localhost:3000';
 
-// Instancias de los gráficos (se destruyen y recrean al actualizar)
-let chartIG = null; // Ingresos vs Gastos
-let chartTP = null; // Top Productos
-let chartST = null; // Stock movimientos
+// ── Instancias de gráficos (se destruyen y recrean al filtrar)
+let chartEvo     = null;   // Evolución de pedidos por día
+let chartEstados = null;   // Distribución por estado (donut)
+let chartBarrio  = null;   // Pedidos por barrio
+let chartTP      = null;   // Top productos más vendidos
 
-// Cache de datos para exportar
-let cacheIngresos = [];
-let cacheCompras  = [];
+// ── Caché de datos para exportar CSV
+let cachePedidos = [];
+
+// ── Mapa de estados: colores fijos por id_estado ─────────────
+const ESTADO_MAP = {
+  1: { nombre: 'Pendiente',          color: '#9e9e9e' },
+  2: { nombre: 'En Preparación',     color: '#ff9800' },
+  3: { nombre: 'Listo p/ Entregar',  color: '#1565c0' },
+  4: { nombre: 'Entregado',          color: '#28a745' },
+  5: { nombre: 'Cancelado',          color: '#dc3545' },
+};
 
 // ── Inicialización ────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -27,7 +36,7 @@ function setFechasPorDefecto() {
   document.getElementById('filtroHasta').value = hasta;
 }
 
-// ── Carga principal ───────────────────────────────────────────
+// ── Carga principal ────────────────────────────────────────────
 async function cargarReportes() {
   const desde = document.getElementById('filtroDesde').value;
   const hasta = document.getElementById('filtroHasta').value;
@@ -38,25 +47,18 @@ async function cargarReportes() {
 
   mostrarLoading(true);
   try {
-    const [resumen, ingDia, gasDia, topProd, stockMov, movsLista, pedidosList] =
-      await Promise.all([
-        fetchJSON(`${API}/api/reportes/resumen${qs}`),
-        fetchJSON(`${API}/api/reportes/ingresos-por-dia${qs}`),
-        fetchJSON(`${API}/api/reportes/gastos-por-dia${qs}`),
-        fetchJSON(`${API}/api/reportes/productos-mas-vendidos${qs}`),
-        fetchJSON(`${API}/api/reportes/stock-movimientos${qs}`),
-        fetchJSON(`${API}/api/movimientos-stock`),
-        fetchJSON(`${API}/api/pedidos${qs}`)
-      ]);
+    const [topProd, pedidosList] = await Promise.all([
+      fetchJSON(`${API}/api/reportes/productos-mas-vendidos${qs}`),
+      fetchJSON(`${API}/api/pedidos${qs}`)
+    ]);
 
-    // Filtrar movimientos de stock de tipo entrada con costo para exportar como "gastos"
-    cacheCompras  = (movsLista || []).filter(m => m.tipo === 'entrada' && m.costo_total != null);
-    cacheIngresos = pedidosList || [];
+    cachePedidos = pedidosList || [];
 
-    actualizarKPIs(resumen);
-    actualizarChartIngresosGastos(ingDia, gasDia);
+    actualizarKPIsOperativos(cachePedidos);
+    actualizarChartEvolucion(cachePedidos);
+    actualizarChartEstadoPedidos(cachePedidos);
+    actualizarChartPorBarrio(cachePedidos);
     actualizarChartTopProductos(topProd);
-    actualizarChartStock(stockMov);
 
   } catch (e) {
     console.error('Error cargando reportes:', e);
@@ -72,76 +74,143 @@ async function fetchJSON(url) {
   return res.json();
 }
 
-// ── KPI Cards ─────────────────────────────────────────────────
-function actualizarKPIs(r) {
-  const fmt = n => '$' + Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 0 });
+// ── KPIs Operativos ───────────────────────────────────────────
+function actualizarKPIsOperativos(pedidos) {
+  // Total pedidos del período
+  document.getElementById('kpiTotalPedidos').textContent = pedidos.length || '0';
 
-  document.getElementById('kpiIngresos').textContent = fmt(r.ingresos);
-  document.getElementById('kpiGastos').textContent   = fmt(r.gastos);
-  document.getElementById('kpiPedidos').textContent  = r.cantidad_pedidos ?? 0;
+  // % entregados (id_estado 4)
+  const totalEntregados = pedidos.filter(p => p.id_estado === 4).length;
+  const pct = pedidos.length > 0
+    ? Math.round(totalEntregados / pedidos.length * 100)
+    : 0;
+  document.getElementById('kpiEntregados').textContent = pedidos.length ? `${pct}%` : '—';
 
-  const ganEl = document.getElementById('kpiGanancia');
-  ganEl.textContent = fmt(r.ganancia);
-  ganEl.classList.toggle('negativo', Number(r.ganancia) < 0);
+  // Barrio con más pedidos
+  const conteoBarrios = {};
+  pedidos.forEach(p => {
+    const b = p.barrios?.nombre;
+    if (b) conteoBarrios[b] = (conteoBarrios[b] || 0) + 1;
+  });
+  const topBarrio = Object.entries(conteoBarrios)
+    .sort((a, b) => b[1] - a[1])[0];
+  document.getElementById('kpiBarrio').textContent =
+    topBarrio ? topBarrio[0] : '—';
 }
 
-// ── Chart 1: Ingresos vs Gastos ───────────────────────────────
-function actualizarChartIngresosGastos(ingData, gasData) {
-  // Unir todas las fechas
-  const diasSet = new Set([
-    ...ingData.map(d => d.dia),
-    ...gasData.map(d => d.dia)
-  ]);
-  const dias = [...diasSet].sort();
+// ── Chart 1: Evolución de Pedidos por Día ────────────────────
+// Conectar: usa cachePedidos agrupados por fecha_pedido
+// Mock: 7 días recientes con valores aleatorios
+function actualizarChartEvolucion(pedidos) {
+  const conteo = {};
+  pedidos.forEach(p => {
+    const dia = (p.fecha_pedido || '').slice(0, 10);
+    if (dia) conteo[dia] = (conteo[dia] || 0) + 1;
+  });
 
-  const ingMap = Object.fromEntries(ingData.map(d => [d.dia, d.ingresos]));
-  const gasMap = Object.fromEntries(gasData.map(d => [d.dia, d.gastos]));
+  let labels = [];
+  let datos  = [];
 
-  const labels   = dias.map(d => formatFechaCorta(d));
-  const dataIng  = dias.map(d => ingMap[d] || 0);
-  const dataGas  = dias.map(d => gasMap[d] || 0);
+  if (Object.keys(conteo).length) {
+    const diasOrdenados = Object.keys(conteo).sort();
+    labels = diasOrdenados.map(d => formatFechaCorta(d));
+    datos  = diasOrdenados.map(d => conteo[d]);
+  } else {
+    // ── MOCK DATA (reemplazar con datos reales de la API) ──
+    const hoy = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(hoy);
+      d.setDate(hoy.getDate() - i);
+      labels.push(formatFechaCorta(d.toISOString().slice(0, 10)));
+      datos.push(Math.floor(Math.random() * 10) + 4);
+    }
+  }
 
-  if (chartIG) chartIG.destroy();
-  const ctx = document.getElementById('chartIngresosGastos').getContext('2d');
-  chartIG = new Chart(ctx, {
-    type: 'bar',
+  if (chartEvo) chartEvo.destroy();
+  chartEvo = new Chart(document.getElementById('chartEvolucion').getContext('2d'), {
+    type: 'line',
     data: {
       labels,
-      datasets: [
-        {
-          label: 'Ingresos',
-          data: dataIng,
-          backgroundColor: 'rgba(40, 167, 69, 0.75)',
-          borderColor: '#28a745',
-          borderWidth: 1,
-          borderRadius: 4
-        },
-        {
-          label: 'Gastos',
-          data: dataGas,
-          backgroundColor: 'rgba(220, 53, 69, 0.70)',
-          borderColor: '#dc3545',
-          borderWidth: 1,
-          borderRadius: 4
-        }
-      ]
+      datasets: [{
+        label: 'Pedidos por día',
+        data: datos,
+        borderColor: '#28a745',
+        backgroundColor: 'rgba(40,167,69,0.10)',
+        borderWidth: 2.5,
+        pointBackgroundColor: '#28a745',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        fill: true,
+        tension: 0.35
+      }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'top', labels: { font: { family: 'Poppins', size: 11 } } },
-        tooltip: {
-          callbacks: {
-            label: ctx => ` $${Number(ctx.raw).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`
-          }
-        }
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.raw} pedidos` } }
       },
       scales: {
         x: { ticks: { font: { family: 'Poppins', size: 10 } } },
         y: {
-          ticks: {
-            font: { family: 'Poppins', size: 10 },
-            callback: v => '$' + Number(v).toLocaleString('es-AR')
+          beginAtZero: true,
+          ticks: { precision: 0, font: { family: 'Poppins', size: 10 } }
+        }
+      }
+    }
+  });
+}
+
+// ── Chart 2: Distribución por Estado (Donut) ─────────────────
+// Conectar: agrupa cachePedidos por id_estado
+// Mock: distribución de ejemplo con 5 estados
+function actualizarChartEstadoPedidos(pedidos) {
+  const conteo = {};
+  pedidos.forEach(p => {
+    const id = p.id_estado;
+    if (id != null) conteo[id] = (conteo[id] || 0) + 1;
+  });
+
+  let entradas;
+  if (Object.keys(conteo).length) {
+    entradas = Object.entries(conteo).sort((a, b) => Number(a[0]) - Number(b[0]));
+  } else {
+    // ── MOCK DATA ──
+    entradas = [[4, 18], [2, 6], [3, 4], [1, 2], [5, 2]];
+  }
+
+  const labels  = entradas.map(([id]) => ESTADO_MAP[id]?.nombre || `Estado ${id}`);
+  const datos   = entradas.map(([, v]) => v);
+  const colores = entradas.map(([id]) => ESTADO_MAP[id]?.color  || '#607d8b');
+
+  if (chartEstados) chartEstados.destroy();
+  chartEstados = new Chart(document.getElementById('chartEstados').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: datos,
+        backgroundColor: colores,
+        borderWidth: 2,
+        borderColor: '#fff',
+        hoverOffset: 8
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { font: { family: 'Poppins', size: 10 }, padding: 10 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+              const pct   = Math.round(ctx.raw / total * 100);
+              return ` ${ctx.raw} pedidos (${pct}%)`;
+            }
           }
         }
       }
@@ -149,14 +218,74 @@ function actualizarChartIngresosGastos(ingData, gasData) {
   });
 }
 
-// ── Chart 2: Top Productos ─────────────────────────────────────
+// ── Chart 4: Pedidos por Barrio — Top 10 (Horizontal) ────────
+// Conectar: agrupa cachePedidos por barrios.nombre
+// Mock: ranking de barrios de Córdoba de ejemplo
+function actualizarChartPorBarrio(pedidos) {
+  const conteo = {};
+  pedidos.forEach(p => {
+    const b = p.barrios?.nombre;
+    if (b) conteo[b] = (conteo[b] || 0) + 1;
+  });
+
+  let sorted;
+  if (Object.keys(conteo).length) {
+    sorted = Object.entries(conteo).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  } else {
+    // ── MOCK DATA ──
+    sorted = [
+      ['Nueva Córdoba', 14], ['Centro', 11], ['General Paz', 8],
+      ['Alberdi', 7],        ['Alta Córdoba', 6], ['Güemes', 5],
+      ['Cerro de las Rosas', 4], ['Villa Belgrano', 3],
+      ['San Vicente', 3],    ['Cofico', 2]
+    ];
+  }
+
+  const labels  = sorted.map(([b]) => b);
+  const datos   = sorted.map(([, v]) => v);
+  // Degradado de verde oscuro a verde claro según posición
+  const colores = datos.map((_, i) =>
+    `hsl(${136 - i * 8}, ${68 - i * 2}%, ${38 + i * 3}%)`
+  );
+
+  if (chartBarrio) chartBarrio.destroy();
+  chartBarrio = new Chart(document.getElementById('chartPorBarrio').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Pedidos',
+        data: datos,
+        backgroundColor: colores,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.raw} pedidos` } }
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          ticks: { precision: 0, font: { family: 'Poppins', size: 10 } }
+        },
+        y: { ticks: { font: { family: 'Poppins', size: 10 } } }
+      }
+    }
+  });
+}
+
+// ── Chart 5: Top Productos más vendidos (CONSERVADO) ─────────
 function actualizarChartTopProductos(data) {
   if (!data || !data.length) {
     if (chartTP) chartTP.destroy();
     return;
   }
 
-  const labels = data.map(d => truncar(d.nombre, 22));
+  const labels  = data.map(d => truncar(d.nombre, 22));
   const valores = data.map(d => d.total_vendido);
   const colores = [
     '#28a745','#1565c0','#ff9800','#9c27b0','#00bcd4',
@@ -164,8 +293,7 @@ function actualizarChartTopProductos(data) {
   ].slice(0, data.length);
 
   if (chartTP) chartTP.destroy();
-  const ctx = document.getElementById('chartTopProductos').getContext('2d');
-  chartTP = new Chart(ctx, {
+  chartTP = new Chart(document.getElementById('chartTopProductos').getContext('2d'), {
     type: 'bar',
     data: {
       labels,
@@ -181,14 +309,7 @@ function actualizarChartTopProductos(data) {
       responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: {
-          callbacks: {
-            afterLabel: (ctx) => {
-              const ing = data[ctx.dataIndex]?.ingresos || 0;
-              return `Ingresos: $${Number(ing).toLocaleString('es-AR')}`;
-            }
-          }
-        }
+        tooltip: { callbacks: { label: ctx => ` ${ctx.raw} unidades` } }
       },
       scales: {
         x: { ticks: { font: { family: 'Poppins', size: 10 } } },
@@ -198,92 +319,37 @@ function actualizarChartTopProductos(data) {
   });
 }
 
-// ── Chart 3: Movimientos de Stock ──────────────────────────────
-function actualizarChartStock(data) {
-  if (!data || !data.length) {
-    if (chartST) chartST.destroy();
-    return;
-  }
-
-  const labels   = data.map(d => formatFechaCorta(d.dia));
-  const entradas = data.map(d => d.entradas);
-  const salidas  = data.map(d => d.salidas);
-
-  if (chartST) chartST.destroy();
-  const ctx = document.getElementById('chartStock').getContext('2d');
-  chartST = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: 'Entradas',
-          data: entradas,
-          borderColor: '#28a745',
-          backgroundColor: 'rgba(40,167,69,0.10)',
-          borderWidth: 2, pointRadius: 3, fill: true, tension: 0.3
-        },
-        {
-          label: 'Salidas',
-          data: salidas,
-          borderColor: '#dc3545',
-          backgroundColor: 'rgba(220,53,69,0.08)',
-          borderWidth: 2, pointRadius: 3, fill: true, tension: 0.3
-        }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'top', labels: { font: { family: 'Poppins', size: 11 } } }
-      },
-      scales: {
-        x: { ticks: { font: { family: 'Poppins', size: 10 } } },
-        y: { ticks: { font: { family: 'Poppins', size: 10 } }, beginAtZero: true }
-      }
-    }
-  });
-}
-
-// ── Exportar CSV ───────────────────────────────────────────────
-function exportarCSV(tipo) {
-  if (tipo === 'pedidos') {
-    const filas = cacheIngresos
-      .filter(p => p.id_estado !== 5)
-      .map(p => [
-        p.id,
-        p.fecha_pedido?.slice(0,10) || '',
-        p.cliente_nombre || '',
-        p.total,
-        p.metodo_pago || '',
-        p.estados?.nombre || ''
-      ]);
-    descargarCSV(['ID','Fecha','Cliente','Total','Pago','Estado'], filas, 'ingresos.csv');
-  } else {
-    const filas = cacheCompras.map(m => [
-      m.id,
-      m.fecha?.slice(0,10) || '',
-      m.insumos?.nombre || '',
-      m.cantidad,
-      m.costo_unitario,
-      m.costo_total,
-      m.motivo || ''
+// ── Exportar CSV de pedidos ───────────────────────────────────
+function exportarCSV() {
+  const filas = cachePedidos
+    .filter(p => p.id_estado !== 5) // excluye cancelados
+    .map(p => [
+      p.id,
+      (p.fecha_pedido || '').slice(0, 10),
+      p.cliente_nombre   || '',
+      p.barrios?.nombre  || '',
+      p.total            || 0,
+      p.metodo_pago      || '',
+      p.estados?.nombre  || ''
     ]);
-    descargarCSV(['ID','Fecha','Insumo','Cantidad','Costo Unit.','Costo Total','Motivo'], filas, 'entradas_con_costo.csv');
-  }
+  descargarCSV(
+    ['ID', 'Fecha', 'Cliente', 'Barrio', 'Total', 'Método Pago', 'Estado'],
+    filas,
+    'pedidos.csv'
+  );
 }
 
 function descargarCSV(encabezados, filas, nombre) {
-  const BOM = '﻿'; // UTF-8 BOM para que Excel lo abra bien
+  const BOM    = '﻿';
   const lineas = [encabezados.join(';'), ...filas.map(f => f.map(v => `"${v}"`).join(';'))];
-  const blob = new Blob([BOM + lineas.join('\n')], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
+  const blob   = new Blob([BOM + lineas.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const link   = document.createElement('a');
   link.href     = URL.createObjectURL(blob);
   link.download = nombre;
   link.click();
 }
 
-// ── Utilidades ─────────────────────────────────────────────────
+// ── Utilidades ────────────────────────────────────────────────
 function mostrarLoading(v) {
   document.getElementById('loadingOverlay').classList.toggle('visible', v);
 }
@@ -295,9 +361,9 @@ function formatFechaCorta(iso) {
 }
 
 function truncar(str, max) {
-  return str.length > max ? str.slice(0, max) + '…' : str;
+  return str && str.length > max ? str.slice(0, max) + '…' : str;
 }
 
-// ── Exponer globales ───────────────────────────────────────────
+// ── Globales ──────────────────────────────────────────────────
 window.cargarReportes = cargarReportes;
 window.exportarCSV    = exportarCSV;

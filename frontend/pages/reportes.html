@@ -39,7 +39,7 @@
     /* ── Tarjetas KPI ── */
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 1rem; margin-bottom: 1.75rem;
     }
     @media (max-width: 900px)  { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -50,10 +50,16 @@
       padding: 1.25rem 1.4rem; box-shadow: var(--shadow-sm);
       border-top: 5px solid #ddd; position: relative; overflow: hidden;
     }
-    .kpi-card.ingresos  { border-top-color: #28a745; }
-    .kpi-card.gastos    { border-top-color: #dc3545; }
-    .kpi-card.ganancia  { border-top-color: #1565c0; }
-    .kpi-card.pedidos   { border-top-color: #ff9800; }
+    .kpi-card.pedidos-mes  { border-top-color: #ff9800; }
+    .kpi-card.entregados   { border-top-color: #28a745; }
+    .kpi-card.alerta       { border-top-color: #dc3545; }
+    .kpi-card.top-barrio   { border-top-color: #1565c0; }
+
+    /* Pulso rojo cuando hay insumos en alerta real */
+    .kpi-card.alerta.alerta-activa .kpi-valor { color: #dc3545; font-weight: 800; }
+
+    /* Grid 2 columnas iguales para la segunda fila de gráficos */
+    .charts-row-2col { grid-template-columns: 1fr 1fr; }
 
     .kpi-label { font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
                  letter-spacing: 0.06em; color: var(--color-muted); margin-bottom: 0.4rem; }
@@ -125,41 +131,52 @@
       <input type="date" id="filtroHasta" />
       <button class="btn-filtro btn-aplicar" onclick="cargarReportes()">Aplicar</button>
       <div style="margin-left:auto; display:flex; gap:0.5rem; flex-wrap:wrap;">
-        <button class="btn-filtro btn-export"  onclick="exportarCSV('pedidos')">↓ Exportar Ingresos</button>
+        <button class="btn-filtro btn-export"  onclick="exportarCSV()">↓ Exportar Pedidos CSV</button>
         
       </div>
     </div>
 
-    <!-- KPI Cards -->
+    <!-- KPI Cards Operativos -->
     <div class="kpi-grid">
-      <div class="kpi-card ingresos">
-        <div class="kpi-label">Ingresos</div>
-        <div class="kpi-valor" id="kpiIngresos">—</div>
-        <div class="kpi-icono">💰</div>
-      </div>
-      <div class="kpi-card gastos">
-        <div class="kpi-label">Gastos (compras)</div>
-        <div class="kpi-valor" id="kpiGastos">—</div>
-        <div class="kpi-icono">📦</div>
-      </div>
-      <div class="kpi-card ganancia">
-        <div class="kpi-label">Ganancia neta</div>
-        <div class="kpi-valor" id="kpiGanancia">—</div>
-        <div class="kpi-icono">📈</div>
-      </div>
-      <div class="kpi-card pedidos">
-        <div class="kpi-label">Pedidos</div>
-        <div class="kpi-valor" id="kpiPedidos">—</div>
+      <div class="kpi-card pedidos-mes">
+        <div class="kpi-label">Total Pedidos del Período</div>
+        <div class="kpi-valor" id="kpiTotalPedidos">—</div>
         <div class="kpi-icono">🧾</div>
+      </div>
+      <div class="kpi-card entregados">
+        <div class="kpi-label">Pedidos Entregados</div>
+        <div class="kpi-valor" id="kpiEntregados">—</div>
+        <div class="kpi-icono">✅</div>
+      </div>
+      <div class="kpi-card top-barrio">
+        <div class="kpi-label">Barrio con Más Envíos</div>
+        <div class="kpi-valor" style="font-size:1.1rem;" id="kpiBarrio">—</div>
+        <div class="kpi-icono">📍</div>
       </div>
     </div>
 
-    <!-- Fila 1: Ingresos vs Gastos + Top Productos -->
+    <!-- Fila 1: Evolución de pedidos (70%) + Estado donut (30%) -->
     <div class="charts-row">
       <div class="chart-card">
-        <div class="chart-title">📊 Ingresos vs Gastos por día</div>
+        <div class="chart-title">📈 Evolución de Pedidos por Día</div>
         <div class="chart-wrap" style="height:280px;">
-          <canvas id="chartIngresosGastos"></canvas>
+          <canvas id="chartEvolucion"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🟠 Distribución por Estado</div>
+        <div class="chart-wrap" style="height:280px;">
+          <canvas id="chartEstados"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fila 2: Pedidos por Barrio + Top Productos -->
+    <div class="charts-row charts-row-2col">
+      <div class="chart-card">
+        <div class="chart-title">📍 Pedidos por Barrio — Top 10</div>
+        <div class="chart-wrap" style="height:280px;">
+          <canvas id="chartPorBarrio"></canvas>
         </div>
       </div>
       <div class="chart-card">
@@ -167,14 +184,6 @@
         <div class="chart-wrap" style="height:280px;">
           <canvas id="chartTopProductos"></canvas>
         </div>
-      </div>
-    </div>
-
-    <!-- Fila 2: Movimientos de stock -->
-    <div class="chart-card">
-      <div class="chart-title">📦 Movimientos de stock por día</div>
-      <div class="chart-wrap" style="height:240px;">
-        <canvas id="chartStock"></canvas>
       </div>
     </div>
 

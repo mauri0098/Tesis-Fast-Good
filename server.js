@@ -875,20 +875,34 @@ app.post('/api/insumos', requireAuth, async (req, res) => {
 });
 app.put('/api/insumos/:id', async (req, res) => {
   const { id } = req.params;
-  const { stock_actual } = req.body;
+  const { stock_actual, nombre, stock_minimo, unidad_medida, id_categoria_insumo } = req.body;
 
-  const { data, error } = await supabase
-    .from('insumos')
-    .update({ stock_actual })
-    .eq('id', id)
-    .select()
-    .single();
+  // Solo se actualizan los campos que llegan en el body
+  const updatePayload = {};
+  if (stock_actual         !== undefined) updatePayload.stock_actual         = stock_actual;
+  if (nombre                !== undefined) updatePayload.nombre               = nombre;
+  if (stock_minimo          !== undefined) updatePayload.stock_minimo         = stock_minimo;
+  if (unidad_medida         !== undefined) updatePayload.unidad_medida        = unidad_medida;
+  if (id_categoria_insumo   !== undefined) updatePayload.id_categoria_insumo  = id_categoria_insumo;
 
-  if (error) {
-    return res.status(500).json({ error: error.message });
+  try {
+    const { data, error } = await supabase
+      .from('insumos')
+      .update(updatePayload)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error al actualizar insumo:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ mensaje: 'Insumo actualizado', insumo: data });
+  } catch (e) {
+    console.error('Excepción al actualizar insumo:', e);
+    res.status(500).json({ error: e.message });
   }
-
-  res.json({ mensaje: 'Stock actualizado', insumo: data });
 });
 app.get('/api/categorias-insumos', async (req, res) => {
   const { data, error } = await supabase
@@ -1034,13 +1048,6 @@ app.get('/api/movimientos-stock', async (req, res) => {
   res.json(data);
 });
 
-// Convierte kg→g y lts→ml; otras unidades pasan sin cambio
-function convertirCantidad(cantidad, unidad) {
-  if (unidad === 'kg')  return { convertida: cantidad * 1000, base: 'g'  };
-  if (unidad === 'lts') return { convertida: cantidad * 1000, base: 'ml' };
-  return { convertida: cantidad, base: unidad };
-}
-
 // POST /api/movimientos-stock → registrar entrada o salida, actualiza stock_actual
 app.post('/api/movimientos-stock', async (req, res) => {
   const { id_insumo, tipo, cantidad, unidad, motivo, fecha, costo_unitario } = req.body;
@@ -1060,12 +1067,9 @@ app.post('/api/movimientos-stock', async (req, res) => {
       return res.status(404).json({ error: 'Insumo no encontrado' });
     }
 
-    // Convertir a unidad base (g o ml) si corresponde
-    const { convertida: cantidadBase, base: unidadBase } = convertirCantidad(Number(cantidad), unidad || 'u');
-
     const nuevoStock = tipo === 'entrada'
-      ? Number(insumo.stock_actual) + cantidadBase
-      : Number(insumo.stock_actual) - cantidadBase;
+      ? Number(insumo.stock_actual) + Number(cantidad)
+      : Number(insumo.stock_actual) - Number(cantidad);
 
     if (nuevoStock < 0) {
       return res.status(400).json({ error: 'Stock insuficiente para registrar la salida' });
@@ -1092,13 +1096,11 @@ app.post('/api/movimientos-stock', async (req, res) => {
 
     if (errMov) return res.status(500).json({ error: errMov.message });
 
-    // Actualizar stock en unidades base; si hubo conversión, también cambiar unidad_medida
-    const updatePayload = { stock_actual: nuevoStock };
-    if (unidad === 'kg' || unidad === 'lts') updatePayload.unidad_medida = unidadBase;
-
+    // Actualizar únicamente el stock; la unidad de medida del insumo
+    // es fija y solo se edita desde Alta/Gestión de Insumos.
     const { error: errUpdate } = await supabase
       .from('insumos')
-      .update(updatePayload)
+      .update({ stock_actual: nuevoStock })
       .eq('id', id_insumo);
 
     if (errUpdate) return res.status(500).json({ error: errUpdate.message });
@@ -1130,11 +1132,9 @@ app.delete('/api/movimientos-stock/:id', async (req, res) => {
 
     if (errInsumo || !insumo) return res.status(404).json({ error: 'Insumo no encontrado' });
 
-    // Revertir usando la misma conversión aplicada al registrar
-    const { convertida: cantidadBase } = convertirCantidad(Number(mov.cantidad), mov.unidad || 'u');
     const nuevoStock = mov.tipo === 'entrada'
-      ? Number(insumo.stock_actual) - cantidadBase
-      : Number(insumo.stock_actual) + cantidadBase;
+      ? Number(insumo.stock_actual) - Number(mov.cantidad)
+      : Number(insumo.stock_actual) + Number(mov.cantidad);
 
     if (nuevoStock < 0) {
       return res.status(400).json({ error: 'No se puede eliminar: el stock quedaría negativo' });

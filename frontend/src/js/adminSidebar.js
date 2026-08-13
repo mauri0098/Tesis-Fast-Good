@@ -59,6 +59,30 @@
     }
   });
 
+  // Botón hamburguesa + overlay para colapsar el sidebar en mobile.
+  // Nuevo, no reemplaza ni toca ninguna lógica existente del sidebar.
+  const overlay = document.createElement('div');
+  overlay.className = 'sidebar-overlay';
+  document.body.appendChild(overlay);
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.className = 'sidebar-toggle-btn';
+  toggleBtn.setAttribute('aria-label', 'Abrir menú');
+  toggleBtn.textContent = '☰';
+  document.body.appendChild(toggleBtn);
+
+  function toggleAdminSidebar(abrir) {
+    const debeAbrir = typeof abrir === 'boolean' ? abrir : !sidebar.classList.contains('abierta');
+    sidebar.classList.toggle('abierta', debeAbrir);
+    overlay.classList.toggle('visible', debeAbrir);
+  }
+
+  toggleBtn.addEventListener('click', () => toggleAdminSidebar());
+  overlay.addEventListener('click', () => toggleAdminSidebar(false));
+  sidebar.querySelectorAll('nav a').forEach(a => {
+    a.addEventListener('click', () => toggleAdminSidebar(false));
+  });
+
   // Cierre de sesión — espera a que auth.js esté disponible
   document.getElementById('sidebarLogoutBtn').addEventListener('click', function () {
     if (typeof cerrarSesion === 'function') {

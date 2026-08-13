@@ -341,3 +341,36 @@ body {
 }
 
 .btn-confirmar:hover { background-color: #218838; }
+
+/* =========================================
+   RESPONSIVE — Mobile / Tablet
+   ========================================= */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 1rem 0.75rem;
+    width: 100%;
+  }
+
+  .tabla-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtros-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtro-input {
+    width: 100%;
+  }
+
+  .btn-agregar {
+    width: 100%;
+    text-align: center;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}

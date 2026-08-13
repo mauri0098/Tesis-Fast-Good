@@ -53,11 +53,12 @@
             <th>Categoría</th>
             <th>Fecha caducidad</th>
             <th>Estado</th>
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody id="stockBody">
           <tr>
-            <td colspan="7" class="loading-text">Cargando datos...</td>
+            <td colspan="8" class="loading-text">Cargando datos...</td>
           </tr>
         </tbody>
       </table>
@@ -103,6 +104,53 @@
       <div class="modal-actions">
         <button class="btn-cancelar" onclick="cerrarModalNuevoInsumo()">Cancelar</button>
         <button class="btn-confirmar" onclick="confirmarNuevoInsumo()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Editar insumo -->
+  <div id="modalEditarInsumo" class="modal">
+    <div class="modal-content modal-stock">
+      <span class="close" onclick="cerrarModalEditarInsumo()">&times;</span>
+      <h3>Editar insumo</h3>
+
+      <div class="modal-grid">
+        <label>Nombre *</label>
+        <input id="eiNombre" type="text" placeholder="Ej: Avena">
+
+        <label>Stock mínimo *</label>
+        <input id="eiStockMinimo" type="number" min="0" step="0.01" placeholder="Ej: 5">
+
+        <label>Stock actual *</label>
+        <input id="eiStockActual" type="number" min="0" step="0.01" placeholder="Ej: 2000">
+
+        <label>Unidad *</label>
+        <select id="eiUnidad">
+          <option value="">Seleccione...</option>
+          <option value="kg">kg (kilogramos)</option>
+          <option value="g">g (gramos)</option>
+          <option value="lts">lts (litros)</option>
+          <option value="ml">ml (mililitros)</option>
+          <option value="u">u (unidades)</option>
+        </select>
+
+        <label>Categoría *</label>
+        <select id="eiCategoria">
+          <option value="">Cargando categorías...</option>
+        </select>
+      </div>
+
+      <div class="nota-unidad">
+        ⚠️ <strong>Nota de consistencia con Recetas:</strong><br>
+        Para que el descuento automático al entregar pedidos funcione correctamente, asegúrate de guardar el Stock Actual en Gramos (g) para sólidos, Mililitros (ml) para líquidos o Unidades (un).
+        <br>Ejemplos: 2 kg ➔ ingresar 2000 g / 1.5 Lts ➔ ingresar 1500 ml.
+      </div>
+
+      <div id="eiError" class="modal-error">Completá todos los campos obligatorios.</div>
+
+      <div class="modal-actions">
+        <button class="btn-cancelar" onclick="cerrarModalEditarInsumo()">Cancelar</button>
+        <button class="btn-confirmar" onclick="confirmarEditarInsumo()">Guardar cambios</button>
       </div>
     </div>
   </div>
