@@ -568,3 +568,8 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* Altura minima de la vista de planes para que el footer no deje hueco */
+#vista-planes {
+    min-height: 70vh;
+}

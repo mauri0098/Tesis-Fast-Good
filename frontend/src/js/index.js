@@ -160,10 +160,6 @@
             contentEl.dataset.rendered = '1';
             renderProductos(contentEl, plan.productos || []);
         }
-
-        setTimeout(() => {
-            panelEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }, 420);
     }
 
     function buildPlanItem(plan) {
@@ -202,6 +198,28 @@
         show.classList.remove('spa-view--oculta');
     }
 
+    // Muestra u oculta las secciones de bienvenida del inicio
+    // (barra de anuncio, imagen principal y descripción de la empresa).
+    // Se ocultan al entrar a los planes para que la pantalla quede limpia.
+    function mostrarSeccionesDeBienvenida(visible) {
+        const seccionesDeBienvenida = [
+            document.getElementById('barra-anuncio'),
+            document.getElementById('seccion-hero'),
+            document.getElementById('seccion-descripcion')
+        ];
+
+        seccionesDeBienvenida.forEach(seccion => {
+            if (!seccion) {
+                return;
+            }
+            if (visible) {
+                seccion.style.display = '';
+            } else {
+                seccion.style.display = 'none';
+            }
+        });
+    }
+
     // ── VISTA DE PLANES — sin fetch, renderizado desde memoria
     function mostrarPlanes(nombreCategoria) {
         const cat = categoriasMap[nombreCategoria];
@@ -218,7 +236,7 @@
         titulo.textContent = `Planes de ${cat.nombre}`;
         closePlanActivo();
         switchView(vCat, vPlanes);
-        window.scrollTo({ top: document.getElementById('menu').offsetTop - 80, behavior: 'smooth' });
+        mostrarSeccionesDeBienvenida(false);
 
         container.innerHTML = '';
 
@@ -240,7 +258,7 @@
             document.getElementById('vista-planes'),
             document.getElementById('vista-categorias')
         );
-        window.scrollTo({ top: document.getElementById('menu').offsetTop - 80, behavior: 'smooth' });
+        mostrarSeccionesDeBienvenida(true);
     }
 
     // ── Init: UNA sola consulta al arrancar ───────────
