@@ -1,7 +1,7 @@
 // ===================================================
 // ANIMATIONS.JS — Motion design layer (Fast Good)
 // Solo se carga en index.html. No altera IDs ni onclicks.
-// ===================================================
+// ===================================================aa
 
 (function () {
     'use strict';
