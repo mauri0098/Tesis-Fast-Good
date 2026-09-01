@@ -106,6 +106,7 @@ function renderizarInsumos(insumos) {//funcion para hacer la tabla de insumos. e
       <td class="td-acciones">
         <div class="acciones-grupo">
           <button class="btn-editar" onclick="abrirModalEditarInsumo(${insumo.id})">✎ Editar</button>
+          <button class="btn-borrar" onclick="eliminarInsumo(${insumo.id})">🗑 Eliminar</button>
         </div>
       </td>
     `;
@@ -265,6 +266,48 @@ window.addEventListener('click', (e) => {
   if (e.target === document.getElementById('modalNuevoInsumo')) cerrarModalNuevoInsumo();
   if (e.target === document.getElementById('modalEditarInsumo')) cerrarModalEditarInsumo();
 });
+
+// ==========================================
+// ELIMINAR INSUMO
+// ==========================================
+
+async function eliminarInsumo(id) {
+  const insumo = todosInsumos.find(i => i.id === id);
+  if (!insumo) return;
+
+  const confirmar = confirm(`¿Eliminar el insumo "${insumo.nombre}"? Esta acción no se puede deshacer.`);
+  if (!confirmar) return;
+
+  try {
+    const res  = await fetch(`http://localhost:3000/api/insumos/${id}`, { method: 'DELETE' });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      mostrarToast(data.error || 'No se pudo eliminar el insumo.', 'error');
+      return;
+    }
+
+    await fetchInsumos();
+    mostrarToast(`Insumo "${insumo.nombre}" eliminado correctamente.`, 'exito');
+
+  } catch {
+    mostrarToast('No se pudo conectar con el servidor.', 'error');
+  }
+}
+
+function mostrarToast(mensaje, tipo) {
+  const toast = document.createElement('div');
+  toast.className   = `toast-stock ${tipo}`;
+  toast.textContent = mensaje;
+  document.body.appendChild(toast);
+
+  requestAnimationFrame(() => toast.classList.add('visible'));
+
+  setTimeout(() => {
+    toast.classList.remove('visible');
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
 
 // ==========================================
 // MODAL EDITAR INSUMO

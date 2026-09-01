@@ -904,6 +904,36 @@ app.put('/api/insumos/:id', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// DELETE /api/insumos/:id → eliminar insumo (si no tiene referencias en recetas/movimientos)
+app.delete('/api/insumos/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { error } = await supabase
+      .from('insumos')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      // 23503 = foreign_key_violation (Postgres): el insumo está referenciado
+      // desde producto_insumo (recetas) o movimientos_stock.
+      if (error.code === '23503') {
+        return res.status(409).json({
+          error: 'No se puede eliminar el insumo porque está siendo utilizado en una receta o tiene movimientos registrados.'
+        });
+      }
+      console.error('Error al eliminar insumo:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ mensaje: 'Insumo eliminado correctamente' });
+  } catch (e) {
+    console.error('Excepción al eliminar insumo:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/categorias-insumos', async (req, res) => {
   const { data, error } = await supabase
     .from('categorias_insumos')

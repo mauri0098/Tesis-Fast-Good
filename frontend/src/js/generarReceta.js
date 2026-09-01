@@ -551,45 +551,36 @@ function agregarFilaInsumo(insumoExistente) {
   }
   tdCantidad.appendChild(inputCantidad);
 
-  // — Celda: unidad (select con opciones del sistema) —
+  // — Celda: unidad (solo lectura — viene siempre del insumo seleccionado) —
+  // La unidad de medida es una propiedad fija del insumo, definida únicamente
+  // en "Gestión de Stock". Acá solo se refleja, nunca se edita manualmente.
   const tdUnidad     = document.createElement('td');
-  const selectUnidad = document.createElement('select');
-  selectUnidad.className = 'ed-unidad';
+  const inputUnidad  = document.createElement('input');
+  inputUnidad.type      = 'text';
+  inputUnidad.className = 'ed-unidad input-readonly';
+  inputUnidad.readOnly  = true;
+  inputUnidad.disabled  = true;
+  inputUnidad.tabIndex  = -1;
 
-  const unidades = ['gr', 'kg', 'ml', 'lts', 'unidad'];
-  unidades.forEach(function (u) {
-    const opt       = document.createElement('option');
-    opt.value       = u;
-    opt.textContent = u;
-    selectUnidad.appendChild(opt);
-  });
-
-  // Pre-seleccionar: primero el valor guardado, luego el del insumo por defecto
-  function seleccionarUnidad(valor) {
-    if (!valor) return;
-    // Buscar coincidencia exacta primero, luego case-insensitive
-    const encontrado = unidades.find(function (u) {
-      return u === valor || u.toLowerCase() === valor.toLowerCase();
-    });
-    if (encontrado) selectUnidad.value = encontrado;
+  function mostrarUnidadDeInsumo(idInsumo) {
+    const ins = todosInsumos.find(function (i) { return String(i.id) === String(idInsumo); });
+    inputUnidad.value = ins ? (ins.unidad_medida || '') : '';
   }
 
-  if (insumoExistente && insumoExistente.unidad_medida) {
-    seleccionarUnidad(insumoExistente.unidad_medida);
-  } else if (insumoExistente && insumoExistente.id_insumo) {
-    const ins = todosInsumos.find(function (i) {
-      return String(i.id) === String(insumoExistente.id_insumo);
-    });
-    if (ins) seleccionarUnidad(ins.unidad_medida);
+  if (insumoExistente && insumoExistente.id_insumo) {
+    mostrarUnidadDeInsumo(insumoExistente.id_insumo);
+  }
+  // Si el insumo fue borrado del catálogo, se conserva la unidad histórica de la receta
+  if (!inputUnidad.value && insumoExistente && insumoExistente.unidad_medida) {
+    inputUnidad.value = insumoExistente.unidad_medida;
   }
 
-  // Al cambiar el insumo, sugerir la unidad del insumo seleccionado
+  // Al cambiar el insumo, la unidad se autocompleta con la del insumo seleccionado
   selectInsumo.addEventListener('change', function () {
-    const ins = todosInsumos.find(function (i) { return String(i.id) === this.value; }, this);
-    if (ins) seleccionarUnidad(ins.unidad_medida);
+    mostrarUnidadDeInsumo(this.value);
   });
 
-  tdUnidad.appendChild(selectUnidad);
+  tdUnidad.appendChild(inputUnidad);
 
   // — Celda: botón eliminar fila —
   const tdEliminar = document.createElement('td');
@@ -622,11 +613,14 @@ async function guardarReceta() {
   filas.forEach(function (fila) {
     const selectInsumo  = fila.querySelector('.ed-insumo');
     const inputCantidad = fila.querySelector('.ed-cantidad');
-    const inputUnidad   = fila.querySelector('.ed-unidad');
 
     const idInsumo = selectInsumo  ? selectInsumo.value           : '';
     const cantidad = inputCantidad ? parseFloat(inputCantidad.value) : 0;
-    const unidad   = inputUnidad   ? inputUnidad.value.trim()     : '';
+
+    // La unidad nunca se toma de un campo editable: siempre se busca la
+    // oficial del insumo (fuente de verdad: Gestión de Stock).
+    const insumo = todosInsumos.find(function (i) { return String(i.id) === String(idInsumo); });
+    const unidad = insumo ? (insumo.unidad_medida || '') : '';
 
     if (!idInsumo || !unidad || isNaN(cantidad) || cantidad <= 0) {
       hayError = true;
