@@ -229,6 +229,13 @@ async function confirmarNuevoInsumo() {
     return;
   }
 
+  const yaExiste = todosInsumos.some(i => i.nombre.trim().toLowerCase() === nombre.toLowerCase());
+  if (yaExiste) {
+    errEl.textContent = 'El insumo ya se encuentra registrado. Ingresá un nombre diferente.';
+    errEl.style.display = 'block';
+    return;
+  }
+
   const hoy = new Date().toISOString().split('T')[0];
 
   try {
@@ -251,7 +258,13 @@ async function confirmarNuevoInsumo() {
       })
     });
 
-    if (!res.ok) throw new Error();
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Error al guardar. Intentá de nuevo.';
+      errEl.style.display = 'block';
+      return;
+    }
 
     cerrarModalNuevoInsumo();
     await fetchInsumos();
@@ -370,6 +383,15 @@ async function confirmarEditarInsumo() {
     return;
   }
 
+  const yaExiste = todosInsumos.some(i =>
+    i.id !== insumoEditandoId && i.nombre.trim().toLowerCase() === nombre.toLowerCase()
+  );
+  if (yaExiste) {
+    errEl.textContent = 'El insumo ya se encuentra registrado. Ingresá un nombre diferente.';
+    errEl.style.display = 'block';
+    return;
+  }
+
   try {
     const res = await fetch(`http://localhost:3000/api/insumos/${insumoEditandoId}`, {
       method: 'PUT',
@@ -383,7 +405,13 @@ async function confirmarEditarInsumo() {
       })
     });
 
-    if (!res.ok) throw new Error();
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Error al guardar. Intentá de nuevo.';
+      errEl.style.display = 'block';
+      return;
+    }
 
     cerrarModalEditarInsumo();
     await fetchInsumos();

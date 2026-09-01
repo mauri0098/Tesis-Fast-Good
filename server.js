@@ -853,10 +853,26 @@ app.get('/api/insumos', async (req, res) => {
 app.post('/api/insumos', requireAuth, async (req, res) => {
   const { nombre, stock_actual, stock_minimo, unidad_medida, fecha_ingreso, fecha_caducidad, id_categoria_insumo } = req.body;
 
+  const nombreTrim = (nombre || '').trim();
+
+  const { data: existente, error: errorBusqueda } = await supabase
+    .from('insumos')
+    .select('id')
+    .ilike('nombre', nombreTrim)
+    .maybeSingle();
+
+  if (errorBusqueda) {
+    return res.status(500).json({ error: errorBusqueda.message });
+  }
+
+  if (existente) {
+    return res.status(400).json({ error: 'El insumo ya se encuentra registrado. Ingresá un nombre diferente.' });
+  }
+
   const { data, error } = await supabase
     .from('insumos')
     .insert({
-      nombre,
+      nombre: nombreTrim,
       stock_actual,
       stock_minimo,
       unidad_medida,
@@ -880,12 +896,29 @@ app.put('/api/insumos/:id', async (req, res) => {
   // Solo se actualizan los campos que llegan en el body
   const updatePayload = {};
   if (stock_actual         !== undefined) updatePayload.stock_actual         = stock_actual;
-  if (nombre                !== undefined) updatePayload.nombre               = nombre;
+  if (nombre                !== undefined) updatePayload.nombre               = nombre.trim();
   if (stock_minimo          !== undefined) updatePayload.stock_minimo         = stock_minimo;
   if (unidad_medida         !== undefined) updatePayload.unidad_medida        = unidad_medida;
   if (id_categoria_insumo   !== undefined) updatePayload.id_categoria_insumo  = id_categoria_insumo;
 
   try {
+    if (updatePayload.nombre !== undefined) {
+      const { data: existente, error: errorBusqueda } = await supabase
+        .from('insumos')
+        .select('id')
+        .ilike('nombre', updatePayload.nombre)
+        .neq('id', id)
+        .maybeSingle();
+
+      if (errorBusqueda) {
+        return res.status(500).json({ error: errorBusqueda.message });
+      }
+
+      if (existente) {
+        return res.status(400).json({ error: 'El insumo ya se encuentra registrado. Ingresá un nombre diferente.' });
+      }
+    }
+
     const { data, error } = await supabase
       .from('insumos')
       .update(updatePayload)
@@ -1488,7 +1521,22 @@ app.post('/api/productos/con-receta', async (req, res) => {
   if (!id_plan)                   return res.status(400).json({ error: 'El plan es requerido' });
   if (!insumos || insumos.length === 0) return res.status(400).json({ error: 'Agregá al menos un insumo' });
 
+  const nombreTrim = nombre.trim();
+
   try {
+    // Verificar que no exista ya una receta/producto con ese nombre
+    const { data: existente, error: errorBusqueda } = await supabase
+      .from('productos')
+      .select('id')
+      .ilike('nombre', nombreTrim)
+      .maybeSingle();
+
+    if (errorBusqueda) return res.status(500).json({ error: errorBusqueda.message });
+
+    if (existente) {
+      return res.status(400).json({ error: 'Ya existe una receta con este nombre. Por favor, ingresá un nombre diferente.' });
+    }
+
     // Calcular el próximo código de plato para el plan
     const { data: plan, error: errPlan } = await supabase
       .from('planes')
@@ -1594,6 +1642,17 @@ app.post('/api/usuarios/crear', async (req, res) => {
     return res.status(400).json({ error: 'Ya existe un usuario registrado con ese email' });
   }
 
+  // Verificar que el nombre de usuario no esté ya registrado
+  const { data: existenteUsername } = await supabase
+    .from('usuarios')
+    .select('id')
+    .ilike('nombre_usuario', nombre_usuario.trim())
+    .limit(1);
+
+  if (existenteUsername && existenteUsername.length > 0) {
+    return res.status(400).json({ error: 'El nombre de usuario ya se encuentra registrado. Por favor, elegí uno diferente.' });
+  }
+
   const nuevoRegistro = {
     nombre,
     apellido,
@@ -1633,6 +1692,18 @@ app.put('/api/usuarios/:id', async (req, res) => {
 
   if (!nombre || !apellido || !nombre_usuario || !email || !id_rol) {
     return res.status(400).json({ error: 'Nombre, apellido, nombre de usuario, email y rol son requeridos' });
+  }
+
+  // Verificar que el nombre de usuario no esté en uso por otro usuario
+  const { data: existenteUsername } = await supabase
+    .from('usuarios')
+    .select('id')
+    .ilike('nombre_usuario', nombre_usuario.trim())
+    .neq('id', id)
+    .limit(1);
+
+  if (existenteUsername && existenteUsername.length > 0) {
+    return res.status(400).json({ error: 'El nombre de usuario ya se encuentra registrado. Por favor, elegí uno diferente.' });
   }
 
   const campos = {

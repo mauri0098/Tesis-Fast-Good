@@ -221,6 +221,14 @@ async function crearUsuario() {
     return;
   }
 
+  const yaExiste = todosUsuarios.some(function (u) {
+    return (u.nombre_usuario || '').trim().toLowerCase() === nombre_usuario.toLowerCase();
+  });
+  if (yaExiste) {
+    mostrarError('uError', 'El nombre de usuario ya se encuentra registrado. Por favor, elegí uno diferente.');
+    return;
+  }
+
   try {
     const response = await fetch('/api/usuarios/crear', {
       method:  'POST',
@@ -270,6 +278,14 @@ async function guardarEdicion() {
 
   if (!validarEmail(email)) {
     mostrarError('eError', 'El email no tiene un formato válido.');
+    return;
+  }
+
+  const yaExiste = todosUsuarios.some(function (u) {
+    return u.id !== idUsuarioEditando && (u.nombre_usuario || '').trim().toLowerCase() === nombre_usuario.toLowerCase();
+  });
+  if (yaExiste) {
+    mostrarError('eError', 'El nombre de usuario ya se encuentra registrado. Por favor, elegí uno diferente.');
     return;
   }
 

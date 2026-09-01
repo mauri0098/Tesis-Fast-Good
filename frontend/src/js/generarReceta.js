@@ -750,6 +750,14 @@ async function guardarNuevoProductoConReceta(insumos) {
   if (!idPlan) { mostrarError('Seleccioná un plan.');             return; }
   if (precio === null || isNaN(precio) || precio < 0) { mostrarError('Ingresá un precio válido.'); return; }
 
+  const yaExiste = todasRecetas.some(function (r) {
+    return (r.nombre_producto || '').trim().toLowerCase() === nombre.toLowerCase();
+  });
+  if (yaExiste) {
+    mostrarError('Ya existe una receta con este nombre. Por favor, ingresá un nombre diferente.');
+    return;
+  }
+
   try {
     const response = await fetch('/api/productos/con-receta', {
       method:  'POST',
