@@ -3,7 +3,7 @@
   const enSubpagina = window.location.pathname.includes('/pages/');
   const base = enSubpagina ? '../' : './';
 
-  // Inyecta el CSS del sidebar si no está ya cargado
+  // Inyecta el CSS del sidebar si no está ya cargadoo
   if (!document.querySelector('link[href*="adminSidebar.css"]')) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
