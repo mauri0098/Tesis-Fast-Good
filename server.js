@@ -1140,6 +1140,32 @@ app.get('/api/movimientos-stock', async (req, res) => {
   res.json(data);
 });
 
+// Conversión entre unidades de una misma familia (masa / volumen / unidad),
+// para poder cargar un movimiento en una unidad distinta a la base del
+// insumo (ej: insumo en "g", carga en "kg") sin desalinear stock_actual.
+const FACTOR_UNIDAD  = { g: 1, kg: 1000, ml: 1, lts: 1000, u: 1 };
+const FAMILIA_UNIDAD = { g: 'masa', kg: 'masa', ml: 'volumen', lts: 'volumen', u: 'unidad' };
+
+function convertirACantidadBase(cantidad, unidadIngresada, unidadBaseInsumo) {
+  const unidadBase = (unidadBaseInsumo || '').toLowerCase().trim();
+  const unidadIn   = (unidadIngresada || unidadBase).toLowerCase().trim();
+
+  const factorBase = FACTOR_UNIDAD[unidadBase];
+  const factorIn   = FACTOR_UNIDAD[unidadIn];
+
+  // Si alguna unidad no es reconocida, no convertimos: se asume que ya
+  // viene expresada en la unidad base del insumo (comportamiento previo).
+  if (factorBase === undefined || factorIn === undefined) {
+    return { cantidadBase: Number(cantidad) };
+  }
+
+  if (FAMILIA_UNIDAD[unidadIn] !== FAMILIA_UNIDAD[unidadBase]) {
+    return { error: 'La unidad ingresada no corresponde a la familia de medida del insumo.' };
+  }
+
+  return { cantidadBase: Number(cantidad) * factorIn / factorBase };
+}
+
 // POST /api/movimientos-stock → registrar entrada o salida, actualiza stock_actual
 app.post('/api/movimientos-stock', async (req, res) => {
   const { id_insumo, tipo, cantidad, unidad, motivo, fecha, costo_unitario } = req.body;
@@ -1151,7 +1177,7 @@ app.post('/api/movimientos-stock', async (req, res) => {
   try {
     const { data: insumo, error: errInsumo } = await supabase
       .from('insumos')
-      .select('id, stock_actual')
+      .select('id, stock_actual, unidad_medida')
       .eq('id', id_insumo)
       .single();
 
@@ -1159,9 +1185,13 @@ app.post('/api/movimientos-stock', async (req, res) => {
       return res.status(404).json({ error: 'Insumo no encontrado' });
     }
 
+    const conversion = convertirACantidadBase(cantidad, unidad, insumo.unidad_medida);
+    if (conversion.error) return res.status(400).json({ error: conversion.error });
+    const cantidadBase = conversion.cantidadBase;
+
     const nuevoStock = tipo === 'entrada'
-      ? Number(insumo.stock_actual) + Number(cantidad)
-      : Number(insumo.stock_actual) - Number(cantidad);
+      ? Number(insumo.stock_actual) + cantidadBase
+      : Number(insumo.stock_actual) - cantidadBase;
 
     if (nuevoStock < 0) {
       return res.status(400).json({ error: 'Stock insuficiente para registrar la salida' });
@@ -1218,15 +1248,19 @@ app.delete('/api/movimientos-stock/:id', async (req, res) => {
 
     const { data: insumo, error: errInsumo } = await supabase
       .from('insumos')
-      .select('id, stock_actual')
+      .select('id, stock_actual, unidad_medida')
       .eq('id', mov.id_insumo)
       .single();
 
     if (errInsumo || !insumo) return res.status(404).json({ error: 'Insumo no encontrado' });
 
+    const conversion = convertirACantidadBase(mov.cantidad, mov.unidad, insumo.unidad_medida);
+    if (conversion.error) return res.status(400).json({ error: conversion.error });
+    const cantidadBase = conversion.cantidadBase;
+
     const nuevoStock = mov.tipo === 'entrada'
-      ? Number(insumo.stock_actual) - Number(mov.cantidad)
-      : Number(insumo.stock_actual) + Number(mov.cantidad);
+      ? Number(insumo.stock_actual) - cantidadBase
+      : Number(insumo.stock_actual) + cantidadBase;
 
     if (nuevoStock < 0) {
       return res.status(400).json({ error: 'No se puede eliminar: el stock quedaría negativo' });
