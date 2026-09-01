@@ -6,6 +6,13 @@ let todasCategorias = [];
 let idProductoEditando = null;
 let modoCreacion       = false;
 
+// Imagen pendiente de subir (se sube recién después de guardar la receta,
+// porque para un producto nuevo todavía no existe id_producto)
+let imagenPendiente = null; // { base64, tipo } | null
+
+const TIPOS_IMAGEN_PERMITIDOS = ['image/jpeg', 'image/png', 'image/webp'];
+const TAMANIO_MAX_IMAGEN      = 2 * 1024 * 1024; // 2MB
+
 // ==========================================
 // INICIO
 // ==========================================
@@ -342,6 +349,83 @@ function cerrarModalDetalles() {
 }
 
 // ==========================================
+// IMAGEN DEL PLATO
+// ==========================================
+function previsualizarImagen(event) {
+  const input  = event.target;
+  const errEl  = document.getElementById('edImagenError');
+  const archivo = input.files && input.files[0];
+
+  errEl.style.display = 'none';
+  if (!archivo) return;
+
+  if (TIPOS_IMAGEN_PERMITIDOS.indexOf(archivo.type) === -1) {
+    errEl.textContent    = 'Formato no soportado. Usá JPG, PNG o WebP.';
+    errEl.style.display  = 'block';
+    input.value = '';
+    return;
+  }
+
+  if (archivo.size > TAMANIO_MAX_IMAGEN) {
+    errEl.textContent    = 'La imagen supera el tamaño máximo permitido (2MB).';
+    errEl.style.display  = 'block';
+    input.value = '';
+    return;
+  }
+
+  const lector = new FileReader();
+  lector.onload = function () {
+    const dataUrl = lector.result; // "data:image/png;base64,AAAA..."
+    const base64  = dataUrl.split(',')[1];
+
+    imagenPendiente = { base64: base64, tipo: archivo.type };
+    mostrarPreviewImagen(dataUrl);
+  };
+  lector.readAsDataURL(archivo);
+}
+
+function mostrarPreviewImagen(src) {
+  const preview     = document.getElementById('edImagenPreview');
+  const previewVacio = document.getElementById('edImagenPreviewVacio');
+  preview.src           = src;
+  preview.style.display = 'block';
+  previewVacio.style.display = 'none';
+}
+
+function limpiarImagen() {
+  imagenPendiente = null;
+  document.getElementById('edImagenInput').value = '';
+  document.getElementById('edImagenError').style.display = 'none';
+
+  const preview      = document.getElementById('edImagenPreview');
+  const previewVacio = document.getElementById('edImagenPreviewVacio');
+  preview.removeAttribute('src');
+  preview.style.display      = 'none';
+  previewVacio.style.display = 'flex';
+}
+
+async function subirImagenProducto(idProducto) {
+  if (!imagenPendiente) return true;
+
+  try {
+    const response = await fetch('/api/productos/' + idProducto + '/imagen', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ imagen_base64: imagenPendiente.base64, tipo: imagenPendiente.tipo })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error al subir la imagen');
+
+    return true;
+  } catch (error) {
+    console.error('Error al subir imagen:', error);
+    alert('La receta se guardó correctamente, pero no se pudo subir la imagen: ' + error.message);
+    return false;
+  }
+}
+
+// ==========================================
 // MODAL CREAR NUEVO PRODUCTO + RECETA
 // ==========================================
 function abrirModalNuevaReceta() {
@@ -360,6 +444,7 @@ function abrirModalNuevaReceta() {
   document.getElementById('edCodigo').value    = '';
   document.getElementById('edPrecio').value    = '';
   document.getElementById('edDescuento').value = '';
+  limpiarImagen();
 
   const planSelect = document.getElementById('edPlan');
   planSelect.innerHTML = '<option value="">Seleccioná una categoría primero</option>';
@@ -388,12 +473,15 @@ async function abrirModalEditar(idProducto) {
   document.getElementById('bloqueNuevoProducto').style.display = 'none';
   document.getElementById('bloqueEditar').style.display        = 'block';
 
+  limpiarImagen();
+
   const receta = todasRecetas.find(function (r) { return r.id_producto === idProducto; });
   if (receta) {
     document.getElementById('edTitulo').textContent                 = 'Editar Receta';
     document.getElementById('edNombreProductoEditando').textContent = receta.nombre_producto;
     document.getElementById('edPrecio').value    = receta.precio    != null ? receta.precio    : '';
     document.getElementById('edDescuento').value = receta.descuento != null ? receta.descuento : '';
+    if (receta.imagen) mostrarPreviewImagen(receta.imagen);
   }
 
   await cargarInsumosDisponibles();
@@ -413,6 +501,7 @@ function cerrarModalEditar() {
   document.getElementById('edCodigo').value            = '';
   document.getElementById('edPrecio').value            = '';
   document.getElementById('edDescuento').value         = '';
+  limpiarImagen();
   idProductoEditando = null;
   modoCreacion       = false;
 }
@@ -671,6 +760,8 @@ async function guardarNuevoProductoConReceta(insumos) {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Error en el servidor');
 
+    if (imagenPendiente) await subirImagenProducto(data.producto.id);
+
     cerrarModalEditar();
     await fetchRecetas();
 
@@ -695,6 +786,8 @@ async function actualizarRecetaExistente(insumos) {
     });
 
     if (!response.ok) throw new Error('Error en el servidor');
+
+    if (imagenPendiente) await subirImagenProducto(idProductoEditando);
 
     cerrarModalEditar();
     await fetchRecetas();

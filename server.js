@@ -23,7 +23,7 @@ app.use(cors({
     }
   }
 }));
-app.use(express.json());
+app.use(express.json({ limit: '6mb' })); // permite subir imágenes de recetas en base64 (máx. 2MB + overhead)
 
 const supabase   = require('./config/supabaseClient');// Cliente de Supabase para interactuar con la base de datos
 const nodemailer = require('nodemailer');              // Envío de emails (recuperación de contraseña)
@@ -956,6 +956,7 @@ app.get('/api/recetas', async (req, res) => {
       codigo_plato,
       precio,
       descuento,
+      imagen,
       plan:planes (
         nombre,
         codigo_plan,
@@ -981,6 +982,7 @@ app.get('/api/recetas', async (req, res) => {
     codigo_plato:    p.codigo_plato || '-',
     precio:          p.precio    != null ? Number(p.precio)    : null,
     descuento:       p.descuento != null ? Number(p.descuento) : null,
+    imagen:          p.imagen || null,
     plan: p.plan ? {
       nombre:    p.plan.nombre,
       codigo:    p.plan.codigo_plan || null,
@@ -1058,6 +1060,66 @@ app.delete('/api/recetas/:idProducto', async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
 
   res.json({ mensaje: 'Receta eliminada correctamente' });
+});
+
+// POST /api/productos/:id/imagen → sube/reemplaza la imagen de un producto en Supabase Storage
+// Body: { imagen_base64, tipo } — tipo debe ser image/jpeg, image/png o image/webp
+const BUCKET_IMAGENES_PRODUCTOS = 'imagenes-productos';
+const EXTENSIONES_IMAGEN = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+const TAMANIO_MAX_IMAGEN = 2 * 1024 * 1024; // 2MB
+
+app.post('/api/productos/:id/imagen', async (req, res) => {
+  const { id } = req.params;
+  const { imagen_base64, tipo } = req.body;
+
+  if (!imagen_base64 || !tipo) {
+    return res.status(400).json({ error: 'imagen_base64 y tipo son requeridos' });
+  }
+
+  const extension = EXTENSIONES_IMAGEN[tipo];
+  if (!extension) {
+    return res.status(400).json({ error: 'Formato de imagen no soportado. Usá JPG, PNG o WebP.' });
+  }
+
+  try {
+    const buffer = Buffer.from(imagen_base64, 'base64');
+
+    if (buffer.length > TAMANIO_MAX_IMAGEN) {
+      return res.status(400).json({ error: 'La imagen supera el tamaño máximo permitido (2MB).' });
+    }
+
+    // Mismo path por producto: el upsert reemplaza el archivo anterior en Storage
+    const rutaArchivo = `productos/${id}.${extension}`;
+
+    const { error: errSubida } = await supabase.storage
+      .from(BUCKET_IMAGENES_PRODUCTOS)
+      .upload(rutaArchivo, buffer, { contentType: tipo, upsert: true });
+
+    if (errSubida) {
+      console.error('Error al subir imagen a Supabase Storage:', errSubida);
+      return res.status(500).json({ error: 'No se pudo subir la imagen. Intentá de nuevo.' });
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from(BUCKET_IMAGENES_PRODUCTOS)
+      .getPublicUrl(rutaArchivo);
+
+    // Cache-busting: al reemplazar la imagen en el mismo path, el navegador/CDN
+    // podría seguir mostrando la versión vieja sin este parámetro.
+    const urlPublica = `${publicUrlData.publicUrl}?v=${Date.now()}`;
+
+    const { error: errUpdate } = await supabase
+      .from('productos')
+      .update({ imagen: urlPublica })
+      .eq('id', id);
+
+    if (errUpdate) return res.status(500).json({ error: errUpdate.message });
+
+    res.json({ mensaje: 'Imagen actualizada correctamente', imagen: urlPublica });
+  } catch (e) {
+    console.error('Excepción al subir imagen:', e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* ======================================================

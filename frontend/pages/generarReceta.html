@@ -156,6 +156,20 @@
         </div>
       </div>
 
+      <!-- IMAGEN DEL PLATO: siempre visible, compartida entre ambos modos -->
+      <div class="seccion-subtitulo">Imagen del Plato</div>
+      <div class="imagen-upload-grid">
+        <div class="imagen-preview-wrapper">
+          <img id="edImagenPreview" class="imagen-preview" alt="Vista previa del plato" style="display:none;">
+          <div id="edImagenPreviewVacio" class="imagen-preview-vacio">Sin imagen</div>
+        </div>
+        <div class="imagen-upload-controles">
+          <input type="file" id="edImagenInput" accept="image/png, image/jpeg, image/webp" onchange="previsualizarImagen(event)">
+          <small class="nota-imagen">Formato JPG, PNG o WebP. Tamaño máx. 2MB (Recomendado: 800x600 px).</small>
+          <div id="edImagenError" class="modal-error" style="display:none;"></div>
+        </div>
+      </div>
+
       <div class="seccion-subtitulo">Ingredientes de la Receta</div>
 
       <div class="table-insumos-wrapper">

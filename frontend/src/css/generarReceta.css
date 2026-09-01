@@ -293,6 +293,60 @@ body {
 }
 
 /* =========================================
+   IMAGEN DEL PLATO (subida + preview)
+   ========================================= */
+.imagen-upload-grid {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 0.9rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.imagen-preview-wrapper {
+  width: 96px;
+  height: 96px;
+  border-radius: var(--radius);
+  border: 1px dashed var(--border-light);
+  background-color: #f8f9fa;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.imagen-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imagen-preview-vacio {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 0 0.4rem;
+}
+
+.imagen-upload-controles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.imagen-upload-controles input[type="file"] {
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.8rem;
+}
+
+.nota-imagen {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* =========================================
    INPUT TEXTO (nombre del nuevo producto)
    ========================================= */
 .input-texto {
