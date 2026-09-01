@@ -11,20 +11,29 @@
     document.head.appendChild(link);
   }
 
+  // soloAdmin: true → oculto en el sidebar cuando el usuario logueado es Cocinero.
+  // Mismo criterio que la lista blanca de guard.js (PAGINAS_COCINERO): el
+  // cocinero solo debe ver Tareas de Cocina, Gestión de Stock, Generar Receta
+  // y Movimientos de Stock.
   const links = [
-    { href: base + 'admin.html',                      label: '🏠 Inicio'               },
-    { href: base + 'pages/ConsultarPedidos.html',      label: '🧾 Consultar Pedidos'    },
+    { href: base + 'admin.html',                      label: '🏠 Inicio',               soloAdmin: true },
+    { href: base + 'pages/ConsultarPedidos.html',      label: '🧾 Consultar Pedidos',    soloAdmin: true },
     { href: base + 'pages/cocinero.html',              label: '🥗 Tareas de Cocina'     },
     { href: base + 'pages/stock.html',                 label: '📦 Gestión de Stock'     },
     { href: base + 'pages/generarReceta.html',         label: '📝 Generar Receta'       },
     { href: base + 'pages/MovimientosStock.html',      label: '📋 Movimientos de Stock' },
-    { href: base + 'pages/AsignarCocinero.html',       label: '👨‍🍳 Asignar Cocineros'   },
-    { href: base + 'pages/Envios.html',                label: '🚗 Envíos del Día'       },
-    { href: base + 'pages/reportes.html',              label: '📊 Reportes'             },
-    { href: base + 'pages/gestionUsuarios.html',       label: '👥 Gestión de Usuarios'  },
+    { href: base + 'pages/AsignarCocinero.html',       label: '👨‍🍳 Asignar Cocineros',   soloAdmin: true },
+    { href: base + 'pages/Envios.html',                label: '🚗 Envíos del Día',       soloAdmin: true },
+    { href: base + 'pages/gestionUsuarios.html',       label: '👥 Gestión de Usuarios',  soloAdmin: true },
   ];
 
-  const navHTML = links
+  const ROL_COCINERO = 2;
+  const usuarioRol   = parseInt(localStorage.getItem('usuario_rol') || '0', 10);
+  const esCocinero   = usuarioRol === ROL_COCINERO;
+
+  const linksVisibles = esCocinero ? links.filter(l => !l.soloAdmin) : links;
+
+  const navHTML = linksVisibles
     .map(({ href, label }) => `<a href="${href}">${label}</a>`)
     .join('\n      ');
 

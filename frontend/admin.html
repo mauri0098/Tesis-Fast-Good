@@ -17,6 +17,109 @@
   <link rel="stylesheet" href="./src/css/global.css">
   <link rel="stylesheet" href="./src/css/carrito.css">
   <link rel="stylesheet" href="./src/css/index.css">
+
+  <!-- Chart.js (gráficos del dashboard de reportes) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* ============================================================
+       DASHBOARD DE REPORTES — pantalla de inicio del Admin
+       (usa reportes.js, que trae los datos vía /api/reportes y /api/pedidos)
+       ============================================================ */
+    .page-container { max-width: 1300px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    /* ── Filtros ── */
+    .filtros-bar {
+      display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+      background: white; padding: 1rem 1.5rem;
+      border-radius: var(--radius-md); box-shadow: var(--shadow-sm); margin-bottom: 1.75rem;
+    }
+    .filtros-bar label { font-weight: 600; font-size: 0.88rem; color: var(--color-text); white-space: nowrap; }
+    .filtros-bar input[type="date"] {
+      padding: 0.48rem 0.85rem; border: 1.5px solid #ddd;
+      border-radius: var(--radius-sm); font-family: var(--font-main); font-size: 0.88rem;
+    }
+    .filtros-bar input:focus { outline: none; border-color: var(--color-primary); }
+
+    .btn-filtro {
+      padding: 0.5rem 1.2rem; border: none; border-radius: var(--radius-sm);
+      font-family: var(--font-main); font-size: 0.88rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-aplicar  { background: var(--color-primary); color: white; }
+    .btn-aplicar:hover  { background: #218838; }
+    .btn-export   { background: #1565c0; color: white; }
+    .btn-export:hover   { background: #0d47a1; }
+    .btn-export2  { background: #6c757d; color: white; }
+    .btn-export2:hover  { background: #5a6268; }
+
+    /* ── Tarjetas KPI ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem; margin-bottom: 1.75rem;
+    }
+    @media (max-width: 900px)  { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 500px)  { .kpi-grid { grid-template-columns: 1fr; } }
+
+    .kpi-card {
+      background: white; border-radius: var(--radius-md);
+      padding: 1.25rem 1.4rem; box-shadow: var(--shadow-sm);
+      border-top: 5px solid #ddd; position: relative; overflow: hidden;
+    }
+    .kpi-card.pedidos-mes  { border-top-color: #ff9800; }
+    .kpi-card.entregados   { border-top-color: #28a745; }
+    .kpi-card.alerta       { border-top-color: #dc3545; }
+    .kpi-card.top-barrio   { border-top-color: #1565c0; }
+
+    /* Pulso rojo cuando hay insumos en alerta real */
+    .kpi-card.alerta.alerta-activa .kpi-valor { color: #dc3545; font-weight: 800; }
+
+    /* Grid 2 columnas iguales para la segunda fila de gráficos */
+    .charts-row-2col { grid-template-columns: 1fr 1fr; }
+
+    .kpi-label { font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
+                 letter-spacing: 0.06em; color: var(--color-muted); margin-bottom: 0.4rem; }
+    .kpi-valor { font-size: 1.75rem; font-weight: 700; color: var(--color-text); line-height: 1.1; }
+    .kpi-valor.negativo { color: #dc3545; }
+    .kpi-icono { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%);
+                 font-size: 2.8rem; opacity: 0.08; }
+
+    /* ── Gráficos ── */
+    .charts-row {
+      display: grid; grid-template-columns: 3fr 2fr;
+      gap: 1.25rem; margin-bottom: 1.25rem;
+    }
+    @media (max-width: 850px) { .charts-row { grid-template-columns: 1fr; } }
+
+    .chart-card {
+      background: white; border-radius: var(--radius-md);
+      padding: 1.4rem; box-shadow: var(--shadow-sm);
+    }
+    .chart-title {
+      font-size: 0.95rem; font-weight: 700; color: var(--color-text);
+      margin-bottom: 1rem; padding-bottom: 0.5rem;
+      border-bottom: 2px solid #f0f0f0;
+    }
+    .chart-wrap { position: relative; }
+
+    /* ── Loading overlay ── */
+    .loading-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(255,255,255,0.7); z-index: 500;
+      align-items: center; justify-content: center;
+      font-size: 1.1rem; font-weight: 600; color: var(--color-primary);
+    }
+    .loading-overlay.visible { display: flex; }
+
+    /* ── Print ── */
+    @media print {
+      header, nav, .filtros-bar, .btn-filtro { display: none !important; }
+      .page-container { padding: 0; }
+      .chart-card { box-shadow: none; border: 1px solid #ccc; }
+      .kpi-card   { box-shadow: none; border: 1px solid #ccc; border-top: 5px solid #333; }
+    }
+  </style>
 </head>
 
 <body>
@@ -42,95 +145,81 @@
         </div>
 
         <nav style="display: flex; align-items: center; gap: 1.5rem;">
-          <a href="#menu">Utilidades</a>
           <a onclick="openContactModal()">Contacto</a>
           <a onclick="openModal()">Sucursales</a>
         </nav>
       </div>
     </header>
 
-    <section class="hero">
-     
-    </section>
+    <!-- DASHBOARD DE REPORTES — contenido por defecto del inicio del Admin -->
+    <div class="loading-overlay" id="loadingOverlay">Cargando reportes...</div>
 
-    <!-- DESCRIPCIÓN -->
-    <section class="section" style="text-align: center;">
-      <p style="font-size: 1.2rem; max-width: 1000px; margin: 0 auto; color: #555;">
-        Desde aquí puedes gestionar todos los aspectos de Fast Good: consultar pedidos, administrar tareas de cocina,
-        controlar stock, crear recetas y asignar personal.
-      </p>
-    </section>
+    <div class="page-container">
 
-    <!-- PANEL DE FUNCIONES -->
-    <section class="section" id="menu">
-      <h2>Funciones Principales</h2>
-      <div class="grid menu-grid">
-
-        <div class="card">
-          <div style="font-size: 3rem; margin-bottom: 1rem;">🧾</div>
-          <h3>Consultar Pedidos</h3>
-          <p style="margin-bottom: 1rem;">Ve todos los pedidos realizados</p>
-          <a href="pages/ConsultarPedidos.html" class="btn">Ir</a>
+      <!-- Filtros -->
+      <div class="filtros-bar">
+        <label>Desde:</label>
+        <input type="date" id="filtroDesde" />
+        <label>Hasta:</label>
+        <input type="date" id="filtroHasta" />
+        <button class="btn-filtro btn-aplicar" onclick="cargarReportes()">Aplicar</button>
+        <div style="margin-left:auto; display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button class="btn-filtro btn-export" onclick="exportarCSV()">↓ Exportar Pedidos CSV</button>
         </div>
-
-        <div class="card">
-          <div style="font-size: 3rem; margin-bottom: 1rem;">🥗</div>
-          <h3>Tareas de Cocina</h3>
-          <p style="margin-bottom: 1rem;">Gestiona el trabajo de los cocineros</p>
-          <a href="pages/cocinero.html" class="btn">Ir</a>
-        </div>
-
-        <div class="card">
-          <div style="font-size: 3rem; margin-bottom: 1rem;">📦</div>
-          <h3>Generar Stock</h3>
-          <p style="margin-bottom: 1rem;">Administra el inventario de productos</p>
-          <a href="pages/stock.html" class="btn">Ir</a>
-        </div>
-
-        <div class="card">
-          <div style="font-size: 3rem; margin-bottom: 1rem;">📝</div>
-          <h3>Generar Receta</h3>
-          <p style="margin-bottom: 1rem;">Crea y edita las recetas de viandas</p>
-          <a href="pages/generarReceta.html" class="btn">Ir</a>
-        </div>
-
-<div class="card">
-          <div style="font-size: 3rem; margin-bottom: 1rem;">📋</div>
-          <h3>Movimientos de Stock</h3>
-          <p style="margin-bottom: 1rem;">Registrá entradas y salidas del inventario</p>
-          <a href="pages/MovimientosStock.html" class="btn">Ir</a>
-        </div>
-
-        <div class="card">
-          <div style="font-size: 3rem; margin-bottom: 1rem;">🚗</div>
-          <h3>Envíos del Día</h3>
-          <p style="margin-bottom: 1rem;">Gestioná los deliveries agrupados por barrio</p>
-          <a href="pages/Envios.html" class="btn">Ir</a>
-        </div>
-
-        <div class="card">
-          <div style="font-size: 3rem; margin-bottom: 1rem;">👨‍🍳</div>
-          <h3>Asignar Cocineros</h3>
-          <p style="margin-bottom: 1rem;">Asigná cocinero principal y suplente a cada plan</p>
-          <a href="pages/AsignarCocinero.html" class="btn">Ir</a>
-        </div>
-
-        <div class="card">
-          <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
-          <h3>Reportes</h3>
-          <p style="margin-bottom: 1rem;">Ingresos, gastos, ganancia y gráficos del negocio</p>
-          <a href="pages/reportes.html" class="btn">Ir</a>
-        </div>
-
-        <div class="card">
-          <div style="font-size: 3rem; margin-bottom: 1rem;">👥</div>
-          <h3>Gestión de Usuarios</h3>
-          <p style="margin-bottom: 1rem;">Administrá el personal y asigná roles del sistema</p>
-          <a href="pages/gestionUsuarios.html" class="btn">Ir</a>
-        </div>
-
       </div>
-    </section>
+
+      <!-- KPI Cards Operativos -->
+      <div class="kpi-grid">
+        <div class="kpi-card pedidos-mes">
+          <div class="kpi-label">Total Pedidos del Período</div>
+          <div class="kpi-valor" id="kpiTotalPedidos">—</div>
+          <div class="kpi-icono">🧾</div>
+        </div>
+        <div class="kpi-card entregados">
+          <div class="kpi-label">Pedidos Entregados</div>
+          <div class="kpi-valor" id="kpiEntregados">—</div>
+          <div class="kpi-icono">✅</div>
+        </div>
+        <div class="kpi-card top-barrio">
+          <div class="kpi-label">Barrio con Más Envíos</div>
+          <div class="kpi-valor" style="font-size:1.1rem;" id="kpiBarrio">—</div>
+          <div class="kpi-icono">📍</div>
+        </div>
+      </div>
+
+      <!-- Fila 1: Evolución de pedidos (70%) + Estado donut (30%) -->
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-title">📈 Evolución de Pedidos por Día</div>
+          <div class="chart-wrap" style="height:280px;">
+            <canvas id="chartEvolucion"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">🟠 Distribución por Estado</div>
+          <div class="chart-wrap" style="height:280px;">
+            <canvas id="chartEstados"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fila 2: Pedidos por Barrio + Top Productos -->
+      <div class="charts-row charts-row-2col">
+        <div class="chart-card">
+          <div class="chart-title">📍 Pedidos por Barrio — Top 10</div>
+          <div class="chart-wrap" style="height:280px;">
+            <canvas id="chartPorBarrio"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">🏆 Productos más vendidos</div>
+          <div class="chart-wrap" style="height:280px;">
+            <canvas id="chartTopProductos"></canvas>
+          </div>
+        </div>
+      </div>
+
+    </div>
 
     <footer id="contacto">
       <p>&copy; 2025 Fast Good - Viandas Saludables</p>
@@ -171,6 +260,7 @@
 
   <script src="src/js/auth.js"></script>
   <script src="src/js/global.js"></script>
+  <script src="src/js/reportes.js"></script>
   <script>
     const usuarioId = localStorage.getItem('usuario_id');
     const usuarioRol = parseInt(localStorage.getItem('usuario_rol') || '0');
