@@ -9,7 +9,6 @@ let tipoActual = 'entrada'; // 'entrada' | 'salida'
 
 // ── Inicialización ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Fecha/hora actual en el input del modal
   setFechaActual();
   cargarInsumos();
   cargarMovimientos();
@@ -17,7 +16,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function setFechaActual() {
   const ahora = new Date();
-  // Formato requerido por datetime-local: YYYY-MM-DDTHH:MM
   const local = new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 16);
@@ -57,26 +55,60 @@ async function cargarInsumos() {
 }
 
 // ── Sincronizar Unidad de Medida con el insumo seleccionado ───
-// La unidad es una propiedad fija del insumo (se define en Alta de
-// Insumos); acá solo se refleja, nunca se edita.
 function actualizarUnidadSegunInsumo() {
   const select = document.getElementById('selectInsumo');
   const opt    = select.selectedOptions[0];
-  document.getElementById('inputUnidad').value = opt ? (opt.dataset.unidad || '') : '';
+  const unidadInsumo = opt ? (opt.dataset.unidad || '').toLowerCase().trim() : '';
+  const selectUnidad = document.getElementById('inputUnidad');
+
+  // Limpiamos las opciones actuales para reescribirlas según la familia de medida
+  selectUnidad.innerHTML = '';
+
+  if (!unidadInsumo) {
+    selectUnidad.innerHTML = '<option value="">-</option>';
+    selectUnidad.disabled = true;
+    return;
+  }
+
+  if (tipoActual === 'entrada') {
+    // SI ES ENTRADA (Proveedores): Habilitamos y mostramos la familia de unidades permitida
+    selectUnidad.disabled = false;
+    
+    if (unidadInsumo === 'g' || unidadInsumo === 'kg') {
+      selectUnidad.innerHTML = `
+        <option value="g">g</option>
+        <option value="kg">kg</option>
+      `;
+    } else if (unidadInsumo === 'ml' || unidadInsumo === 'lts' || unidadInsumo === 'litros') {
+      selectUnidad.innerHTML = `
+        <option value="ml">ml</option>
+        <option value="lts">lts</option>
+      `;
+    } else if (unidadInsumo === 'u' || unidadInsumo === 'unidades') {
+      selectUnidad.innerHTML = `<option value="u">u</option>`;
+    } else {
+      selectUnidad.innerHTML = `<option value="${unidadInsumo}">${unidadInsumo}</option>`;
+    }
+
+    // Mantenemos seleccionada la unidad base por defecto
+    const unidadNormalizada = unidadInsumo === 'litros' ? 'lts' : (unidadInsumo === 'unidades' ? 'u' : unidadInsumo);
+    if ([...selectUnidad.options].some(o => o.value === unidadNormalizada)) {
+      selectUnidad.value = unidadNormalizada;
+    }
+  } else {
+    // SI ES SALIDA (Consumo interno): Bloqueamos para asegurar que use la unidad base estricta
+    selectUnidad.innerHTML = `<option value="${unidadInsumo}">${unidadInsumo}</option>`;
+    selectUnidad.value = unidadInsumo;
+    selectUnidad.disabled = true;
+  }
 }
 
 // ── Clasificar movimiento por concepto de negocio ─────────────
-// La BD solo conoce 'entrada' / 'salida'. Esta función traduce
-// esos valores a los términos visuales Compra / Venta / Descarte
-// leyendo el campo `motivo` para distinguir las salidas.
 function clasificarMovimiento(m) {
   if (m.tipo === 'entrada') {
     return { filaClass: 'fila-entrada', badgeClass: 'badge-compra', icono: '▲', label: 'Compra' };
   }
 
-  // Lista blanca de señales inequívocas de consumo productivo automatizado.
-  // Solo si el motivo contiene una de estas, la salida es "Venta".
-  // Cualquier otra cosa (texto libre, errores tipográficos, campo vacío) → "Descarte".
   const PALABRAS_VENTA = ['consumo', 'produccion', 'pedido', '#'];
   const motivo  = (m.motivo || '').toLowerCase();
   const esVenta = PALABRAS_VENTA.some(kw => motivo.includes(kw));
@@ -101,7 +133,7 @@ function renderTabla(movimientos) {
     const { filaClass, badgeClass, icono, label } = clasificarMovimiento(m);
 
     const tr = document.createElement('tr');
-    tr.className      = filaClass;
+    tr.className     = filaClass;
     tr.dataset.tipo   = m.tipo;
     tr.dataset.insumo = (m.insumos?.nombre || '').toLowerCase();
     tr.dataset.fecha  = m.fecha || '';
@@ -155,8 +187,7 @@ function abrirModal(tipo) {
   document.getElementById('modalTitulo').textContent  = esEntrada ? 'Registrar Entrada' : 'Registrar Salida';
   document.getElementById('notaSalida').style.display = esEntrada ? 'none' : 'block';
 
-  // Campo de costo oculto en la interfaz (se mantiene la lógica/payload interna)
-  document.getElementById('grupoCosto').style.display        = 'none';
+  document.getElementById('grupoCosto').style.display         = 'none';
   document.getElementById('inputCostoUnit').value            = '';
   document.getElementById('costoTotalDisplay').style.display = 'none';
 
@@ -166,7 +197,10 @@ function abrirModal(tipo) {
 
   document.getElementById('modalError').classList.remove('visible');
   document.getElementById('inputCantidad').value = '';
+  
+  // Actualiza y bloquea/desbloquea el selector de unidades según corresponda
   actualizarUnidadSegunInsumo();
+
   document.getElementById('inputMotivo').value   = '';
   setFechaActual();
 
@@ -201,6 +235,7 @@ document.addEventListener('keydown', e => {
 async function guardarMovimiento() {
   const id_insumo = document.getElementById('selectInsumo').value;
   const cantidad  = document.getElementById('inputCantidad').value;
+  const unidad    = document.getElementById('inputUnidad').value;
   const motivo    = document.getElementById('inputMotivo').value.trim();
   const fecha     = document.getElementById('inputFecha').value;
   const errorEl   = document.getElementById('modalError');
@@ -217,8 +252,6 @@ async function guardarMovimiento() {
   const costoUnit = tipoActual === 'entrada'
     ? parseFloat(document.getElementById('inputCostoUnit').value) || null
     : null;
-
-  const unidad = document.getElementById('inputUnidad').value;
 
   try {
     const res = await fetch(`${API}/api/movimientos-stock`, {
@@ -243,7 +276,6 @@ async function guardarMovimiento() {
     }
 
     cerrarModal();
-    // Refrescar insumos (para que el dropdown tenga stock actualizado)
     await cargarInsumos();
     await cargarMovimientos();
 

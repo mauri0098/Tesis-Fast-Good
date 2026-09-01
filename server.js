@@ -1056,6 +1056,21 @@ app.post('/api/movimientos-stock', async (req, res) => {
     return res.status(400).json({ error: 'id_insumo, tipo y cantidad son requeridos' });
   }
 
+  // --- CONVERSIÓN AUTOMÁTICA PARA PROVEEDORES (Kilos/Litros a Gramos/Mililitros) ---
+  let cantidadConvertida = Number(cantidad);
+  let unidadConvertida = unidad ? unidad.toLowerCase().trim() : '';
+
+  if (tipo === 'entrada') {
+    if (unidadConvertida === 'kg') {
+      cantidadConvertida = cantidadConvertida * 1000;
+      unidadConvertida = 'g';
+    } else if (unidadConvertida === 'lts' || unidadConvertida === 'litros') {
+      cantidadConvertida = cantidadConvertida * 1000;
+      unidadConvertida = 'ml';
+    }
+  }
+  // -------------------------------------------------------------------------------
+
   try {
     const { data: insumo, error: errInsumo } = await supabase
       .from('insumos')
@@ -1068,26 +1083,26 @@ app.post('/api/movimientos-stock', async (req, res) => {
     }
 
     const nuevoStock = tipo === 'entrada'
-      ? Number(insumo.stock_actual) + Number(cantidad)
-      : Number(insumo.stock_actual) - Number(cantidad);
+      ? Number(insumo.stock_actual) + cantidadConvertida
+      : Number(insumo.stock_actual) - cantidadConvertida;
 
     if (nuevoStock < 0) {
       return res.status(400).json({ error: 'Stock insuficiente para registrar la salida' });
     }
 
+    // El costo total se calcula con la cantidad real ingresada para no alterar la plata
     const costoUnit  = costo_unitario ? Number(costo_unitario) : null;
     const costoTotal = costoUnit ? costoUnit * Number(cantidad) : null;
 
-    // Guardar el movimiento con la cantidad y unidad ORIGINALES (lo que cargó el admin)
     const { data: movimiento, error: errMov } = await supabase
       .from('movimientos_stock')
       .insert([{
         id_insumo,
         tipo,
-        cantidad:      Number(cantidad),
-        unidad:        unidad || null,
-        motivo:        motivo || null,
-        fecha:         fecha || new Date().toISOString(),
+        cantidad:       cantidadConvertida,
+        unidad:         unidadConvertida || null,
+        motivo:         motivo || null,
+        fecha:          fecha || new Date().toISOString(),
         costo_unitario: costoUnit,
         costo_total:    costoTotal
       }])
@@ -1096,8 +1111,6 @@ app.post('/api/movimientos-stock', async (req, res) => {
 
     if (errMov) return res.status(500).json({ error: errMov.message });
 
-    // Actualizar únicamente el stock; la unidad de medida del insumo
-    // es fija y solo se edita desde Alta/Gestión de Insumos.
     const { error: errUpdate } = await supabase
       .from('insumos')
       .update({ stock_actual: nuevoStock })
@@ -1105,7 +1118,7 @@ app.post('/api/movimientos-stock', async (req, res) => {
 
     if (errUpdate) return res.status(500).json({ error: errUpdate.message });
 
-    res.json({ mensaje: 'Movimiento registrado', movimiento });
+    res.json({ mensaje: 'Movimiento registrado con éxito', movimiento });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
