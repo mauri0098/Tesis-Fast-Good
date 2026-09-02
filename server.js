@@ -492,12 +492,27 @@ app.get('/api/v1/productos/:id', async (req, res) => {
    API TAREAS DE COCINA (filtradas por cocinero asignado)
    ====================================================== */
 
-// GET /api/cocina/tareas?cocinero_id=UUID
+// Arma 'YYYY-MM-DD' con componentes de fecha LOCALES (no toISOString, que usa
+// UTC y puede correr un día en husos horarios negativos como Argentina).
+function formatFechaYMD(date) {
+  const anio = date.getFullYear();
+  const mes  = String(date.getMonth() + 1).padStart(2, '0');
+  const dia  = String(date.getDate()).padStart(2, '0');
+  return `${anio}-${mes}-${dia}`;
+}
+
+// GET /api/cocina/tareas?cocinero_id=UUID&desde=YYYY-MM-DD&hasta=YYYY-MM-DD&todos=true
 // Si se pasa cocinero_id, devuelve solo los pedidos en estado 2 cuyos productos
 // pertenezcan a planes donde ese cocinero es principal o suplente.
 // Sin cocinero_id devuelve todos los pedidos en estado 2 (modo admin/debug).
+//
+// Filtro de fecha_entrega (en orden de prioridad):
+//   - todos=true               → sin filtro de fecha (auditoría / ver todo)
+//   - desde y/o hasta          → rango exacto elegido por el cocinero
+//   - sin ningún parámetro     → ventana de producción automática de 48hs
+//                                 (fecha_entrega <= hoy + 2 días)
 app.get('/api/cocina/tareas', async (req, res) => {
-  const { cocinero_id } = req.query;
+  const { cocinero_id, desde, hasta, todos } = req.query;
   let idsPedidos = null; // null = sin filtro de planes
 
   if (cocinero_id) {
@@ -567,6 +582,18 @@ app.get('/api/cocina/tareas', async (req, res) => {
     `)
     .eq('id_estado', 2)
     .order('fecha_pedido', { ascending: true });
+
+  if (todos === 'true') {
+    // Auditoría: sin filtro de fecha_entrega, se listan todos los pedidos en preparación.
+  } else if (desde || hasta) {
+    if (desde) query = query.gte('fecha_entrega', desde);
+    if (hasta) query = query.lte('fecha_entrega', hasta);
+  } else {
+    // Ventana de producción automática por defecto: hoy + 2 días.
+    const limite = new Date();
+    limite.setDate(limite.getDate() + 2);
+    query = query.lte('fecha_entrega', formatFechaYMD(limite));
+  }
 
   if (idsPedidos !== null) {
     query = query.in('id', idsPedidos);

@@ -29,6 +29,16 @@
 
     <!-- Columna principal: tabla de tareas -->
     <div class="cocina-tabla-col">
+      <div class="filtros-fecha-cocina">
+        <label for="fechaDesdeCocinero">Fecha desde</label>
+        <input type="date" id="fechaDesdeCocinero" class="filtro-fecha-cocina">
+
+        <label for="fechaHastaCocinero">Fecha hasta</label>
+        <input type="date" id="fechaHastaCocinero" class="filtro-fecha-cocina">
+
+        <button id="btnBuscarTareas" class="btn-filtro-buscar">Buscar</button>
+        <button id="btnVerTodosTareas" class="btn-filtro-ver-todos">Ver Todos</button>
+      </div>
       <div class="table-wrapper">
         <table id="tablaPedidos" class="standard-table">
           <thead>

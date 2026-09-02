@@ -143,6 +143,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     construirResumen([]);
   }
 
+  // ── Filtro de fecha activo ─────────────────────────────────────────────────
+  // 'default' = ventana automática de 48hs (comportamiento del backend sin parámetros)
+  // 'rango'   = fecha_entrega entre desde/hasta elegidos por el cocinero
+  // 'todos'   = sin filtro de fecha (auditoría)
+  let filtroActual = { modo: 'default', desde: '', hasta: '' };
+
+  const inputDesde     = document.getElementById('fechaDesdeCocinero');
+  const inputHasta     = document.getElementById('fechaHastaCocinero');
+  const btnBuscar      = document.getElementById('btnBuscarTareas');
+  const btnVerTodos    = document.getElementById('btnVerTodosTareas');
+
   // ── Traer y renderizar las tareas del cocinero logueado ───────────────────
   let cargando = false;
 
@@ -152,9 +163,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let enPrep;
     try {
-      const url = cocineroId
-        ? `/api/cocina/tareas?cocinero_id=${encodeURIComponent(cocineroId)}`
-        : '/api/cocina/tareas';
+      const params = new URLSearchParams();
+      if (cocineroId) params.set('cocinero_id', cocineroId);
+
+      if (filtroActual.modo === 'todos') {
+        params.set('todos', 'true');
+      } else if (filtroActual.modo === 'rango') {
+        if (filtroActual.desde) params.set('desde', filtroActual.desde);
+        if (filtroActual.hasta) params.set('hasta', filtroActual.hasta);
+      }
+      // modo 'default': no se agrega ningún parámetro de fecha —
+      // el backend aplica la ventana automática de 48hs por su cuenta.
+
+      const url = `/api/cocina/tareas?${params.toString()}`;
       const res = await fetch(url);
       enPrep = await res.json();
 
@@ -171,7 +192,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (enPrep.length === 0) {
-      setVacio('No hay pedidos en preparación en este momento.');
+      const mensaje = filtroActual.modo === 'rango'
+        ? 'No hay pedidos en preparación dentro del rango de fechas seleccionado.'
+        : 'No hay pedidos en preparación en este momento.';
+      setVacio(mensaje);
       return;
     }
 
@@ -217,9 +241,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     construirResumen(_tareasActivas);
   }
 
+  // ── Botones de la barra de filtros ─────────────────────────────────────────
+  if (btnBuscar) {
+    btnBuscar.addEventListener('click', () => {
+      filtroActual = {
+        modo: 'rango',
+        desde: inputDesde ? inputDesde.value : '',
+        hasta: inputHasta ? inputHasta.value : ''
+      };
+      cargarTareas();
+    });
+  }
+
+  if (btnVerTodos) {
+    btnVerTodos.addEventListener('click', () => {
+      if (inputDesde) inputDesde.value = '';
+      if (inputHasta) inputHasta.value = '';
+      filtroActual = { modo: 'todos', desde: '', hasta: '' };
+      cargarTareas();
+    });
+  }
+
   await cargarTareas();
 
-  // Refresco periódico para que los pedidos nuevos aparezcan sin recargar la página.
+  // Refresco periódico para que los pedidos nuevos aparezcan sin recargar la página,
+  // respetando el filtro de fecha activo (rango / ver todos / ventana automática).
   setInterval(cargarTareas, 30000);
 });
 
