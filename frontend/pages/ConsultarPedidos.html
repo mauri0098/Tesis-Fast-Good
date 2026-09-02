@@ -33,14 +33,17 @@
     <div class="table-wrapper">
       <div class="filtros-container">
         <input type="text"  id="CampoBusqueda" class="filtro-input" placeholder="Buscar por nombre o N° pedido...">
+        <label class="filtro-fecha-label" for="FechaDesde">Fecha desde (pedido)</label>
         <input type="date"  id="FechaDesde"    class="filtro-input filtro-fecha">
+        <label class="filtro-fecha-label" for="FechaHasta">Fecha hasta (entrega)</label>
         <input type="date"  id="FechaHasta"    class="filtro-input filtro-fecha">
       </div>
       <table class="standard-table">
         <thead>
           <tr>
             <th>N° Pedido</th>
-            <th>Fecha</th>
+            <th>Fecha de Pedido</th>
+            <th>Fecha de Entrega</th>
             <th>Cliente</th>
             <th>Dirección</th>
             <th>Teléfono</th>
@@ -55,7 +58,7 @@
         <tbody id="pedidosBody">
           <!-- JS Render -->
           <tr>
-            <td colspan="11" class="loading-text">Cargando datos...</td>
+            <td colspan="12" class="loading-text">Cargando datos...</td>
           </tr>
         </tbody>
       </table>

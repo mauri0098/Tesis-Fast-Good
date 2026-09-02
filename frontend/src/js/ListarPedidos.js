@@ -25,6 +25,17 @@ function aplicarColorEstado(select, estadoId) {
   select.style.color = c.color;
 }
 
+// Formatea 'YYYY-MM-DD' (fecha_entrega, sin hora) o un timestamp ISO completo
+// (fecha_pedido) usando componentes de fecha locales, para que una columna
+// `date` sin hora no se corra un día por husos horarios al parsear con `new Date(string)`.
+function formatFechaLocal(fechaStr) {
+  if (!fechaStr) return '-';
+  const [anio, mes, dia] = fechaStr.split('T')[0].split('-').map(Number);
+  return new Date(anio, mes - 1, dia).toLocaleDateString('es-AR', {
+    day: '2-digit', month: '2-digit', year: 'numeric'
+  });
+}
+
 async function fetchPedidos() {
   const tbody = document.getElementById('pedidosBody');
 
@@ -37,7 +48,7 @@ async function fetchPedidos() {
     tbody.innerHTML = '';
 
     if (data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="11" class="loading-text">No hay pedidos registrados</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="12" class="loading-text">No hay pedidos registrados</td></tr>';
       return;
     }
 
@@ -47,28 +58,27 @@ async function fetchPedidos() {
       // 1. N° Pedido
       const idFormatted = '#' + String(pedido.id).padStart(3, '0');
 
-      // 2. Fecha
-      const fecha = new Date(pedido.fecha_entrega || pedido.fecha_pedido).toLocaleDateString('es-AR', {
-        day: '2-digit', month: '2-digit', year: 'numeric'
-      });
+      // 2. Fecha de Pedido (fecha desde) y 3. Fecha de Entrega (fecha hasta)
+      const fechaPedido  = formatFechaLocal(pedido.fecha_pedido);
+      const fechaEntrega = formatFechaLocal(pedido.fecha_entrega);
 
-      // 3. Cliente
+      // 4. Cliente
       const cliente = pedido.cliente_nombre || pedido.usuarios?.nombre || 'Anónimo';
 
-      // 4. Dirección
+      // 5. Dirección
       const direccion = pedido.cliente_direccion || '-';
 
-      // 5. & 6. Contacto
+      // 6. & 7. Contacto
       const telefono = pedido.cliente_telefono || '-';
       const email = pedido.cliente_email || '-';
 
-      // 7. Viandas → botón que abre modal con el detalle
+      // 8. Viandas → botón que abre modal con el detalle
       const viandasHtml = `<button class="btn-detalles" onclick="abrirModalDetalles(${pedido.id})">Detalles</button>`;
 
-      // 8. Costo
+      // 9. Costo
       const costo = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(pedido.total);
 
-      // 10. Método Pago
+      // 11. Método Pago
       const metodo = pedido.metodo_pago || 'Efectivo';
       const isPaid = pedido.pagado;
       const pagoHtml = `
@@ -83,7 +93,8 @@ async function fetchPedidos() {
       // Armar fila — las celdas con datos del usuario quedan vacías y se llenan abajo con textContent
       tr.innerHTML = `
         <td style="font-weight:bold">${idFormatted}</td>
-        <td>${fecha}</td>
+        <td>${fechaPedido}</td>
+        <td>${fechaEntrega}</td>
         <td></td>
         <td></td>
         <td></td>
@@ -97,12 +108,12 @@ async function fetchPedidos() {
 
       // Celdas con datos ingresados por el usuario público — se usan textContent para evitar XSS
       const strong = document.createElement('strong');
-      strong.textContent = cliente;       // columna 3: nombre del cliente
-      tr.cells[2].appendChild(strong);
+      strong.textContent = cliente;       // columna 4: nombre del cliente
+      tr.cells[3].appendChild(strong);
 
-      tr.cells[3].textContent = direccion; // columna 4: dirección
-      tr.cells[4].textContent = telefono;  // columna 5: teléfono
-      tr.cells[5].textContent = email;     // columna 6: email
+      tr.cells[4].textContent = direccion; // columna 5: dirección
+      tr.cells[5].textContent = telefono;  // columna 6: teléfono
+      tr.cells[6].textContent = email;     // columna 7: email
 
       // 9. Select Estado
       const estadoActualId = pedido.id_estado || 1;
@@ -154,13 +165,13 @@ async function fetchPedidos() {
         }
       });
 
-      tr.cells[8].appendChild(selectEstado);
+      tr.cells[9].appendChild(selectEstado);
       tbody.appendChild(tr);
     });
 
   } catch (error) {
     console.error(error);
-    tbody.innerHTML = '<tr><td colspan="11" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
   }
 }
 
@@ -216,14 +227,28 @@ function iniciarFiltro() {
   const FechaHasta = document.getElementById('FechaHasta');
   if (!FiltradodeProductos) return;
 
-  FiltradodeProductos.addEventListener('input', () => {
+  function aplicarFiltros() {
     const TextoDeBusqueda = FiltradodeProductos.value.toLowerCase();
+    const desde = FechaDesde.value; // 'YYYY-MM-DD' o ''
+    const hasta = FechaHasta.value; // 'YYYY-MM-DD' o ''
 
-    // filtra el array de pedidos por nombre de cliente o por número de pedido
-    const ProductosFiltrados = todosPedidos.filter(pedido =>
-      pedido.cliente_nombre.toLowerCase().includes(TextoDeBusqueda) ||
-      pedido.id.toString().includes(TextoDeBusqueda)
-    );
+    // filtra por nombre de cliente / N° pedido, por fecha de pedido (>= desde)
+    // y por fecha de entrega (<= hasta). Comparación de strings 'YYYY-MM-DD':
+    // funciona sin convertir a Date porque ese formato ordena lexicográficamente
+    // igual que cronológicamente, evitando desfasajes de huso horario.
+    const ProductosFiltrados = todosPedidos.filter(pedido => {
+      const cumpleTexto =
+        (pedido.cliente_nombre || '').toLowerCase().includes(TextoDeBusqueda) ||
+        pedido.id.toString().includes(TextoDeBusqueda);
+
+      const fechaPedidoSolo  = (pedido.fecha_pedido  || '').split('T')[0];
+      const fechaEntregaSolo = (pedido.fecha_entrega || '').split('T')[0];
+
+      const cumpleDesde = !desde || (fechaPedidoSolo  && fechaPedidoSolo  >= desde);
+      const cumpleHasta = !hasta || (fechaEntregaSolo && fechaEntregaSolo <= hasta);
+
+      return cumpleTexto && cumpleDesde && cumpleHasta;
+    });
 
     // muestra u oculta cada fila según si pasó el filtro
     const tbody = document.getElementById('pedidosBody');
@@ -248,14 +273,18 @@ function iniciarFiltro() {
       }
     });
 
-    if (visibles === 0 && TextoDeBusqueda !== '') {
+    const hayFiltroActivo = TextoDeBusqueda !== '' || desde !== '' || hasta !== '';
+    if (visibles === 0 && hayFiltroActivo) {
       const tr = document.createElement('tr');
       tr.className = 'no-results-row';
-      tr.innerHTML = `<td colspan="11" class="loading-text">No se encontraron pedidos con ese nombre</td>`;
+      tr.innerHTML = `<td colspan="12" class="loading-text">No se encontraron pedidos que cumplan los filtros</td>`;
       tbody.appendChild(tr);
     }
-  });
+  }
 
+  FiltradodeProductos.addEventListener('input', aplicarFiltros);
+  FechaDesde.addEventListener('change', aplicarFiltros);
+  FechaHasta.addEventListener('change', aplicarFiltros);
 }
 
 // ── ALERTA DE STOCK INSUFICIENTE ─────────────────────────────

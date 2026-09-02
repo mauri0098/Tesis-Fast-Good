@@ -125,9 +125,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
-  function formatFecha(isoString) {
-    if (!isoString) return '—';
-    return new Date(isoString).toLocaleDateString('es-AR', {
+  // Recibe 'YYYY-MM-DD' (fecha_entrega, sin hora) o un timestamp ISO completo.
+  // Se arma la fecha con componentes locales (no Date(isoString) directo) para
+  // que una columna `date` como fecha_entrega no se corra un día por husos horarios.
+  function formatFecha(fechaStr) {
+    if (!fechaStr) return '—';
+    const [anio, mes, dia] = fechaStr.split('T')[0].split('-').map(Number);
+    return new Date(anio, mes - 1, dia).toLocaleDateString('es-AR', {
       day: '2-digit', month: '2-digit', year: 'numeric'
     });
   }
@@ -139,64 +143,84 @@ document.addEventListener('DOMContentLoaded', async () => {
     construirResumen([]);
   }
 
-  // ── 1. Traer tareas filtradas por el cocinero logueado ───────────────────
-  let enPrep;
-  try {
-    const url = cocineroId
-      ? `/api/cocina/tareas?cocinero_id=${encodeURIComponent(cocineroId)}`
-      : '/api/cocina/tareas';
-    const res = await fetch(url);
-    enPrep = await res.json();
-  } catch {
-    setVacio('Error al cargar pedidos. Verificá que el servidor esté corriendo.');
-    return;
-  }
+  // ── Traer y renderizar las tareas del cocinero logueado ───────────────────
+  let cargando = false;
 
-  if (enPrep.length === 0) {
-    setVacio('No hay pedidos en preparación en este momento.');
-    return;
-  }
+  async function cargarTareas() {
+    if (cargando) return; // evita solapar refrescos si uno tarda más que el intervalo
+    cargando = true;
 
-  contadorBadge.textContent = enPrep.length;
+    let enPrep;
+    try {
+      const url = cocineroId
+        ? `/api/cocina/tareas?cocinero_id=${encodeURIComponent(cocineroId)}`
+        : '/api/cocina/tareas';
+      const res = await fetch(url);
+      enPrep = await res.json();
 
-  // ── 2. Renderizar filas ───────────────────────────────────────────────────
-  tbody.innerHTML = '';
+      if (!res.ok) {
+        console.error('Error del servidor al traer tareas de cocina:', enPrep.error);
+        setVacio(enPrep.error || 'Error al cargar pedidos. Intentá de nuevo.');
+        return;
+      }
+    } catch {
+      setVacio('Error al cargar pedidos. Verificá que el servidor esté corriendo.');
+      return;
+    } finally {
+      cargando = false;
+    }
 
-  enPrep.forEach(pedido => {
-    const detalles = pedido.pedido_detalles || [];
-    const fecha    = formatFecha(pedido.fecha_pedido);
+    if (enPrep.length === 0) {
+      setVacio('No hay pedidos en preparación en este momento.');
+      return;
+    }
 
-    const filas = detalles.length > 0 ? detalles : [null];
+    contadorBadge.textContent = enPrep.length;
 
-    filas.forEach(det => {
-      const codigo   = det?.productos?.codigo_plato || '—';
-      const nombre   = det?.productos?.nombre || '—';
-      const cantidad = det ? `x${det.cantidad}` : '';
+    // Renderizar filas
+    tbody.innerHTML = '';
 
-      const tr = document.createElement('tr');
-      tr.dataset.pedidoId = pedido.id;
-      tr.innerHTML = `
-        <td><strong>#${pedido.id}</strong></td>
-        <td>${fecha}</td>
-        <td><strong>${codigo}</strong></td>
-        <td>
-          <span class="plato-nombre">${nombre}</span>
-          <br><span class="plato-cant">${cantidad}</span>
-        </td>
-        <td>${pedido.observaciones || 'Sin observaciones'}</td>
-        <td>
-          <button class="btn-listo" onclick="marcarListo(${pedido.id}, this)">
-            ✓ Listo para entregar
-          </button>
-        </td>
-      `;
-      tbody.appendChild(tr);
+    enPrep.forEach(pedido => {
+      const detalles = pedido.pedido_detalles || [];
+      const fecha    = formatFecha(pedido.fecha_entrega);
+
+      const filas = detalles.length > 0 ? detalles : [null];
+
+      filas.forEach(det => {
+        const codigo   = det?.productos?.codigo_plato || '—';
+        const nombre   = det?.productos?.nombre || '—';
+        const cantidad = det ? `x${det.cantidad}` : '';
+
+        const tr = document.createElement('tr');
+        tr.dataset.pedidoId = pedido.id;
+        tr.innerHTML = `
+          <td><strong>#${pedido.id}</strong></td>
+          <td>${fecha}</td>
+          <td><strong>${codigo}</strong></td>
+          <td>
+            <span class="plato-nombre">${nombre}</span>
+            <br><span class="plato-cant">${cantidad}</span>
+          </td>
+          <td>${pedido.observaciones || 'Sin observaciones'}</td>
+          <td>
+            <button class="btn-listo" onclick="marcarListo(${pedido.id}, this)">
+              ✓ Listo para entregar
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
     });
-  });
 
-  // ── 3. Sincronizar estado y pintar panel de resumen ───────────────────────
-  _tareasActivas = enPrep;
-  construirResumen(_tareasActivas);
+    // Sincronizar estado y pintar panel de resumen
+    _tareasActivas = enPrep;
+    construirResumen(_tareasActivas);
+  }
+
+  await cargarTareas();
+
+  // Refresco periódico para que los pedidos nuevos aparezcan sin recargar la página.
+  setInterval(cargarTareas, 30000);
 });
 
 // ── Cambiar estado del pedido a "Listo para entregar" ────────────────────────

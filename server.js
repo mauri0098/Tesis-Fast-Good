@@ -223,22 +223,37 @@ app.post('/api/login', async (req, res) => {
   }
 
   try {
-    // Buscar usuario por nombre o email (case-insensitive)
-    let { data: porNombre } = await supabase
+    // Buscar usuario por nombre_usuario (identificador único) o email (case-insensitive).
+    // IMPORTANTE: nombre_usuario es el único campo con restricción de unicidad real;
+    // "nombre" (nombre de pila) puede repetirse entre cuentas distintas, así que
+    // nunca debe usarse como criterio principal de autenticación.
+    const CAMPOS_USUARIO = 'id, nombre, apellido, email, id_rol, contraseña, telefono, direccion';
+
+    let { data: porUsername } = await supabase
       .from('usuarios')
-      .select('id, nombre, apellido, email, id_rol, contraseña, telefono, direccion')
-      .ilike('nombre', nombre)
+      .select(CAMPOS_USUARIO)
+      .ilike('nombre_usuario', nombre)
       .limit(1);
 
-    let usuarios = porNombre?.[0];
+    let usuarios = porUsername?.[0];
 
     if (!usuarios) {
       const { data: porEmail } = await supabase
         .from('usuarios')
-        .select('id, nombre, apellido, email, id_rol, contraseña, telefono, direccion')
+        .select(CAMPOS_USUARIO)
         .ilike('email', nombre)
         .limit(1);
       usuarios = porEmail?.[0];
+    }
+
+    // Fallback legado: cuentas creadas antes de existir nombre_usuario (puede ser NULL).
+    if (!usuarios) {
+      const { data: porNombre } = await supabase
+        .from('usuarios')
+        .select(CAMPOS_USUARIO)
+        .ilike('nombre', nombre)
+        .limit(1);
+      usuarios = porNombre?.[0];
     }
 
     if (!usuarios) {
@@ -284,10 +299,10 @@ app.post('/api/login', async (req, res) => {
 
 // POST /api/register → Crear cuenta de usuario (rol 4)
 app.post('/api/register', async (req, res) => {
-  const { nombre, apellido, direccion, telefono, email, contraseña } = req.body;
+  const { nombre, apellido, nombre_usuario, direccion, telefono, email, contraseña } = req.body;
 
-  if (!nombre || !apellido || !email || !contraseña) {
-    return res.status(400).json({ error: 'Nombre, apellido, email y contraseña son requeridos' });
+  if (!nombre || !apellido || !nombre_usuario || !email || !contraseña) {
+    return res.status(400).json({ error: 'Nombre, apellido, nombre de usuario, email y contraseña son requeridos' });
   }
 
   try {
@@ -302,11 +317,22 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ error: 'Ya existe una cuenta con ese email' });
     }
 
+    // Verificar que el nombre de usuario no esté ya registrado
+    const { data: existenteUsername } = await supabase
+      .from('usuarios')
+      .select('id')
+      .ilike('nombre_usuario', nombre_usuario.trim())
+      .limit(1);
+
+    if (existenteUsername && existenteUsername.length > 0) {
+      return res.status(400).json({ error: 'El nombre de usuario ya se encuentra registrado. Por favor, elegí uno diferente.' });
+    }
+
     // Crear usuario con rol 4 (Usuario)
     const hashContrasenaReg = await bcrypt.hash(contraseña, 10);
     const { data: nuevoUsuario, error } = await supabase
       .from('usuarios')
-      .insert([{ nombre, apellido, email, contraseña: hashContrasenaReg, telefono, direccion, id_rol: 4 }])
+      .insert([{ nombre, apellido, nombre_usuario: nombre_usuario.trim(), email, contraseña: hashContrasenaReg, telefono, direccion, id_rol: 4 }])
       .select()
       .single();
 
@@ -476,28 +502,49 @@ app.get('/api/cocina/tareas', async (req, res) => {
 
   if (cocinero_id) {
     // 1. Planes donde el cocinero está asignado (principal o suplente)
-    const { data: planes } = await supabase
+    const { data: planes, error: errPlanes } = await supabase
       .from('planes')
       .select('id')
       .or(`id_cocinero.eq.${cocinero_id},id_cocinero_suplente.eq.${cocinero_id}`);
 
+    if (errPlanes) {
+      console.error('[cocina/tareas] Error al buscar planes del cocinero:', errPlanes.message);
+      return res.status(500).json({ error: 'Error al buscar los planes asignados: ' + errPlanes.message });
+    }
+
     const planIds = (planes || []).map(p => p.id);
-    if (planIds.length === 0) return res.json([]);
+    if (planIds.length === 0) {
+      console.warn(`[cocina/tareas] El cocinero ${cocinero_id} no tiene ningún plan asignado (ni principal ni suplente).`);
+      return res.json([]);
+    }
 
     // 2. Productos que pertenecen a esos planes
-    const { data: productos } = await supabase
+    const { data: productos, error: errProductos } = await supabase
       .from('productos')
       .select('id')
       .in('id_plan', planIds);
 
+    if (errProductos) {
+      console.error('[cocina/tareas] Error al buscar productos de los planes:', errProductos.message);
+      return res.status(500).json({ error: 'Error al buscar los productos del plan: ' + errProductos.message });
+    }
+
     const productoIds = (productos || []).map(p => p.id);
-    if (productoIds.length === 0) return res.json([]);
+    if (productoIds.length === 0) {
+      console.warn(`[cocina/tareas] Los planes asignados al cocinero ${cocinero_id} (${planIds.join(', ')}) no tienen productos cargados.`);
+      return res.json([]);
+    }
 
     // 3. Pedidos que tienen al menos un detalle con esos productos
-    const { data: detalles } = await supabase
+    const { data: detalles, error: errDetalles } = await supabase
       .from('pedido_detalles')
       .select('id_pedido')
       .in('id_producto', productoIds);
+
+    if (errDetalles) {
+      console.error('[cocina/tareas] Error al buscar detalles de pedidos:', errDetalles.message);
+      return res.status(500).json({ error: 'Error al buscar los pedidos: ' + errDetalles.message });
+    }
 
     idsPedidos = [...new Set((detalles || []).map(d => d.id_pedido))];
     if (idsPedidos.length === 0) return res.json([]);
@@ -509,6 +556,7 @@ app.get('/api/cocina/tareas', async (req, res) => {
     .select(`
       id,
       fecha_pedido,
+      fecha_entrega,
       observaciones,
       id_estado,
       pedido_detalles (

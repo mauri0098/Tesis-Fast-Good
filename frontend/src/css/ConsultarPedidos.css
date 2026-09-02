@@ -193,6 +193,14 @@ ul.ingredientes-list {
 }
 
 .filtro-fecha { width: 150px; }
+
+.filtro-fecha-label {
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #666);
+  white-space: nowrap;
+}
+
 .filtro-input:focus {
   outline: none;
   border-color: #28a745;
@@ -217,10 +225,10 @@ ul.ingredientes-list {
     width: 100%;
   }
 
-  /* table-layout:fixed + width:100% hace que las 11 columnas se
+  /* table-layout:fixed + width:100% hace que las 12 columnas se
      compriman en vez de desbordar; con min-width forzamos el overflow
      real para que .table-wrapper pueda scrollear horizontalmente. */
   .standard-table {
-    min-width: 1000px;
+    min-width: 1080px;
   }
 }

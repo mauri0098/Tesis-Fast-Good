@@ -81,6 +81,7 @@ async function manejarRegistro(e) {
 
   const nombre = document.getElementById('reg-nombre').value.trim();
   const apellido = document.getElementById('reg-apellido').value.trim();
+  const nombre_usuario = document.getElementById('inputNombreUsuario').value.trim();
   const direccion = document.getElementById('reg-direccion').value.trim();
   const telefono = document.getElementById('reg-telefono').value.trim();
   const email = document.getElementById('reg-email').value.trim();
@@ -89,7 +90,7 @@ async function manejarRegistro(e) {
   document.getElementById('registroError').classList.remove('show');
   document.getElementById('registroExito').classList.remove('show');
 
-  if (!nombre || !apellido || !direccion || !telefono || !email || !contraseña) {
+  if (!nombre || !apellido || !nombre_usuario || !direccion || !telefono || !email || !contraseña) {
     mostrarError('registroError', 'Todos los campos son requeridos');
     return;
   }
@@ -98,10 +99,23 @@ async function manejarRegistro(e) {
   document.querySelector('#registroForm .login-btn').disabled = true;
 
   try {
+    // Validación de duplicados: el nombre de usuario no puede repetirse (insensible a mayúsculas/espacios)
+    const resUsuarios = await fetch('/api/usuarios');
+    const usuariosExistentes = await resUsuarios.json();
+
+    const yaExiste = Array.isArray(usuariosExistentes) && usuariosExistentes.some(function (u) {
+      return (u.nombre_usuario || '').trim().toLowerCase() === nombre_usuario.toLowerCase();
+    });
+
+    if (yaExiste) {
+      mostrarError('registroError', 'El nombre de usuario ya se encuentra registrado. Por favor, elegí uno diferente.');
+      return;
+    }
+
     const response = await fetch('/api/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre, apellido, direccion, telefono, email, contraseña })
+      body: JSON.stringify({ nombre, apellido, nombre_usuario, direccion, telefono, email, contraseña })
     });
 
     const data = await response.json();
