@@ -158,6 +158,18 @@ async function fetchPedidos() {
 
           selectEstado.dataset.estadoActual = nuevoId;
           aplicarColorEstado(selectEstado, nuevoId);
+
+          // Si el backend marcó el pedido como pagado (ej. transferencia al pasar
+          // a "En Preparación"), refrescar la insignia de pago sin recargar toda la tabla.
+          if (data.pedido && typeof data.pedido.pagado === 'boolean') {
+            pedido.pagado = data.pedido.pagado;
+            const celdaPago = tr.cells[10];
+            const spanEstadoPago = celdaPago?.querySelector('.status-paid, .status-pending');
+            if (spanEstadoPago) {
+              spanEstadoPago.className = pedido.pagado ? 'status-paid' : 'status-pending';
+              spanEstadoPago.textContent = pedido.pagado ? 'PAGADO' : 'PENDIENTE';
+            }
+          }
         } catch (err) {
           alert('No se pudo actualizar el estado. Intentá de nuevo.');
           selectEstado.value = anteriorId;

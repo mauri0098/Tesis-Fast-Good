@@ -102,7 +102,7 @@
     }
   });
 
-  // Rellena nombre e ID del usuario logueado
+  // Rellena nombre e ID del usuario logueadoo
   function cargarDatosUsuario() {
     if (typeof obtenerDatosUsuario === 'function') {
       const usuario = obtenerDatosUsuario();

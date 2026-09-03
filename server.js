@@ -770,7 +770,7 @@ app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
     // Verificar que el pedido existe
     const { data: pedidoActual, error: errLectura } = await supabase
       .from('pedidos')
-      .select('id, id_estado')
+      .select('id, id_estado, metodo_pago, pagado')
       .eq('id', pedidoId)
       .single();
 
@@ -791,9 +791,21 @@ app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
       }
     }
 
+    const updatePayload = { id_estado: nuevoEstado };
+
+    // Regla de negocio: al pasar de "Registrado" (1) a "En Preparación" (2),
+    // los pedidos pagados por transferencia se marcan como pagados automáticamente
+    // (el efectivo se cobra recién en la entrega, así que ese caso queda intacto).
+    if (pedidoActual.id_estado === 1 && nuevoEstado === 2) {
+      const metodo = (pedidoActual.metodo_pago || '').trim().toLowerCase();
+      if (metodo === 'transferencia') {
+        updatePayload.pagado = true;
+      }
+    }
+
     const { data, error } = await supabase
       .from('pedidos')
-      .update({ id_estado: nuevoEstado })
+      .update(updatePayload)
       .eq('id', pedidoId)
       .select()
       .single();
