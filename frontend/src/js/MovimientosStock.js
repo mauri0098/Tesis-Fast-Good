@@ -58,10 +58,12 @@ async function cargarInsumos() {
 // ── Sincronizar Unidad de Medida con el insumo seleccionado ───
 // La unidad base del insumo se define en Alta de Insumos ("Gestión de Stock").
 // Acá se permite elegir entre las unidades de la MISMA familia (ej: g/kg,
-// ml/lts) para cargar cómodo según cómo venga el insumo del proveedor, pero
-// nunca una unidad de otra familia (no se puede cargar "litros" de harina).
-// En salidas se bloquea a la unidad base estricta, porque ahí el valor sale
-// directo del sistema (consumo de receta), no de una carga manual.
+// ml/lts) para cargar cómodo según cómo venga el insumo (de proveedores en
+// entradas, o para descartes/consumos manuales en salidas), pero nunca una
+// unidad de otra familia (no se puede cargar "litros" de harina).
+// Misma lógica para entrada y salida: el backend (POST /api/movimientos-stock,
+// función convertirACantidadBase) convierte a la unidad base del insumo antes
+// de aplicar el movimiento, sin importar el tipo.
 function actualizarUnidadSegunInsumo() {
   const select = document.getElementById('selectInsumo');
   const opt    = select.selectedOptions[0];
@@ -77,36 +79,28 @@ function actualizarUnidadSegunInsumo() {
     return;
   }
 
-  if (tipoActual === 'entrada') {
-    // SI ES ENTRADA (Proveedores): habilitamos y mostramos la familia de unidades permitida
-    selectUnidad.disabled = false;
+  selectUnidad.disabled = false;
 
-    if (unidadInsumo === 'g' || unidadInsumo === 'kg') {
-      selectUnidad.innerHTML = `
-        <option value="g">g</option>
-        <option value="kg">kg</option>
-      `;
-    } else if (unidadInsumo === 'ml' || unidadInsumo === 'lts' || unidadInsumo === 'litros') {
-      selectUnidad.innerHTML = `
-        <option value="ml">ml</option>
-        <option value="lts">lts</option>
-      `;
-    } else if (unidadInsumo === 'u' || unidadInsumo === 'unidades') {
-      selectUnidad.innerHTML = `<option value="u">u</option>`;
-    } else {
-      selectUnidad.innerHTML = `<option value="${unidadInsumo}">${unidadInsumo}</option>`;
-    }
-
-    // Mantenemos seleccionada la unidad base por defecto
-    const unidadNormalizada = unidadInsumo === 'litros' ? 'lts' : (unidadInsumo === 'unidades' ? 'u' : unidadInsumo);
-    if ([...selectUnidad.options].some(o => o.value === unidadNormalizada)) {
-      selectUnidad.value = unidadNormalizada;
-    }
+  if (unidadInsumo === 'g' || unidadInsumo === 'kg') {
+    selectUnidad.innerHTML = `
+      <option value="g">g</option>
+      <option value="kg">kg</option>
+    `;
+  } else if (unidadInsumo === 'ml' || unidadInsumo === 'lts' || unidadInsumo === 'litros') {
+    selectUnidad.innerHTML = `
+      <option value="ml">ml</option>
+      <option value="lts">lts</option>
+    `;
+  } else if (unidadInsumo === 'u' || unidadInsumo === 'unidades') {
+    selectUnidad.innerHTML = `<option value="u">u</option>`;
   } else {
-    // SI ES SALIDA (Consumo interno): bloqueamos para asegurar que use la unidad base estricta
     selectUnidad.innerHTML = `<option value="${unidadInsumo}">${unidadInsumo}</option>`;
-    selectUnidad.value = unidadInsumo;
-    selectUnidad.disabled = true;
+  }
+
+  // Mantenemos seleccionada la unidad base por defecto
+  const unidadNormalizada = unidadInsumo === 'litros' ? 'lts' : (unidadInsumo === 'unidades' ? 'u' : unidadInsumo);
+  if ([...selectUnidad.options].some(o => o.value === unidadNormalizada)) {
+    selectUnidad.value = unidadNormalizada;
   }
 }
 
