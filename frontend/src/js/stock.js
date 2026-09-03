@@ -27,7 +27,7 @@ async function fetchInsumos() {//Un fetch aclara lo que es un fetch
 
   } catch (error) {// si hay un error al traer los insumos, lo mostramos en consola y en la tabla
     console.error(error);
-    tbody.innerHTML = '<tr><td colspan="8" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
   }
 }
 
@@ -41,7 +41,7 @@ function renderizarInsumos(insumos) {//funcion para hacer la tabla de insumos. e
 
   
   if (insumos.length === 0) {//si no hay ningun insumo se muesta este mensaje 
-    tbody.innerHTML = '<tr><td colspan="8" class="loading-text">No se encontraron insumos</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="loading-text">No se encontraron insumos</td></tr>';
     return;
   }
   //DUDA RAPIDA SE MEZCLA EL HTML ACA CON EL JAVASCRIP ESTA BIEN ESTO O TIENE QUE VENIR EN VARIABLES
@@ -63,17 +63,6 @@ function renderizarInsumos(insumos) {//funcion para hacer la tabla de insumos. e
 
     
     const categoria = insumo.categorias_insumos?.nombre || '-';
-
-
-    // Fecha de caducidad (puede venir null si el insumo no vence)
-    let fechaCaducidad;
-    if (insumo.fecha_caducidad) {
-      fechaCaducidad = new Date(insumo.fecha_caducidad).toLocaleDateString('es-AR', {
-        day: '2-digit', month: '2-digit', year: 'numeric'
-      });
-    } else {
-      fechaCaducidad = '-';
-    }
 
     const esBajo = insumo.stock_actual <= insumo.stock_minimo;//ESTO ES PARA SABER SI EL STOCK ESTA BAJO O NO, COMPARANDO EL STOCK ACTUAL CON EL MINIMO
 
@@ -101,7 +90,6 @@ function renderizarInsumos(insumos) {//funcion para hacer la tabla de insumos. e
       <td style="font-weight:600">${stockActual}</td>
       <td>${unidad}</td>
       <td>${categoria}</td>
-      <td>${fechaCaducidad}</td>
       <td><span class="badge-estado ${badgeClass}">${estado}</span></td>
       <td class="td-acciones">
         <div class="acciones-grupo">
