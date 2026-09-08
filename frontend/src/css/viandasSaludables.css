@@ -442,13 +442,7 @@ li {
     background-color: #e07f00;
 }
 
-footer {
-    background-color: #2E7D32;
-    color: white;
-    text-align: center;
-    padding: 2rem 1rem;
-    margin-top: 4rem;
-}
+
 
 /* Carrito lateral */
 .carrito-lateral {
@@ -600,6 +594,25 @@ footer {
         flex-direction: column;
         gap: 0.5rem;
         width: 100%;
+    }
+
+    /* El contador de cantidad de las tarjetas de producto (.productos)
+       reutiliza la clase .counter del diseño antiguo de .plato; sin este
+       override queda apilado en columna en vez de en fila −/1/+. */
+    .productos .counter {
+        flex-direction: row;
+        justify-content: center;
+        width: auto;
+        margin: 1.2rem 0;
+    }
+
+    .boton-Productos {
+        width: calc(100% - 2.4rem);
+    }
+
+    .btn-ver-plan {
+        align-self: stretch;
+        text-align: center;
     }
 
     /* Agrupar los controles de cantidad */

@@ -1,43 +1,99 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Mis tareas - Cocina</title>
-  <link rel="stylesheet" href="../src/css/generarReceta.css">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fast Good - Tareas de Cocina</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+  <link rel="icon" href="../src/assets/img/logo.webp" type="image/webp"/>
+  <link rel="stylesheet" href="../src/css/global.css"/>
+  <link rel="stylesheet" href="../src/css/cocinero.css"/>
 </head>
 <body>
+<script src="../src/js/guard.js"></script>
+<script src="../src/js/adminSidebar.js"></script>
+
+<div class="admin-content">
 
 <header>
-  <h1>👨‍🍳 Mis tareas de cocina</h1>
-  <a href="../index.html">Volver</a>
+  <div class="container-centrado">
+    <div style="display:flex;align-items:center;gap:.8rem;">
+      <img src="../src/assets/img/logo.webp" alt="Logo" style="height:44px;">
+      <h1>Tareas de Cocina <span id="contador-badge" class="badge-contador">0</span></h1>
+    </div>
+  </div>
 </header>
 
-<main class="wrap">
-  <table>
-    <thead>
-      <tr>
-        <th>Pedido</th>
-        <th>Plato</th>
-        <th>Cantidad</th>
-        
-        <th>Estado</th>
-        <th></th>
-        <th>Fecha</th>
-      </tr>
-    </thead>
-    <div style="margin-bottom: 1rem;">
-  <label for="selectCocinero"><strong>Seleccionar cocinero:</strong></label>
-  <select id="selectCocinero">
-    <option value="">-- Elegí un cocinero --</option>
-  </select>
-</div>
+<main class="page-container pagina-cocina">
+  <div class="cocina-layout">
 
-    <tbody id="tablaTareas">
-      <tr><td colspan="5">Cargando tareas...</td></tr>
-    </tbody>
-  </table>
+    <!-- Columna principal: tabla de tareas -->
+    <div class="cocina-tabla-col">
+      <div class="filtros-fecha-cocina">
+        <label for="fechaDesdeCocinero">Fecha desde</label>
+        <input type="date" id="fechaDesdeCocinero" class="filtro-fecha-cocina">
+
+        <label for="fechaHastaCocinero">Fecha hasta</label>
+        <input type="date" id="fechaHastaCocinero" class="filtro-fecha-cocina">
+
+        <button id="btnBuscarTareas" class="btn-filtro-buscar">Buscar</button>
+        <button id="btnVerTodosTareas" class="btn-filtro-ver-todos">Ver Todos</button>
+      </div>
+      <div class="table-wrapper">
+        <table id="tablaPedidos" class="standard-table">
+          <thead>
+            <tr>
+              <th>N° Pedido</th>
+              <th>Fecha de Entrega</th>
+              <th>Código</th>
+              <th>Plato</th>
+              <th>Observaciones</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="tablaTareas">
+            <tr><td colspan="6" class="loading-text">Cargando tareas...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Panel lateral: resumen del turno -->
+    <aside id="panel-resumen" class="panel-resumen">
+      <div class="panel-header">
+        <div class="panel-header-info">
+          <p class="panel-title">Resumen del Turno</p>
+          <div class="panel-kpis">
+            <span class="kpi-chip">
+              <strong id="resumen-total-platos">0</strong> platos únicos
+            </span>
+            <span class="kpi-chip">
+              <strong id="resumen-total-porciones">0</strong> porciones totales
+            </span>
+          </div>
+        </div>
+        <button id="btn-toggle-panel" class="btn-toggle-panel" title="Contraer / Expandir panel">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2.5"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+      </div>
+      <div class="panel-body" id="panel-body">
+        <p class="panel-vacio">Cargando...</p>
+      </div>
+    </aside>
+
+  </div>
 </main>
 
+<footer>
+  <p>&copy; 2025 Fast Good - Viandas Saludables</p>
+</footer>
+
 <script src="../src/js/cocinero.js"></script>
+
+</div> <!-- /.admin-content -->
 </body>
 </html>

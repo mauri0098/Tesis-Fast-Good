@@ -3,8 +3,6 @@
 // Gestiona: estado del carrito, panel lateral, vista, y persistencia.
 // ====================================================================
 
-import { gestionarCarrito, calcularTotales, persistirDatos } from './funciones.js';
-
 // ====================================================================
 // 1. ESTADO DEL CARRITO
 // ====================================================================
@@ -59,11 +57,6 @@ function agregarItemAlCarrito(producto, cantidad) {
 
     // Actualizar la vista del carrito
     actualizarVistaCarrito();
-
-    // Mostrar el panel si estaba oculto
-    if (!carritoVisible) {
-        alternarCarrito();
-    }
 }
 
 // ====================================================================
@@ -117,7 +110,7 @@ function confirmarPedido() {
     }
 
     persistirDatos('FG_CARRITO_ACTUAL', carrito);
-    window.location.href = './formulario.html';
+    window.location.href = '/pages/formulario.html';
 }
 
 // ====================================================================

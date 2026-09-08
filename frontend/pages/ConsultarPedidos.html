@@ -15,29 +15,35 @@
 </head>
 
 <body>
+<script src="../src/js/guard.js"></script>
+<script src="../src/js/adminSidebar.js"></script>
+
+<div class="admin-content">
 
   <header>
     <div class="container-centrado">
       <div style="display:flex; align-items:center; gap:1rem;">
-        <img src="../src/assets/img/logo.webp" alt="Fast Good" style="height:40px; border-radius:4px;" onerror="this.style.display='none'">
+        <img src="../src/assets/img/logo.webp" alt="Fast Good" style="height:50px; border-radius:4px;" onerror="this.style.display='none'">
         <h1>Administración de Pedidos</h1>
       </div>
-      <nav>
-        <a href="../index.html">Volver al Inicio</a>
-      </nav>
     </div>
   </header>
 
   <main class="page-container">
     <div class="table-wrapper">
-      <input type="text" id="CampoBusqueda" placeholder="Buscar pedidos...">
-      <input type="date" id="FechaDesde">
-      <input type="date" id="FechaHasta">
+      <div class="filtros-container">
+        <input type="text"  id="CampoBusqueda" class="filtro-input" placeholder="Buscar por nombre o N° pedido...">
+        <label class="filtro-fecha-label" for="FechaDesde">Fecha desde (pedido)</label>
+        <input type="date"  id="FechaDesde"    class="filtro-input filtro-fecha">
+        <label class="filtro-fecha-label" for="FechaHasta">Fecha hasta (entrega)</label>
+        <input type="date"  id="FechaHasta"    class="filtro-input filtro-fecha">
+      </div>
       <table class="standard-table">
         <thead>
           <tr>
             <th>N° Pedido</th>
-            <th>Fecha</th>
+            <th>Fecha de Pedido</th>
+            <th>Fecha de Entrega</th>
             <th>Cliente</th>
             <th>Dirección</th>
             <th>Teléfono</th>
@@ -46,12 +52,13 @@
             <th>Costo</th>
             <th>Estado</th>
             <th>Método Pago</th>
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody id="pedidosBody">
           <!-- JS Render -->
           <tr>
-            <td colspan="10" class="loading-text">Cargando datos...</td>
+            <td colspan="12" class="loading-text">Cargando datos...</td>
           </tr>
         </tbody>
       </table>
@@ -62,8 +69,96 @@
     <p>&copy; 2024 Fast Good - Panel de Administración Tesis</p>
   </footer>
 
+  <!-- MODAL DETALLES DE PEDIDO -->
+  <div id="modalDetalles" class="modal-overlay" onclick="cerrarModalDetalles(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modalTitulo">Detalles del Pedido</h3>
+        <button class="modal-close-btn" onclick="cerrarModalDetalles()">✕</button>
+      </div>
+      <div class="modal-body">
+        <table class="modal-tabla">
+          <thead>
+            <tr>
+              <th class="col-cant">Cantidad</th>
+              <th>Plato</th>
+              <th class="col-precio">Precio unitario</th>
+            </tr>
+          </thead>
+          <tbody id="modalDetallesBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.50);
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .modal-overlay.visible { display: flex; }
+    .modal-box {
+      background: #fff;
+      border-radius: 10px;
+      padding: 2rem;
+      width: 90%;
+      max-width: 520px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--color-primary);
+      padding-bottom: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .modal-header h3 { color: var(--color-primary); font-size: 1.05rem; }
+    .modal-close-btn {
+      background: none; border: none; font-size: 1.2rem;
+      cursor: pointer; color: #888; padding: 0.1rem 0.4rem; border-radius: 4px;
+    }
+    .modal-close-btn:hover { color: #d32f2f; background: #fdecea; }
+    .modal-tabla { width: 100%; border-collapse: collapse; }
+    .modal-tabla th {
+      background: #f5f5f5; padding: 0.55rem 0.8rem;
+      font-size: 0.82rem; color: #555; border-bottom: 2px solid #e0e0e0; text-align: left;
+    }
+    .modal-tabla td { padding: 0.55rem 0.8rem; border-bottom: 1px solid #f0f0f0; font-size: 0.9rem; }
+    .modal-tabla tbody tr:last-child td { border-bottom: none; }
+    .col-cant { width: 80px; text-align: center; }
+    .modal-tabla td.col-cant { text-align: center; font-weight: 700; }
+    .col-precio { text-align: right; }
+    .modal-tabla td.col-precio { text-align: right; font-weight: 600; color: var(--color-primary); white-space: nowrap; }
+    .btn-detalles {
+      background: var(--color-secondary); color: white; border: none;
+      padding: 0.35rem 0.85rem; border-radius: 6px; cursor: pointer;
+      font-size: 0.82rem; font-weight: 600; transition: background 0.2s;
+    }
+    .btn-detalles:hover { background: #e08700; }
+    .btn-eliminar {
+      background: #dc3545; color: white; border: none;
+      padding: 0.35rem 0.7rem; border-radius: 6px; cursor: pointer;
+      font-size: 0.82rem; font-weight: 600; transition: background 0.2s;
+    }
+    .btn-eliminar:hover { background: #b02a37; }
+    .btn-eliminar:disabled { background: #adb5bd; cursor: not-allowed; }
+
+    /* Responsive — el modal se achica en mobile */
+    @media (max-width: 768px) {
+      .modal-box { padding: 1.25rem; width: 94%; }
+    }
+  </style>
+
   <script src="../src/js/global.js"></script>
   <script src="../src/js/ListarPedidos.js"></script>
+
+</div> <!-- /.admin-content -->
 </body>
 
 </html>

@@ -1,51 +1,656 @@
-:root{
-  --green:#4CAF50; --green-dark:#2E7D32; --accent:#FF9800; --shadow:0 4px 12px rgba(0,0,0,.1);
-  --danger:#e53935; --muted:#6b7280;
+/* =========================================
+   VARIABLES & RESET
+   ========================================= */
+:root {
+  --primary-green: #28a745;
+  --bg-color: #f4f6f9;
+  --white: #ffffff;
+  --text-dark: #343a40;
+  --text-muted: #6c757d;
+  --border-light: #DEE2E6;
+  --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --radius: 8px;
 }
-*{box-sizing:border-box}
-body{font-family:'Poppins',sans-serif;margin:0;color:#333;background:#fff;line-height:1.55;font-size:clamp(14px,1.05vw,16px)}
-header{background:var(--green);color:#fff;padding:.75rem 1.25rem;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
-header h1{margin:0;font-size:clamp(1.05rem,2vw,1.35rem)}
-nav{display:flex;gap:.8rem;align-items:center;flex-wrap:wrap}
-nav a{color:#fff;text-decoration:none;font-weight:600}
-nav a:hover{color:#FFD700}
-.menu-btn{font-size:1.25rem;background:none;border:none;color:#fff;cursor:pointer;margin-right:.75rem}
-.wrap{max-width:1200px;margin:auto;padding:1.2rem .9rem;min-height:calc(100vh - 150px)}
-h2.title{color:var(--green);text-align:center;margin:0 0 1rem;font-size:clamp(1.1rem,2.3vw,1.4rem)}
-.filters{display:grid;gap:.75rem;grid-template-columns:repeat(3,1fr);align-items:end;margin:.8rem 0 1rem}
-.filters .field{display:flex;flex-direction:column;gap:.35rem}
-.filters label{font-size:.85rem;color:#2E7D32;font-weight:600}
-.filters select,.filters input{padding:.6rem .8rem;border:1px solid #ddd;border-radius:10px;font-family:inherit}
-.toolbar{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:flex-end;margin:.4rem 0}
-.btn{display:inline-block;background:var(--accent);color:#fff;padding:.55rem 1rem;border-radius:999px;text-decoration:none;font-weight:700;border:none;cursor:pointer;font-size:.95rem}
-.btn.secondary{background:#2196F3}
-.btn.ghost{background:#f1f5f1;color:#2E7D32;border:1px solid #cfe2cf}
-.btn.danger{background:var(--danger)}
-.muted{color:var(--muted);font-size:.92rem}
-table{width:100%;border-collapse:collapse;background:#fff;box-shadow:var(--shadow);border-radius:12px;overflow:hidden}
-th,td{padding:.7rem .6rem;text-align:left;border-bottom:1px solid #f1f1f1;vertical-align:top}
-thead th{background:#f7fff7;color:#2E7D32;font-weight:700}
-tbody tr:hover{background:#fafafa}
-.recipe-mini{color:#374151;font-size:.9rem}
-.badge{display:inline-block;background:#eef7ee;color:#2b5931;border:1px solid #d6ead6;padding:.15rem .5rem;border-radius:999px;font-size:.75rem}
-.qtyok{color:#2E7D32;font-weight:700}
-.qtylow{color:#e65100;font-weight:700}
-.qtyzero{color:#e53935;font-weight:700}
-.empty{padding:1.2rem;text-align:center;color:#777}
-footer{background:var(--green-dark);color:#fff;text-align:center;padding:1rem;margin-top:1.2rem}
-/* MODALES */
-.modal{display:none;position:fixed;z-index:2000;inset:0;background:rgba(0,0,0,.55)}
-.modal .box{background:#fff;width:min(920px,95vw);margin:4% auto;padding:1rem;border-radius:12px;box-shadow:var(--shadow)}
-.modal .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem}
-.modal .head h3{margin:0;color:#2E7D32}
-.close-x{background:none;border:none;font-size:26px;cursor:pointer}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-.grid-2 .card{background:#fff;border:1px solid #eee;border-radius:12px;padding:.8rem}
-.row{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin:.35rem 0}
-.row input[type="number"], .row input[type="text"]{padding:.45rem .6rem;border:1px solid #ddd;border-radius:8px;min-width:80px}
-.table-mini{width:100%;border-collapse:collapse}
-.table-mini th,.table-mini td{border-bottom:1px dashed #ececec;padding:.45rem .35rem;text-align:left;font-size:.94rem}
-.hist{max-height:200px;overflow:auto;border:1px dashed #eee;border-radius:8px;padding:.5rem}
-@media (max-width: 900px){.filters{grid-template-columns:1fr 1fr}.grid-2{grid-template-columns:1fr}}
-@media (max-width: 540px){.filters{grid-template-columns:1fr}}
-@media print{header,.filters,footer,.modal{display:none !important}}
+
+body {
+  background-color: var(--bg-color);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* =========================================
+   LAYOUT PRINCIPAL
+   ========================================= */
+.page-container {
+  padding: 1.5rem 2rem;
+  max-width: 1350px;
+  margin: 0 auto;
+  width: 95%;
+}
+
+.table-wrapper {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.2rem;
+  overflow-x: auto;
+}
+
+/* =========================================
+   CABECERA DE TABLA (filtros + botón)
+   ========================================= */
+.tabla-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.2rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.filtros-container {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filtro-input {
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.88rem;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.filtro-input:focus {
+  outline: none;
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.15);
+}
+
+.btn-agregar {
+  padding: 0.55rem 1.4rem;
+  background-color: var(--primary-green);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.btn-agregar:hover {
+  background-color: #218838;
+}
+
+/* =========================================
+   TABLA PRINCIPAL
+   ========================================= */
+.standard-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: auto;
+}
+
+.standard-table thead th {
+  background-color: #e8f5e9;
+  color: #4CAF50;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  padding: 0.9rem 0.4rem;
+  text-align: center;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid #28a745;
+}
+
+.standard-table thead th:first-child { border-top-left-radius: var(--radius); }
+.standard-table thead th:last-child  { border-top-right-radius: var(--radius); }
+
+/* Anchos por columna — 9 columnas, guías + mínimos garantizados */
+.standard-table thead th:nth-child(1),
+.standard-table tbody td:nth-child(1) { width: 4%;  min-width: 60px;  white-space: nowrap; }  /* ID */
+
+.standard-table thead th:nth-child(2),
+.standard-table tbody td:nth-child(2) { width: 5%;  min-width: 58px; }   /* Código */
+
+.standard-table thead th:nth-child(3),
+.standard-table tbody td:nth-child(3) { width: 10%; min-width: 90px; }   /* Categoría */
+
+.standard-table thead th:nth-child(4),
+.standard-table tbody td:nth-child(4) { width: 10%; min-width: 90px; }   /* Plan */
+
+.standard-table thead th:nth-child(5),
+.standard-table tbody td:nth-child(5) { width: 16%; min-width: 110px; }  /* Nombre Producto */
+
+.standard-table thead th:nth-child(6),
+.standard-table tbody td:nth-child(6) { width: 7%;  min-width: 72px; }   /* Precio */
+
+.standard-table thead th:nth-child(7),
+.standard-table tbody td:nth-child(7) { width: 7%;  min-width: 72px; }   /* Descuento */
+
+.standard-table thead th:nth-child(8),
+.standard-table tbody td:nth-child(8) { width: 9%;  min-width: 88px; }   /* Cant. Posible */
+
+.standard-table thead th:nth-child(9),
+.standard-table tbody td:nth-child(9) { width: 18%; min-width: 220px; }  /* Acciones */
+
+/* Código de plato en fuente monoespaciada */
+.td-codigo {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--primary-green);
+  letter-spacing: 0.04em;
+}
+
+.standard-table tbody td {
+  padding: 0.75rem 0.4rem;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.82rem;
+  vertical-align: middle;
+  text-align: center;
+  word-wrap: break-word;
+}
+
+.standard-table tbody tr:last-child td { border-bottom: none; }
+.standard-table tbody tr:hover         { background-color: #f1f8f3; }
+
+.loading-text {
+  text-align: center;
+  font-style: italic;
+  color: var(--text-muted);
+  padding: 2rem;
+}
+
+/* =========================================
+   RESUMEN DE RECETA (columna Receta)
+   ========================================= */
+.receta-resumen {
+  color: #374151;
+  font-size: 0.80rem;
+  line-height: 1.6;
+}
+
+/* =========================================
+   BADGES CANTIDAD POSIBLE
+   ========================================= */
+.cant-ok {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 50px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.cant-baja {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 50px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.cant-cero {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 50px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+/* =========================================
+   BOTONES DE ACCIÓN EN LA TABLA
+   ========================================= */
+.btn-detalle {
+  padding: 0.3rem 0.7rem;
+  background-color: #17a2b8;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-right: 0.25rem;
+  transition: background-color 0.2s;
+}
+
+.btn-detalle:hover { background-color: #117a8b; }
+
+.btn-editar {
+  padding: 0.3rem 0.7rem;
+  background-color: var(--primary-green);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-right: 0.25rem;
+  transition: background-color 0.2s;
+}
+
+.btn-editar:hover { background-color: #218838; }
+
+.btn-borrar {
+  padding: 0.3rem 0.7rem;
+  background-color: #dc3545;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-borrar:hover { background-color: #bd2130; }
+
+/* Celda Acciones: sólo padding — el flex va en el div interno */
+.td-acciones {
+  padding: 0.5rem 0.6rem;
+}
+
+/* Div contenedor de los botones — éste sí lleva flex */
+.acciones-grupo {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+/* =========================================
+   SECCIÓN SUBTÍTULO DENTRO DEL MODAL
+   ========================================= */
+.seccion-subtitulo {
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--primary-green);
+  letter-spacing: 0.06em;
+  margin: 1rem 0 0.55rem 0;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid #e8f5e9;
+}
+
+/* =========================================
+   IMAGEN DEL PLATO (subida + preview)
+   ========================================= */
+.imagen-upload-grid {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 0.9rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.imagen-preview-wrapper {
+  width: 96px;
+  height: 96px;
+  border-radius: var(--radius);
+  border: 1px dashed var(--border-light);
+  background-color: #f8f9fa;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.imagen-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imagen-preview-vacio {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 0 0.4rem;
+}
+
+.imagen-upload-controles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.imagen-upload-controles input[type="file"] {
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.8rem;
+}
+
+.nota-imagen {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* =========================================
+   INPUT TEXTO (nombre del nuevo producto)
+   ========================================= */
+.input-texto {
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.85rem;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+
+.input-texto:focus {
+  outline: none;
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.15);
+}
+
+/* =========================================
+   INPUT READONLY (código y unidad)
+   ========================================= */
+.input-readonly {
+  padding: 0.5rem 0.8rem;
+  border: 1px dashed var(--border-light);
+  border-radius: var(--radius);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.85rem;
+  width: 100%;
+  background-color: #f8f9fa;
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.input-readonly.calculando {
+  color: var(--primary-green);
+  font-style: italic;
+}
+
+/* =========================================
+   BANNER PRODUCTO EN MODO EDICIÓN
+   ========================================= */
+.info-producto-editar {
+  font-size: 0.88rem;
+  background-color: #e8f5e9;
+  border-left: 3px solid var(--primary-green);
+  border-radius: var(--radius);
+  padding: 0.55rem 0.9rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-dark);
+}
+
+/* =========================================
+   MODAL RECETA (modificador sobre global.css)
+   ========================================= */
+.modal-receta {
+  text-align: left;
+  max-width: 580px;
+}
+
+.modal-receta h3 {
+  text-align: left;
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+  color: var(--text-dark);
+}
+
+/* Info superior del modal detalles */
+.det-info {
+  margin-bottom: 1rem;
+}
+
+.det-fila {
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+}
+
+/* Select de producto en modal editar */
+.modal-grid {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 0.6rem 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.modal-grid label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-dark);
+  text-align: right;
+}
+
+.modal-grid select {
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.85rem;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+
+.modal-grid select:focus {
+  outline: none;
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.15);
+}
+
+/* =========================================
+   FILA PRECIO / DESCUENTO EN EL MODAL
+   ========================================= */
+.precio-descuento-fila {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 1.2rem;
+  margin-bottom: 0.25rem;
+}
+
+/* =========================================
+   TABLA DE INSUMOS (dentro de modales)
+   ========================================= */
+.table-insumos-wrapper {
+  overflow-x: auto;
+}
+
+.table-insumos {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+  .table-insumos {
+    min-width: 480px;
+  }
+}
+
+.table-insumos thead th {
+  background-color: #e8f5e9;
+  color: #4CAF50;
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  padding: 0.6rem 0.8rem;
+  text-align: left;
+  border-bottom: 2px solid var(--primary-green);
+}
+
+.table-insumos tbody td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: middle;
+}
+
+.table-insumos tbody tr:last-child td { border-bottom: none; }
+
+/* Inputs y selects dentro de la tabla editable */
+.table-insumos tbody td select,
+.table-insumos tbody td input[type="number"] {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.82rem;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+
+.table-insumos tbody td select:focus,
+.table-insumos tbody td input[type="number"]:focus {
+  outline: none;
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.15);
+}
+
+.btn-fila-borrar {
+  padding: 0.3rem 0.65rem;
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  border-radius: var(--radius);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.btn-fila-borrar:hover { background-color: #f5c6cb; }
+
+/* =========================================
+   BOTÓN AGREGAR INSUMO
+   ========================================= */
+.ed-agregar-fila {
+  margin-bottom: 0.9rem;
+}
+
+.btn-agregar-insumo {
+  padding: 0.4rem 1.1rem;
+  background-color: #e8f5e9;
+  color: var(--primary-green);
+  border: 1px solid var(--primary-green);
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-agregar-insumo:hover { background-color: #d4edda; }
+
+/* =========================================
+   ERROR Y ACCIONES DEL MODAL
+   ========================================= */
+.modal-error {
+  display: none;
+  color: #721c24;
+  background-color: #f8d7da;
+  border-radius: var(--radius);
+  padding: 0.5rem 0.9rem;
+  font-size: 0.82rem;
+  margin-bottom: 0.8rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.btn-cancelar {
+  padding: 0.55rem 1.4rem;
+  background-color: #e2e3e5;
+  color: var(--text-dark);
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-cancelar:hover { background-color: #ced4da; }
+
+.btn-confirmar {
+  padding: 0.55rem 1.4rem;
+  background-color: var(--primary-green);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-confirmar:hover { background-color: #218838; }
+
+/* =========================================
+   RESPONSIVE — Mobile / Tablet
+   ========================================= */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 1rem 0.75rem;
+    width: 100%;
+  }
+
+  .tabla-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtros-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtro-input {
+    width: 100%;
+  }
+
+  .btn-agregar {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Label + select del modal editar: pasan de fila a columna */
+  .modal-grid {
+    grid-template-columns: 1fr;
+    gap: 0.3rem 0;
+  }
+
+  .modal-grid label {
+    text-align: left;
+  }
+
+  .precio-descuento-fila {
+    grid-template-columns: 1fr;
+    gap: 0.75rem 0;
+  }
+}

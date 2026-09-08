@@ -1,6 +1,3 @@
-import { traerCategorias, traerPlanesPorCategoria, traerProductosPorPlan } from './productos.js';
-import { renderizarCategorias, renderizarPlanes, renderizarproductos, buscarProductos } from './funciones.js';
-
 const estado = {
   vista: 'categorias',
   categoriaActual: null,

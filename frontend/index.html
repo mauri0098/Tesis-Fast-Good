@@ -19,6 +19,22 @@
   <link rel="stylesheet" href="./src/css/carrito.css">
   <!-- CSS específico de la página -->
   <link rel="stylesheet" href="./src/css/index.css">
+
+  <style>
+    .login-btn-header {
+      padding: 0.6rem 1.2rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all var(--transition-fast);
+      text-decoration: none;
+    }
+
+    .login-btn-header:hover {
+      background: rgba(255, 255, 255, 0.15) !important;
+    }
+  </style>
 </head>
 
 
@@ -36,7 +52,6 @@
   <header>
     <div class="container-centrado">
       <div style="display: flex; align-items: center;">
-        <button class="menu-btn" onclick="openSidebar()">☰</button>
         <img src="src/assets/img/logo.webp" alt="Fast Good Logo" style="height: 50px; margin: 0 1rem;" />
         <h1>FAST GOOD</h1>
       </div>
@@ -52,67 +67,80 @@
           <span id="cart-count"
             style="position: absolute; top: -8px; right: -8px; background: red; color: white; font-size: 12px; padding: 2px 6px; border-radius: 50%;">0</span>
         </div>
-      </nav>
-    </div>
 
-    <!-- Sidebar -->
-    <div id="sidebar" class="sidebar">
-      <button class="close-btn" onclick="closeSidebar()">×</button>
-      <nav class="sidebar-nav">
-        <a href="./index.html">🏠 Inicio</a>
-        <a href="./pages/ConsultarPedidos.html">🧾 Consultar pedidos</a>
-        <a href="./pages/cocinero.html">🥗 Tareas de Cocina</a>
-        <a href="./pages/stock.html">📦 Generar Stock</a>
-        <a href="./pages/generarReceta.html">📝 Generar Receta</a>
-        <a href="./pages/asignarCocineros.html">👨‍🍳 Asignar Cocineros</a>
-        <a onclick="openModal()">🚪 Cerrar Sesión</a>
+        <!-- Botón auth dinámico -->
+        <div id="auth-btn-container" style="position:relative;"></div>
       </nav>
     </div>
   </header>
 
-  <section class="hero">
-    <h2>¡Come rico y saludable con Fast Good!</h2>
+  <div class="announcement-bar" id="barra-anuncio">
+    🕒 Hacé tu pedido con anticipación: Elaboramos en el día y entregamos a las <strong>48&nbsp;hs&nbsp;hábiles</strong>.
+  </div>
+
+  <section class="hero" id="seccion-hero">
+    
   </section>
 
   <!-- MINI DESCRIPCIÓN DE LA EMPRESA -->
-  <section class="section" style="text-align: center;">
+  <section class="section" id="seccion-descripcion" style="text-align: center;">
     <p style="font-size: 1.2rem; max-width: 1000px; margin: 0 auto; color: #555;">
-      Fast Good Villa Allende te ofrece viandas saludables, frescas y caseras, ideales para acompañarte en tu día a día.
+      Fast Good  te ofrece viandas saludables, frescas y caseras, ideales para acompañarte en tu día a día.
       Diseñamos planes adaptados a cada necesidad: saludable, deportivo, keto, veggie y más. ¡Comé rico, sano y práctico
       con nosotros!
     </p>
   </section>
 
-  <!-- SECCIÓN CATEGORÍA -->
+  <!-- SECCIÓN PRINCIPAL — Catálogo SPA (Categorías → Planes → Productos) -->
   <section class="section" id="menu">
-    <h2>Categorías</h2>
-    <div class="grid">
 
-      <div class="card">
-        <img src="src/assets/img/vianda 1.png" alt="Viandas Saludables" />
-        <h3>Viandas Saludables</h3>
-        <a href="pages/viandasSaludables.html" class="btn">Mostrar</a>
+    <!-- ── VISTA 1: GRILLA DE CATEGORÍAS (por defecto) ── -->
+    <div id="vista-categorias" class="spa-view">
+      <h2>Categorías</h2>
+      <div class="grid">
+
+        <div class="card">
+          <img src="./src/assets/img/vianda 1.png" alt="Viandas Saludables" />
+          <h3>Viandas Saludables</h3>
+          <button class="btn" onclick="mostrarPlanes('Viandas Saludables')">Mostrar</button>
+        </div>
+
+        <div class="card">
+          <img src="./src/assets/img/sinGluten.png" alt="Viandas Sin Gluten" />
+          <h3>Viandas Sin Gluten</h3>
+          <button class="btn" onclick="mostrarPlanes('Viandas Sin Gluten')">Mostrar</button>
+        </div>
+
+        <div class="card">
+          <img src="./src/assets/img/pastel.png" alt="Pastelería Saludable" />
+          <h3>Pastelería Saludable</h3>
+          <button class="btn" onclick="mostrarPlanes('Pastelería Saludable')">Mostrar</button>
+        </div>
+
+        <div class="card">
+          <img src="./src/assets/img/combo.png" alt="Combos Saludables" />
+          <h3>Combos Saludables</h3>
+          <button class="btn" onclick="mostrarPlanes('Combos Saludables')">Mostrar</button>
+        </div>
+
       </div>
-
-      <div class="card">
-        <img src="src/assets/img/sinGluten.png" alt="Viandas Sin Gluten" />
-        <h3>Viandas Sin Gluten</h3>
-        <a href="pages/sinGluten.html" class="btn">Mostrar</a>
-      </div>
-
-      <div class="card">
-        <img src="src/assets/img/pastel.png" alt="Pastelería Saludable" />
-        <h3>Pastelería Saludable</h3>
-        <a href="pages/pasteleria.html" class="btn">Mostrar</a>
-      </div>
-
-      <div class="card">
-        <img src="src/assets/img/combo.png" alt="Combos Saludables" />
-        <h3>Combos Saludables</h3>
-        <a href="pages/combos.html" class="btn">Mostrar</a>
-      </div>
-
     </div>
+
+    <!-- ── VISTA 2: PLANES (oculta por defecto) ── -->
+    <div id="vista-planes" class="spa-view spa-view--oculta">
+      <div class="planes-topbar">
+        <button class="btn-volver" onclick="volverACategorias()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+          Volver a Categorías
+        </button>
+        <h2 id="titulo-planes-vista">Planes</h2>
+      </div>
+      <div id="planes-container" class="planes-container"></div>
+    </div>
+
   </section>
 
   <footer id="contacto">
@@ -132,7 +160,6 @@
       <p>Dirección: 9 de Julio 179</p>
     </div>
   </div>
-
 
   <!-- MODAL CONTACTO -->
   <div id="contactModal" class="modal">
@@ -154,10 +181,127 @@
     </div>
   </div>
 
-  <!-- SCRIPTS (orden: global → carrito → página) -->
+  <!-- SCRIPTS -->
+  <script src="./src/js/auth.js"></script>
   <script src="./src/js/global.js"></script>
+  <script src="./src/js/funciones.js"></script>
   <script src="./src/js/carrito.js"></script>
   <script src="./src/js/index.js"></script>
+  <script src="./src/js/animations.js"></script>
+  <script>
+    // Actualizar botón del header según estado de sesión
+    actualizarBotonAuth();
+
+    // Cerrar dropdown al hacer click fuera de él
+    document.addEventListener('click', function () {
+      var dropdown = document.getElementById('auth-dropdown');
+      if (dropdown) dropdown.style.display = 'none';
+    });
+
+    // Si el admin ya tiene sesión activa, redirigir al panel
+    (function () {
+      var id  = localStorage.getItem('usuario_id');
+      var rol = parseInt(localStorage.getItem('usuario_rol') || '0');
+      if (id && rol === 1) {
+        window.location.replace('./admin.html');
+      }
+    })();
+
+    // Funciones de modal de login
+    function abrirModalLogin() {
+      document.getElementById('loginModal').classList.add('show');
+    }
+
+    function cerrarModalLogin() {
+      document.getElementById('loginModal').classList.remove('show');
+      document.getElementById('formLoginModal').reset();
+      document.getElementById('loginErrorMsg').classList.remove('show');
+      document.getElementById('loginLoading').classList.remove('show');
+    }
+
+    async function manejarLoginModal(e) {
+      e.preventDefault();
+
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const errorMsg = document.getElementById('loginErrorMsg');
+      const loading = document.getElementById('loginLoading');
+
+      errorMsg.classList.remove('show');
+      loading.classList.add('show');
+
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre: username, contraseña: password })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Error al iniciar sesión');
+        }
+
+        // Guardar datos
+        localStorage.setItem('usuario_id', data.usuario.id);
+        localStorage.setItem('usuario_nombre', data.usuario.nombre);
+        localStorage.setItem('usuario_rol', data.usuario.id_rol);
+        localStorage.setItem('usuario_email', data.usuario.email);
+
+        // Redirigir según rol
+        if (data.usuario.id_rol === 1) {
+          window.location.href = 'index-admin.html';
+        } else {
+          cerrarModalLogin();
+          // Recargar página para actualizar UI
+          window.location.reload();
+        }
+
+      } catch (error) {
+        console.error('Error:', error);
+        errorMsg.textContent = error.message;
+        errorMsg.classList.add('show');
+        loading.classList.remove('show');
+      }
+    }
+
+    function actualizarUILogin() {
+      const authContainer = document.getElementById('authContainer');
+      const usuarioId = localStorage.getItem('usuario_id');
+      const usuarioNombre = localStorage.getItem('usuario_nombre');
+
+      if (usuarioId) {
+        // Usuario logueado
+        authContainer.innerHTML = `
+          <div class="header-user-info">
+            <span>👤 ${usuarioNombre}</span>
+            <button class="logout-btn-header" onclick="cerrarSesion()">Salir</button>
+          </div>
+        `;
+        // Mantener sidebar cerrado (el usuario lo abre presionando el botón hamburguesa)
+        document.getElementById('sidebar').style.display = 'none';
+      } else {
+        // Sin loguear
+        authContainer.innerHTML = `
+          <button class="login-btn-header" onclick="abrirModalLogin()">🔐 Iniciar Sesión</button>
+        `;
+        // Ocultar sidebar
+        document.getElementById('sidebar').style.display = 'none';
+      }
+    }
+
+    // Cerrar modal al hacer click afuera
+    document.addEventListener('click', (e) => {
+      const modal = document.getElementById('loginModal');
+      if (e.target === modal) {
+        cerrarModalLogin();
+      }
+    });
+
+    
+ 
+  </script>
 
 </body>
 
