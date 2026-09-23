@@ -317,17 +317,36 @@ function renderEnvios(envios) {
   });
 }
 
+// ── Método de pago: texto e ícono para la card y la hoja de ruta ──
+// Sin método cargado (o con un valor desconocido) se toma como Efectivo, como antes.
+// Tarjeta y Mixto no tienen clase propia en Envios.html, por eso llevan su color en `estilo`.
+function infoMetodoPago(metodo) {
+  const m = (metodo || '').toLowerCase();
+
+  if (m.includes('transfer')) {
+    return { label: '🏦 Transferencia', corto: '🏦 Transf.', clase: 'transferencia', estilo: '' };
+  }
+  if (m.includes('débito') || m.includes('debito')) {
+    return { label: '💳 Tarjeta Débito', corto: '💳 Débito', clase: 'tarjeta', estilo: 'background:#ede7f6; color:#4527a0;' };
+  }
+  if (m.includes('crédito') || m.includes('credito')) {
+    return { label: '💳 Tarjeta Crédito', corto: '💳 Crédito', clase: 'tarjeta', estilo: 'background:#ede7f6; color:#4527a0;' };
+  }
+  if (m.includes('mixto')) {
+    return { label: '💵🏦 Mixto', corto: '💵🏦 Mixto', clase: 'mixto', estilo: 'background:#fff3cd; color:#856404;' };
+  }
+  return { label: '💵 Efectivo', corto: '💵 Efect.', clase: 'efectivo', estilo: '' };
+}
+
 // ── Construir card HTML ───────────────────────────────────────
 function buildCard(p) {
   const estadoId     = p.id_estado || 3;
   const estadoNombre = p.estados?.nombre || 'Listo para Entregar';
   const pagado       = Boolean(p.pagado);
-  const esTrans      = (p.metodo_pago || '').toLowerCase().includes('transfer');
+  const pago         = infoMetodoPago(p.metodo_pago);
   const totalFmt     = Number(p.total).toLocaleString('es-AR', { minimumFractionDigits: 0 });
 
   const badgeEstadoClass = `badge-estado-${estadoId}`;
-  const badgePagoClass   = esTrans ? 'transferencia' : 'efectivo';
-  const badgePagoLabel   = esTrans ? '💳 Transferencia' : '💵 Efectivo';
 
   const itemsHtml = (p.pedido_detalles || [])
     .map(d => `<div class="card-item-linea">${d.cantidad}× ${d.productos?.nombre || '—'}</div>`)
@@ -375,7 +394,7 @@ function buildCard(p) {
       <div class="card-footer">
         <div class="card-total-wrap">
           <span class="card-total">$${totalFmt}</span>
-          <span class="badge-pago ${badgePagoClass}">${badgePagoLabel}</span>
+          <span class="badge-pago ${pago.clase}"${pago.estilo ? ` style="${pago.estilo}"` : ''}>${pago.label}</span>
         </div>
         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.4rem;">
           <button
@@ -463,8 +482,7 @@ function buildPrintRow(p) {
   const num     = String(p.id).padStart(3, '0');
   const items   = (p.pedido_detalles || []).map(d => `${d.cantidad}× ${d.productos?.nombre || '—'}`).join(' · ');
   const total   = Number(p.total).toLocaleString('es-AR', { minimumFractionDigits: 0 });
-  const esTrans = (p.metodo_pago || '').toLowerCase().includes('transfer');
-  const pago    = esTrans ? 'Trans.' : 'Efect.';
+  const pago    = infoMetodoPago(p.metodo_pago).corto;
   const cobrado = p.pagado ? '✓ COB' : '☐ COB';
   const cobClass = p.pagado ? 'si' : 'no';
   const obsRow  = p.observaciones

@@ -212,51 +212,94 @@ async function descontarStockPedido(pedidoId) {
 
 // POST /api/login → Validar credenciales de usuario
 app.post('/api/login', async (req, res) => {
-  const { nombre, contraseña } = req.body;
+  // Aceptar 'nombre', 'nombre_usuario', 'usuario' o 'email' desde el frontend
+  const identificador = (
+    req.body.nombre_usuario ||
+    req.body.nombre ||
+    req.body.usuario ||
+    req.body.email ||
+    ''
+  ).trim();
+
+  // Aceptar 'contraseña', 'contrasena' o 'password'
+  const passwordPlano = req.body.contraseña || req.body.contrasena || req.body.password;
 
   console.log('=== LOGIN INTENTADO ===');
-  console.log('Usuario enviado:', nombre);
+  console.log('Identificador recibido:', identificador);
 
-  // Validar que se envíen nombre y contraseña
-  if (!nombre || !contraseña) {
+  // Validar que se envíen usuario y contraseña
+  if (!identificador || !passwordPlano) {
     return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
   }
 
   try {
-    // Buscar usuario por nombre o email (case-insensitive)
-    let { data: porNombre } = await supabase
+    // Buscar usuario por nombre_usuario, email o nombre (case-insensitive)
+    let usuario = null;
+
+    // 1. Buscar por nombre_usuario
+    const { data: porNombreUsuario, error: errNombreUsuario } = await supabase
       .from('usuarios')
-      .select('id, nombre, apellido, email, id_rol, contraseña, telefono, direccion')
-      .ilike('nombre', nombre)
+      .select('*')
+      .ilike('nombre_usuario', identificador)
       .limit(1);
 
-    let usuarios = porNombre?.[0];
+    if (errNombreUsuario) {
+      console.error('Error al consultar por nombre_usuario:', errNombreUsuario.message);
+    }
+    usuario = porNombreUsuario?.[0];
 
-    if (!usuarios) {
-      const { data: porEmail } = await supabase
+    // 2. Si no se encontró, buscar por email
+    if (!usuario) {
+      const { data: porEmail, error: errEmail } = await supabase
         .from('usuarios')
-        .select('id, nombre, apellido, email, id_rol, contraseña, telefono, direccion')
-        .ilike('email', nombre)
+        .select('*')
+        .ilike('email', identificador)
         .limit(1);
-      usuarios = porEmail?.[0];
+
+      if (errEmail) {
+        console.error('Error al consultar por email:', errEmail.message);
+      }
+      usuario = porEmail?.[0];
     }
 
-    if (!usuarios) {
-      console.log('Usuario no encontrado');
+    // 3. Si aún no se encontró, buscar por nombre
+    if (!usuario) {
+      const { data: porNombre, error: errNombre } = await supabase
+        .from('usuarios')
+        .select('*')
+        .ilike('nombre', identificador)
+        .limit(1);
+
+      if (errNombre) {
+        console.error('Error al consultar por nombre:', errNombre.message);
+      }
+      usuario = porNombre?.[0];
+    }
+
+    if (!usuario) {
+      console.log('Usuario no encontrado:', identificador);
+      return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+    }
+
+    // Obtener hash de contraseña (tolerante a 'contrasena' o 'contraseña')
+    const hashDb = usuario.contrasena || usuario.contraseña;
+    if (!hashDb) {
+      console.error('El usuario no posee hash de contraseña en la base de datos');
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
     // Validar contraseña con bcrypt
-    const contraseñaValida = await bcrypt.compare(contraseña, usuarios.contraseña);
-    if (!contraseñaValida) {
+    const contrasenaValida = await bcrypt.compare(passwordPlano, hashDb);
+    if (!contrasenaValida) {
+      console.log('Contraseña inválida para:', identificador);
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
-    console.log('LOGIN EXITOSO para:', usuarios.nombre);
+    console.log('LOGIN EXITOSO para:', usuario.nombre_usuario || usuario.nombre);
 
     // Generar token JWT con id y rol del usuario, válido por 8 horas
     const token = jwt.sign(
-      { id: usuarios.id, rol: usuarios.id_rol },
+      { id: usuario.id, rol: usuario.id_rol },
       process.env.JWT_SECRET,
       { expiresIn: '8h' }
     );
@@ -266,13 +309,14 @@ app.post('/api/login', async (req, res) => {
       mensaje: 'Login exitoso',
       token: token,
       usuario: {
-        id: usuarios.id,
-        nombre: usuarios.nombre,
-        apellido: usuarios.apellido,
-        email: usuarios.email,
-        id_rol: usuarios.id_rol,
-        telefono: usuarios.telefono || '',
-        direccion: usuarios.direccion || ''
+        id: usuario.id,
+        nombre: usuario.nombre || usuario.nombre_usuario,
+        nombre_usuario: usuario.nombre_usuario,
+        apellido: usuario.apellido || '',
+        email: usuario.email,
+        id_rol: usuario.id_rol,
+        telefono: usuario.telefono || '',
+        direccion: usuario.direccion || ''
       }
     });
 
@@ -306,7 +350,7 @@ app.post('/api/register', async (req, res) => {
     const hashContrasenaReg = await bcrypt.hash(contraseña, 10);
     const { data: nuevoUsuario, error } = await supabase
       .from('usuarios')
-      .insert([{ nombre, apellido, email, contraseña: hashContrasenaReg, telefono, direccion, id_rol: 4 }])
+      .insert([{ nombre, apellido, email, contrasena: hashContrasenaReg, telefono, direccion, id_rol: 4 }])
       .select()
       .single();
 
@@ -645,6 +689,10 @@ app.get('/api/pedidos', async (req, res) => {
       fecha_entrega,
       total,
       metodo_pago,
+      monto_efectivo,
+      monto_transferencia,
+      monto_tarjeta,
+      pago_anticipado,
       pagado,
       cliente_nombre,
       cliente_direccion,
@@ -684,6 +732,90 @@ app.put('/api/pedidos/:id/pagado', async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
   res.json({ mensaje: 'Pago actualizado', pedido: data });
+});
+
+// Método de pago del pedido: Efectivo, Transferencia, Tarjeta Débito, Tarjeta Crédito o Mixto
+// (Mixto = efectivo + transferencia, sin tarjeta).
+// Los montos se calculan / validan contra el total guardado en la base, no contra el que manda el front.
+// Siempre se escriben los tres montos (los que no corresponden en 0) para que no queden valores
+// viejos al cambiar de método. pago_anticipado solo puede ser true con Efectivo.
+app.put('/api/pedidos/:id/pago', requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id);
+  const { metodo_pago, monto_efectivo, monto_transferencia, monto_tarjeta, pago_anticipado } = req.body;
+
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ error: 'ID de pedido inválido' });
+  }
+
+  const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Tarjeta Débito', 'Tarjeta Crédito', 'Mixto'];
+  if (!METODOS_PAGO.includes(metodo_pago)) {
+    return res.status(400).json({ error: 'Método de pago inválido. Debe ser Efectivo, Transferencia, Tarjeta Débito, Tarjeta Crédito o Mixto.' });
+  }
+
+  const { data: pedido, error: errLectura } = await supabase
+    .from('pedidos')
+    .select('id, total')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (errLectura) return res.status(500).json({ error: errLectura.message });
+  if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
+
+  // Se trabaja en centavos para no arrastrar errores de redondeo (0.1 + 0.2 !== 0.3)
+  const aCentavos = n => Math.round(Number(n) * 100);
+  const totalCent = aCentavos(pedido.total);
+  let efectivoCent      = 0;
+  let transferenciaCent = 0;
+  let tarjetaCent       = 0;
+
+  if (metodo_pago === 'Efectivo') {
+    efectivoCent = totalCent;
+  } else if (metodo_pago === 'Transferencia') {
+    transferenciaCent = totalCent;
+  } else if (metodo_pago === 'Tarjeta Débito' || metodo_pago === 'Tarjeta Crédito') {
+    tarjetaCent = totalCent;
+  } else {
+    // Mixto: solo efectivo + transferencia. La tarjeta no entra en el pago mixto.
+    if (aCentavos(monto_tarjeta ?? 0) !== 0) {
+      return res.status(400).json({ error: 'El pago mixto solo puede combinar efectivo y transferencia (sin tarjeta).' });
+    }
+
+    efectivoCent      = aCentavos(monto_efectivo);
+    transferenciaCent = aCentavos(monto_transferencia);
+
+    if (!Number.isFinite(efectivoCent) || !Number.isFinite(transferenciaCent) || efectivoCent <= 0 || transferenciaCent <= 0) {
+      return res.status(400).json({ error: 'En el pago mixto, los montos en efectivo y en transferencia deben ser mayores a 0.' });
+    }
+    if (efectivoCent + transferenciaCent !== totalCent) {
+      return res.status(400).json({
+        error: `La suma de los montos ($${(efectivoCent + transferenciaCent) / 100}) debe ser igual al total del pedido ($${totalCent / 100}).`
+      });
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('pedidos')
+    .update({
+      metodo_pago,
+      monto_efectivo:      efectivoCent / 100,
+      monto_transferencia: transferenciaCent / 100,
+      monto_tarjeta:       tarjetaCent / 100,
+      pago_anticipado:     metodo_pago === 'Efectivo' && pago_anticipado === true
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    // 23514 = violación de un CHECK: la base todavía no acepta este valor de metodo_pago
+    if (error.code === '23514') {
+      return res.status(400).json({
+        error: `La base de datos no acepta el método "${metodo_pago}". Hay que actualizar la restricción (CHECK) de metodo_pago en la tabla pedidos.`
+      });
+    }
+    return res.status(500).json({ error: error.message });
+  }
+  res.json({ mensaje: 'Método de pago actualizado', pedido: data });
 });
 
 app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
@@ -1048,7 +1180,8 @@ app.post('/api/recetas', async (req, res) => {
   res.json({ mensaje: 'Receta guardada correctamente' });
 });
 
-// DELETE /api/recetas/:idProducto → borrar receta de un producto
+// DELETE /api/recetas/:idProducto → borrar receta de un producto y desactivarlo
+// El producto NO se borra (soft delete) para no dejar pedidos históricos con id_producto huérfano
 app.delete('/api/recetas/:idProducto', async (req, res) => {
   const { idProducto } = req.params;
 
@@ -1059,7 +1192,15 @@ app.delete('/api/recetas/:idProducto', async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
 
-  res.json({ mensaje: 'Receta eliminada correctamente' });
+  // Desactivar el producto para que deje de aparecer en el catálogo
+  const { error: errProd } = await supabase
+    .from('productos')
+    .update({ activo: false })
+    .eq('id', idProducto);
+
+  if (errProd) return res.status(500).json({ error: errProd.message });
+
+  res.json({ mensaje: 'Receta eliminada y producto desactivado correctamente' });
 });
 
 // POST /api/productos/:id/imagen → sube/reemplaza la imagen de un producto en Supabase Storage
@@ -1574,7 +1715,7 @@ app.get('/api/usuarios', async (req, res) => {
 
 // POST /api/usuarios/crear → dar de alta un nuevo empleado
 // Body: { nombre, apellido, nombre_usuario, email, telefono, contraseña, id_rol }
-// ⚠️ El campo usa la ñ literal para coincidir con la columna de Supabase
+// La columna en la BD se llama "contrasena" (sin ñ)
 app.post('/api/usuarios/crear', async (req, res) => {
   const { nombre, apellido, nombre_usuario, email, telefono, id_rol } = req.body;
   const contraseña = req.body['contraseña'];
@@ -1603,7 +1744,7 @@ app.post('/api/usuarios/crear', async (req, res) => {
     id_rol:   parseInt(id_rol)
   };
   const hashContrasenaCreate = await bcrypt.hash(contraseña, 10);
-  nuevoRegistro['contraseña'] = hashContrasenaCreate;
+  nuevoRegistro['contrasena'] = hashContrasenaCreate;
 
   try {
     const { data, error } = await supabase
@@ -1644,7 +1785,7 @@ app.put('/api/usuarios/:id', async (req, res) => {
     id_rol:   parseInt(id_rol)
   };
   if (nuevaContrasena && nuevaContrasena.trim()) {
-    campos['contraseña'] = await bcrypt.hash(nuevaContrasena.trim(), 10);
+    campos['contrasena'] = await bcrypt.hash(nuevaContrasena.trim(), 10);
   }
 
   try {
@@ -1729,9 +1870,9 @@ app.post('/api/recuperar-password', async (req, res) => {
 
   // 3. Actualizar en Supabase — se guarda el HASH, no el texto plano
   // La clave en texto plano sólo viaja por email para que el usuario la escriba
-  // ⚠️ La columna se llama exactamente "contraseña" (con ñ) en PostgreSQL
+  // La columna se llama "contrasena" (sin ñ) en PostgreSQL
   const campoActualizar = {};
-  campoActualizar['contraseña'] = await bcrypt.hash(claveTemporal, 10);
+  campoActualizar['contrasena'] = await bcrypt.hash(claveTemporal, 10);
 
   const { error: errUpdate } = await supabase
     .from('usuarios')

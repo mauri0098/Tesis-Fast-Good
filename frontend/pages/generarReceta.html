@@ -49,7 +49,6 @@
       <table class="standard-table">
         <thead>
           <tr>
-            <th>ID</th>
             <th>Código</th>
             <th>Categoría</th>
             <th>Plan</th>
@@ -62,10 +61,11 @@
         </thead>
         <tbody id="recetasBody">
           <tr>
-            <td colspan="9" class="loading-text">Cargando datos...</td>
+            <td colspan="8" class="loading-text">Cargando datos...</td>
           </tr>
         </tbody>
       </table>
+      <div id="paginacion" class="paginacion"></div>
 
     </div>
   </main>
@@ -199,6 +199,7 @@
     </div>
   </div>
 
+  <script src="../src/js/paginacion.js"></script>
   <script src="../src/js/generarReceta.js"></script>
 
 </div> <!-- /.admin-content -->

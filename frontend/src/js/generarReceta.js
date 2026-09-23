@@ -81,110 +81,106 @@ async function fetchRecetas() {
 
   } catch (error) {
     console.error('Error al traer recetas:', error);
-    tbody.innerHTML = '<tr><td colspan="9" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
   }
 }
 
 // ==========================================
 // TABLA PRINCIPAL
 // ==========================================
+// Recibe todas las recetas o las filtradas y las dibuja paginadas de a 15
 function renderizarRecetas(recetas) {
-  const tbody = document.getElementById('recetasBody');
-  tbody.innerHTML = '';
+  crearPaginacion({
+    datos:                recetas,
+    porPagina:            15,
+    contenedorTabla:      document.getElementById('recetasBody'),
+    contenedorPaginacion: document.getElementById('paginacion'),
+    funcionRenderFila:    crearFilaReceta,
+    filaVacia:            '<tr><td colspan="8" class="loading-text">No existen productos que cumplan los filtros especificados</td></tr>'
+  });
+}
 
-  if (recetas.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" class="loading-text">No existen productos que cumplan los filtros especificados</td></tr>';
-    return;
+function crearFilaReceta(receta) {
+  const tr = document.createElement('tr');
+
+  // — Código de Plato —
+  const tdCodigo = document.createElement('td');
+  tdCodigo.className   = 'td-codigo';
+  tdCodigo.textContent = receta.codigo_plato || '—';
+
+  // — Categoría —
+  const tdCategoria = document.createElement('td');
+  tdCategoria.textContent = (receta.plan && receta.plan.categoria) ? receta.plan.categoria : '-';
+
+  // — Plan (sin (null) si el código no existe) —
+  const tdPlan = document.createElement('td');
+  if (receta.plan) {
+    tdPlan.textContent = receta.plan.codigo
+      ? receta.plan.nombre + ' (' + receta.plan.codigo + ')'
+      : receta.plan.nombre;
+  } else {
+    tdPlan.textContent = '-';
   }
 
-  recetas.forEach(function (receta) {
-    const tr = document.createElement('tr');
+  // — Nombre Producto —
+  const tdNombre = document.createElement('td');
+  const strong   = document.createElement('strong');
+  strong.textContent = receta.nombre_producto || '-';
+  tdNombre.appendChild(strong);
 
-    // — ID —
-    const tdId = document.createElement('td');
-    tdId.style.fontWeight = 'bold';
-    tdId.textContent = '#' + String(receta.id_producto).padStart(3, '0');
+  // — Precio —
+  const tdPrecio = document.createElement('td');
+  tdPrecio.textContent = receta.precio != null ? '$' + Number(receta.precio).toFixed(2) : '-';
 
-    // — Código de Plato —
-    const tdCodigo = document.createElement('td');
-    tdCodigo.className   = 'td-codigo';
-    tdCodigo.textContent = receta.codigo_plato || '-';
+  // — Descuento —
+  const tdDescuento = document.createElement('td');
+  tdDescuento.textContent = receta.descuento != null ? receta.descuento + '%' : '-';
 
-    // — Categoría —
-    const tdCategoria = document.createElement('td');
-    tdCategoria.textContent = (receta.plan && receta.plan.categoria) ? receta.plan.categoria : '-';
+  // — Cantidad Posible —
+  const tdCant   = document.createElement('td');
+  const posible  = calcularCantidadPosible(receta.insumos || []);
+  const spanCant = document.createElement('span');
+  spanCant.textContent = posible;
+  spanCant.className   = posible === 0 ? 'cant-cero' : posible < 5 ? 'cant-baja' : 'cant-ok';
+  tdCant.appendChild(spanCant);
 
-    // — Plan (sin (null) si el código no existe) —
-    const tdPlan = document.createElement('td');
-    if (receta.plan) {
-      tdPlan.textContent = receta.plan.codigo
-        ? receta.plan.nombre + ' (' + receta.plan.codigo + ')'
-        : receta.plan.nombre;
-    } else {
-      tdPlan.textContent = '-';
-    }
+  // — Acciones —
+  const tdAcciones    = document.createElement('td');
+  tdAcciones.className = 'td-acciones';
 
-    // — Nombre Producto —
-    const tdNombre = document.createElement('td');
-    const strong   = document.createElement('strong');
-    strong.textContent = receta.nombre_producto || '-';
-    tdNombre.appendChild(strong);
+  // Div flex interno: evita que display:flex en el <td> rompa la tabla
+  const grupoAcciones    = document.createElement('div');
+  grupoAcciones.className = 'acciones-grupo';
 
-    // — Precio —
-    const tdPrecio = document.createElement('td');
-    tdPrecio.textContent = receta.precio != null ? '$' + Number(receta.precio).toFixed(2) : '-';
+  const btnDetalle = document.createElement('button');
+  btnDetalle.className = 'btn-detalle';
+  btnDetalle.textContent = 'Detalles';
+  btnDetalle.onclick = function () { abrirModalDetalles(receta.id_producto); };
 
-    // — Descuento —
-    const tdDescuento = document.createElement('td');
-    tdDescuento.textContent = receta.descuento != null ? receta.descuento + '%' : '-';
+  const btnEditar = document.createElement('button');
+  btnEditar.className = 'btn-editar';
+  btnEditar.textContent = 'Editar';
+  btnEditar.onclick = function () { abrirModalEditar(receta.id_producto); };
 
-    // — Cantidad Posible —
-    const tdCant   = document.createElement('td');
-    const posible  = calcularCantidadPosible(receta.insumos || []);
-    const spanCant = document.createElement('span');
-    spanCant.textContent = posible;
-    spanCant.className   = posible === 0 ? 'cant-cero' : posible < 5 ? 'cant-baja' : 'cant-ok';
-    tdCant.appendChild(spanCant);
+  const btnBorrar = document.createElement('button');
+  btnBorrar.className = 'btn-borrar';
+  btnBorrar.textContent = 'Borrar';
+  btnBorrar.onclick = function () { borrarReceta(receta.id_producto); };
 
-    // — Acciones —
-    const tdAcciones    = document.createElement('td');
-    tdAcciones.className = 'td-acciones';
+  grupoAcciones.appendChild(btnDetalle);
+  grupoAcciones.appendChild(btnEditar);
+  grupoAcciones.appendChild(btnBorrar);
+  tdAcciones.appendChild(grupoAcciones);
 
-    // Div flex interno: evita que display:flex en el <td> rompa la tabla
-    const grupoAcciones    = document.createElement('div');
-    grupoAcciones.className = 'acciones-grupo';
-
-    const btnDetalle = document.createElement('button');
-    btnDetalle.className = 'btn-detalle';
-    btnDetalle.textContent = 'Detalles';
-    btnDetalle.onclick = function () { abrirModalDetalles(receta.id_producto); };
-
-    const btnEditar = document.createElement('button');
-    btnEditar.className = 'btn-editar';
-    btnEditar.textContent = 'Editar';
-    btnEditar.onclick = function () { abrirModalEditar(receta.id_producto); };
-
-    const btnBorrar = document.createElement('button');
-    btnBorrar.className = 'btn-borrar';
-    btnBorrar.textContent = 'Borrar';
-    btnBorrar.onclick = function () { borrarReceta(receta.id_producto); };
-
-    grupoAcciones.appendChild(btnDetalle);
-    grupoAcciones.appendChild(btnEditar);
-    grupoAcciones.appendChild(btnBorrar);
-    tdAcciones.appendChild(grupoAcciones);
-
-    tr.appendChild(tdId);
-    tr.appendChild(tdCodigo);
-    tr.appendChild(tdCategoria);
-    tr.appendChild(tdPlan);
-    tr.appendChild(tdNombre);
-    tr.appendChild(tdPrecio);
-    tr.appendChild(tdDescuento);
-    tr.appendChild(tdCant);
-    tr.appendChild(tdAcciones);
-    tbody.appendChild(tr);
-  });
+  tr.appendChild(tdCodigo);
+  tr.appendChild(tdCategoria);
+  tr.appendChild(tdPlan);
+  tr.appendChild(tdNombre);
+  tr.appendChild(tdPrecio);
+  tr.appendChild(tdDescuento);
+  tr.appendChild(tdCant);
+  tr.appendChild(tdAcciones);
+  return tr;
 }
 
 // ==========================================

@@ -132,45 +132,46 @@ function clasificarMovimiento(m) {
   return   { filaClass: 'fila-descarte', badgeClass: 'badge-descarte', icono: '✖', label: 'Descarte' };
 }
 
-// ── Render de tabla ───────────────────────────────────────────
+// ── Render de tabla (paginada de a 15) ────────────────────────
 function renderTabla(movimientos) {
-  const tbody = document.getElementById('tablaBody');
-
-  if (!movimientos.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No hay movimientos registrados todavía.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = '';
-  movimientos.forEach(m => {
-    const { filaClass, badgeClass, icono, label } = clasificarMovimiento(m);
-
-    const tr = document.createElement('tr');
-    tr.className      = filaClass;
-    tr.dataset.tipo   = m.tipo;
-    tr.dataset.insumo = (m.insumos?.nombre || '').toLowerCase();
-    tr.dataset.fecha  = m.fecha || '';
-
-    const fecha = m.fecha
-      ? new Date(m.fecha).toLocaleString('es-AR', {
-          day: '2-digit', month: '2-digit', year: 'numeric',
-          hour: '2-digit', minute: '2-digit'
-        })
-      : '-';
-
-    const badgeLabel = `${icono} ${label}`;
-
-    tr.innerHTML = `
-      <td>${fecha}</td>
-      <td><strong>${m.insumos?.nombre || '-'}</strong></td>
-      <td><span class="badge ${badgeClass}">${badgeLabel}</span></td>
-      <td>${Number(m.cantidad).toLocaleString('es-AR')}</td>
-      <td>${m.unidad || m.insumos?.unidad_medida || '-'}</td>
-      <td style="color:var(--color-muted); font-size:0.83rem;">${m.motivo || '—'}</td>
-      <td><button class="btn-eliminar" onclick="eliminarMovimiento(${m.id}, '${m.insumos?.nombre || ''}', '${m.tipo}')">✕ Eliminar</button></td>
-    `;
-    tbody.appendChild(tr);
+  crearPaginacion({
+    datos:                movimientos,
+    porPagina:            15,
+    contenedorTabla:      document.getElementById('tablaBody'),
+    contenedorPaginacion: document.getElementById('paginacion'),
+    funcionRenderFila:    crearFilaMovimiento,
+    filaVacia:            `<tr class="empty-row"><td colspan="7">No hay movimientos registrados todavía.</td></tr>`
   });
+}
+
+function crearFilaMovimiento(m) {
+  const { filaClass, badgeClass, icono, label } = clasificarMovimiento(m);
+
+  const tr = document.createElement('tr');
+  tr.className      = filaClass;
+  tr.dataset.tipo   = m.tipo;
+  tr.dataset.insumo = (m.insumos?.nombre || '').toLowerCase();
+  tr.dataset.fecha  = m.fecha || '';
+
+  const fecha = m.fecha
+    ? new Date(m.fecha).toLocaleString('es-AR', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      })
+    : '-';
+
+  const badgeLabel = `${icono} ${label}`;
+
+  tr.innerHTML = `
+    <td>${fecha}</td>
+    <td><strong>${m.insumos?.nombre || '-'}</strong></td>
+    <td><span class="badge ${badgeClass}">${badgeLabel}</span></td>
+    <td>${Number(m.cantidad).toLocaleString('es-AR')}</td>
+    <td>${m.unidad || m.insumos?.unidad_medida || '-'}</td>
+    <td style="color:var(--color-muted); font-size:0.83rem;">${m.motivo || '—'}</td>
+    <td><button class="btn-eliminar" onclick="eliminarMovimiento(${m.id}, '${m.insumos?.nombre || ''}', '${m.tipo}')">✕ Eliminar</button></td>
+  `;
+  return tr;
 }
 
 // ── Filtros ───────────────────────────────────────────────────

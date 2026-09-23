@@ -35,84 +35,77 @@ async function fetchInsumos() {//Un fetch aclara lo que es un fetch
 // DIBUJAR LA TABLA
 // ==========================================
 
-function renderizarInsumos(insumos) {//funcion para hacer la tabla de insumos. es como renderizar productos pero para insumos. recibe un array de insumos y los dibuja en la tabla del html
-  const tbody = document.getElementById('stockBody');//volvemos a secleccionar la parte del html donde va la tabla de insumos para mostrarlo ahi
-  tbody.innerHTML = ''; // limpiar lo que había antes
-
-  
-  if (insumos.length === 0) {//si no hay ningun insumo se muesta este mensaje 
-    tbody.innerHTML = '<tr><td colspan="8" class="loading-text">No se encontraron insumos</td></tr>';
-    return;
-  }
-  //DUDA RAPIDA SE MEZCLA EL HTML ACA CON EL JAVASCRIP ESTA BIEN ESTO O TIENE QUE VENIR EN VARIABLES
-  
-  insumos.forEach(insumo => {// SE RECORRE CADA INSUMOS Y SE HACAE UNA GRILLA PARA CADA DE ELLOS 
-    const tr = document.createElement('tr');// ESTE TR ES CADA FILA DE LA TABLA, SE CREA POR CADA INSUMO
-
-    
-    const idFormatted = '#' + String(insumo.id).padStart(3, '0');//SE METE EN VARIABLES LOS DISTITOS DATOS DEL INSUMO, NOSOTROS RECORRIMOS EL JSON ACA Y LOS VAMOS GUARDANDO EN VARIABLES PARA USARLAS EN EL HTML DE MAS ABAJO, POR EJEMPLO EL ID LO FORMATEAMOS PARA QUE TENGA 3 DIGITOS Y UN # AL PRINCIPIO
-
-    
-    const nombre = insumo.nombre;
-
-    
-    const stockActual = insumo.stock_actual;
-
-    
-    const unidad = insumo.unidad_medida || '-';
-
-    
-    const categoria = insumo.categorias_insumos?.nombre || '-';
-
-
-    // Fecha de caducidad (puede venir null si el insumo no vence)
-    let fechaCaducidad;
-    if (insumo.fecha_caducidad) {
-      fechaCaducidad = new Date(insumo.fecha_caducidad).toLocaleDateString('es-AR', {
-        day: '2-digit', month: '2-digit', year: 'numeric'
-      });
-    } else {
-      fechaCaducidad = '-';
-    }
-
-    const esBajo = insumo.stock_actual <= insumo.stock_minimo;//ESTO ES PARA SABER SI EL STOCK ESTA BAJO O NO, COMPARANDO EL STOCK ACTUAL CON EL MINIMO
-
-    let estado;
-    if (esBajo) {
-      estado = 'Bajo mínimo';
-    } else {
-      estado = 'Normal';
-    }
-
-    let badgeClass;
-    if (esBajo) {
-      badgeClass = 'badge-bajo';
-    } else {
-      badgeClass = 'badge-normal';
-    }
-
-    
-    if (esBajo) tr.classList.add('row-bajo');
-
-    // ACA SE AGARRA LO DEL HTML NO ME ACUERDO PORQUE PERO SE AGARRA UNA PARTE DE AHI QUE ESTA CREADO EN EL HTML Y SE METE LAS VARIABLES DE LOS INSUMOS 
-    tr.innerHTML = `
-      <td style="font-weight:bold">${idFormatted}</td>
-      <td><strong>${nombre}</strong></td>
-      <td style="font-weight:600">${stockActual}</td>
-      <td>${unidad}</td>
-      <td>${categoria}</td>
-      <td>${fechaCaducidad}</td>
-      <td><span class="badge-estado ${badgeClass}">${estado}</span></td>
-      <td class="td-acciones">
-        <div class="acciones-grupo">
-          <button class="btn-editar" onclick="abrirModalEditarInsumo(${insumo.id})">✎ Editar</button>
-          <button class="btn-borrar" onclick="eliminarInsumo(${insumo.id})">🗑 Eliminar</button>
-        </div>
-      </td>
-    `;
-
-    tbody.appendChild(tr);//Y ESTO NOSE QUE HACE
+function renderizarInsumos(insumos) {//funcion para hacer la tabla de insumos. recibe un array de insumos (todos o filtrados) y los dibuja paginados de a 15 en la tabla del html
+  crearPaginacion({
+    datos: insumos,
+    porPagina: 15,
+    contenedorTabla: document.getElementById('stockBody'),//la parte del html donde va la tabla de insumos
+    contenedorPaginacion: document.getElementById('paginacion'),//el div de los botones anterior / siguiente
+    funcionRenderFila: crearFilaInsumo,
+    filaVacia: '<tr><td colspan="8" class="loading-text">No se encontraron insumos</td></tr>'//si no hay ningun insumo se muesta este mensaje
   });
+}
+
+//DUDA RAPIDA SE MEZCLA EL HTML ACA CON EL JAVASCRIP ESTA BIEN ESTO O TIENE QUE VENIR EN VARIABLES
+
+function crearFilaInsumo(insumo) {// SE ARMA LA FILA DE UN INSUMO, LA PAGINACION LLAMA A ESTA FUNCION POR CADA INSUMO DE LA PAGINA
+  const tr = document.createElement('tr');// ESTE TR ES CADA FILA DE LA TABLA, SE CREA POR CADA INSUMO
+
+  const codigo = '#' + String(insumo.id).padStart(3, '0');
+
+  const nombre = insumo.nombre;
+
+  const stockActual = insumo.stock_actual;
+
+  const unidad = insumo.unidad_medida || '-';
+
+  const categoria = insumo.categorias_insumos?.nombre || '-';
+
+  // Fecha de caducidad (puede venir null si el insumo no vence)
+  let fechaCaducidad;
+  if (insumo.fecha_caducidad) {
+    fechaCaducidad = new Date(insumo.fecha_caducidad).toLocaleDateString('es-AR', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    });
+  } else {
+    fechaCaducidad = '-';
+  }
+
+  const esBajo = insumo.stock_actual <= insumo.stock_minimo;//ESTO ES PARA SABER SI EL STOCK ESTA BAJO O NO, COMPARANDO EL STOCK ACTUAL CON EL MINIMO
+
+  let estado;
+  if (esBajo) {
+    estado = 'Bajo mínimo';
+  } else {
+    estado = 'Normal';
+  }
+
+  let badgeClass;
+  if (esBajo) {
+    badgeClass = 'badge-bajo';
+  } else {
+    badgeClass = 'badge-normal';
+  }
+
+  if (esBajo) tr.classList.add('row-bajo');
+
+  tr.innerHTML = `
+    <td style="font-weight:bold">${codigo}</td>
+    <td><strong>${nombre}</strong></td>
+    <td style="font-weight:600">${stockActual}</td>
+    <td>${unidad}</td>
+    <td>${categoria}</td>
+    <td>${fechaCaducidad}</td>
+    <td><span class="badge-estado ${badgeClass}">${estado}</span></td>
+    <td class="td-acciones">
+      <div class="acciones-grupo">
+        <button class="btn-editar" onclick="abrirModalEditarInsumo(${insumo.id})">✎ Editar</button>
+        <button class="btn-borrar" onclick="eliminarInsumo(${insumo.id})">🗑 Eliminar</button>
+      </div>
+    </td>
+  `;
+
+  return tr;
 }
 
 // ==========================================

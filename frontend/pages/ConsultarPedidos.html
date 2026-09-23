@@ -59,6 +59,7 @@
           </tr>
         </tbody>
       </table>
+      <div id="paginacion" class="paginacion"></div>
     </div>
   </main>
 
@@ -84,6 +85,88 @@
           </thead>
           <tbody id="modalDetallesBody"></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PAGO DEL PEDIDO -->
+  <div id="modalPago" class="modal-overlay" onclick="cerrarModalPago(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="pagoTitulo">Pago del Pedido</h3>
+        <button class="modal-close-btn" onclick="cerrarModalPago()">✕</button>
+      </div>
+
+      <div class="pago-total">
+        <span>Total del pedido</span>
+        <strong id="pagoTotal">$0</strong>
+      </div>
+
+      <p class="pago-subtitulo">Método de pago</p>
+      <div class="pago-metodos">
+        <label class="pago-opcion">
+          <input type="radio" name="metodoPago" value="Efectivo">
+          <span>💵 Efectivo</span>
+        </label>
+        <label class="pago-opcion">
+          <input type="radio" name="metodoPago" value="Transferencia">
+          <span>🏦 Transferencia</span>
+        </label>
+        <label class="pago-opcion">
+          <input type="radio" name="metodoPago" value="Tarjeta">
+          <span>💳 Tarjeta</span>
+        </label>
+        <label class="pago-opcion">
+          <input type="radio" name="metodoPago" value="Mixto">
+          <span>🔀 Mixto</span>
+        </label>
+      </div>
+
+      <!-- Sub-opción de Efectivo -->
+      <div id="pagoSubEfectivo" class="pago-sub">
+        <label class="pago-check">
+          <input type="checkbox" id="pagoAnticipado">
+          <span>Pago anticipado</span>
+        </label>
+      </div>
+
+      <!-- Sub-opción de Tarjeta -->
+      <div id="pagoSubTarjeta" class="pago-sub">
+        <p class="pago-subtitulo">Tipo de tarjeta</p>
+        <div class="pago-tipos-tarjeta">
+          <label class="pago-opcion pago-opcion-chica">
+            <input type="radio" name="tipoTarjeta" value="Débito">
+            <span>Débito</span>
+          </label>
+          <label class="pago-opcion pago-opcion-chica">
+            <input type="radio" name="tipoTarjeta" value="Crédito">
+            <span>Crédito</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Solo visible con Mixto -->
+      <div id="pagoMixto" class="pago-mixto">
+        <label for="pagoMontoEfectivo">💵 Monto en efectivo</label>
+        <div class="pago-input-monto">
+          <span>$</span>
+          <input type="number" id="pagoMontoEfectivo" min="0" step="0.01" placeholder="0">
+        </div>
+
+        <label for="pagoMontoTransferencia">🏦 Monto en transferencia</label>
+        <div class="pago-input-monto">
+          <span>$</span>
+          <input type="number" id="pagoMontoTransferencia" min="0" step="0.01" placeholder="0">
+        </div>
+
+        <div id="pagoSuma" class="pago-suma"></div>
+      </div>
+
+      <div id="pagoError" class="pago-error"></div>
+
+      <div class="pago-acciones">
+        <button class="btn-pago-cancelar" onclick="cerrarModalPago()">Cancelar</button>
+        <button id="pagoGuardar" class="btn-pago-guardar" onclick="guardarPago()">Guardar</button>
       </div>
     </div>
   </div>
@@ -146,6 +229,87 @@
     .btn-eliminar:hover { background: #b02a37; }
     .btn-eliminar:disabled { background: #adb5bd; cursor: not-allowed; }
 
+    /* ── Columna Acciones: Pago (azul) + Eliminar (rojo) ── */
+    .acciones-pedido { display: flex; flex-direction: column; gap: 0.35rem; align-items: stretch; }
+    .btn-pago {
+      background: #0d6efd; color: white; border: none;
+      padding: 0.35rem 0.7rem; border-radius: 6px; cursor: pointer;
+      font-size: 0.82rem; font-weight: 600; transition: background 0.2s;
+    }
+    .btn-pago:hover { background: #0b5ed7; }
+
+    /* Desglose del pago mixto en la columna Método Pago */
+    .pago-detalle { font-size: 0.72rem; line-height: 1.35; color: #6c757d; white-space: nowrap; text-align: center; }
+
+    /* ── Modal de pago ── */
+    #modalPago .modal-box { max-width: 440px; }
+    .pago-total {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #e8f5e9; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.25rem;
+      font-size: 0.9rem; color: #2e7d32;
+    }
+    .pago-total strong { font-size: 1.25rem; }
+    .pago-subtitulo { font-size: 0.85rem; font-weight: 600; color: #555; margin: 0 0 0.5rem; }
+
+    .pago-metodos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
+    .pago-opcion { position: relative; cursor: pointer; }
+    .pago-opcion input { position: absolute; opacity: 0; pointer-events: none; }
+    .pago-opcion span {
+      display: block; text-align: center; padding: 0.6rem 0.2rem;
+      border: 1.5px solid #ddd; border-radius: 8px;
+      font-size: 0.78rem; font-weight: 600; color: #555; white-space: nowrap;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+    }
+    .pago-opcion:hover span { border-color: var(--color-primary); }
+    .pago-opcion input:checked + span { border-color: var(--color-primary); background: var(--color-primary); color: white; }
+    .pago-opcion input:focus-visible + span { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+    /* Sub-opciones: se muestran según el método elegido */
+    .pago-sub { display: none; margin-bottom: 1rem; }
+    .pago-sub.visible { display: block; }
+    .pago-check {
+      display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;
+      font-size: 0.88rem; font-weight: 500; color: #444;
+    }
+    .pago-check input { width: 17px; height: 17px; accent-color: var(--color-primary); cursor: pointer; }
+    .pago-tipos-tarjeta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+    .pago-opcion-chica span { padding: 0.45rem 0.2rem; }
+
+    .pago-mixto { display: none; margin-bottom: 0.5rem; }
+    .pago-mixto.visible { display: block; }
+    .pago-mixto label { display: block; font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 0.3rem; }
+    .pago-input-monto {
+      display: flex; align-items: center; border: 1.5px solid #ddd; border-radius: 8px;
+      padding: 0 0.75rem; margin-bottom: 0.85rem; background: white;
+    }
+    .pago-input-monto:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(40,167,69,0.1); }
+    .pago-input-monto span { color: #888; font-weight: 600; }
+    .pago-input-monto input {
+      flex: 1; border: none; outline: none; padding: 0.6rem 0.5rem;
+      font-family: inherit; font-size: 0.95rem; background: transparent;
+    }
+    .pago-suma { font-size: 0.82rem; font-weight: 600; min-height: 1.2em; }
+    .pago-suma.ok    { color: #2e7d32; }
+    .pago-suma.falta { color: #b26a00; }
+
+    .pago-error {
+      display: none; color: #d32f2f; font-size: 0.85rem;
+      background: #fdecea; border-left: 3px solid #d32f2f;
+      padding: 0.5rem 0.75rem; border-radius: 6px; margin: 0.5rem 0;
+    }
+    .pago-error.visible { display: block; }
+
+    .pago-acciones { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1.25rem; }
+    .btn-pago-cancelar, .btn-pago-guardar {
+      border: none; border-radius: 8px; padding: 0.6rem 1.3rem; cursor: pointer;
+      font-family: inherit; font-size: 0.9rem; font-weight: 600; transition: background 0.2s;
+    }
+    .btn-pago-cancelar { background: #f0f0f0; color: #555; }
+    .btn-pago-cancelar:hover { background: #e2e2e2; }
+    .btn-pago-guardar { background: var(--color-primary); color: white; }
+    .btn-pago-guardar:hover { background: #218838; }
+    .btn-pago-guardar:disabled { background: #adb5bd; cursor: not-allowed; }
+
     /* Responsive — el modal se achica en mobile */
     @media (max-width: 768px) {
       .modal-box { padding: 1.25rem; width: 94%; }
@@ -153,6 +317,7 @@
   </style>
 
   <script src="../src/js/global.js"></script>
+  <script src="../src/js/paginacion.js"></script>
   <script src="../src/js/ListarPedidos.js"></script>
 
 </div> <!-- /.admin-content -->
