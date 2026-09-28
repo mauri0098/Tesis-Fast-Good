@@ -619,3 +619,361 @@ Nueva función `infoMetodoPago(metodo)`, compartida por las dos vistas. Devuelve
 | Sin errores de JavaScript | ✅ | |
 
 > **Limitación:** en un Mixto, Envíos no puede mostrar cuánto cobrar en efectivo, porque `GET /api/envios` no devuelve `monto_efectivo` ni `monto_transferencia`. Para mostrarlo hay que agregar esos dos campos al `.select()` de `/api/envios` en `server.js`.
+
+---
+
+## 🔒 Anulación de pedidos con PIN (reemplaza al botón Eliminar)
+
+**Fecha:** 24 de septiembre de 2026  
+**Resultado:** ✅ **31/31 pruebas pasaron** (10 de API + 21 de interfaz)
+
+En Consultar Pedidos, el botón **Eliminar** borraba el pedido de la base sin pedir ninguna autorización. Ahora ese botón se llama **Anular**: abre un modal que pide un PIN, el PIN se valida en el servidor y el pedido **no se borra**, solo pasa a estado 5 (Cancelado).
+
+### Cambios
+
+| Archivo | Cambio |
+|---------|--------|
+| `.env` | `ADMIN_PIN=1234` (el `.env` está en `.gitignore`: hay que agregarlo a mano en cada máquina) |
+| `server.js` | Nuevo `POST /api/pedidos/:id/anular` con `requireAuth`. Compara el PIN con `crypto.timingSafeEqual`. Si es correcto, `id_estado = 5`. El `DELETE /api/pedidos/:id` **se dejó igual** |
+| `ConsultarPedidos.html` | Modal `#modalAnular`: título, advertencia, campo `type="password"` (4 dígitos), botones Cancelar (gris) y Confirmar Anulación (rojo). Mismo estilo que el modal de Pago. También se agregó el aviso de éxito `.toast-exito` |
+| `ListarPedidos.js` | El botón pasa de "Eliminar" a "Anular". Si el pedido ya está cancelado se muestra "Anulado" deshabilitado. Se agregó la lógica del modal (`abrirModalAnular`, `cerrarModalAnular`, `confirmarAnulacion`, `mostrarExito`) y se quitó `eliminarPedido()`, que ya no se usaba |
+
+### Respuestas del endpoint
+
+| Caso | HTTP | Respuesta |
+|------|------|-----------|
+| Sin token | 401 | No autorizado |
+| ID no numérico | 400 | ID de pedido inválido |
+| PIN incorrecto, vacío o de otro largo | 403 | PIN incorrecto (no se modifica nada) |
+| Pedido inexistente | 404 | Pedido no encontrado |
+| Pedido ya anulado | 409 | El pedido ya está anulado |
+| Falta `ADMIN_PIN` en el `.env` | 500 | El PIN de autorización no está configurado en el servidor |
+| PIN correcto | 200 | Pedido anulado correctamente (`id_estado = 5`) |
+
+### Prueba de API (servidor temporal en :3001 con pedidos de prueba, eliminados al terminar)
+
+| Test | Resultado |
+|------|-----------|
+| Sin token | ✅ 401, estado sin cambios |
+| PIN `0000` | ✅ 403 "PIN incorrecto", estado sin cambios |
+| Sin PIN | ✅ 403, estado sin cambios |
+| PIN `12345` | ✅ 403, estado sin cambios |
+| ID `abc` | ✅ 400 |
+| Pedido inexistente | ✅ 404 |
+| PIN `1234` | ✅ 200, estado = 5 |
+| Anular dos veces | ✅ 409 |
+| El pedido sigue existiendo | ✅ |
+| `DELETE /api/pedidos/:id` sigue funcionando | ✅ 200 (se usó para limpiar) |
+
+### Prueba de interfaz (Chrome headless)
+
+| Test | Resultado |
+|------|-----------|
+| El botón dice "Anular", es rojo y no queda ningún "Eliminar" | ✅ |
+| El modal se abre con el título "Anular Pedido #020" | ✅ |
+| Campo PIN `type="password"`, `maxlength=4`, con foco al abrir | ✅ |
+| Texto de advertencia "Esta acción es irreversible..." | ✅ |
+| Fuente Poppins | ✅ |
+| Cancelar cierra el modal sin anular | ✅ |
+| Al reabrir, el campo PIN está vacío | ✅ |
+| PIN de 2 dígitos → "El PIN debe tener 4 dígitos." (no llega al servidor) | ✅ |
+| PIN incorrecto → "PIN incorrecto", el modal sigue abierto, estado sin cambios | ✅ |
+| PIN correcto (con Enter) → se cierra el modal | ✅ |
+| Aviso "✓ Pedido #020 anulado correctamente." | ✅ |
+| Estado en la base = 5 | ✅ |
+| La grilla se refresca: estado CANCELADO y botón "Anulado" deshabilitado | ✅ |
+| Se conservan el filtro de búsqueda y la página actual | ✅ |
+| Sin errores de JavaScript | ✅ |
+
+### Pendientes / observaciones
+
+- **Reiniciar el servidor** para que tome el endpoint nuevo y el `ADMIN_PIN`.
+- **Stock:** anular no devuelve al stock los insumos ya descontados (pedidos que llegaron a estado 3 o 4). Es el mismo comportamiento que tiene hoy pasar un pedido a "Cancelado" desde el select de estado.
+- **Fuerza bruta:** un PIN de 4 dígitos tiene 10.000 combinaciones y no hay límite de intentos. Lo mitiga que el endpoint exige estar logueado. Si hace falta, se puede agregar un bloqueo después de N intentos fallidos.
+- El `DELETE /api/pedidos/:id` sigue disponible **sin autenticación**. Ya no lo usa el frontend, pero cualquiera que conozca la URL puede llamarlo.
+
+---
+
+## 💰 Confirmación de pago al pasar un pedido a "En Preparación"
+
+**Fecha:** 24 de septiembre de 2026  
+**Resultado:** ✅ **24/24 pruebas pasaron** (Chrome headless contra el servidor real en :3000)
+
+Antes, cambiar un pedido a **En Preparación** (estado 2) lo hacía avanzar aunque el cliente todavía no hubiera transferido. Ahora, si el pago es Transferencia, Tarjeta Débito, Tarjeta Crédito o Mixto, primero se pregunta si el cliente ya pagó. En Efectivo avanza directo, porque se cobra al entregar.
+
+Solo se tocó el frontend. No se modificaron `server.js` ni el descuento de stock.
+
+### Cambios
+
+| Archivo | Cambio |
+|---------|--------|
+| `ConsultarPedidos.html` | Modal `#modalConfirmarPago`: título "Confirmar Pago", texto con el método en negrita, botones "No, todavía no pagó" (gris) y "Sí, ya pagó" (verde). Usa los estilos de los otros modales (`.btn-pago-cancelar` / `.btn-pago-guardar`) |
+| `ListarPedidos.js` | El `fetch` del cambio de estado pasó, sin cambios, a la función `cambiarEstadoPedido()`, que ahora devuelve `true` o `false`. El listener del select abre el modal antes de llamar al servidor cuando el nuevo estado es 2, el método no es Efectivo y el pedido no está pagado. Funciones nuevas: `abrirModalConfirmarPago`, `cancelarConfirmarPago` y `aceptarConfirmarPago` |
+
+### Comportamiento
+
+- **"No, todavía no pagó"** (también la ✕, Escape o un clic afuera del modal): se cierra el modal, el select vuelve al estado anterior y no se llama al servidor.
+- **"Sí, ya pagó"**: primero `PUT /api/pedidos/:id/estado` con `{ estado_id: 2 }`. Solo si sale bien, `PUT /api/pedidos/:id/pagado` con `{ pagado: true }`. Después se redibuja la grilla y la columna muestra PAGADO. Si el cambio de estado falla (por ejemplo, 409 por stock), no se marca como pagado.
+- **Efectivo** o método vacío: pasa directo, como antes.
+- **Pedido ya marcado como pagado:** pasa directo, sin volver a preguntar.
+- **Pasar a cualquier otro estado:** no pregunta.
+
+### Pruebas
+
+| Test | Resultado |
+|------|-----------|
+| Transferencia → estado 2 abre el modal | ✅ |
+| Con el modal abierto no se hace ninguna llamada al servidor | ✅ |
+| Título "Confirmar Pago" y el texto con el método | ✅ |
+| Botón gris "No, todavía no pagó" y botón verde "Sí, ya pagó", en Poppins | ✅ |
+| "No" → se cierra, el select vuelve a Registrado, la base no cambia | ✅ |
+| Tarjeta Débito → el modal muestra "Tarjeta Débito" | ✅ |
+| "Sí" → en la base: estado 2 y `pagado = true` | ✅ |
+| "Sí" → las llamadas son `PUT /estado` y después `PUT /pagado` | ✅ |
+| "Sí" → la grilla muestra En Preparación y PAGADO | ✅ |
+| Tarjeta Crédito → abre el modal; la ✕ cancela | ✅ |
+| Mixto → abre el modal; Escape y clic afuera cancelan; clic adentro no cierra | ✅ |
+| Mixto cancelado → la base no cambia | ✅ |
+| Efectivo → sin modal, pasa a estado 2, no se marca como pagado | ✅ |
+| Transferencia ya pagada → sin modal, pasa directo | ✅ |
+| Transferencia a otro estado (Cancelado) → sin modal | ✅ |
+| Sin errores de JavaScript | ✅ |
+
+Los 6 pedidos de prueba se crearon para el test y se borraron al terminar.
+
+### Observaciones
+
+- En el Mixto, "Sí, ya pagó" marca todo el pedido como pagado, incluida la parte en efectivo, que en realidad se cobra al entregar. Hoy el sistema tiene un solo campo `pagado` por pedido, así que no se puede marcar solo la parte de transferencia.
+- Si `PUT /pagado` falla después de cambiar el estado, aparece un aviso: el pedido queda En Preparación pero sin marcar como pagado. Como la grilla no tiene botón para marcarlo a mano, en ese caso hay que corregirlo desde la base.
+
+---
+
+## 👨‍🍳 Cocinero por plato (en lugar de por plan)
+
+**Fecha:** 24 de septiembre de 2026  
+**Resultado:** ✅ **28/28 pruebas pasaron** (16 de API + 12 de interfaz en Chrome headless)
+
+Antes, cada cocinero estaba asignado a un **plan** y veía todos sus platos. Ahora cada **plato** (`productos.id_cocinero`) puede tener su propio cocinero. Si un plato no tiene cocinero, lo ve el principal o el suplente de su plan, que quedan como respaldo.
+
+- La columna `productos.id_cocinero` ya existía, así que no se corrió ningún `ALTER TABLE`. No hubo que migrar datos.
+- No se tocaron las columnas de cocinero de `planes`, el botón "Listo", el flujo de estados, el stock ni los pagos.
+
+### Cambios
+
+| Archivo | Cambio |
+|---------|--------|
+| `server.js` | Nueva función `platoEsDelCocinero(producto, cocineroId)`: el plato es del cocinero si lo tiene asignado o, cuando no tiene cocinero propio, si es el principal o suplente del plan |
+| `server.js` | **Nuevo** `GET /api/productos/cocineros`: platos activos con `codigo_plato`, `nombre`, `plan`, `id_cocinero`, `cocinero`, `cocinero_plan`, `cocinero_efectivo` y `origen` (`producto` / `plan` / `null`), ordenados por plan y código |
+| `server.js` | **Nuevo** `PUT /api/productos/:id/cocinero` con `requireAuth`: body `{ id_cocinero }` (uuid o `null`). Valida que el usuario exista y tenga rol 2 |
+| `server.js` | **Cambia** `GET /api/cocina/tareas`: cocinero → sus platos → pedidos en estado 2. Cada detalle lleva `id_producto` y `es_mio`. El filtro se hace en JS y el `cocinero_id` ya no se mete en el texto de `.or()`. Sin `cocinero_id` (modo admin) devuelve todo con `es_mio: true` |
+| `AsignarCocinero.html` | La grilla pasa de planes a platos: Código, Plato, Plan, Cocinero y Acción. Se agregan un buscador y un aviso de platos que no ve ningún cocinero, y los anchos de columna se ajustaron para que entre el texto del select |
+| `AsignarCocinero.js` | Se reescribió para la grilla por plato. Si el plato no tiene cocinero propio, la opción vacía dice *"Sin asignar — usa el del plan (Nombre)"* en gris, o *"el plan tampoco tiene cocinero"* en amarillo. Un asignado que ya no es cocinero se muestra como *"(ya no es cocinero)"*. Guarda con el token del admin |
+| `cocinero.js` | Después de traer las tareas se quedan solo los detalles con `es_mio`. La tabla y el resumen de porciones muestran solo los platos del cocinero. El botón "Listo para entregar" no se tocó |
+
+Endpoints que quedan como estaban: `GET /api/cocineros`, `GET /api/planes/cocineros` y `PUT /api/planes/:id/cocinero`. Este último sigue sirviendo para definir el respaldo del plan.
+
+### Escenario de prueba
+
+Se usaron los platos reales POLLO (#11, plan Descenso de Peso) y fideos (#17, plan Mantenimiento) y un pedido de prueba con POLLO x2 y fideos x3 en estado 2 (pasar a estado 2 no descuenta stock).
+
+- POLLO quedó asignado a **Juan**.
+- fideos quedó sin cocinero propio. Su plan tiene a **Marta** de principal y, solo durante la prueba, a **Mariela** de suplente.
+
+### Pruebas de API
+
+| Test | Resultado |
+|------|-----------|
+| PUT sin token | ✅ 401 |
+| PUT con un admin (rol 1) como cocinero | ✅ 400 "El usuario elegido no es un cocinero" |
+| PUT con un `id_cocinero` que no es UUID | ✅ 400 |
+| PUT con id de producto inválido / inexistente | ✅ 400 / 404 |
+| PUT POLLO → Juan; PUT fideos → `null` | ✅ 200 |
+| GET productos/cocineros: POLLO `origen=producto` (Juan), fideos `origen=plan` (Marta), solo activos | ✅ |
+| **Juan** ve el pedido: POLLO `es_mio=true`, fideos `es_mio=false` | ✅ |
+| **Marta** (principal del plan) ve el pedido: fideos `es_mio=true`, POLLO `false` | ✅ |
+| **Mariela** (suplente del plan) ve fideos por respaldo, POLLO no | ✅ |
+| Un usuario sin platos → lista vacía | ✅ |
+| Sin `cocinero_id` (modo admin) → todo con `es_mio=true` | ✅ |
+| `cocinero_id` manipulado (`<uuid>,id_cocinero.is.null`) no altera el filtro → vacío | ✅ |
+
+### Pruebas de interfaz (Chrome headless)
+
+| Test | Resultado |
+|------|-----------|
+| Grilla con columnas Código, Plato, Plan, Cocinero y Acción | ✅ |
+| Fila POLLO: código 4, plan Descenso de Peso, select en "juan cocinero alvarez" | ✅ |
+| Fila fideos: "Sin asignar — usa el del plan (Marta Garcia)" | ✅ |
+| El buscador filtra por nombre | ✅ |
+| Guardar desde la UI (fideos → Juan) queda en la base y el botón muestra "Guardado" | ✅ |
+| Guardar "Sin asignar" vuelve a `null` y el plato usa el cocinero del plan | ✅ |
+| Pantalla de Juan: en el pedido ve **solo POLLO x2** | ✅ |
+| Pantalla de Juan: el resumen suma solo sus porciones | ✅ |
+| Pantalla de Marta: en el pedido ve **solo fideos x3** | ✅ |
+| Pantalla de Marta: el resumen suma solo sus porciones | ✅ |
+| Botón "Listo para entregar" sin cambios | ✅ |
+| Sin errores de JavaScript | ✅ |
+
+Al terminar, POLLO y fideos quedaron otra vez sin cocinero, se restauró el suplente del plan Mantenimiento (vacío) y se borró el pedido de prueba. Se verificó en la base.
+
+### Pendientes / observaciones
+
+- **Reiniciar el servidor** para que tome los endpoints nuevos (las pruebas corrieron en una copia en :3001).
+- **Botón "Listo":** todavía pasa el pedido entero a estado 3. Si un pedido tiene platos de dos cocineros, el primero que termina lo marca listo aunque el otro no haya terminado. Queda para el próximo cambio.
+- **Códigos repetidos:** los planes no tienen `codigo_plan`, así que hay códigos repetidos entre planes (por ejemplo, "4" es POLLO y también un producto de prueba). La columna Plan los distingue.
+- **Productos de prueba:** hay 5 productos `_TEST_…` activos en Antojos Saludables que aparecen en la grilla. Conviene desactivarlos.
+- **Permisos del PUT:** `PUT /api/productos/:id/cocinero` exige estar logueado pero no verifica que quien asigna sea admin. Hoy la pantalla solo es accesible para admins (guard.js).
+
+---
+
+## 🔎 Verificación del estado actual (antes del próximo cambio)
+
+**Fecha:** 28 de septiembre de 2026  
+**Resultado:** ✅ **36/36 pruebas de API pasaron** contra el servidor real en :3000. No se modificó código.
+
+### 1. Archivos del cambio "cocinero por plato" (sin commitear)
+
+| Archivo | Qué hace |
+|---------|----------|
+| `server.js` | `platoEsDelCocinero()`, `GET /api/productos/cocineros`, `PUT /api/productos/:id/cocinero` (con token, valida rol 2) y `GET /api/cocina/tareas` filtrado por plato con `es_mio` |
+| `AsignarCocinero.html` | La grilla pasa de planes a platos (Código, Plato, Plan, Cocinero, Acción), con buscador y aviso de platos sin cocinero |
+| `AsignarCocinero.js` | Carga y guarda el cocinero de cada plato. Si no tiene, muestra el cocinero del plan que lo va a ver |
+| `cocinero.js` | En cada pedido muestra solo los platos con `es_mio` (tabla y resumen de porciones) |
+
+En el mismo working tree también quedan sin commitear los cambios anteriores de pagos: `ListarPedidos.js` y `ConsultarPedidos.html` (modal de confirmación de pago y anulación con PIN) y, en `server.js`, `POST /api/pedidos/:id/anular`.
+
+### 2. Base de datos
+
+| Chequeo | Resultado |
+|---------|-----------|
+| `productos.id_cocinero` | ✅ Existe |
+| `pedido_detalles.listo` | ❌ **No existe** (columnas: id, id_pedido, id_producto, cantidad, precio_unitario, subtotal, observaciones_plato) |
+| Productos activos `_TEST_…` | ✅ Ninguno. Los 11 `_TEST_` que hay están con `activo = false` |
+
+Estado de las asignaciones al empezar (se tomó como base y se respetó): POLLO (#11) tiene asignado a **juan cocinero alvarez**, fideos (#17) no tiene cocinero y usa el del plan, que es **Marta**. Los 8 planes tienen a Marta de principal y a nadie de suplente. *El informe anterior decía que POLLO quedó sin cocinero; se asignó después, seguramente desde la pantalla.*
+
+### 3. Servidor y endpoints
+
+El servidor de :3000 (PID 22180) arrancó el 28/09 a las 16:00:39 y `server.js` se modificó por última vez el 24/09 a las 19:47:09, así que **tiene el código actual**.
+
+| Endpoint | Resultado |
+|----------|-----------|
+| `GET /api/productos/cocineros` | ✅ 200. fideos→Marta (plan), POLLO→Juan (producto) |
+| `GET /api/cocina/tareas` sin `cocinero_id` | ✅ 200. Pedido #33, todo con `es_mio=true` |
+| `GET /api/cocina/tareas?cocinero_id=<Juan>` | ✅ 200. #33 con POLLO `es_mio=true` |
+| `GET /api/pedidos` / `v1/catalogo` / `recetas` / `insumos` | ✅ 200 (5 / 4 / 2 / 36 filas) |
+| `POST /api/login` mauro_admin / 123 | ✅ 200 con token. Con contraseña incorrecta devuelve 401 |
+
+### 4. Flujo de cocineros
+
+Pedido de prueba #34 con POLLO x2 y fideos x3, pasado a estado 2.
+
+| Test | Resultado |
+|------|-----------|
+| Juan ve POLLO y no fideos; Marta ve fideos (por el plan) y no POLLO; Mariela no ve el pedido | ✅ |
+| PUT sin token → 401; PUT con un admin como cocinero → 400 | ✅ |
+| fideos → Mariela: Mariela ve fideos y no POLLO; Marta deja de ver el pedido; Juan sigue viendo solo POLLO | ✅ |
+| `productos/cocineros` muestra fideos con `origen=producto` (Mariela) | ✅ |
+| fideos → `null`: lo vuelve a ver Marta (principal del plan) y Mariela deja de verlo | ✅ |
+
+**Restauración verificada en la base:** POLLO sigue con Juan, fideos quedó en `null`, el pedido #34 se borró y el #33 sigue en estado 2. Como el pedido #34 nunca pasó a estado 3 o 4, no se descontó stock. El único rastro es que la secuencia de IDs avanzó: el próximo pedido va a ser el #35.
+
+### 5. Pagos y anulación
+
+| Test | Resultado |
+|------|-----------|
+| `PUT /pago` sin token → 401; con método inválido → 400; Mixto que no suma el total → 400 | ✅ |
+| `PUT /pago` Mixto 4000 + 6000 = 10000 → 200; Transferencia → 200 con los montos recalculados | ✅ |
+| Confirmación de pago: estado 2 + `PUT /pagado true` → 200 | ✅ |
+| Anular sin token → 401; con PIN incorrecto → 403; pedido inexistente → 404 | ✅ |
+| Anular con el PIN correcto → 200 y estado 5; anular otra vez → 409; el pedido anulado sale de cocina | ✅ |
+| Front: `node --check` sin errores en los 3 JS, y todos los `onclick` de ConsultarPedidos apuntan a funciones que existen | ✅ |
+
+Los modales se verificaron por API y con revisión estática. **No se probaron haciendo clic en un navegador** en esta verificación.
+
+### Pendiente / a tener en cuenta
+
+- **Botón "Listo":** sigue pasando el pedido entero a estado 3. `pedido_detalles.listo` no existe, así que el "listo por plato" está todo por hacer (columna + endpoint + UI).
+- **Endpoints sin `requireAuth`:** `PUT /api/pedidos/:id/pagado`, `PUT /api/pedidos/:id/estado` y `DELETE /api/pedidos/:id`. El DELETE sigue habilitado aunque la UI ya anula en lugar de borrar, así que se puede saltear el PIN llamándolo directo.
+- **`PUT /api/productos/:id/cocinero`:** pide estar logueado pero no verifica que quien asigna sea admin.
+- **Mixto:** "Sí, ya pagó" marca todo el pedido como pagado, incluida la parte en efectivo.
+- **Cambios sin commitear:** todo lo anterior sigue en el working tree de la rama `Rodriguez`.
+
+---
+
+## ✅ "Listo" por cocinero (cada uno marca solo sus platos)
+
+**Fecha:** 28 de septiembre de 2026  
+**Resultado:** ✅ **41/41 pruebas pasaron** (29 de API y 12 de interfaz en Chrome headless)
+
+Antes, el botón "Listo" de la pantalla de cocina pasaba el pedido entero a estado 3 aunque otro cocinero no hubiera terminado. Ahora cada cocinero marca `pedido_detalles.listo = true` solo en sus platos, y el pedido pasa a **Listo para Entregar** recién cuando todos sus platos están listos.
+
+- La columna `pedido_detalles.listo` ya existía, así que no se corrió ningún `ALTER TABLE`.
+- No se tocaron `descontarStockPedido`, los pagos ni la anulación.
+
+### Cambios
+
+| Archivo | Cambio |
+|---------|--------|
+| `server.js` | **Nueva** función `cambiarEstadoPedido(pedidoId, nuevoEstado)`, extraída de `PUT /api/pedidos/:pedidoId/estado`. Hace lo mismo que antes: descuenta el stock al pasar a 3 o 4 y, si falta, devuelve 409 sin cambiar nada. Además, al pasar a 3 marca todos los platos del pedido con `listo = true` |
+| `server.js` | `PUT /api/pedidos/:pedidoId/estado` ahora usa esa función. La respuesta es la misma que antes |
+| `server.js` | **Nuevo** `PUT /api/pedidos/:id/listo-cocinero` con `requireAuth`. El cocinero sale de `req.usuario.id` (JWT) y se ignora cualquier `cocinero_id` que mande el front. Usa `platoEsDelCocinero()` para decidir qué platos marcar. Si todos quedan listos, llama a `cambiarEstadoPedido(id, 3)` |
+| `server.js` | `GET /api/cocina/tareas`: con `cocinero_id`, solo trae los pedidos donde ese cocinero tiene platos con `listo = false`. Cada detalle devuelve también `listo`. Sin `cocinero_id` (modo admin) no cambia |
+| `cocinero.html` | Modal de confirmación con las clases `.modal`/`.modal-content` del sistema. Reemplaza al `confirm()` del navegador |
+| `cocinero.css` | Estilos del modal y de los avisos flotantes (éxito, info y error), con el mismo estilo que los de Consultar Pedidos |
+| `cocinero.js` | La pantalla muestra solo los platos propios que no están listos. El botón abre el modal, llama a `listo-cocinero` con el token y muestra el aviso que corresponde. Ya no usa `alert()` ni `confirm()` |
+
+**Respuestas de `PUT /api/pedidos/:id/listo-cocinero`:**
+
+| Caso | Respuesta |
+|------|-----------|
+| Faltan platos de otros cocineros | 200 `{ completo: false, platos_pendientes, mensaje: "Tus platos quedaron listos. Faltan platos de otros cocineros." }` |
+| Estaban todos | 200 `{ completo: true, mensaje: "Pedido completo, pasó a Listo para Entregar.", pedido }` |
+| Falta stock | 409 `{ completo: false, platos_listos: true, error: "<detalle>", mensaje: "...Avisale al administrador." }`. Los platos quedan listos y el pedido sigue en 2 |
+| Otros | 401 sin token · 403 si el cocinero no tiene platos en el pedido · 404 si no existe · 409 si el pedido no está en estado 2 |
+
+### Pruebas de API
+
+Se usaron POLLO (#11, asignado a Juan) y fideos (#17, sin cocinero propio, lo ve Marta por el plan). El stock inicial era carne molida 2250 y harina integral 500. POLLO x1 + fideos x1 consume 1750 de carne y 500 de harina, así que alcanza. POLLO x2 + fideos x1 necesita 3250 de carne, así que falta.
+
+| Test | Resultado |
+|------|-----------|
+| Juan y Marta ven el pedido. `tareas` devuelve `listo` en cada detalle | ✅ |
+| Sin token → 401. Mariela, sin platos en el pedido → 403. Pedido inexistente → 404 | ✅ |
+| Juan manda `cocinero_id` = Marta en la query y el body: se ignora y se marca solo POLLO | ✅ |
+| **Juan marca listo** → POLLO queda listo y fideos no; respuesta con `completo=false`, 1 plato pendiente y el mensaje pedido | ✅ |
+| → el pedido sigue en estado 2 y **no se descontó stock** (sin movimientos, stock igual) | ✅ |
+| → Juan ya no lo ve; Marta lo sigue viendo, con fideos pendiente | ✅ |
+| Juan aprieta otra vez → sigue en 2 | ✅ |
+| **Marta marca listo** → `completo=true`, el pedido pasa a **3** y todos los detalles quedan listos | ✅ |
+| → **stock descontado una sola vez**: 2 movimientos, carne −1750 y harina −500 | ✅ |
+| → Marta ya no lo ve. Si aprieta otra vez: 409 y ningún descuento nuevo | ✅ |
+| **Falta stock:** el segundo cocinero recibe 409 con `platos_listos` y el aviso *"Stock insuficiente de 'carne molida': se necesitan 3250, hay 2250"* | ✅ |
+| → el pedido sigue en 2, con todos los platos listos y el stock sin tocar | ✅ |
+| → ningún cocinero lo ve; en modo admin (sin `cocinero_id`) sigue apareciendo | ✅ |
+| **Admin pasa a 3 desde la grilla** (`PUT /estado`) → 200, todos los detalles con `listo=true` y stock descontado una vez | ✅ |
+| Admin pasa a 3 un pedido sin stock → 409, igual que antes | ✅ |
+
+### Pruebas de interfaz (Chrome headless, `cocinero.html`)
+
+| Test | Resultado |
+|------|-----------|
+| Juan ve en el pedido **solo POLLO**, y Marta **solo fideos** | ✅ |
+| El botón abre el modal del sistema: *"¿Tus platos del pedido #N están listos?"* | ✅ |
+| Cancelar cierra el modal y no cambia nada | ✅ |
+| Juan confirma → aviso azul *"Tus platos quedaron listos. Faltan platos de otros cocineros."* | ✅ |
+| → la fila desaparece, el pedido sigue en 2 y al recargar Juan ya no lo ve | ✅ |
+| Marta confirma → aviso verde *"Pedido completo, pasó a Listo para Entregar."* y el pedido pasa a 3 | ✅ |
+| No aparece ningún `alert()` ni `confirm()` del navegador | ✅ |
+| Sin errores de JavaScript | ✅ |
+
+**Entorno de prueba:** el :3000 tiene el código anterior y no se reinició. Las pruebas corrieron en una instancia aparte en :3001, contra la misma base, levantada con un preload que cambia el puerto. Los tokens de los cocineros se firmaron con el `JWT_SECRET` del `.env`. Como el CORS de `server.js` solo acepta el origen `localhost:3000` y Chrome manda `Origin` en los PUT, el preload traduce el Origin de 3001 a 3000. Esto afecta solo a la prueba: en :3000 no pasa.
+
+**Restauración verificada:** se borraron los pedidos de prueba #35–#40 y sus movimientos de stock, el stock volvió a 500/2250 y no quedan detalles con `listo=true`. Las asignaciones de cocineros no se tocaron.
+
+### Pendiente / a tener en cuenta
+
+- **Reiniciar el servidor de :3000** para que tome el endpoint nuevo. Hasta entonces, el botón "Listo" de la pantalla de cocina va a fallar (404).
+- **Pedido trabado por stock:** queda en estado 2 con todos los platos listos y ningún cocinero lo ve. Lo resuelve el admin pasándolo a 3 desde Consultar Pedidos cuando haya stock. La grilla del admin todavía no marca que ese pedido está esperando stock.
+- **Volver de 3 a 2:** si el admin devuelve un pedido a "En Preparación", los platos siguen con `listo=true` y ningún cocinero lo ve. Si eso tiene que pasar, habría que resetear `listo` al volver a 2.
+- **Dos cocineros al mismo tiempo:** si los últimos dos cocineros aprietan Listo en el mismo instante, los dos pueden intentar pasar el pedido a 3. `descontarStockPedido` es idempotente (revisa `movimientos_stock`), pero no está protegido contra dos llamadas simultáneas. Lo mismo ya pasaba con `PUT /estado`.
+- **Pedido #33:** figura ahora en estado 5 (Anulado). En la verificación anterior estaba en 2. Estas pruebas no lo tocaron.

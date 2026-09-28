@@ -147,6 +147,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       : '/api/cocina/tareas';
     const res = await fetch(url);
     enPrep = await res.json();
+
+    // Cada cocinero ve solo sus platos pendientes dentro del pedido (es_mio lo marca el servidor).
+    // Así la tabla y el resumen de porciones cuentan solo lo que le falta cocinar.
+    enPrep = enPrep
+      .map(pedido => ({
+        ...pedido,
+        pedido_detalles: (pedido.pedido_detalles || []).filter(det => det.es_mio && !det.listo)
+      }))
+      .filter(pedido => pedido.pedido_detalles.length > 0);
   } catch {
     setVacio('Error al cargar pedidos. Verificá que el servidor esté corriendo.');
     return;
@@ -199,42 +208,124 @@ document.addEventListener('DOMContentLoaded', async () => {
   construirResumen(_tareasActivas);
 });
 
-// ── Cambiar estado del pedido a "Listo para entregar" ────────────────────────
-window.marcarListo = async function (pedidoId, btnEl) {
-  if (!confirm(`¿Marcar el pedido #${pedidoId} como "Listo para entregar"?`)) return;
+// ── Marcar como listos los platos del cocinero en un pedido ──────────────────
+// Se marca solo lo del cocinero logueado (el servidor lo toma del token). El pedido pasa a
+// "Listo para entregar" recién cuando todos sus platos, de todos los cocineros, están listos.
+let _listoPendiente = null; // { pedidoId, btnEl } mientras el modal está abierto
 
-  btnEl.disabled = true;
+window.marcarListo = function (pedidoId, btnEl) {
+  _listoPendiente = { pedidoId, btnEl };
+  document.getElementById('modalListoTexto').textContent =
+    `¿Tus platos del pedido #${pedidoId} están listos?`;
+  document.getElementById('modalListo').style.display = 'block';
+  document.getElementById('modalListoConfirmar').focus();
+};
+
+// Cancelar, clic afuera o Escape: no se hace nada
+window.cerrarModalListo = function (e) {
+  const modal = document.getElementById('modalListo');
+  if (e && e.target !== modal) return;
+  modal.style.display = 'none';
+  _listoPendiente = null;
+};
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') window.cerrarModalListo();
+});
+
+window.confirmarListo = async function () {
+  if (!_listoPendiente) return;
+  const { pedidoId, btnEl } = _listoPendiente;
+  window.cerrarModalListo();
+
+  // Deshabilitar todos los botones de ese pedido (hay uno por plato)
+  const botones = document.querySelectorAll(`tr[data-pedido-id="${pedidoId}"] .btn-listo`);
+  botones.forEach(b => { b.disabled = true; });
   btnEl.textContent = 'Actualizando...';
 
   try {
-    const res = await fetch(`/api/pedidos/${pedidoId}/estado`, {
+    const res = await fetch(`/api/pedidos/${pedidoId}/listo-cocinero`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ estado_id: 3 }) // 3 = Listo para entregar
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + localStorage.getItem('fg_token')
+      }
     });
+    const data = await res.json().catch(() => ({}));
 
-    if (!res.ok) throw new Error();
+    // Los platos quedaron listos en todos estos casos: se sacan de la pantalla
+    if (res.ok || data.platos_listos) {
+      quitarPedidoDeLaTabla(pedidoId);
 
-    // Eliminar todas las filas de ese pedido de la tabla
-    document.querySelectorAll(`tr[data-pedido-id="${pedidoId}"]`).forEach(f => f.remove());
-
-    // Actualizar badge contador
-    const badge  = document.getElementById('contador-badge');
-    const actual = parseInt(badge.textContent) - 1;
-    badge.textContent = actual;
-
-    if (actual === 0) {
-      document.getElementById('tablaTareas').innerHTML =
-        '<tr class="empty-row"><td colspan="6">No hay pedidos en preparación en este momento.</td></tr>';
+      if (res.ok && data.completo) {
+        mostrarAviso('exito', 'Pedido completo, pasó a Listo para Entregar.');
+      } else if (res.ok) {
+        mostrarAviso('info', 'Tus platos quedaron listos. Faltan platos de otros cocineros.');
+      } else {
+        // 409 por stock: el pedido sigue En Preparación hasta que lo resuelva el administrador
+        mostrarAviso('error', data.mensaje || 'Tus platos quedaron listos, pero el pedido no pudo avanzar.', data.error);
+      }
+      return;
     }
 
-    // Actualizar estado reactivo y refrescar panel lateral
-    _tareasActivas = _tareasActivas.filter(p => String(p.id) !== String(pedidoId));
-    construirResumen(_tareasActivas);
+    const mensaje = res.status === 401
+      ? 'Tu sesión expiró. Volvé a iniciar sesión.'
+      : (data.error || 'No se pudo marcar como listo. Intentá de nuevo.');
+    throw new Error(mensaje);
 
-  } catch {
-    btnEl.disabled = false;
+  } catch (err) {
+    botones.forEach(b => { b.disabled = false; });
     btnEl.textContent = '✓ Listo para entregar';
-    alert('Error al actualizar el estado. Intentá de nuevo.');
+    mostrarAviso('error', err.message || 'No se pudo conectar con el servidor.');
   }
 };
+
+function quitarPedidoDeLaTabla(pedidoId) {
+  // Eliminar todas las filas de ese pedido de la tabla
+  document.querySelectorAll(`tr[data-pedido-id="${pedidoId}"]`).forEach(f => f.remove());
+
+  // Actualizar badge contador
+  const badge  = document.getElementById('contador-badge');
+  const actual = parseInt(badge.textContent) - 1;
+  badge.textContent = actual;
+
+  if (actual === 0) {
+    document.getElementById('tablaTareas').innerHTML =
+      '<tr class="empty-row"><td colspan="6">No hay pedidos en preparación en este momento.</td></tr>';
+  }
+
+  // Actualizar estado reactivo y refrescar panel lateral
+  _tareasActivas = _tareasActivas.filter(p => String(p.id) !== String(pedidoId));
+  construirResumen(_tareasActivas);
+}
+
+// Aviso flotante. tipo: 'exito' | 'info' | 'error'. detalle: texto secundario opcional.
+function mostrarAviso(tipo, mensaje, detalle) {
+  document.getElementById('avisoCocina')?.remove();
+
+  const aviso = document.createElement('div');
+  aviso.id = 'avisoCocina';
+  aviso.className = `aviso-cocina aviso-cocina--${tipo}`;
+  aviso.setAttribute('role', 'status');
+
+  const texto = document.createElement('span');
+  texto.textContent = (tipo === 'exito' ? '✓ ' : tipo === 'error' ? '⚠ ' : '') + mensaje;
+  aviso.appendChild(texto);
+
+  if (detalle) {
+    const extra = document.createElement('span');
+    extra.className = 'aviso-cocina-detalle';
+    extra.textContent = detalle;
+    aviso.appendChild(extra);
+  }
+
+  const cerrar = document.createElement('button');
+  cerrar.className = 'aviso-cocina-cerrar';
+  cerrar.textContent = '×';
+  cerrar.onclick = () => aviso.remove();
+  aviso.appendChild(cerrar);
+
+  document.body.appendChild(aviso);
+  // Los errores quedan hasta que se cierran; los demás se van solos
+  if (tipo !== 'error') setTimeout(() => aviso.remove(), 5000);
+}

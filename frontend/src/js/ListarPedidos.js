@@ -122,7 +122,9 @@ function crearFilaPedido(pedido) {
     <td>
       <div class="acciones-pedido">
         <button class="btn-pago" onclick="abrirModalPago(${pedido.id})">Pago</button>
-        <button class="btn-eliminar" onclick="eliminarPedido(${pedido.id}, this)">Eliminar</button>
+        ${pedido.id_estado === 5
+          ? '<button class="btn-eliminar" disabled>Anulado</button>'
+          : `<button class="btn-eliminar" onclick="abrirModalAnular(${pedido.id})">Anular</button>`}
       </div>
     </td>
   `;
@@ -152,44 +154,112 @@ function crearFilaPedido(pedido) {
 
   aplicarColorEstado(selectEstado, estadoActualId);
 
-  selectEstado.addEventListener('change', async () => {
+  selectEstado.addEventListener('change', () => {
     const nuevoId = parseInt(selectEstado.value);
     const anteriorId = parseInt(selectEstado.dataset.estadoActual);
 
-    try {
-      const res = await fetch(`http://localhost:3000/api/pedidos/${pedido.id}/estado`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ estado_id: nuevoId })
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        // 409 = stock insuficiente: mostrar alerta con el cuello de botella
-        if (res.status === 409) {
-          mostrarAlertaStock(data.error);
-        } else {
-          alert('No se pudo actualizar el estado. Intentá de nuevo.');
-        }
-        selectEstado.value = anteriorId;
-        aplicarColorEstado(selectEstado, anteriorId);
-        return;
-      }
-
-      selectEstado.dataset.estadoActual = nuevoId;
-      pedido.id_estado = nuevoId; // así la fila sale bien si se vuelve a dibujar al cambiar de página
-      aplicarColorEstado(selectEstado, nuevoId);
-    } catch (err) {
-      alert('No se pudo actualizar el estado. Intentá de nuevo.');
-      selectEstado.value = anteriorId;
-      aplicarColorEstado(selectEstado, anteriorId);
+    // Pasar a "En Preparación" con un pago no efectivo: antes hay que confirmar que el cliente pagó.
+    // El efectivo se cobra al entregar, así que avanza directo.
+    const metodo = pedido.metodo_pago || 'Efectivo';
+    if (nuevoId === ESTADO_EN_PREPARACION && METODOS_PAGO_PREVIO.includes(metodo) && !pedido.pagado) {
+      abrirModalConfirmarPago(pedido, selectEstado, nuevoId, anteriorId);
+      return;
     }
+
+    cambiarEstadoPedido(pedido, selectEstado, nuevoId, anteriorId);
   });
 
   tr.cells[8].appendChild(selectEstado);
   return tr;
 }
+
+// Guarda el nuevo estado en el servidor. Devuelve true si se pudo cambiar;
+// si falla, vuelve el select al estado anterior.
+async function cambiarEstadoPedido(pedido, selectEstado, nuevoId, anteriorId) {
+  try {
+    const res = await fetch(`http://localhost:3000/api/pedidos/${pedido.id}/estado`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado_id: nuevoId })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      // 409 = stock insuficiente: mostrar alerta con el cuello de botella
+      if (res.status === 409) {
+        mostrarAlertaStock(data.error);
+      } else {
+        alert('No se pudo actualizar el estado. Intentá de nuevo.');
+      }
+      selectEstado.value = anteriorId;
+      aplicarColorEstado(selectEstado, anteriorId);
+      return false;
+    }
+
+    selectEstado.dataset.estadoActual = nuevoId;
+    pedido.id_estado = nuevoId; // así la fila sale bien si se vuelve a dibujar al cambiar de página
+    aplicarColorEstado(selectEstado, nuevoId);
+    return true;
+  } catch (err) {
+    alert('No se pudo actualizar el estado. Intentá de nuevo.');
+    selectEstado.value = anteriorId;
+    aplicarColorEstado(selectEstado, anteriorId);
+    return false;
+  }
+}
+
+// ── MODAL CONFIRMAR PAGO (al pasar a En Preparación) ──────────
+const ESTADO_EN_PREPARACION = 2;
+const METODOS_PAGO_PREVIO = ['Transferencia', 'Tarjeta Débito', 'Tarjeta Crédito', 'Mixto'];
+let confirmacionPago = null; // { pedido, selectEstado, nuevoId, anteriorId } mientras el modal está abierto
+
+function abrirModalConfirmarPago(pedido, selectEstado, nuevoId, anteriorId) {
+  confirmacionPago = { pedido, selectEstado, nuevoId, anteriorId };
+  document.getElementById('confirmarPagoMetodo').textContent = pedido.metodo_pago;
+  document.getElementById('modalConfirmarPago').classList.add('visible');
+  document.getElementById('confirmarPagoSi').focus();
+}
+
+// "No, todavía no pagó", la ✕, Escape o clic afuera: no se cambia nada y el select vuelve al valor anterior
+function cancelarConfirmarPago(e) {
+  const modal = document.getElementById('modalConfirmarPago');
+  if (e && e.target !== modal) return;
+  if (!confirmacionPago) return;
+
+  const { selectEstado, anteriorId } = confirmacionPago;
+  selectEstado.value = anteriorId;
+  aplicarColorEstado(selectEstado, anteriorId);
+  confirmacionPago = null;
+  modal.classList.remove('visible');
+}
+
+// "Sí, ya pagó": se cambia el estado (con su descuento de stock) y, si salió bien, se marca pagado
+async function aceptarConfirmarPago() {
+  if (!confirmacionPago) return;
+  const { pedido, selectEstado, nuevoId, anteriorId } = confirmacionPago;
+  confirmacionPago = null;
+  document.getElementById('modalConfirmarPago').classList.remove('visible');
+
+  const ok = await cambiarEstadoPedido(pedido, selectEstado, nuevoId, anteriorId);
+  if (!ok) return;
+
+  try {
+    const res = await fetch(`http://localhost:3000/api/pedidos/${pedido.id}/pagado`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pagado: true })
+    });
+    if (!res.ok) throw new Error();
+
+    pedido.pagado = true;
+    // redibujar para que la columna Método Pago muestre PAGADO
+    renderizarPedidos(filtrarPedidos(), paginacionPedidos.paginaActual());
+  } catch (err) {
+    alert('El pedido pasó a En Preparación, pero no se pudo marcar como pagado.');
+  }
+}
+// ─────────────────────────────────────────────────────────────
 
 // ── MODAL DETALLES ────────────────────────────────────────────
 const formatPrecio = n => new Intl.NumberFormat('es-AR', {
@@ -236,6 +306,8 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     document.getElementById('modalDetalles')?.classList.remove('visible');
     document.getElementById('modalPago')?.classList.remove('visible');
+    document.getElementById('modalAnular')?.classList.remove('visible');
+    if (document.getElementById('modalConfirmarPago')?.classList.contains('visible')) cancelarConfirmarPago();
   }
 });
 // ─────────────────────────────────────────────────────────────
@@ -500,33 +572,107 @@ function mostrarAlertaStock(mensaje) {
 }
 // ─────────────────────────────────────────────────────────────
 
-// ── ELIMINAR PEDIDO ───────────────────────────────────────────
-async function eliminarPedido(pedidoId, btn) {
-  const idFormatted = '#' + String(pedidoId).padStart(3, '0');
-  const confirmar = confirm(`¿Estás seguro de que querés eliminar el Pedido ${idFormatted}?\nEsta acción no se puede deshacer.`);
-  if (!confirmar) return;
+// ── ANULAR PEDIDO (con PIN) ───────────────────────────────────
+// El pedido no se borra: el servidor valida el PIN y lo pasa a estado 5 (Cancelado).
+let pedidoAnularId = null;
 
-  btn.disabled = true;
-  btn.textContent = 'Eliminando...';
+function abrirModalAnular(pedidoId) {
+  pedidoAnularId = pedidoId;
+  document.getElementById('anularTitulo').textContent =
+    `Anular Pedido #${String(pedidoId).padStart(3, '0')}`;
+
+  const pin = document.getElementById('anularPin');
+  pin.value = '';
+  ocultarErrorAnular();
+
+  document.getElementById('modalAnular').classList.add('visible');
+  pin.focus();
+}
+
+function cerrarModalAnular(e) {
+  if (!e || e.target === document.getElementById('modalAnular')) {
+    document.getElementById('modalAnular').classList.remove('visible');
+    document.getElementById('anularPin').value = '';
+    pedidoAnularId = null;
+  }
+}
+
+function mostrarErrorAnular(mensaje) {
+  const el = document.getElementById('anularError');
+  el.textContent = mensaje;
+  el.classList.add('visible');
+}
+
+function ocultarErrorAnular() {
+  document.getElementById('anularError').classList.remove('visible');
+}
+
+async function confirmarAnulacion() {
+  const pedido = todosPedidos.find(p => p.id === pedidoAnularId);
+  if (!pedido) return;
+
+  const pinInput = document.getElementById('anularPin');
+  const pin = pinInput.value.trim();
+  if (!/^\d{4}$/.test(pin)) {
+    mostrarErrorAnular('El PIN debe tener 4 dígitos.');
+    pinInput.focus();
+    return;
+  }
+
+  const btn = document.getElementById('anularConfirmar');
+  btn.disabled    = true;
+  btn.textContent = 'Anulando...';
+  ocultarErrorAnular();
 
   try {
-    const res = await fetch(`http://localhost:3000/api/pedidos/${pedidoId}`, {
-      method: 'DELETE'
+    const res = await fetch(`http://localhost:3000/api/pedidos/${pedido.id}/anular`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + localStorage.getItem('fg_token')
+      },
+      body: JSON.stringify({ pin })
     });
+    const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Error al eliminar');
+      mostrarErrorAnular(res.status === 401
+        ? 'Tu sesión expiró. Volvé a iniciar sesión.'
+        : (data.error || 'No se pudo anular el pedido. Intentá de nuevo.'));
+      pinInput.value = '';
+      pinInput.focus();
+      return;
     }
 
-    todosPedidos = todosPedidos.filter(p => p.id !== pedidoId);
-    // redibujar respetando el filtro y la página actual (si la página quedó vacía, va a la anterior)
+    const idFormatted = '#' + String(pedido.id).padStart(3, '0');
+    cerrarModalAnular();
+    mostrarExito(`Pedido ${idFormatted} anulado correctamente.`);
+    // Actualizar en memoria y redibujar respetando el filtro y la página actual
+    pedido.id_estado = data.pedido.id_estado;
     renderizarPedidos(filtrarPedidos(), paginacionPedidos.paginaActual());
   } catch (err) {
-    alert('No se pudo eliminar el pedido. Intentá de nuevo.');
-    btn.disabled = false;
-    btn.textContent = 'Eliminar';
+    mostrarErrorAnular('No se pudo conectar con el servidor.');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Confirmar Anulación';
   }
+}
+
+// Enter en el campo PIN confirma la anulación
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('anularPin')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') confirmarAnulacion();
+  });
+});
+
+function mostrarExito(mensaje) {
+  document.getElementById('toastExito')?.remove();
+  const toast = document.createElement('div');
+  toast.id = 'toastExito';
+  toast.className = 'toast-exito';
+  toast.textContent = '✓ ' + mensaje;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
 }
 // ─────────────────────────────────────────────────────────────
 

@@ -82,6 +82,18 @@
   <p>&copy; 2025 Fast Good - Viandas Saludables</p>
 </footer>
 
+<!-- MODAL CONFIRMAR "LISTO" (marca solo los platos del cocinero logueado) -->
+<div id="modalListo" class="modal" onclick="cerrarModalListo(event)">
+  <div class="modal-content modal-listo">
+    <h3>Marcar platos listos</h3>
+    <p id="modalListoTexto"></p>
+    <div class="modal-listo-acciones">
+      <button class="btn-cancelar-listo" onclick="cerrarModalListo()">Cancelar</button>
+      <button id="modalListoConfirmar" class="btn-listo" onclick="confirmarListo()">✓ Sí, están listos</button>
+    </div>
+  </div>
+</div>
+
 <script src="../src/js/cocinero.js"></script>
 
 </div> <!-- /.admin-content -->

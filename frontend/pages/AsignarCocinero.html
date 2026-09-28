@@ -20,26 +20,30 @@
     <div class="container-centrado">
       <div style="display:flex; align-items:center; gap:1rem;">
         <img src="../src/assets/img/logo.webp" alt="Fast Good" style="height:50px; border-radius:4px;" onerror="this.style.display='none'">
-        <h1>Asignar Cocineros a Planes</h1>
+        <h1>Asignar Cocineros por Plato</h1>
       </div>
     </div>
   </header>
 
   <main class="page-container">
+    <input type="text" id="BuscarPlato" class="filtro-input" placeholder="Buscar por código, plato o plan..." autocomplete="one-time-code">
+
+    <!-- Aviso: platos que no ve ningún cocinero (sin cocinero propio ni del plan) -->
+    <div id="avisoSinCocinero" class="aviso-sin-cocinero"></div>
+
     <div class="table-wrapper">
       <table class="standard-table">
         <thead>
           <tr>
+            <th>Código</th>
+            <th>Plato</th>
             <th>Plan</th>
-            <th>Categoría</th>
-            <th>Estado</th>
-            <th>Cocinero Principal</th>
-            <th>Cocinero Suplente</th>
+            <th>Cocinero</th>
             <th>Acción</th>
           </tr>
         </thead>
-        <tbody id="planesBody">
-          <tr><td colspan="6" class="loading-text">Cargando datos...</td></tr>
+        <tbody id="platosBody">
+          <tr><td colspan="5" class="loading-text">Cargando datos...</td></tr>
         </tbody>
       </table>
     </div>
@@ -50,16 +54,23 @@
   </footer>
 
   <style>
-    .badge-activo {
-      background: #d4edda; color: #155724;
-      padding: 0.25rem 0.65rem; border-radius: 50px;
-      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+    #BuscarPlato { max-width: 360px; margin-bottom: 1rem; }
+    .aviso-sin-cocinero {
+      display: none; margin-bottom: 1rem;
+      background: #fff3cd; color: #856404; border-left: 4px solid #e0a800;
+      border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.88rem;
     }
-    .badge-inactivo {
-      background: #f8d7da; color: #721c24;
-      padding: 0.25rem 0.65rem; border-radius: 50px;
-      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
-    }
+    .aviso-sin-cocinero.visible { display: block; }
+    .codigo-plato { font-weight: 700; }
+    .plato-nombre-celda { font-weight: 600; text-align: left; }
+    /* La tabla es table-layout:fixed: se reparten los anchos para que el select del cocinero tenga lugar */
+    .standard-table th:nth-child(1) { width: 9%; }   /* Código */
+    .standard-table th:nth-child(2) { width: 25%; }  /* Plato */
+    .standard-table th:nth-child(3) { width: 18%; }  /* Plan */
+    .standard-table th:nth-child(4) { width: 36%; }  /* Cocinero */
+    .standard-table th:nth-child(5) { width: 12%; }  /* Acción */
+    .select-cocinero.usa-plan { color: #6c757d; font-style: italic; }
+    .select-cocinero.sin-nadie { border-color: #e0a800; color: #856404; }
     .select-cocinero {
       width: 100%;
       padding: 0.4rem 0.5rem;

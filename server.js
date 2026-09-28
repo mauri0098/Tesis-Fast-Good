@@ -29,6 +29,7 @@ const supabase   = require('./config/supabaseClient');// Cliente de Supabase par
 const nodemailer = require('nodemailer');              // Envío de emails (recuperación de contraseña)
 const bcrypt     = require('bcryptjs');                // Hash de contraseñas
 const jwt        = require('jsonwebtoken');            // Tokens de autenticación
+const crypto     = require('crypto');                  // Comparación segura del PIN de anulación
 
 /* ======================================================
    MIDDLEWARE DE AUTENTICACIÓN JWT
@@ -510,44 +511,53 @@ app.get('/api/v1/productos/:id', async (req, res) => {
    API TAREAS DE COCINA (filtradas por cocinero asignado)
    ====================================================== */
 
+// Un plato le corresponde a un cocinero si lo tiene asignado directamente o, cuando el plato
+// no tiene cocinero propio, si es el principal o el suplente de su plan (respaldo).
+// `producto` debe traer id_cocinero y planes(id_cocinero, id_cocinero_suplente).
+function platoEsDelCocinero(producto, cocineroId) {
+  if (producto.id_cocinero) return producto.id_cocinero === cocineroId;
+  const plan = producto.planes;
+  return !!plan && (plan.id_cocinero === cocineroId || plan.id_cocinero_suplente === cocineroId);
+}
+
 // GET /api/cocina/tareas?cocinero_id=UUID
-// Si se pasa cocinero_id, devuelve solo los pedidos en estado 2 cuyos productos
-// pertenezcan a planes donde ese cocinero es principal o suplente.
-// Sin cocinero_id devuelve todos los pedidos en estado 2 (modo admin/debug).
+// Si se pasa cocinero_id, devuelve los pedidos en estado 2 que tienen al menos un plato de ese
+// cocinero (asignado al plato o, como respaldo, por su plan) sin marcar como listo.
+// Cada detalle lleva es_mio: true/false y listo.
+// Sin cocinero_id devuelve todos los pedidos en estado 2 con es_mio: true (modo admin/debug).
 app.get('/api/cocina/tareas', async (req, res) => {
   const { cocinero_id } = req.query;
-  let idsPedidos = null; // null = sin filtro de planes
+  let idsPedidos = null;      // null = sin filtro por cocinero
+  let misProductos = null;    // Set de id_producto del cocinero
 
   if (cocinero_id) {
-    // 1. Planes donde el cocinero está asignado (principal o suplente)
-    const { data: planes } = await supabase
-      .from('planes')
-      .select('id')
-      .or(`id_cocinero.eq.${cocinero_id},id_cocinero_suplente.eq.${cocinero_id}`);
-
-    const planIds = (planes || []).map(p => p.id);
-    if (planIds.length === 0) return res.json([]);
-
-    // 2. Productos que pertenecen a esos planes
-    const { data: productos } = await supabase
+    // 1. Platos del cocinero. El filtro se hace en JS para no armar el filtro de Supabase con texto del cliente.
+    const { data: productos, error: errProductos } = await supabase
       .from('productos')
-      .select('id')
-      .in('id_plan', planIds);
+      .select('id, id_cocinero, planes ( id_cocinero, id_cocinero_suplente )');
 
-    const productoIds = (productos || []).map(p => p.id);
-    if (productoIds.length === 0) return res.json([]);
+    if (errProductos) return res.status(500).json({ error: errProductos.message });
 
-    // 3. Pedidos que tienen al menos un detalle con esos productos
-    const { data: detalles } = await supabase
+    misProductos = new Set(
+      (productos || []).filter(p => platoEsDelCocinero(p, cocinero_id)).map(p => p.id)
+    );
+    if (misProductos.size === 0) return res.json([]);
+
+    // 2. Pedidos que tienen al menos un plato de ese cocinero todavía sin terminar
+    //    (los pedidos donde ya marcó todos sus platos como listos no se le muestran)
+    const { data: detalles, error: errDetalles } = await supabase
       .from('pedido_detalles')
       .select('id_pedido')
-      .in('id_producto', productoIds);
+      .in('id_producto', [...misProductos])
+      .eq('listo', false);
+
+    if (errDetalles) return res.status(500).json({ error: errDetalles.message });
 
     idsPedidos = [...new Set((detalles || []).map(d => d.id_pedido))];
     if (idsPedidos.length === 0) return res.json([]);
   }
 
-  // 4. Traer pedidos en estado 2, con sus detalles
+  // 3. Traer pedidos en estado 2, con sus detalles
   let query = supabase
     .from('pedidos')
     .select(`
@@ -556,8 +566,10 @@ app.get('/api/cocina/tareas', async (req, res) => {
       observaciones,
       id_estado,
       pedido_detalles (
+        id_producto,
         cantidad,
         precio_unitario,
+        listo,
         productos ( nombre, codigo_plato )
       )
     `)
@@ -570,7 +582,17 @@ app.get('/api/cocina/tareas', async (req, res) => {
 
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data || []);
+
+  // 4. Marcar en cada detalle si el plato es del cocinero que consulta
+  const resultado = (data || []).map(pedido => ({
+    ...pedido,
+    pedido_detalles: (pedido.pedido_detalles || []).map(det => ({
+      ...det,
+      es_mio: misProductos ? misProductos.has(det.id_producto) : true
+    }))
+  }));
+
+  res.json(resultado);
 });
 
 /* ======================================================
@@ -818,6 +840,38 @@ app.put('/api/pedidos/:id/pago', requireAuth, async (req, res) => {
   res.json({ mensaje: 'Método de pago actualizado', pedido: data });
 });
 
+// Cambia el estado de un pedido. La usan PUT /estado (admin) y PUT /listo-cocinero (cocina).
+// Al pasar a 3 o 4 primero descuenta el stock (idempotente, ver descontarStockPedido): si falla,
+// no se cambia nada y devuelve status 409. Al pasar a 3 marca todos los platos como listos.
+// Devuelve { status, pedido } o { status, error }.
+async function cambiarEstadoPedido(pedidoId, nuevoEstado) {
+  if ([3, 4].includes(nuevoEstado)) {
+    const errorStock = await descontarStockPedido(pedidoId);
+    if (errorStock) return { status: 409, error: errorStock };
+  }
+
+  const { data, error } = await supabase
+    .from('pedidos')
+    .update({ id_estado: nuevoEstado })
+    .eq('id', pedidoId)
+    .select()
+    .single();
+
+  if (error) return { status: 500, error: error.message };
+
+  if (nuevoEstado === 3) {
+    const { error: errListo } = await supabase
+      .from('pedido_detalles')
+      .update({ listo: true })
+      .eq('id_pedido', pedidoId);
+
+    // El estado ya cambió, que es lo importante: el pedido sale de cocina igual. Solo se registra.
+    if (errListo) console.error('[ESTADO] no se pudieron marcar los platos como listos:', errListo);
+  }
+
+  return { status: 200, pedido: data };
+}
+
 app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
   const { pedidoId } = req.params;
   const { estado_id } = req.body;
@@ -839,28 +893,143 @@ app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
       return res.status(404).json({ error: 'Pedido no encontrado' });
     }
 
-    // Disparar descuento si el nuevo estado requiere producción (2, 3 o 4).
-    // La idempotencia se maneja dentro de descontarStockPedido consultando movimientos_stock.
-    if ([3, 4].includes(nuevoEstado)) {
-      const errorStock = await descontarStockPedido(pedidoId);
-      if (errorStock) {
-        return res.status(409).json({ error: errorStock });
-      }
-    }
+    const resultado = await cambiarEstadoPedido(pedidoId, nuevoEstado);
+    if (resultado.error) return res.status(resultado.status).json({ error: resultado.error });
 
-    const { data, error } = await supabase
-      .from('pedidos')
-      .update({ id_estado: nuevoEstado })
-      .eq('id', pedidoId)
-      .select()
-      .single();
-
-    if (error) return res.status(500).json({ error: error.message });
-
-    res.json({ mensaje: 'Estado actualizado', pedido: data });
+    res.json({ mensaje: 'Estado actualizado', pedido: resultado.pedido });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// PUT /api/pedidos/:id/listo-cocinero → el cocinero logueado marca SUS platos del pedido como listos.
+// El cocinero sale del JWT, no del body. Cuando todos los platos del pedido quedan listos, el pedido
+// pasa a 3 (Listo para Entregar) con la misma lógica que usa el admin, incluido el descuento de stock.
+// Si falta stock, los platos quedan listos, el pedido sigue en 2 y se avisa (lo resuelve el admin).
+app.put('/api/pedidos/:id/listo-cocinero', requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id);
+  const cocineroId = req.usuario.id;
+
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ error: 'ID de pedido inválido' });
+  }
+
+  try {
+    const { data: pedido, error: errLectura } = await supabase
+      .from('pedidos')
+      .select(`
+        id,
+        id_estado,
+        pedido_detalles (
+          id,
+          listo,
+          productos ( id_cocinero, planes ( id_cocinero, id_cocinero_suplente ) )
+        )
+      `)
+      .eq('id', id)
+      .maybeSingle();
+
+    if (errLectura) return res.status(500).json({ error: errLectura.message });
+    if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
+    if (pedido.id_estado !== 2) {
+      return res.status(409).json({ error: 'El pedido ya no está En Preparación' });
+    }
+
+    const detalles = pedido.pedido_detalles || [];
+    const mios = detalles.filter(d => d.productos && platoEsDelCocinero(d.productos, cocineroId));
+    if (mios.length === 0) {
+      return res.status(403).json({ error: 'No tenés platos asignados en este pedido' });
+    }
+
+    const { error: errListo } = await supabase
+      .from('pedido_detalles')
+      .update({ listo: true })
+      .in('id', mios.map(d => d.id));
+
+    if (errListo) return res.status(500).json({ error: errListo.message });
+
+    // Platos de otros cocineros que todavía no están listos
+    const idsMios = new Set(mios.map(d => d.id));
+    const pendientes = detalles.filter(d => !idsMios.has(d.id) && !d.listo).length;
+
+    if (pendientes > 0) {
+      return res.json({
+        completo: false,
+        platos_pendientes: pendientes,
+        mensaje: 'Tus platos quedaron listos. Faltan platos de otros cocineros.'
+      });
+    }
+
+    const resultado = await cambiarEstadoPedido(id, 3);
+
+    if (resultado.status === 409) {
+      return res.status(409).json({
+        completo: false,
+        platos_listos: true,
+        error: resultado.error,
+        mensaje: 'Tus platos quedaron listos, pero el pedido no pudo pasar a Listo para Entregar por falta de stock. Avisale al administrador.'
+      });
+    }
+    if (resultado.error) return res.status(resultado.status).json({ error: resultado.error, platos_listos: true });
+
+    res.json({
+      completo: true,
+      mensaje: 'Pedido completo, pasó a Listo para Entregar.',
+      pedido: resultado.pedido
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Anular pedido: no se borra, se pasa a estado 5 (Cancelado).
+// Requiere el PIN de autorización configurado en .env (ADMIN_PIN); se valida acá, nunca en el front.
+app.post('/api/pedidos/:id/anular', requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id);
+  const pin = String(req.body?.pin ?? '');
+
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ error: 'ID de pedido inválido' });
+  }
+
+  const adminPin = process.env.ADMIN_PIN;
+  if (!adminPin) {
+    console.error('[ANULAR pedido] falta ADMIN_PIN en el .env');
+    return res.status(500).json({ error: 'El PIN de autorización no está configurado en el servidor' });
+  }
+
+  // Comparación en tiempo constante para no filtrar información por el tiempo de respuesta
+  const a = Buffer.from(pin);
+  const b = Buffer.from(adminPin);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return res.status(403).json({ error: 'PIN incorrecto' });
+  }
+
+  const { data: pedido, error: errLectura } = await supabase
+    .from('pedidos')
+    .select('id, id_estado')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (errLectura) return res.status(500).json({ error: errLectura.message });
+  if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
+  if (pedido.id_estado === 5) {
+    return res.status(409).json({ error: 'El pedido ya está anulado' });
+  }
+
+  const { data, error } = await supabase
+    .from('pedidos')
+    .update({ id_estado: 5 })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[ANULAR pedido] error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json({ mensaje: 'Pedido anulado correctamente', pedido: data });
 });
 
 app.delete('/api/pedidos/:id', async (req, res) => {
@@ -944,6 +1113,95 @@ app.put('/api/planes/:id/cocinero', async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
   res.json({ mensaje: 'Cocinero actualizado correctamente', plan: data });
+});
+
+/* ======================================================
+   API COCINEROS / ASIGNACIÓN POR PLATO
+   Cada plato puede tener su cocinero (productos.id_cocinero).
+   Si no tiene, se usa el principal de su plan como respaldo.
+   ====================================================== */
+
+// GET /api/productos/cocineros → platos activos con su cocinero propio y el efectivo
+app.get('/api/productos/cocineros', async (req, res) => {
+  const { data: productos, error } = await supabase
+    .from('productos')
+    .select('id, codigo_plato, nombre, id_cocinero, planes ( id, nombre, id_cocinero, id_cocinero_suplente )')
+    .eq('activo', true);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  const { data: usuarios, error: errUsuarios } = await supabase
+    .from('usuarios')
+    .select('id, nombre, apellido, id_rol');
+
+  if (errUsuarios) return res.status(500).json({ error: errUsuarios.message });
+
+  const mapaUsuarios = {};
+  (usuarios || []).forEach(u => {
+    mapaUsuarios[u.id] = { id: u.id, nombre: u.nombre, apellido: u.apellido, es_cocinero: u.id_rol === 2 };
+  });
+  const usuario = id => (id ? (mapaUsuarios[id] || null) : null);
+
+  const resultado = (productos || []).map(p => {
+    const cocinero     = usuario(p.id_cocinero);
+    const cocineroPlan = usuario(p.planes?.id_cocinero);
+    return {
+      id:            p.id,
+      codigo_plato:  p.codigo_plato,
+      nombre:        p.nombre,
+      plan:          p.planes ? { id: p.planes.id, nombre: p.planes.nombre } : null,
+      id_cocinero:   p.id_cocinero,
+      cocinero,                                   // el asignado al plato (o null)
+      cocinero_plan: cocineroPlan,                // el principal del plan (respaldo)
+      cocinero_efectivo: cocinero || cocineroPlan,
+      origen: cocinero ? 'producto' : (cocineroPlan ? 'plan' : null)
+    };
+  });
+
+  // Orden: por plan y, dentro del plan, por código (numérico si se puede: 2 antes que 10)
+  resultado.sort((a, b) =>
+    (a.plan?.nombre || '').localeCompare(b.plan?.nombre || '', 'es') ||
+    String(a.codigo_plato || '').localeCompare(String(b.codigo_plato || ''), 'es', { numeric: true })
+  );
+
+  res.json(resultado);
+});
+
+// PUT /api/productos/:id/cocinero → asignar (o quitar, con null) el cocinero de un plato
+app.put('/api/productos/:id/cocinero', requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id);
+  const idCocinero = req.body?.id_cocinero || null;
+
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ error: 'ID de producto inválido' });
+  }
+
+  // Si se asigna alguien, tiene que existir y ser cocinero (rol 2)
+  if (idCocinero) {
+    const { data: usuario, error: errUsuario } = await supabase
+      .from('usuarios')
+      .select('id, id_rol')
+      .eq('id', idCocinero)
+      .maybeSingle();
+
+    // 22P02 = el texto no es un UUID válido
+    if (errUsuario && errUsuario.code !== '22P02') return res.status(500).json({ error: errUsuario.message });
+    if (!usuario || usuario.id_rol !== 2) {
+      return res.status(400).json({ error: 'El usuario elegido no es un cocinero' });
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('productos')
+    .update({ id_cocinero: idCocinero })
+    .eq('id', id)
+    .select('id, codigo_plato, nombre, id_cocinero')
+    .maybeSingle();
+
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: 'Producto no encontrado' });
+
+  res.json({ mensaje: 'Cocinero del plato actualizado', producto: data });
 });
 
 /* ======================================================

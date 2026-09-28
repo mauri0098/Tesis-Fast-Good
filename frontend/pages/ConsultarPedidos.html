@@ -32,7 +32,7 @@
   <main class="page-container">
     <div class="table-wrapper">
       <div class="filtros-container">
-        <input type="text"  id="CampoBusqueda" class="filtro-input" placeholder="Buscar por nombre o N° pedido...">
+        <input type="text"  id="CampoBusqueda" class="filtro-input" placeholder="Buscar por nombre o N° pedido..." autocomplete="one-time-code">
         <input type="date"  id="FechaDesde"    class="filtro-input filtro-fecha">
         <input type="date"  id="FechaHasta"    class="filtro-input filtro-fecha">
       </div>
@@ -167,6 +167,49 @@
       <div class="pago-acciones">
         <button class="btn-pago-cancelar" onclick="cerrarModalPago()">Cancelar</button>
         <button id="pagoGuardar" class="btn-pago-guardar" onclick="guardarPago()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CONFIRMAR PAGO (al pasar a En Preparación un pedido que no es en efectivo) -->
+  <div id="modalConfirmarPago" class="modal-overlay" onclick="cancelarConfirmarPago(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Confirmar Pago</h3>
+        <button class="modal-close-btn" onclick="cancelarConfirmarPago()">✕</button>
+      </div>
+
+      <p class="confirmar-pago-texto">
+        El método de pago de este pedido es <strong id="confirmarPagoMetodo"></strong>.
+        ¿Confirmás que el cliente ya realizó el pago?
+      </p>
+
+      <div class="pago-acciones">
+        <button class="btn-pago-cancelar" onclick="cancelarConfirmarPago()">No, todavía no pagó</button>
+        <button id="confirmarPagoSi" class="btn-pago-guardar" onclick="aceptarConfirmarPago()">Sí, ya pagó</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ANULAR PEDIDO (requiere PIN, se valida en el servidor) -->
+  <div id="modalAnular" class="modal-overlay" onclick="cerrarModalAnular(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="anularTitulo">Anular Pedido</h3>
+        <button class="modal-close-btn" onclick="cerrarModalAnular()">✕</button>
+      </div>
+
+      <p class="anular-texto">Esta acción es irreversible. Ingresá el PIN de autorización.</p>
+
+      <label for="anularPin" class="anular-label">PIN</label>
+      <input type="password" id="anularPin" class="anular-pin" maxlength="4"
+             inputmode="numeric" pattern="[0-9]{4}" autocomplete="off" placeholder="••••">
+
+      <div id="anularError" class="pago-error"></div>
+
+      <div class="pago-acciones">
+        <button class="btn-pago-cancelar" onclick="cerrarModalAnular()">Cancelar</button>
+        <button id="anularConfirmar" class="btn-anular-confirmar" onclick="confirmarAnulacion()">Confirmar Anulación</button>
       </div>
     </div>
   </div>
@@ -309,6 +352,45 @@
     .btn-pago-guardar { background: var(--color-primary); color: white; }
     .btn-pago-guardar:hover { background: #218838; }
     .btn-pago-guardar:disabled { background: #adb5bd; cursor: not-allowed; }
+
+    /* ── Modal de confirmación de pago ── */
+    #modalConfirmarPago .modal-box { max-width: 420px; }
+    .confirmar-pago-texto {
+      font-size: 0.92rem; line-height: 1.5; color: #444; margin: 0;
+      background: #e8f5e9; border-radius: 8px; padding: 0.85rem 1rem;
+    }
+    .confirmar-pago-texto strong { color: #2e7d32; }
+
+    /* ── Modal de anulación ── */
+    #modalAnular .modal-box { max-width: 400px; }
+    #modalAnular .modal-header { border-bottom-color: #dc3545; }
+    #modalAnular .modal-header h3 { color: #dc3545; }
+    .anular-texto {
+      font-size: 0.9rem; color: #721c24; background: #f8d7da;
+      border-radius: 8px; padding: 0.75rem 1rem; margin: 0 0 1rem;
+    }
+    .anular-label { display: block; font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 0.3rem; }
+    .anular-pin {
+      width: 100%; box-sizing: border-box; text-align: center; letter-spacing: 0.6rem;
+      border: 1.5px solid #ddd; border-radius: 8px; padding: 0.65rem;
+      font-family: inherit; font-size: 1.3rem; outline: none;
+    }
+    .anular-pin:focus { border-color: #dc3545; box-shadow: 0 0 0 3px rgba(220,53,69,0.12); }
+    .btn-anular-confirmar {
+      border: none; border-radius: 8px; padding: 0.6rem 1.3rem; cursor: pointer;
+      font-family: inherit; font-size: 0.9rem; font-weight: 600; transition: background 0.2s;
+      background: #dc3545; color: white;
+    }
+    .btn-anular-confirmar:hover { background: #b02a37; }
+    .btn-anular-confirmar:disabled { background: #adb5bd; cursor: not-allowed; }
+
+    /* Aviso de éxito */
+    .toast-exito {
+      position: fixed; top: 1.5rem; right: 1.5rem; z-index: 10000;
+      background: #d4edda; color: #155724; border-left: 4px solid var(--color-primary);
+      border-radius: 8px; padding: 0.9rem 1.25rem; box-shadow: 0 4px 12px rgba(0,0,0,.15);
+      font-size: 0.9rem; font-weight: 500;
+    }
 
     /* Responsive — el modal se achica en mobile */
     @media (max-width: 768px) {
