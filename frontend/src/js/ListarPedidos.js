@@ -92,7 +92,11 @@ function crearFilaPedido(pedido) {
   const isPaid = pedido.pagado;
   // Debajo del método: el desglose del Mixto (efectivo + transferencia) o si el efectivo fue anticipado
   let detallePago = '';
-  if (metodo === 'Mixto') {
+  if (metodo === 'Mixto' && pedido.transferencia_confirmada && !isPaid) {
+    // La transferencia ya llegó; falta que el repartidor cobre el efectivo
+    // (en líneas separadas: .pago-detalle no hace salto de línea y en una sola se encima con la columna Estado)
+    detallePago = `<span class="pago-detalle">Transferencia ✓ ·<br>Efectivo pendiente<br>${formatPrecio(pedido.monto_efectivo || 0)}</span>`;
+  } else if (metodo === 'Mixto') {
     detallePago = `<span class="pago-detalle">💵 ${formatPrecio(pedido.monto_efectivo || 0)}<br>🏦 ${formatPrecio(pedido.monto_transferencia || 0)}</span>`;
   } else if (metodo === 'Efectivo' && pedido.pago_anticipado) {
     detallePago = '<span class="pago-detalle">Pago anticipado</span>';
@@ -154,14 +158,28 @@ function crearFilaPedido(pedido) {
 
   aplicarColorEstado(selectEstado, estadoActualId);
 
-  selectEstado.addEventListener('change', () => {
+  selectEstado.addEventListener('change', async () => {
     const nuevoId = parseInt(selectEstado.value);
     const anteriorId = parseInt(selectEstado.dataset.estadoActual);
 
     // Pasar a "En Preparación" con un pago no efectivo: antes hay que confirmar que el cliente pagó.
-    // El efectivo se cobra al entregar, así que avanza directo.
+    // El efectivo se cobra al entregar, así que avanza directo (y si falta stock, el 409 lo avisa).
     const metodo = pedido.metodo_pago || 'Efectivo';
-    if (nuevoId === ESTADO_EN_PREPARACION && METODOS_PAGO_PREVIO.includes(metodo) && !pedido.pagado) {
+    // Lo que hay que confirmar antes: el pago completo, o en un Mixto solo la transferencia
+    const pagoPrevioConfirmado = metodo === 'Mixto' ? pedido.transferencia_confirmada : pedido.pagado;
+    if (nuevoId === ESTADO_EN_PREPARACION && METODOS_PAGO_PREVIO.includes(metodo) && !pagoPrevioConfirmado) {
+      // Primero el stock: si no alcanza, no tiene sentido pedir la confirmación del pago
+      selectEstado.disabled = true;
+      const errorStock = await verificarStockPedido(pedido.id);
+      selectEstado.disabled = false;
+
+      if (errorStock) {
+        mostrarAlertaStock(errorStock);
+        selectEstado.value = anteriorId;
+        aplicarColorEstado(selectEstado, anteriorId);
+        return;
+      }
+
       abrirModalConfirmarPago(pedido, selectEstado, nuevoId, anteriorId);
       return;
     }
@@ -209,6 +227,22 @@ async function cambiarEstadoPedido(pedido, selectEstado, nuevoId, anteriorId) {
   }
 }
 
+// Devuelve el mensaje de stock insuficiente, o null si alcanza.
+// Si no se pudo consultar (sesión vencida, sin conexión) también devuelve null: el servidor
+// vuelve a verificar al guardar el estado y, si falta stock, ese 409 muestra el mismo aviso.
+async function verificarStockPedido(pedidoId) {
+  try {
+    const res = await fetch(`http://localhost:3000/api/pedidos/${pedidoId}/verificar-stock`, {
+      headers: { 'Authorization': 'Bearer ' + localStorage.getItem('fg_token') }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.ok ? null : data.error;
+  } catch {
+    return null;
+  }
+}
+
 // ── MODAL CONFIRMAR PAGO (al pasar a En Preparación) ──────────
 const ESTADO_EN_PREPARACION = 2;
 const METODOS_PAGO_PREVIO = ['Transferencia', 'Tarjeta Débito', 'Tarjeta Crédito', 'Mixto'];
@@ -216,7 +250,14 @@ let confirmacionPago = null; // { pedido, selectEstado, nuevoId, anteriorId } mi
 
 function abrirModalConfirmarPago(pedido, selectEstado, nuevoId, anteriorId) {
   confirmacionPago = { pedido, selectEstado, nuevoId, anteriorId };
-  document.getElementById('confirmarPagoMetodo').textContent = pedido.metodo_pago;
+
+  // Mixto: se confirma solo la transferencia. Transferencia / Tarjeta: el pago completo.
+  const esMixto = pedido.metodo_pago === 'Mixto';
+  document.getElementById('confirmarPagoTextoCompleto').style.display = esMixto ? 'none' : '';
+  document.getElementById('confirmarPagoTextoMixto').style.display    = esMixto ? '' : 'none';
+  document.getElementById('confirmarPagoMetodo').textContent        = pedido.metodo_pago;
+  document.getElementById('confirmarPagoTransferencia').textContent = formatPrecio(pedido.monto_transferencia || 0);
+  document.getElementById('confirmarPagoEfectivo').textContent      = formatPrecio(pedido.monto_efectivo || 0);
   document.getElementById('modalConfirmarPago').classList.add('visible');
   document.getElementById('confirmarPagoSi').focus();
 }
@@ -234,7 +275,9 @@ function cancelarConfirmarPago(e) {
   modal.classList.remove('visible');
 }
 
-// "Sí, ya pagó": se cambia el estado (con su descuento de stock) y, si salió bien, se marca pagado
+// "Sí, ya pagó": se cambia el estado (con su verificación de stock) y, si salió bien, se registra el pago:
+// - Transferencia / Tarjeta: pagado = true (el pedido queda totalmente cobrado).
+// - Mixto: solo transferencia_confirmada = true; pagado sigue en false hasta que el repartidor cobre el efectivo.
 async function aceptarConfirmarPago() {
   if (!confirmacionPago) return;
   const { pedido, selectEstado, nuevoId, anteriorId } = confirmacionPago;
@@ -244,19 +287,27 @@ async function aceptarConfirmarPago() {
   const ok = await cambiarEstadoPedido(pedido, selectEstado, nuevoId, anteriorId);
   if (!ok) return;
 
+  const esMixto = pedido.metodo_pago === 'Mixto';
   try {
-    const res = await fetch(`http://localhost:3000/api/pedidos/${pedido.id}/pagado`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pagado: true })
-    });
-    if (!res.ok) throw new Error();
+    const res = esMixto
+      ? await fetch(`http://localhost:3000/api/pedidos/${pedido.id}/transferencia-confirmada`, {
+          method: 'PUT',
+          headers: { 'Authorization': 'Bearer ' + localStorage.getItem('fg_token') }
+        })
+      : await fetch(`http://localhost:3000/api/pedidos/${pedido.id}/pagado`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pagado: true })
+        });
+    if (!res.ok) throw new Error(res.status === 401 ? 'Tu sesión expiró. Volvé a iniciar sesión.' : '');
 
-    pedido.pagado = true;
-    // redibujar para que la columna Método Pago muestre PAGADO
+    if (esMixto) pedido.transferencia_confirmada = true;
+    else         pedido.pagado = true;
+    // redibujar para que la columna Método Pago muestre el pago confirmado
     renderizarPedidos(filtrarPedidos(), paginacionPedidos.paginaActual());
   } catch (err) {
-    alert('El pedido pasó a En Preparación, pero no se pudo marcar como pagado.');
+    const queFalto = esMixto ? 'no se pudo registrar la transferencia' : 'no se pudo marcar como pagado';
+    mostrarAlerta('⚠ Pago sin registrar', `El pedido pasó a En Preparación, pero ${queFalto}. ${err.message}`.trim());
   }
 }
 // ─────────────────────────────────────────────────────────────
@@ -541,6 +592,11 @@ function filtrarPedidos() {
 
 // ── ALERTA DE STOCK INSUFICIENTE ─────────────────────────────
 function mostrarAlertaStock(mensaje) {
+  mostrarAlerta('⚠ Stock insuficiente', mensaje);
+}
+
+// Aviso flotante amarillo (el mismo de stock, con título variable)
+function mostrarAlerta(titulo, mensaje) {
   // Eliminar alerta previa si existe
   const anterior = document.getElementById('alertaStock');
   if (anterior) anterior.remove();
@@ -556,7 +612,7 @@ function mostrarAlertaStock(mensaje) {
     font-size: 0.9rem; line-height: 1.5;
   `;
   alerta.innerHTML = `
-    <strong style="display:block;margin-bottom:.35rem;">⚠ Stock insuficiente</strong>
+    <strong style="display:block;margin-bottom:.35rem;"></strong>
     <span id="alertaStockMensaje"></span>
     <button onclick="this.parentElement.remove()" style="
       position:absolute; top:.5rem; right:.75rem;
@@ -564,6 +620,7 @@ function mostrarAlertaStock(mensaje) {
       cursor:pointer; color:#856404; line-height:1;
     ">×</button>
   `;
+  alerta.querySelector('strong').textContent = titulo;
   alerta.querySelector('#alertaStockMensaje').textContent = mensaje;
   alerta.style.position = 'fixed';
   document.body.appendChild(alerta);

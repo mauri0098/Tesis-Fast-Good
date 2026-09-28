@@ -60,10 +60,106 @@ function requireAuth(req, res, next) {
 }
 
 /* ======================================================
-   LÓGICA DE DESCUENTO DE STOCK POR RECETA
-   Retorna null si todo OK, o un string con el error.
-   Se activa cuando un pedido pasa al estado "En Preparación" (id=2).
+   LÓGICA DE STOCK POR RECETA
+   - verificarStockPedido: al pasar a "En Preparación" (2). Solo lee, no descuenta.
+   - descontarStockPedido: al pasar a "Listo para Entregar" (3) o "Entregado" (4). Descuenta.
+   Las dos retornan null si todo OK, o un string con el error.
    ====================================================== */
+
+// Calcula el consumo de insumos del pedido (receta × cantidad) y lo compara con el stock actual.
+// Solo lee. Devuelve { error } si falla o no alcanza, o { consumo, stockMap, nombreMap } si alcanza
+// (consumo vacío si el pedido no tiene detalles o sus platos no tienen receta).
+async function calcularConsumoPedido(pedidoId) {
+  const sinConsumo = { consumo: {}, stockMap: {}, nombreMap: {} };
+
+  // 1. Productos y cantidades del pedido
+  const { data: detalles, error: errDetalles } = await supabase
+    .from('pedido_detalles')
+    .select('id_producto, cantidad')
+    .eq('id_pedido', pedidoId);
+
+  if (errDetalles) {
+    console.error('ERROR REAL DEL SERVIDOR [pedido_detalles]:', errDetalles);
+    return { error: `Error al leer detalles del pedido: ${errDetalles.message}` };
+  }
+  if (!detalles || detalles.length === 0) return sinConsumo;
+
+  // 2. Recetas desde producto_insumo — select(*) para no asumir nombre de columna
+  const productIds = detalles.map(d => d.id_producto);
+  const { data: recetas, error: errRecetas } = await supabase
+    .from('producto_insumo')
+    .select('*')
+    .in('id_producto', productIds);
+
+  if (errRecetas) {
+    console.error('ERROR REAL DEL SERVIDOR [producto_insumo]:', errRecetas);
+    return { error: `Error al leer recetas: ${errRecetas.message}` };
+  }
+  if (!recetas || recetas.length === 0) return sinConsumo;
+
+  // 3. Consumo total por insumo (cantidad_receta × platos_pedidos)
+  const consumo = {}; // { id_insumo: totalNecesario }
+  for (const detalle of detalles) {
+    const insumosDelProducto = recetas.filter(
+      r => String(r.id_producto) === String(detalle.id_producto)
+    );
+    for (const r of insumosDelProducto) {
+      console.log('[DEBUG RECETA]', r); // ← muestra los nombres reales de columnas en la terminal
+      const cantidadReceta = Number(r.cantidad || r.cantidad_insumo || r.cantidad_necesaria || 0);
+      const totalNecesario = cantidadReceta * Number(detalle.cantidad);
+      consumo[r.id_insumo] = (consumo[r.id_insumo] || 0) + totalNecesario;
+    }
+  }
+
+  const insumosIds = Object.keys(consumo).map(Number);
+  if (insumosIds.length === 0) return sinConsumo;
+
+  // 4. Stock actual desde insumos
+  const { data: insumos, error: errInsumos } = await supabase
+    .from('insumos')
+    .select('id, nombre, stock_actual')
+    .in('id', insumosIds);
+
+  if (errInsumos) {
+    console.error('ERROR REAL DEL SERVIDOR [insumos select]:', errInsumos);
+    return { error: `Error al leer stock: ${errInsumos.message}` };
+  }
+
+  // Mapa de stock con clave y valor forzados a Number para eliminar ambigüedad de tipos
+  const stockMap  = {}; // { id_num: stockActualNum }
+  const nombreMap = {}; // { id_num: nombre }
+  for (const fila of insumos) {
+    const idNum          = Number(fila.id);
+    stockMap[idNum]      = Number(fila.stock_actual ?? 0);
+    nombreMap[idNum]     = fila.nombre || String(fila.id);
+  }
+
+  // 5. Pre-flight check: comparación estrictamente numérica, antes de tocar nada
+  for (const [keyId, totalRaw] of Object.entries(consumo)) {
+    const idNum              = Number(keyId);
+    const stockActualNum     = stockMap[idNum] ?? 0;
+    const cantidadRequerida  = Number(totalRaw);
+
+    console.log(`[STOCK DEBUG] insumo ${idNum} | stock: ${stockActualNum} | requerido: ${cantidadRequerida}`);
+
+    if (stockActualNum < cantidadRequerida) {
+      return { error: `Stock insuficiente de "${nombreMap[idNum]}": se necesitan ${cantidadRequerida}, hay ${stockActualNum} disponibles` };
+    }
+  }
+
+  return { consumo, stockMap, nombreMap };
+}
+
+// Al pasar a "En Preparación": ¿alcanza el stock para todo el pedido? Solo lee, no descuenta.
+async function verificarStockPedido(pedidoId) {
+  try {
+    const { error } = await calcularConsumoPedido(pedidoId);
+    return error || null;
+  } catch (error) {
+    console.error('ERROR REAL DEL SERVIDOR en verificarStockPedido:', error);
+    return `Error inesperado al verificar stock: ${error.message}`;
+  }
+}
 
 async function descontarStockPedido(pedidoId) {
   try {
@@ -85,80 +181,12 @@ async function descontarStockPedido(pedidoId) {
       return null;
     }
 
-    // 1. Productos y cantidades del pedido
-    const { data: detalles, error: errDetalles } = await supabase
-      .from('pedido_detalles')
-      .select('id_producto, cantidad')
-      .eq('id_pedido', pedidoId);
+    // 1–5. Consumo del pedido y pre-flight check (compartido con verificarStockPedido)
+    const calculo = await calcularConsumoPedido(pedidoId);
+    if (calculo.error) return calculo.error;
 
-    if (errDetalles) {
-      console.error('ERROR REAL DEL SERVIDOR [pedido_detalles]:', errDetalles);
-      return `Error al leer detalles del pedido: ${errDetalles.message}`;
-    }
-    if (!detalles || detalles.length === 0) return null;
-
-    // 2. Recetas desde producto_insumo — select(*) para no asumir nombre de columna
-    const productIds = detalles.map(d => d.id_producto);
-    const { data: recetas, error: errRecetas } = await supabase
-      .from('producto_insumo')
-      .select('*')
-      .in('id_producto', productIds);
-
-    if (errRecetas) {
-      console.error('ERROR REAL DEL SERVIDOR [producto_insumo]:', errRecetas);
-      return `Error al leer recetas: ${errRecetas.message}`;
-    }
-    if (!recetas || recetas.length === 0) return null;
-
-    // 3. Consumo total por insumo (cantidad_receta × platos_pedidos)
-    const consumo = {}; // { id_insumo: totalNecesario }
-    for (const detalle of detalles) {
-      const insumosDelProducto = recetas.filter(
-        r => String(r.id_producto) === String(detalle.id_producto)
-      );
-      for (const r of insumosDelProducto) {
-        console.log('[DEBUG RECETA]', r); // ← muestra los nombres reales de columnas en la terminal
-        const cantidadReceta = Number(r.cantidad || r.cantidad_insumo || r.cantidad_necesaria || 0);
-        const totalNecesario = cantidadReceta * Number(detalle.cantidad);
-        consumo[r.id_insumo] = (consumo[r.id_insumo] || 0) + totalNecesario;
-      }
-    }
-
-    const insumosIds = Object.keys(consumo).map(Number);
-    if (insumosIds.length === 0) return null;
-
-    // 4. Stock actual desde insumos
-    const { data: insumos, error: errInsumos } = await supabase
-      .from('insumos')
-      .select('id, nombre, stock_actual')
-      .in('id', insumosIds);
-
-    if (errInsumos) {
-      console.error('ERROR REAL DEL SERVIDOR [insumos select]:', errInsumos);
-      return `Error al leer stock: ${errInsumos.message}`;
-    }
-
-    // Mapa de stock con clave y valor forzados a Number para eliminar ambigüedad de tipos
-    const stockMap  = {}; // { id_num: stockActualNum }
-    const nombreMap = {}; // { id_num: nombre }
-    for (const fila of insumos) {
-      const idNum          = Number(fila.id);
-      stockMap[idNum]      = Number(fila.stock_actual ?? 0);
-      nombreMap[idNum]     = fila.nombre || String(fila.id);
-    }
-
-    // 5. Pre-flight check: comparación estrictamente numérica, antes de tocar nada
-    for (const [keyId, totalRaw] of Object.entries(consumo)) {
-      const idNum              = Number(keyId);
-      const stockActualNum     = stockMap[idNum] ?? 0;
-      const cantidadRequerida  = Number(totalRaw);
-
-      console.log(`[STOCK DEBUG] insumo ${idNum} | stock: ${stockActualNum} | requerido: ${cantidadRequerida}`);
-
-      if (stockActualNum < cantidadRequerida) {
-        return `Stock insuficiente de "${nombreMap[idNum]}": se necesitan ${cantidadRequerida}, hay ${stockActualNum} disponibles`;
-      }
-    }
+    const { consumo, stockMap, nombreMap } = calculo;
+    if (Object.keys(consumo).length === 0) return null;
 
     // 6. Aplicar descuentos en insumos
     const fechaHora = new Date().toISOString();
@@ -198,7 +226,7 @@ async function descontarStockPedido(pedidoId) {
       return `Error al registrar movimientos de stock: ${errMov.message}`;
     }
 
-    console.log(`[STOCK] Descuento registrado para ${motivoBase} (${insumos.length} insumos)`);
+    console.log(`[STOCK] Descuento registrado para ${motivoBase} (${movimientosAInsertar.length} insumos)`);
     return null; // éxito
 
   } catch (error) {
@@ -716,6 +744,7 @@ app.get('/api/pedidos', async (req, res) => {
       monto_tarjeta,
       pago_anticipado,
       pagado,
+      transferencia_confirmada,
       cliente_nombre,
       cliente_direccion,
       cliente_telefono,
@@ -741,9 +770,28 @@ app.get('/api/pedidos', async (req, res) => {
   res.json(data);
 });
 
+// pagado = true significa que el pedido está TOTALMENTE cobrado.
+// En un Mixto eso requiere que la transferencia ya esté confirmada (la marca el admin al pasarlo a
+// En Preparación); el repartidor completa el cobro del efectivo con el botón Cobrado de Envíos.
 app.put('/api/pedidos/:id/pagado', async (req, res) => {
   const { id } = req.params;
   const { pagado } = req.body;
+
+  if (pagado) {
+    const { data: pedido, error: errLectura } = await supabase
+      .from('pedidos')
+      .select('id, metodo_pago, transferencia_confirmada')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (errLectura) return res.status(500).json({ error: errLectura.message });
+    if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
+    if (pedido.metodo_pago === 'Mixto' && !pedido.transferencia_confirmada) {
+      return res.status(409).json({
+        error: 'No se puede marcar como cobrado: la transferencia de este pedido Mixto todavía no fue confirmada. Confirmala desde Consultar Pedidos.'
+      });
+    }
+  }
 
   const { data, error } = await supabase
     .from('pedidos')
@@ -754,6 +802,37 @@ app.put('/api/pedidos/:id/pagado', async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
   res.json({ mensaje: 'Pago actualizado', pedido: data });
+});
+
+// PUT /api/pedidos/:id/transferencia-confirmada → en un Mixto, registra que la parte por
+// transferencia ya llegó. No toca pagado: el efectivo se cobra al entregar.
+app.put('/api/pedidos/:id/transferencia-confirmada', requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ error: 'ID de pedido inválido' });
+  }
+
+  const { data: pedido, error: errLectura } = await supabase
+    .from('pedidos')
+    .select('id, metodo_pago')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (errLectura) return res.status(500).json({ error: errLectura.message });
+  if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
+  if (pedido.metodo_pago !== 'Mixto') {
+    return res.status(409).json({ error: 'Solo los pedidos con pago Mixto tienen una transferencia para confirmar.' });
+  }
+
+  const { data, error } = await supabase
+    .from('pedidos')
+    .update({ transferencia_confirmada: true })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ mensaje: 'Transferencia confirmada', pedido: data });
 });
 
 // Método de pago del pedido: Efectivo, Transferencia, Tarjeta Débito, Tarjeta Crédito o Mixto
@@ -841,10 +920,16 @@ app.put('/api/pedidos/:id/pago', requireAuth, async (req, res) => {
 });
 
 // Cambia el estado de un pedido. La usan PUT /estado (admin) y PUT /listo-cocinero (cocina).
-// Al pasar a 3 o 4 primero descuenta el stock (idempotente, ver descontarStockPedido): si falla,
-// no se cambia nada y devuelve status 409. Al pasar a 3 marca todos los platos como listos.
+// Al pasar a 2 verifica que alcance el stock, sin descontar: si no alcanza, no se cambia nada y
+// devuelve status 409. Al pasar a 3 o 4 descuenta el stock (idempotente, ver descontarStockPedido),
+// con el mismo 409 si falla. Al pasar a 3 marca todos los platos como listos.
 // Devuelve { status, pedido } o { status, error }.
 async function cambiarEstadoPedido(pedidoId, nuevoEstado) {
+  if (nuevoEstado === 2) {
+    const errorStock = await verificarStockPedido(pedidoId);
+    if (errorStock) return { status: 409, error: errorStock };
+  }
+
   if ([3, 4].includes(nuevoEstado)) {
     const errorStock = await descontarStockPedido(pedidoId);
     if (errorStock) return { status: 409, error: errorStock };
@@ -871,6 +956,27 @@ async function cambiarEstadoPedido(pedidoId, nuevoEstado) {
 
   return { status: 200, pedido: data };
 }
+
+// GET /api/pedidos/:id/verificar-stock → ¿alcanza el stock para preparar el pedido? Solo lee.
+// La usa la grilla antes de abrir "Confirmar Pago", para no pedir la confirmación si igual no puede pasar a 2.
+app.get('/api/pedidos/:id/verificar-stock', requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ error: 'ID de pedido inválido' });
+  }
+
+  const { data: pedido, error: errLectura } = await supabase
+    .from('pedidos')
+    .select('id')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (errLectura) return res.status(500).json({ error: errLectura.message });
+  if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
+
+  const errorStock = await verificarStockPedido(id);
+  res.json(errorStock ? { ok: false, error: errorStock } : { ok: true });
+});
 
 app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
   const { pedidoId } = req.params;
@@ -1167,6 +1273,22 @@ app.get('/api/productos/cocineros', async (req, res) => {
   res.json(resultado);
 });
 
+// Valida que idCocinero sea un usuario existente con rol cocinero (2).
+// Devuelve null si está bien, o { status, error } para responder.
+// La usan PUT /api/productos/:id/cocinero y POST /api/productos/con-receta.
+async function validarCocinero(idCocinero) {
+  const { data: usuario, error } = await supabase
+    .from('usuarios')
+    .select('id, id_rol')
+    .eq('id', idCocinero)
+    .maybeSingle();
+
+  // 22P02 = el texto no es un UUID válido
+  if (error && error.code !== '22P02') return { status: 500, error: error.message };
+  if (!usuario || usuario.id_rol !== 2) return { status: 400, error: 'El usuario elegido no es un cocinero' };
+  return null;
+}
+
 // PUT /api/productos/:id/cocinero → asignar (o quitar, con null) el cocinero de un plato
 app.put('/api/productos/:id/cocinero', requireAuth, async (req, res) => {
   const id = parseInt(req.params.id);
@@ -1178,17 +1300,8 @@ app.put('/api/productos/:id/cocinero', requireAuth, async (req, res) => {
 
   // Si se asigna alguien, tiene que existir y ser cocinero (rol 2)
   if (idCocinero) {
-    const { data: usuario, error: errUsuario } = await supabase
-      .from('usuarios')
-      .select('id, id_rol')
-      .eq('id', idCocinero)
-      .maybeSingle();
-
-    // 22P02 = el texto no es un UUID válido
-    if (errUsuario && errUsuario.code !== '22P02') return res.status(500).json({ error: errUsuario.message });
-    if (!usuario || usuario.id_rol !== 2) {
-      return res.status(400).json({ error: 'El usuario elegido no es un cocinero' });
-    }
+    const invalido = await validarCocinero(idCocinero);
+    if (invalido) return res.status(invalido.status).json({ error: invalido.error });
   }
 
   const { data, error } = await supabase
@@ -1347,6 +1460,8 @@ app.get('/api/recetas', async (req, res) => {
       precio,
       descuento,
       imagen,
+      id_cocinero,
+      cocinero:usuarios!id_cocinero ( nombre, apellido ),
       plan:planes (
         nombre,
         codigo_plan,
@@ -1373,6 +1488,9 @@ app.get('/api/recetas', async (req, res) => {
     precio:          p.precio    != null ? Number(p.precio)    : null,
     descuento:       p.descuento != null ? Number(p.descuento) : null,
     imagen:          p.imagen || null,
+    // Cocinero propio del plato (null = lo ve el cocinero del plan)
+    id_cocinero:     p.id_cocinero || null,
+    cocinero_nombre: p.cocinero ? [p.cocinero.nombre, p.cocinero.apellido].filter(Boolean).join(' ') : null,
     plan: p.plan ? {
       nombre:    p.plan.nombre,
       codigo:    p.plan.codigo_plan || null,
@@ -1796,7 +1914,11 @@ app.get('/api/envios', async (req, res) => {
       fecha_entrega,
       total,
       metodo_pago,
+      monto_efectivo,
+      monto_transferencia,
+      pago_anticipado,
       pagado,
+      transferencia_confirmada,
       cliente_nombre,
       cliente_direccion,
       cliente_telefono,
@@ -1880,12 +2002,26 @@ app.get('/api/planes/:id/siguiente-codigo', async (req, res) => {
 
 // POST /api/productos/con-receta → crea producto nuevo + receta de forma atómica
 // Body: { nombre, id_plan, insumos: [{ id_insumo, cantidad_necesaria, unidad_medida }] }
-app.post('/api/productos/con-receta', async (req, res) => {
+// Asignar un cocinero requiere sesión (igual que PUT /api/productos/:id/cocinero);
+// crear la receta sin cocinero sigue funcionando como antes.
+function requireAuthSiHayCocinero(req, res, next) {
+  if (req.body?.id_cocinero) return requireAuth(req, res, next);
+  next();
+}
+
+app.post('/api/productos/con-receta', requireAuthSiHayCocinero, async (req, res) => {
   const { nombre, id_plan, precio, descuento, insumos } = req.body;
+  const idCocinero = req.body.id_cocinero || null; // opcional: null = usa el cocinero del plan
 
   if (!nombre || !nombre.trim()) return res.status(400).json({ error: 'El nombre del producto es requerido' });
   if (!id_plan)                   return res.status(400).json({ error: 'El plan es requerido' });
   if (!insumos || insumos.length === 0) return res.status(400).json({ error: 'Agregá al menos un insumo' });
+
+  // Antes de crear nada: si viene cocinero, tiene que ser un usuario con rol cocinero
+  if (idCocinero) {
+    const invalido = await validarCocinero(idCocinero);
+    if (invalido) return res.status(invalido.status).json({ error: invalido.error });
+  }
 
   try {
     // Calcular el próximo código de plato para el plan
@@ -1925,6 +2061,7 @@ app.post('/api/productos/con-receta', async (req, res) => {
         codigo_plato,
         precio:       precio    != null ? Number(precio)    : null,
         descuento:    descuento != null ? Number(descuento) : null,
+        id_cocinero:  idCocinero,
         activo:       true
       })
       .select()

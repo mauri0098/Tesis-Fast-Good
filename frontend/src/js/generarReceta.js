@@ -5,6 +5,7 @@ let todosProductos  = [];
 let todasCategorias = [];
 let idProductoEditando = null;
 let modoCreacion       = false;
+let cocineroOriginal   = '';   // cocinero del plato al abrir "Editar", para saber si cambió
 
 // Imagen pendiente de subir (se sube recién después de guardar la receta,
 // porque para un producto nuevo todavía no existe id_producto)
@@ -81,7 +82,7 @@ async function fetchRecetas() {
 
   } catch (error) {
     console.error('Error al traer recetas:', error);
-    tbody.innerHTML = '<tr><td colspan="8" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
   }
 }
 
@@ -96,7 +97,7 @@ function renderizarRecetas(recetas) {
     contenedorTabla:      document.getElementById('recetasBody'),
     contenedorPaginacion: document.getElementById('paginacion'),
     funcionRenderFila:    crearFilaReceta,
-    filaVacia:            '<tr><td colspan="8" class="loading-text">No existen productos que cumplan los filtros especificados</td></tr>'
+    filaVacia:            '<tr><td colspan="9" class="loading-text">No existen productos que cumplan los filtros especificados</td></tr>'
   });
 }
 
@@ -127,6 +128,15 @@ function crearFilaReceta(receta) {
   const strong   = document.createElement('strong');
   strong.textContent = receta.nombre_producto || '-';
   tdNombre.appendChild(strong);
+
+  // — Cocinero (el propio del plato; si no tiene, lo ve el cocinero del plan) —
+  const tdCocinero = document.createElement('td');
+  if (receta.cocinero_nombre) {
+    tdCocinero.textContent = receta.cocinero_nombre;
+  } else {
+    tdCocinero.textContent = 'Del plan';
+    tdCocinero.className   = 'td-del-plan';
+  }
 
   // — Precio —
   const tdPrecio = document.createElement('td');
@@ -176,6 +186,7 @@ function crearFilaReceta(receta) {
   tr.appendChild(tdCategoria);
   tr.appendChild(tdPlan);
   tr.appendChild(tdNombre);
+  tr.appendChild(tdCocinero);
   tr.appendChild(tdPrecio);
   tr.appendChild(tdDescuento);
   tr.appendChild(tdCant);
@@ -448,7 +459,8 @@ function abrirModalNuevaReceta() {
 
   Promise.all([
     cargarCategoriasEnSelect(),
-    cargarInsumosDisponibles()
+    cargarInsumosDisponibles(),
+    cargarCocinerosEnSelect(null, null)
   ]).then(function () {
     agregarFilaInsumo(null);
   });
@@ -480,7 +492,11 @@ async function abrirModalEditar(idProducto) {
     if (receta.imagen) mostrarPreviewImagen(receta.imagen);
   }
 
-  await cargarInsumosDisponibles();
+  await Promise.all([
+    cargarInsumosDisponibles(),
+    cargarCocinerosEnSelect(receta ? receta.id_cocinero : null, receta ? receta.cocinero_nombre : null)
+  ]);
+  cocineroOriginal = (receta && receta.id_cocinero) || '';
 
   if (receta && receta.insumos) {
     receta.insumos.forEach(function (ins) { agregarFilaInsumo(ins); });
@@ -497,9 +513,51 @@ function cerrarModalEditar() {
   document.getElementById('edCodigo').value            = '';
   document.getElementById('edPrecio').value            = '';
   document.getElementById('edDescuento').value         = '';
+  document.getElementById('edCocinero').value          = '';
   limpiarImagen();
   idProductoEditando = null;
   modoCreacion       = false;
+  cocineroOriginal   = '';
+}
+
+// ==========================================
+// CARGAR COCINEROS (select del modal, opcional)
+// idAsignado / nombreAsignado: el cocinero que ya tiene el plato (al editar), o null
+// ==========================================
+async function cargarCocinerosEnSelect(idAsignado, nombreAsignado) {
+  const select = document.getElementById('edCocinero');
+  select.innerHTML = '';
+
+  const optVacio       = document.createElement('option');
+  optVacio.value       = '';
+  optVacio.textContent = 'Sin asignar (usa el del plan)';
+  select.appendChild(optVacio);
+
+  let cocineros = [];
+  try {
+    const response = await fetch('/api/cocineros');
+    if (response.ok) cocineros = await response.json();
+  } catch (error) {
+    console.error('Error al cargar cocineros:', error);
+  }
+
+  cocineros.forEach(function (c) {
+    const option       = document.createElement('option');
+    option.value       = c.id;
+    option.textContent = [c.nombre, c.apellido].filter(Boolean).join(' ');
+    select.appendChild(option);
+  });
+
+  // Asignado a alguien que ya no es cocinero: se muestra igual para no perderlo sin querer
+  // (mismo criterio que la pantalla Asignar Cocineros)
+  if (idAsignado && !cocineros.some(function (c) { return c.id === idAsignado; })) {
+    const option       = document.createElement('option');
+    option.value       = idAsignado;
+    option.textContent = (nombreAsignado || 'Usuario eliminado') + ' (ya no es cocinero)';
+    select.appendChild(option);
+  }
+
+  select.value = idAsignado || '';
 }
 
 // ==========================================
@@ -746,14 +804,20 @@ async function guardarNuevoProductoConReceta(insumos) {
   if (!idPlan) { mostrarError('Seleccioná un plan.');             return; }
   if (precio === null || isNaN(precio) || precio < 0) { mostrarError('Ingresá un precio válido.'); return; }
 
+  const idCocinero = document.getElementById('edCocinero').value || null; // opcional
+
   try {
     const response = await fetch('/api/productos/con-receta', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ nombre, id_plan: parseInt(idPlan), precio, descuento, insumos })
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer ' + localStorage.getItem('fg_token') // lo exige el servidor si hay cocinero
+      },
+      body:    JSON.stringify({ nombre, id_plan: parseInt(idPlan), precio, descuento, id_cocinero: idCocinero, insumos })
     });
 
     const data = await response.json();
+    if (response.status === 401) throw new Error('Tu sesión expiró. Volvé a iniciar sesión.');
     if (!response.ok) throw new Error(data.error || 'Error en el servidor');
 
     if (imagenPendiente) await subirImagenProducto(data.producto.id);
@@ -785,12 +849,48 @@ async function actualizarRecetaExistente(insumos) {
 
     if (imagenPendiente) await subirImagenProducto(idProductoEditando);
 
-    cerrarModalEditar();
-    await fetchRecetas();
-
   } catch (error) {
     console.error('Error al guardar receta:', error);
     mostrarError('Error al guardar. Intentá de nuevo.');
+    return;
+  }
+
+  // Cocinero: solo si cambió, con el mismo endpoint que usa Asignar Cocineros
+  const idCocinero = document.getElementById('edCocinero').value;
+  if (idCocinero !== cocineroOriginal) {
+    const errorCocinero = await guardarCocineroDelPlato(idProductoEditando, idCocinero || null);
+    if (errorCocinero) {
+      // La receta ya quedó guardada: se avisa y el modal queda abierto para reintentar
+      imagenPendiente = null; // la imagen ya se subió
+      mostrarError('La receta se guardó, pero no se pudo asignar el cocinero: ' + errorCocinero);
+      await fetchRecetas();
+      return;
+    }
+  }
+
+  cerrarModalEditar();
+  await fetchRecetas();
+}
+
+// PUT /api/productos/:id/cocinero → devuelve null si salió bien, o el mensaje de error
+async function guardarCocineroDelPlato(idProducto, idCocinero) {
+  try {
+    const response = await fetch('/api/productos/' + idProducto + '/cocinero', {
+      method:  'PUT',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer ' + localStorage.getItem('fg_token')
+      },
+      body:    JSON.stringify({ id_cocinero: idCocinero })
+    });
+
+    if (response.ok) return null;
+    if (response.status === 401) return 'Tu sesión expiró. Volvé a iniciar sesión.';
+    const data = await response.json().catch(function () { return {}; });
+    return data.error || 'Error en el servidor';
+  } catch (error) {
+    console.error('Error al asignar cocinero:', error);
+    return 'No se pudo conectar con el servidor';
   }
 }
 

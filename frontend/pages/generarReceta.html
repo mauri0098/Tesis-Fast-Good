@@ -53,6 +53,7 @@
             <th>Categoría</th>
             <th>Plan</th>
             <th>Nombre Producto</th>
+            <th>Cocinero</th>
             <th>Precio ($)</th>
             <th>Descuento (%)</th>
             <th>Cant. Posible</th>
@@ -61,7 +62,7 @@
         </thead>
         <tbody id="recetasBody">
           <tr>
-            <td colspan="8" class="loading-text">Cargando datos...</td>
+            <td colspan="9" class="loading-text">Cargando datos...</td>
           </tr>
         </tbody>
       </table>
@@ -154,6 +155,14 @@
           <label>Descuento (%)</label>
           <input type="number" id="edDescuento" class="input-texto" min="0" max="100" step="1" placeholder="0" />
         </div>
+      </div>
+
+      <!-- COCINERO: siempre visible, compartido entre ambos modos (opcional) -->
+      <div class="modal-grid">
+        <label>Cocinero</label>
+        <select id="edCocinero">
+          <option value="">Sin asignar (usa el del plan)</option>
+        </select>
       </div>
 
       <!-- IMAGEN DEL PLATO: siempre visible, compartida entre ambos modos -->

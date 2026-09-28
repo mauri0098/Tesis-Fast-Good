@@ -338,12 +338,43 @@ function infoMetodoPago(metodo) {
   return { label: '💵 Efectivo', corto: '💵 Efect.', clase: 'efectivo', estilo: '' };
 }
 
+// ── Qué tiene que cobrar el repartidor (card y hoja de ruta) ──
+// Devuelve { texto, detalle, tipo }. tipo: 'cobrar' | 'no-cobrar' | 'alerta' (para el color).
+// - Efectivo: el total (salvo que se haya pagado por anticipado).
+// - Mixto: solo la parte en efectivo; la transferencia ya la confirmó el local.
+// - Transferencia / Tarjeta: nada. Si el pago no figura confirmado, se avisa en lugar de afirmar que está pagado.
+function infoCobro(p) {
+  const m     = (p.metodo_pago || '').toLowerCase();
+  const plata = n => '$' + Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 0 });
+
+  if (m.includes('mixto')) {
+    return {
+      texto:   `Cobrar en efectivo: ${plata(p.monto_efectivo)}`,
+      detalle: p.transferencia_confirmada
+        ? `Transferencia ya recibida: ${plata(p.monto_transferencia)}`
+        : `⚠ Transferencia sin confirmar: ${plata(p.monto_transferencia)}`,
+      tipo:    'cobrar'
+    };
+  }
+  if (m.includes('transfer') || m.includes('débito') || m.includes('debito') || m.includes('crédito') || m.includes('credito')) {
+    return p.pagado
+      ? { texto: 'Ya pagado, no cobrar', detalle: '', tipo: 'no-cobrar' }
+      : { texto: '⚠ Pago sin confirmar, no cobrar', detalle: 'Consultá con el local antes de entregar', tipo: 'alerta' };
+  }
+  // Efectivo (o sin método cargado, que se toma como Efectivo)
+  if (p.pago_anticipado) {
+    return { texto: 'Pago anticipado, no cobrar', detalle: '', tipo: 'no-cobrar' };
+  }
+  return { texto: `Cobrar en efectivo: ${plata(p.total)}`, detalle: '', tipo: 'cobrar' };
+}
+
 // ── Construir card HTML ───────────────────────────────────────
 function buildCard(p) {
   const estadoId     = p.id_estado || 3;
   const estadoNombre = p.estados?.nombre || 'Listo para Entregar';
   const pagado       = Boolean(p.pagado);
   const pago         = infoMetodoPago(p.metodo_pago);
+  const cobro        = infoCobro(p);
   const totalFmt     = Number(p.total).toLocaleString('es-AR', { minimumFractionDigits: 0 });
 
   const badgeEstadoClass = `badge-estado-${estadoId}`;
@@ -388,6 +419,11 @@ function buildCard(p) {
         </div>
 
         ${obsHtml}
+
+        <div class="card-cobro ${cobro.tipo}">
+          <span class="card-cobro-texto">${cobro.texto}</span>
+          ${cobro.detalle ? `<span class="card-cobro-detalle">${cobro.detalle}</span>` : ''}
+        </div>
       </div>
 
       <!-- Footer: total + pagado + estado -->
@@ -425,17 +461,24 @@ async function togglePagado(pedidoId, btn) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pagado: nuevoPagado })
     });
-    if (!res.ok) throw new Error('Error al actualizar');
+    // 409 = Mixto sin transferencia confirmada: el servidor explica el motivo
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'No se pudo actualizar el estado de pago.');
 
     btn.dataset.pagado = String(nuevoPagado);
     btn.className      = `btn-pagado ${nuevoPagado ? 'pagado' : 'no-pagado'}`;
     btn.textContent    = nuevoPagado ? '✓ Cobrado' : '✗ Sin cobrar';
 
     const p = todosEnvios.find(e => e.id === pedidoId);
-    if (p) p.pagado = nuevoPagado;
+    if (p) {
+      p.pagado = nuevoPagado;
+      // Redibujar la card: el texto de cobro depende de si está pagado (transferencia / tarjeta)
+      const card = document.getElementById(`card-${pedidoId}`);
+      if (card) card.outerHTML = buildCard(p);
+    }
 
   } catch (e) {
-    alert('No se pudo actualizar el estado de pago.');
+    mostrarAviso(e.message);
   } finally {
     btn.disabled = false;
   }
@@ -483,6 +526,7 @@ function buildPrintRow(p) {
   const items   = (p.pedido_detalles || []).map(d => `${d.cantidad}× ${d.productos?.nombre || '—'}`).join(' · ');
   const total   = Number(p.total).toLocaleString('es-AR', { minimumFractionDigits: 0 });
   const pago    = infoMetodoPago(p.metodo_pago).corto;
+  const cobro   = infoCobro(p);
   const cobrado = p.pagado ? '✓ COB' : '☐ COB';
   const cobClass = p.pagado ? 'si' : 'no';
   const obsRow  = p.observaciones
@@ -496,7 +540,11 @@ function buildPrintRow(p) {
       <span class="pr-dir">📍 ${p.cliente_direccion || '—'}</span>
       <span class="pr-tel">📞 ${p.cliente_telefono || '—'}</span>
       <span class="pr-total">$${total}</span>
-      <span class="pr-pago">${pago}</span>
+      <span class="pr-pago">
+        ${pago}
+        <span class="pr-cobrar ${cobro.tipo}">${cobro.texto}</span>
+        ${cobro.detalle ? `<span class="pr-cobrar-detalle">${cobro.detalle}</span>` : ''}
+      </span>
       <span class="pr-cobrado ${cobClass}">${cobrado}</span>
       <span class="pr-items">${items}</span>
       ${obsRow}
@@ -550,6 +598,28 @@ function imprimirHojaRuta() {
 window.addEventListener('afterprint', () => {
   document.getElementById('printContent').innerHTML = '';
 });
+
+// ── Aviso flotante (mismo estilo que los de Consultar Pedidos) ──
+function mostrarAviso(mensaje) {
+  document.getElementById('avisoEnvios')?.remove();
+
+  const aviso = document.createElement('div');
+  aviso.id        = 'avisoEnvios';
+  aviso.className = 'aviso-envios';
+  aviso.setAttribute('role', 'alert');
+
+  const titulo = document.createElement('strong');
+  titulo.textContent = '⚠ No se pudo marcar el cobro';
+  const texto = document.createElement('span');
+  texto.textContent = mensaje;
+  const cerrar = document.createElement('button');
+  cerrar.textContent = '×';
+  cerrar.onclick = () => aviso.remove();
+
+  aviso.append(titulo, texto, cerrar);
+  document.body.appendChild(aviso);
+  setTimeout(() => aviso.remove(), 8000);
+}
 
 // ── Utilidades ─────────────────────────────────────────────────
 function formatFecha(fechaStr) {

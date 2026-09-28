@@ -179,9 +179,16 @@
         <button class="modal-close-btn" onclick="cancelarConfirmarPago()">✕</button>
       </div>
 
-      <p class="confirmar-pago-texto">
+      <!-- Transferencia / Tarjeta: se confirma el pago completo -->
+      <p id="confirmarPagoTextoCompleto" class="confirmar-pago-texto">
         El método de pago de este pedido es <strong id="confirmarPagoMetodo"></strong>.
         ¿Confirmás que el cliente ya realizó el pago?
+      </p>
+
+      <!-- Mixto: solo se confirma la transferencia; el efectivo se cobra al entregar -->
+      <p id="confirmarPagoTextoMixto" class="confirmar-pago-texto" style="display:none;">
+        ¿Confirmás que el cliente ya transfirió <strong id="confirmarPagoTransferencia"></strong>?
+        El efectivo (<strong id="confirmarPagoEfectivo"></strong>) se cobra al entregar.
       </p>
 
       <div class="pago-acciones">

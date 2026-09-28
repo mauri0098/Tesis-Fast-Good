@@ -131,6 +131,32 @@
       font-size: 0.8rem; color: #5d4037;
     }
 
+    /* cuánto cobra el repartidor */
+    .card-cobro {
+      margin-top: 0.6rem; padding: 0.45rem 0.7rem; border-radius: 6px;
+      display: flex; flex-direction: column; gap: 0.1rem;
+    }
+    .card-cobro-texto   { font-size: 0.9rem; font-weight: 700; }
+    .card-cobro-detalle { font-size: 0.75rem; }
+    .card-cobro.cobrar    { background: #fff3cd; color: #7a5b00; border-left: 3px solid #e0a800; }
+    .card-cobro.no-cobrar { background: #e8f5e9; color: #1b5e20; border-left: 3px solid #28a745; }
+    .card-cobro.alerta    { background: #fdecea; color: #b71c1c; border-left: 3px solid #dc3545; }
+
+    /* aviso flotante (errores del botón Cobrado) */
+    .aviso-envios {
+      position: fixed; top: 1.5rem; right: 1.5rem; z-index: 9999;
+      max-width: 420px; padding: 1rem 2.5rem 1rem 1.25rem;
+      background: #fff3cd; color: #856404;
+      border: 1px solid #ffc107; border-left: 4px solid #e0a800; border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.15); font-size: 0.9rem; line-height: 1.5;
+    }
+    .aviso-envios strong { display: block; margin-bottom: 0.35rem; }
+    .aviso-envios button {
+      position: absolute; top: 0.5rem; right: 0.75rem;
+      background: none; border: none; font-size: 1.1rem; line-height: 1;
+      cursor: pointer; color: #856404;
+    }
+
     /* footer */
     .card-footer {
       display: flex; justify-content: space-between; align-items: center;
@@ -311,6 +337,10 @@
     .pr-tel     { white-space: nowrap; color: #333; }
     .pr-items   { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #444; font-size: 8.5pt; grid-column: 2 / 9; padding-top: 0; }
     .pr-total   { font-weight: 700; white-space: nowrap; text-align: right; }
+    .pr-pago    { display: flex; flex-direction: column; line-height: 1.25; }
+    .pr-cobrar  { font-weight: 700; font-size: 8.5pt; }
+    .pr-cobrar.alerta { color: #c62828; }
+    .pr-cobrar-detalle { font-size: 7.5pt; color: #555; }
     .pr-cobrado { font-weight: 700; white-space: nowrap; text-align: center; font-size: 8.5pt; }
     .pr-cobrado.si { color: #2e7d32; }
     .pr-cobrado.no { color: #c62828; }

@@ -977,3 +977,233 @@ Se usaron POLLO (#11, asignado a Juan) y fideos (#17, sin cocinero propio, lo ve
 - **Volver de 3 a 2:** si el admin devuelve un pedido a "En Preparación", los platos siguen con `listo=true` y ningún cocinero lo ve. Si eso tiene que pasar, habría que resetear `listo` al volver a 2.
 - **Dos cocineros al mismo tiempo:** si los últimos dos cocineros aprietan Listo en el mismo instante, los dos pueden intentar pasar el pedido a 3. `descontarStockPedido` es idempotente (revisa `movimientos_stock`), pero no está protegido contra dos llamadas simultáneas. Lo mismo ya pasaba con `PUT /estado`.
 - **Pedido #33:** figura ahora en estado 5 (Anulado). En la verificación anterior estaba en 2. Estas pruebas no lo tocaron.
+
+---
+
+## 📦 Verificación de stock al pasar a "En Preparación"
+
+**Fecha:** 28 de septiembre de 2026  
+**Resultado:** ✅ **26/26 pruebas pasaron** (14 de API y 12 de interfaz en Chrome headless, sobre `ConsultarPedidos.html`)
+
+Antes, el stock recién se miraba al pasar a estado 3, así que el admin podía mandar a cocina un pedido sin stock. Ahora, al pasar a estado 2, se **verifica** que el stock alcance para todos los platos, **sin descontar**. Si no alcanza, el pedido no pasa: la respuesta es 409 con el mismo mensaje de siempre y no hay forma de forzarlo. El descuento real sigue ocurriendo al pasar a 3 (o 4), como antes.
+
+No se tocaron los pagos, la anulación ni el "listo" por cocinero.
+
+### Cambios
+
+| Archivo | Cambio |
+|---------|--------|
+| `server.js` | **Nueva** función interna `calcularConsumoPedido(pedidoId)`. Son los pasos 1 a 5 que estaban en `descontarStockPedido` (detalles, recetas, consumo por insumo, stock actual y pre-flight check), movidos sin cambios. Solo lee y devuelve `{ error }` o `{ consumo, stockMap, nombreMap }` |
+| `server.js` | **Nueva** función `verificarStockPedido(pedidoId)`: devuelve `null` si alcanza o el mensaje *"Stock insuficiente de 'X': se necesitan N, hay M disponibles"* si no. Solo lee |
+| `server.js` | `descontarStockPedido` ahora usa `calcularConsumoPedido`, así el cálculo no está duplicado. La idempotencia (paso 0) y el descuento con sus movimientos (pasos 6 y 7) no cambiaron |
+| `server.js` | `cambiarEstadoPedido`: si `nuevoEstado === 2`, llama a `verificarStockPedido` y, si falta stock, devuelve 409 sin cambiar el estado |
+| `server.js` | **Nuevo** `GET /api/pedidos/:id/verificar-stock` con `requireAuth`. Devuelve `{ ok: true }` o `{ ok: false, error }` (400 si el id es inválido, 404 si el pedido no existe) |
+| `ListarPedidos.js` | Cuando se elige "En Preparación" con un pago que no es en efectivo y el pedido no está pagado, primero se llama a `/verificar-stock`. Si falta stock, aparece el aviso de stock de siempre (`mostrarAlertaStock`), el select vuelve al estado anterior y **no se abre el modal de pago**. Si la consulta falla (sesión vencida o sin conexión), el modal se abre igual, porque el servidor vuelve a verificar al guardar |
+
+¿Por qué hay una función interna además de `verificarStockPedido`? `descontarStockPedido` necesita el consumo calculado para descontarlo, no solo saber si alcanza. Por eso las dos usan `calcularConsumoPedido`, y `verificarStockPedido` queda como una capa fina que devuelve `null` o el mensaje.
+
+### Pruebas de API
+
+Stock de prueba: carne molida 2250 y harina 500. POLLO usa 1500 de carne; fideos, 250 de carne y 500 de harina.
+
+| Test | Resultado |
+|------|-----------|
+| `verificar-stock`: sin token → 401 · id inválido → 400 · inexistente → 404 | ✅ |
+| `verificar-stock` con stock suficiente → `{ ok: true }` | ✅ |
+| `verificar-stock` sin stock → `{ ok: false, error: "Stock insuficiente de \"carne molida\": se necesitan 3000, hay 2250 disponibles" }` | ✅ |
+| Verificar no toca el stock ni crea movimientos | ✅ |
+| **Pedido con stock → pasa a 2 sin descontar stock** (0 movimientos, stock igual) | ✅ |
+| **Pedido sin stock, Efectivo → 409** con el mismo mensaje; **sigue en 1** y sin movimientos | ✅ |
+| Regresión del listo por cocinero: el primero marca → sigue en 2 y sin descuento; el segundo marca → pasa a 3 y **descuenta una sola vez** (carne −1750, harina −500) | ✅ |
+| Pasar a 4 después → ningún descuento nuevo | ✅ |
+| **Admin 2 → 3 desde la grilla → descuenta una sola vez**, como antes | ✅ |
+
+### Pruebas de interfaz (Chrome headless, `ConsultarPedidos.html`)
+
+| Test | Resultado |
+|------|-----------|
+| **Transferencia sin stock** → se llama a `/verificar-stock` y **sale el aviso de stock** con el mensaje del servidor | ✅ |
+| → **no aparece el modal "Confirmar Pago"** | ✅ |
+| → el select vuelve a Registrado (1) y el pedido sigue en 1 | ✅ |
+| **Efectivo sin stock** → sale el aviso de stock (lo dispara el 409 del servidor) y no se llama a `/verificar-stock` | ✅ |
+| → el select vuelve a 1 y el pedido sigue en 1 | ✅ |
+| **Transferencia con stock** → abre "Confirmar Pago" como siempre, sin aviso de stock | ✅ |
+| → "Sí, ya pagó" pasa el pedido a 2 y lo marca pagado, sin descontar stock | ✅ |
+| No aparece ningún `alert()` ni `confirm()` del navegador | ✅ |
+| Sin errores de JavaScript | ✅ |
+
+**Entorno de prueba:** igual que en la prueba anterior, se usó una instancia aparte en :3001 con el código nuevo, sin reiniciar la de :3000. `ListarPedidos.js` llama a `http://localhost:3000` con la URL escrita en el código, así que la página se abrió con origen :3000 y Chrome (por CDP) redirigió sus requests a :3001.
+
+**Datos:** desde la prueba anterior el stock real había cambiado a carne 2000 y harina 0, por el pedido real #042 que pasó a 3. Además, POLLO se reasignó a **Mariela**. Por eso la prueba puso el stock de carne y harina en 2250/500 y al terminar lo devolvió a **2000/0**. Se borraron los pedidos de prueba #43–#57 y sus movimientos. Los pedidos reales #41 y #42 y las asignaciones de cocineros no se tocaron.
+
+### Pendiente / a tener en cuenta
+
+- **Reiniciar el servidor de :3000** para que tome estos cambios y los del "listo" por cocinero.
+- **La verificación no reserva stock.** Mira el stock actual, que todavía no descontó los pedidos que ya están en estado 2. Dos pedidos pueden pasar a 2 cada uno por su lado aunque juntos no alcancen, y el segundo recién va a chocar con el 409 al pasar a 3. Para evitarlo, habría que restar lo que ya comprometen los pedidos en estado 2.
+- **Volver de 3 a 2:** si el admin devuelve a "En Preparación" un pedido que ya descontó, la verificación le exige de nuevo todo el stock del pedido y puede bloquear la vuelta.
+- **Pedido real #041 trabado:** está en estado 2 con todos sus platos listos, pero no puede pasar a 3 porque lleva fideos (500 de harina) y hay 0 de harina. Es el caso del pendiente anterior: lo resuelve el admin cuando cargue harina.
+
+---
+
+## 🧑‍🍳 Cocinero desde Generar Receta
+
+**Fecha:** 28 de septiembre de 2026  
+**Resultado:** ✅ **32/32 pruebas pasaron** (14 de API y 18 de interfaz en Chrome headless, sobre `generarReceta.html` y `AsignarCocinero.html`)
+
+El cocinero de un plato ahora también se asigna al crear o editar la receta, sin ir a Asignar Cocineros. Las dos pantallas escriben en la misma columna, `productos.id_cocinero`, que ya existía: no se corrió ningún `ALTER TABLE`. No se tocaron el stock, los pedidos ni los pagos, ni la lógica de crear, editar o borrar recetas, más allá de agregar el cocinero.
+
+### Cambios
+
+| Archivo | Cambio |
+|---------|--------|
+| `server.js` | **Nueva** función `validarCocinero(idCocinero)`: devuelve `null` si el usuario existe y tiene rol 2, o `{ status, error }` si no. Se extrajo de `PUT /api/productos/:id/cocinero`, que ahora la usa (mismas respuestas que antes) |
+| `server.js` | `POST /api/productos/con-receta`: acepta `id_cocinero` (opcional). Si viene, se valida con `validarCocinero` **antes** de crear nada y se guarda en el producto. Sin `id_cocinero` queda `null` (usa el cocinero del plan) |
+| `server.js` | **Nuevo** middleware `requireAuthSiHayCocinero`: `con-receta` pide token **solo cuando viene `id_cocinero`**. Reutiliza `requireAuth`. Así, asignar cocinero siempre exige sesión (igual que el PUT) y crear una receta sin cocinero funciona como antes |
+| `server.js` | `GET /api/recetas`: devuelve también `id_cocinero` y `cocinero_nombre` (nombre y apellido, o `null`). Se trae con `cocinero:usuarios!id_cocinero(...)`, un join que nombra explícitamente la FK |
+| `generarReceta.html` | Select **Cocinero** debajo de precio y descuento, en la parte compartida del modal (aparece al crear y al editar). Columna **Cocinero** en la grilla (5ª) y `colspan` 8 → 9 |
+| `generarReceta.css` | Los anchos de columna se alinearon con las 9 columnas reales (el CSS ya decía "9 columnas" con un "ID" que la grilla no tiene) y se agregó el estilo gris de "Del plan" |
+| `generarReceta.js` | **Nueva** `cargarCocinerosEnSelect()`: lee `GET /api/cocineros`, primera opción *"Sin asignar (usa el del plan)"*, y precarga el cocinero al editar. Si el asignado ya no es cocinero, lo muestra como *"(ya no es cocinero)"*, igual que Asignar Cocineros |
+| `generarReceta.js` | **Crear:** manda `id_cocinero` en el mismo `POST /con-receta`, con el token |
+| `generarReceta.js` | **Editar:** después de guardar la receta (sin cambios en esa parte), si el cocinero cambió llama a `PUT /api/productos/:id/cocinero` con el token (**nueva** `guardarCocineroDelPlato()`). Si falla, el modal queda abierto con *"La receta se guardó, pero no se pudo asignar el cocinero: …"* |
+| `generarReceta.js` | Grilla: muestra el nombre del cocinero, o *"Del plan"* en gris |
+
+### Pruebas de API
+
+| Test | Resultado |
+|------|-----------|
+| `GET /api/recetas` trae `id_cocinero` y `cocinero_nombre` (POLLO → "mariela flores", fideos → `null`) | ✅ |
+| Crear con cocinero **sin token** → 401, no crea nada | ✅ |
+| Crear con un **admin (rol 1)** como cocinero → **400** *"El usuario elegido no es un cocinero"*, no crea nada | ✅ |
+| Crear con un `id_cocinero` que no es UUID → 400, no crea nada | ✅ |
+| **Crear con cocinero Juan** → 200, `id_cocinero = Juan` | ✅ |
+| **Crear sin cocinero** (y sin token) → 200, `id_cocinero = null`, igual que antes | ✅ |
+| `GET /api/recetas`: la de Juan trae su nombre y la otra `null` ("Del plan") | ✅ |
+| `GET /api/productos/cocineros` (Asignar Cocineros) muestra lo mismo: Juan con origen *producto* y Marta con origen *plan* | ✅ |
+| **Pedido con los dos platos en estado 2 → Juan ve su plato** y no el otro; Marta (cocinera del plan) ve el que no tiene cocinero | ✅ |
+| `PUT /api/productos/:id/cocinero` con un admin → 400; con un id que no es UUID → 400; sin token → 401 (sin cambios) | ✅ |
+
+### Pruebas de interfaz (Chrome headless)
+
+| Test | Resultado |
+|------|-----------|
+| La grilla tiene la columna "Cocinero": POLLO muestra "mariela flores" y fideos "Del plan" en gris | ✅ |
+| Modal nuevo: primera opción *"Sin asignar (usa el del plan)"* y después solo los cocineros (Juan, Mariela, Marta; ningún admin) | ✅ |
+| **Crear desde la UI con Juan** → el plato queda con Juan, el cocinero viaja en el mismo `POST /con-receta` y la grilla lo muestra | ✅ |
+| **Crear desde la UI sin cocinero** → `id_cocinero = null` y la grilla dice "Del plan" | ✅ |
+| **Editar:** el select viene precargado con el cocinero actual | ✅ |
+| Editar sin cambiar el cocinero → guarda la receta y **no** llama al PUT de cocinero | ✅ |
+| **Editar cambiando a Mariela** → `PUT /api/productos/:id/cocinero` y queda en la base | ✅ |
+| **Editar asignando un admin** (opción forzada en el select) → el servidor responde **400**, el modal queda abierto con *"La receta se guardó, pero no se pudo asignar el cocinero: El usuario elegido no es un cocinero"* y el plato sigue con Mariela | ✅ |
+| **Asignar Cocineros** muestra el cambio hecho en Generar Receta (Mariela), y el plato sin cocinero como *"Sin asignar — usa el del plan (Marta Garcia)"* | ✅ |
+| Al revés: un cambio hecho en Asignar Cocineros se ve en la grilla de Generar Receta | ✅ |
+| No aparece ningún `alert()` ni `confirm()` del navegador | ✅ |
+| Sin errores de JavaScript | ✅ |
+
+**Entorno de prueba:** otra vez se usó una instancia aparte en :3001, sin tocar la de :3000. Las páginas se abrieron con origen :3000 y Chrome (por CDP) redirigió sus requests a :3001, porque `AsignarCocinero.js` tiene `http://localhost:3000` escrito en el código.
+
+**Limpieza verificada:** se borraron de verdad (no con soft delete) los productos de prueba #19–#22, sus recetas y el pedido de prueba #59. Las asignaciones de POLLO y fideos, el stock (carne 2000, harina 0) y los pedidos reales (#41, #42, #58) no se tocaron.
+
+### Pendiente / a tener en cuenta
+
+- **Reiniciar el servidor de :3000** para que tome estos cambios (y los anteriores).
+- **Editar guarda en dos pasos** (`POST /api/recetas` y después `PUT .../cocinero`). Si el segundo falla, la receta ya quedó guardada y se avisa en el modal. No hay una transacción que junte los dos.
+- **Crear o editar recetas sin sesión:** `POST /api/recetas`, `POST /con-receta` sin cocinero y `DELETE /api/recetas/:id` siguen sin pedir token (era así antes). Solo se exige sesión cuando se asigna un cocinero.
+- **El filtro por nombre de la grilla** no se vuelve a aplicar después de guardar: se muestran todas las recetas hasta que se vuelve a escribir en el buscador. Era así antes.
+
+---
+
+## 💵🏦 Pago Mixto: transferencia confirmada ≠ pedido cobrado
+
+**Fecha:** 28 de septiembre de 2026  
+**Resultado:** ✅ **36/36 pruebas pasaron** (13 de API y 23 de interfaz en Chrome headless, sobre `ConsultarPedidos.html` y `Envios.html`)
+
+Antes, al confirmar el pago de un pedido **Mixto** en el modal "Confirmar Pago", se marcaba `pagado = true` para todo el pedido, aunque el efectivo recién se cobra al entregar. Ahora:
+
+- `pagado = true` significa que el pedido está **totalmente** cobrado.
+- `transferencia_confirmada = true` significa que llegó la parte por transferencia. La columna ya existía (`boolean NOT NULL default false`), así que no se corrió ningún `ALTER TABLE`.
+
+| Método | Al confirmar en "Confirmar Pago" | Al marcar **Cobrado** en Envíos |
+|--------|----------------------------------|---------------------------------|
+| Efectivo | (no hay modal) | `pagado = true` |
+| Transferencia / Tarjeta | `pagado = true` (igual que antes) | — |
+| **Mixto** | **solo** `transferencia_confirmada = true`; `pagado` sigue en `false` | `pagado = true` (solo si la transferencia está confirmada) |
+
+No se tocaron el stock, los estados, los cocineros, la anulación ni la forma en que el modal de Pago guarda los montos.
+
+### Cambios
+
+| Archivo | Cambio |
+|---------|--------|
+| `server.js` | `GET /api/pedidos` devuelve además `transferencia_confirmada` (los montos ya estaban). `GET /api/envios` devuelve además `monto_efectivo`, `monto_transferencia`, `transferencia_confirmada` y `pago_anticipado` |
+| `server.js` | **Nuevo** `PUT /api/pedidos/:id/transferencia-confirmada` con `requireAuth`: pone `transferencia_confirmada = true` y **no toca `pagado`**. Solo lo acepta si el pedido es Mixto (409 si no); 400 si el id es inválido, 404 si no existe |
+| `server.js` | `PUT /api/pedidos/:id/pagado`: con `pagado: true`, un Mixto con `transferencia_confirmada = false` → **409** *"No se puede marcar como cobrado: la transferencia de este pedido Mixto todavía no fue confirmada. Confirmala desde Consultar Pedidos."* Ahora también responde 404 si el pedido no existe. Poner `pagado: false` (deshacer) no tiene restricción |
+| `ConsultarPedidos.html` | El modal "Confirmar Pago" tiene dos textos: el de siempre (Transferencia / Tarjeta) y el del Mixto, *"¿Confirmás que el cliente ya transfirió $X? El efectivo ($Y) se cobra al entregar."* |
+| `ListarPedidos.js` | `abrirModalConfirmarPago` muestra el texto que corresponde. `aceptarConfirmarPago`: si es Mixto llama a `/transferencia-confirmada` en lugar de `/pagado`. Si falla, muestra un aviso del sistema en lugar del `alert()` |
+| `ListarPedidos.js` | Para decidir si abre el modal, en un Mixto se mira `transferencia_confirmada` y no `pagado`. Si no, un Mixto ya confirmado que se vuelve a pasar a "En Preparación" preguntaría otra vez por la transferencia |
+| `ListarPedidos.js` | Grilla: un Mixto con la transferencia confirmada y sin cobrar muestra *"Transferencia ✓ · Efectivo pendiente $Y"* (en tres líneas para que entre en la columna) y **PENDIENTE** |
+| `ListarPedidos.js` | `mostrarAlertaStock` pasa a usar una nueva `mostrarAlerta(titulo, mensaje)` (mismo aviso, con título variable). El aviso de stock no cambia |
+| `Envios.js` | **Nueva** `infoCobro(p)`: qué tiene que cobrar el repartidor. La usan la tarjeta y la hoja imprimible |
+| `Envios.js` | Botón **Cobrado**: si el servidor rechaza (409), muestra el motivo con un aviso del sistema (**nuevo** `mostrarAviso`) en lugar del `alert()`. Si sale bien, redibuja la tarjeta |
+| `Envios.html` | Estilos del bloque de cobro (amarillo = cobrar, verde = no cobrar, rojo = alerta), del aviso y de la columna de pago de la hoja imprimible |
+
+**Qué muestra Envíos** (tarjeta y columna "Pago" de la hoja imprimible):
+
+| Pedido | Texto |
+|--------|-------|
+| Efectivo | **Cobrar en efectivo: $total** |
+| Efectivo con pago anticipado | Pago anticipado, no cobrar *(agregado: si no, se le pediría al cliente que pague dos veces)* |
+| Mixto | **Cobrar en efectivo: $monto_efectivo**, y abajo *"Transferencia ya recibida: $monto_transferencia"* |
+| Mixto con la transferencia sin confirmar | Cobrar en efectivo: $monto_efectivo, y abajo *"⚠ Transferencia sin confirmar: $monto_transferencia"* |
+| Transferencia / Tarjeta pagado | **Ya pagado, no cobrar** |
+| Transferencia / Tarjeta sin pago confirmado | ⚠ Pago sin confirmar, no cobrar · *Consultá con el local antes de entregar* *(agregado: para no afirmar "ya pagado" cuando la base dice que no)* |
+
+### Pruebas de API
+
+| Test | Resultado |
+|------|-----------|
+| `transferencia-confirmada`: sin token → 401 · id inválido → 400 · inexistente → 404 · pedido Transferencia → 409 | ✅ |
+| `PUT /pagado true` en un Mixto **sin** transferencia confirmada → **409** con el mensaje | ✅ |
+| `transferencia-confirmada` en el Mixto → 200: `transferencia_confirmada = true` y `pagado` sigue en `false` | ✅ |
+| `PUT /pagado true` en un Mixto **con** la transferencia confirmada → 200 | ✅ |
+| `PUT /pagado false` (deshacer) → 200 · `PUT /pagado true` en Transferencia → 200 · pedido inexistente → 404 | ✅ |
+| `GET /api/pedidos` y `GET /api/envios` traen los campos nuevos | ✅ |
+
+### Pruebas de interfaz (Chrome headless)
+
+**Pedido Mixto de $10.000 (6.000 en efectivo + 4.000 por transferencia):**
+
+| Test | Resultado |
+|------|-----------|
+| Pasar a "En Preparación" → el modal dice *"¿Confirmás que el cliente ya transfirió $ 4.000? El efectivo ($ 6.000) se cobra al entregar."* | ✅ |
+| "Sí, ya pagó" → **estado 2, `transferencia_confirmada = true`, `pagado = false`** | ✅ |
+| → llama a `/transferencia-confirmada` y **no** a `/pagado` | ✅ |
+| → la grilla dice *"Transferencia ✓ · Efectivo pendiente $ 6.000"* y **PENDIENTE** | ✅ |
+| Volver a 1 y pasar otra vez a 2 → no vuelve a preguntar por la transferencia | ✅ |
+| **Envíos: "Cobrar en efectivo: $6.000"** y *"Transferencia ya recibida: $4.000"* (tarjeta y hoja imprimible) | ✅ |
+| **Cobrado en Envíos → `pagado = true`** y el botón dice "✓ Cobrado" | ✅ |
+| De vuelta en Consultar Pedidos: muestra el desglose y **PAGADO** | ✅ |
+
+**Otros casos:**
+
+| Test | Resultado |
+|------|-----------|
+| **Transferencia pura:** el modal tiene el texto de siempre; "Sí, ya pagó" → `pagado = true`, la grilla dice PAGADO | ✅ |
+| → **Envíos: "Ya pagado, no cobrar"** (tarjeta y hoja imprimible) | ✅ |
+| **Efectivo:** pasa a 2 sin modal · **Envíos: "Cobrar en efectivo: $10.000"** (tarjeta y hoja imprimible) · Cobrado → `pagado = true` | ✅ |
+| Mixto con la transferencia **sin confirmar** en Envíos: avisa *"⚠ Transferencia sin confirmar"*. Cobrado → aviso del sistema con el 409 y sigue "✗ Sin cobrar" | ✅ |
+| No aparece ningún `alert()` ni `confirm()` del navegador · sin errores de JavaScript · el stock no se tocó | ✅ |
+
+**Entorno de prueba:** otra vez se usó una instancia aparte en :3001 (el :3000 no se reinició), con las páginas abiertas en origen :3000 y sus requests redirigidos a :3001. Para que los pedidos aparecieran en Envíos (estado 3), se pasaron a 3 **directamente en la base**: así no se disparó el descuento de stock, que no es parte de esta prueba. Se borraron los pedidos de prueba (#62–#91). Hubo varias corridas: una primera tuvo 3 fallos por los tiempos de espera de la prueba (no del código) y se corrigió para esperar a que la base tuviera el valor esperado.
+
+### Pendiente / a tener en cuenta
+
+- **Reiniciar el servidor de :3000** para que tome estos cambios (y los anteriores).
+- **Dato real a revisar — pedido #061:** es Mixto ($2.000 en efectivo + $500 por transferencia), está en "Listo para Entregar" y figura con `pagado = true` y `transferencia_confirmada = false`. Seguramente se confirmó con el comportamiento viejo, antes de que se cobrara el efectivo. Si el efectivo todavía no se cobró, la corrección sería:
+  ```sql
+  UPDATE pedidos SET pagado = false, transferencia_confirmada = true WHERE id = 61;
+  ```
+  No se aplicó: es un dato real y lo decide el administrador.
+- **Cambiar el método o los montos después de confirmar:** si un Mixto ya confirmado se cambia en el modal de Pago a otro método o a otros montos, `transferencia_confirmada` queda en `true`. No se tocó, porque la consigna era no cambiar cómo guarda el modal de Pago.
+- **`PUT /api/pedidos/:id/pagado` sigue sin pedir token** (lo usa el botón Cobrado de Envíos, que tampoco lo manda). El control nuevo del Mixto aplica igual.
+- **`alert()` que quedan:** en el cambio de estado de Envíos y de Consultar Pedidos (errores que no son de stock). No se tocaron porque esta tarea no cubre los estados.
+- **Detalles visuales que ya estaban:** la columna Fecha de Consultar Pedidos muestra un día menos (la fecha se interpreta en UTC) y la etiqueta "EN PREPARACIÓN" se corta.
