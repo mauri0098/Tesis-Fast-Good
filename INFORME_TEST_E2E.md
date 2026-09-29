@@ -1318,3 +1318,58 @@ No se tocaron el stock, los pagos, los cocineros, los estados ni `server.js`.
 
 - **`FERIADOS` sigue vacío:** hoy solo se saltean sábados y domingos, así que el lunes 12/10 cuenta como hábil. Falta decidir si se activan los feriados de 2026 en `fechas.js`, y después cargar los de cada año.
 - **La vista de entrada no incluye entregas en fin de semana:** muestra las entregas del próximo día hábil. Si hubiera un pedido viejo con entrega un sábado, no aparece en la producción del viernes; aparece con "Aplicar" o "Ver todos". El formulario ya no deja elegir sábados ni domingos.
+
+---
+
+## 🧹 Fase 1A — Bugs de frontend (C-04, C-05, C-06, C-08 de la revisión)
+
+**Fecha:** 29 de septiembre de 2026 · **Rama:** Rodriguez  
+**Resultado:** ✅ **29/29 pruebas pasaron** (6 de API y 23 de interfaz en Chrome headless)
+
+No se tocó la lógica de pedidos, stock, pagos, cocineros ni la vista de producción del día. En `server.js` solo se tocó `GET /api/pedidos`.
+
+### Cambios
+
+| # | Archivo | Cambio |
+|---|---------|--------|
+| C-06 | `ListarPedidos.js`, `stock.js`, `AsignarCocinero.js`, `formulario.js` | `http://localhost:3000/api/...` → `/api/...` (19 llamadas; con las 3 constantes de abajo son 22 líneas en los 7 archivos) |
+| C-06 | `Envios.js`, `MovimientosStock.js`, `reportes.js` | Se eliminó `const API = 'http://localhost:3000'` y `${API}/api/...` pasó a ser `/api/...`. Ya no queda ninguna URL fija en el frontend |
+| C-05 | `reportes.js` | Se borraron los tres bloques `// MOCK DATA`: evolución por día (valores con `Math.random()`), estados (distribución de ejemplo) y barrios (ranking de ejemplo). **Nueva** `marcarSinDatos(canvasId, sinDatos)`: si un gráfico no tiene datos, oculta el lienzo y muestra *"Sin datos para el período"* en su lugar. Se aplica a los 4 gráficos, también a "Top productos", que antes quedaba en blanco sin explicación |
+| C-05 | `admin.html` | Estilo del aviso `.chart-sin-datos` y carga de `fechas.js` |
+| C-04 | `server.js` → `GET /api/pedidos` | Acepta `?desde=AAAA-MM-DD&hasta=AAAA-MM-DD` (opcionales) y filtra por `fecha_pedido`. Sin parámetros devuelve todo, como antes (Consultar Pedidos no cambia). Un formato inválido responde 400. **Los días son de Argentina** (`-03:00`): `fecha_pedido` está en UTC, y un pedido de las 22 h del 30/09 (01:00 UTC del 01/10) cuenta en septiembre |
+| C-08 | `reportes.js` | El filtro por defecto (del 1° del mes a hoy) usa `fechaLocalISO`. El gráfico de evolución y el CSV agrupan por el **día local** de `fecha_pedido` (`fechaLocalISO(fechaDeTimestamp(...))`) en lugar de cortar el texto UTC |
+| C-08 | `Envios.js` / `Envios.html` | "Hoy" usa `fechaLocalISO` (antes `toISOString()`: a partir de las 21 h mostraba los envíos de mañana). Se carga `fechas.js` |
+
+Se reutilizaron `fechaLocalISO` y `fechaDeTimestamp` de `fechas.js`; no se crearon funciones de fecha nuevas.
+
+### Pruebas
+
+**`GET /api/pedidos`:**
+
+| Test | Resultado |
+|------|-----------|
+| Sin parámetros devuelve todos, como antes | ✅ |
+| Septiembre: entran los pedidos del 29/09 a las 22:00 y del 30/09 a las 23:30 (hora AR); no entran el del 01/10 a las 00:30 ni uno de agosto | ✅ |
+| Octubre: entra el del 01/10 a las 00:30 y no el del 30/09 a las 23:30 | ✅ |
+| Un período sin pedidos devuelve `[]`; una fecha con formato inválido responde 400 | ✅ |
+
+**Interfaz** (las páginas se sirvieron desde `:3001`, sin redirección: una llamada a `localhost:3000` se habría notado):
+
+| Test | Resultado |
+|------|-----------|
+| **Las 10 pantallas** cargan sin errores y **ninguna llama a localhost:3000**: admin (reportes), Consultar Pedidos, Stock, Movimientos de Stock, Asignar Cocineros, Envíos, Generar Receta, Gestión de Usuarios, Cocina y el formulario público | ✅ |
+| **Reportes con un período sin pedidos** (enero 2030): los 4 gráficos dicen *"Sin datos para el período"* y el KPI de pedidos queda en 0; no hay números al azar | ✅ |
+| **Reportes con septiembre 2026:** solo pedidos de septiembre (en hora AR), el KPI coincide con la API y los gráficos vuelven a mostrarse | ✅ |
+| Reportes abierto a las 22 h del 29/09: el filtro por defecto va del 01/09 al **29/09** (antes daba 30/09) | ✅ |
+| No quedan `Math.random` ni bloques `MOCK` en `reportes.js` | ✅ |
+| **Consultar Pedidos igual que antes:** vista de producción del día, Aplicar y Ver todos | ✅ |
+| **Envíos del Día a las 22 h del 29/09** muestra la fecha 29/09 y busca los envíos de ese día | ✅ |
+| No aparece ningún `alert()` | ✅ |
+
+**Entorno:** instancia aparte en :3001. Se borraron los pedidos de prueba (#125–#128).
+
+### A tener en cuenta
+
+- **Reportes: "Top productos" usa otro corte horario.** `GET /api/reportes/productos-mas-vendidos` todavía corta los días en UTC (`'T00:00:00'`), no en hora de Argentina. En los bordes del período (pedidos entre las 21 h y la medianoche) puede no coincidir con el resto del panel. No se tocó porque la consigna limitaba `server.js` a `GET /api/pedidos`.
+- **Quedan `toISOString()` en otras pantallas:** `stock.js:225` (fecha por defecto del alta de insumo) y `MovimientosStock.js` (fecha del movimiento). Esta fase no las cubría.
+- **`GET /api/pedidos` sigue sin pedir login** (ver la parte de seguridad de `REVISION_CODIGO.md`).

@@ -2,7 +2,6 @@
 // Envios.js — Gestión de envíos del día agrupados por barrio
 // ============================================================
 
-const API = 'http://localhost:3000';
 
 let todosEnvios = [];
 let todosEstados = [];
@@ -223,15 +222,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   await Promise.all([cargarEstados(), buscarEnvios()]);
 });
 
+// Fecha LOCAL de hoy (toISOString() pasa a UTC y a las 21 h ya daba el día siguiente)
 function setFechaHoy() {
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = fechaLocalISO(new Date());
   document.getElementById('filtroFecha').value = hoy;
 }
 
 // ── Carga de estados ──────────────────────────────────────────
 async function cargarEstados() {
   try {
-    const res = await fetch(`${API}/api/estados`);
+    const res = await fetch(`/api/estados`);
     if (!res.ok) return;
     todosEstados = await res.json();
   } catch (e) {
@@ -246,7 +246,7 @@ async function buscarEnvios() {
   contenido.innerHTML = '<div class="loading-msg">Cargando envíos...</div>';
 
   try {
-    const url = fecha ? `${API}/api/envios?fecha=${fecha}` : `${API}/api/envios`;
+    const url = fecha ? `/api/envios?fecha=${fecha}` : `/api/envios`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('Error al obtener envíos');
     todosEnvios = await res.json();
@@ -456,7 +456,7 @@ async function togglePagado(pedidoId, btn) {
   btn.disabled = true;
 
   try {
-    const res = await fetch(`${API}/api/pedidos/${pedidoId}/pagado`, {
+    const res = await fetch(`/api/pedidos/${pedidoId}/pagado`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pagado: nuevoPagado })
@@ -488,7 +488,7 @@ async function togglePagado(pedidoId, btn) {
 async function cambiarEstado(pedidoId, nuevoEstadoId, selectEl) {
   selectEl.disabled = true;
   try {
-    const res = await fetch(`${API}/api/pedidos/${pedidoId}/estado`, {
+    const res = await fetch(`/api/pedidos/${pedidoId}/estado`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ estado_id: Number(nuevoEstadoId) })

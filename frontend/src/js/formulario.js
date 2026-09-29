@@ -69,7 +69,7 @@ function preLlenarFormulario() {
 
 async function cargarBarrios() {
   try {
-    const res = await fetch('http://localhost:3000/api/barrios');
+    const res = await fetch('/api/barrios');
     if (!res.ok) return;
     const barrios = await res.json();
     const select = document.getElementById('barrio');
@@ -240,7 +240,7 @@ function armarObjetoPedido(datos, carrito, usuarioId) {
 // ============================================================================
 
 async function enviarPedidoAlServidor(pedido) {
-  const respuesta = await fetch('http://localhost:3000/api/pedidos', {
+  const respuesta = await fetch('/api/pedidos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(pedido)

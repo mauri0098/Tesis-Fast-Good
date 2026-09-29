@@ -2,7 +2,6 @@
 // reportes.js — Dashboard de Reportes Operativos — Fast Good
 // ============================================================
 
-const API = 'http://localhost:3000';
 
 // ── Instancias de gráficos (se destruyen y recrean al filtrar)
 let chartEvo     = null;   // Evolución de pedidos por día
@@ -28,10 +27,11 @@ document.addEventListener('DOMContentLoaded', () => {
   cargarReportes();
 });
 
+// Del 1° del mes a hoy, en fecha LOCAL (toISOString() pasa a UTC y a las 21 h ya es "mañana")
 function setFechasPorDefecto() {
   const hoy   = new Date();
-  const hasta = hoy.toISOString().slice(0, 10);
-  const desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0, 10);
+  const hasta = fechaLocalISO(hoy);
+  const desde = fechaLocalISO(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
   document.getElementById('filtroDesde').value = desde;
   document.getElementById('filtroHasta').value = hasta;
 }
@@ -48,8 +48,8 @@ async function cargarReportes() {
   mostrarLoading(true);
   try {
     const [topProd, pedidosList] = await Promise.all([
-      fetchJSON(`${API}/api/reportes/productos-mas-vendidos${qs}`),
-      fetchJSON(`${API}/api/pedidos${qs}`)
+      fetchJSON(`/api/reportes/productos-mas-vendidos${qs}`),
+      fetchJSON(`/api/pedidos${qs}`)
     ]);
 
     cachePedidos = pedidosList || [];
@@ -98,35 +98,40 @@ function actualizarKPIsOperativos(pedidos) {
     topBarrio ? topBarrio[0] : '—';
 }
 
+// ── Sin datos: oculta el gráfico y muestra el aviso en su contenedor ─
+function marcarSinDatos(canvasId, sinDatos) {
+  const canvas = document.getElementById(canvasId);
+  const contenedor = canvas.parentElement;
+  let aviso = contenedor.querySelector('.chart-sin-datos');
+  if (sinDatos && !aviso) {
+    aviso = document.createElement('p');
+    aviso.className = 'chart-sin-datos';
+    aviso.textContent = 'Sin datos para el período';
+    contenedor.appendChild(aviso);
+  }
+  if (aviso) aviso.style.display = sinDatos ? '' : 'none';
+  canvas.style.display = sinDatos ? 'none' : '';
+}
+
 // ── Chart 1: Evolución de Pedidos por Día ────────────────────
-// Conectar: usa cachePedidos agrupados por fecha_pedido
-// Mock: 7 días recientes con valores aleatorios
+// Agrupa cachePedidos por el día LOCAL de fecha_pedido (un pedido de las 22 h no pasa al día siguiente)
 function actualizarChartEvolucion(pedidos) {
   const conteo = {};
   pedidos.forEach(p => {
-    const dia = (p.fecha_pedido || '').slice(0, 10);
-    if (dia) conteo[dia] = (conteo[dia] || 0) + 1;
+    if (!p.fecha_pedido) return;
+    const dia = fechaLocalISO(fechaDeTimestamp(p.fecha_pedido));
+    conteo[dia] = (conteo[dia] || 0) + 1;
   });
 
-  let labels = [];
-  let datos  = [];
+  if (chartEvo) { chartEvo.destroy(); chartEvo = null; }
+  const sinDatos = Object.keys(conteo).length === 0;
+  marcarSinDatos('chartEvolucion', sinDatos);
+  if (sinDatos) return;
 
-  if (Object.keys(conteo).length) {
-    const diasOrdenados = Object.keys(conteo).sort();
-    labels = diasOrdenados.map(d => formatFechaCorta(d));
-    datos  = diasOrdenados.map(d => conteo[d]);
-  } else {
-    // ── MOCK DATA (reemplazar con datos reales de la API) ──
-    const hoy = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(hoy);
-      d.setDate(hoy.getDate() - i);
-      labels.push(formatFechaCorta(d.toISOString().slice(0, 10)));
-      datos.push(Math.floor(Math.random() * 10) + 4);
-    }
-  }
+  const diasOrdenados = Object.keys(conteo).sort();
+  const labels = diasOrdenados.map(d => formatFechaCorta(d));
+  const datos  = diasOrdenados.map(d => conteo[d]);
 
-  if (chartEvo) chartEvo.destroy();
   chartEvo = new Chart(document.getElementById('chartEvolucion').getContext('2d'), {
     type: 'line',
     data: {
@@ -162,8 +167,7 @@ function actualizarChartEvolucion(pedidos) {
 }
 
 // ── Chart 2: Distribución por Estado (Donut) ─────────────────
-// Conectar: agrupa cachePedidos por id_estado
-// Mock: distribución de ejemplo con 5 estados
+// Agrupa cachePedidos por id_estado
 function actualizarChartEstadoPedidos(pedidos) {
   const conteo = {};
   pedidos.forEach(p => {
@@ -171,19 +175,16 @@ function actualizarChartEstadoPedidos(pedidos) {
     if (id != null) conteo[id] = (conteo[id] || 0) + 1;
   });
 
-  let entradas;
-  if (Object.keys(conteo).length) {
-    entradas = Object.entries(conteo).sort((a, b) => Number(a[0]) - Number(b[0]));
-  } else {
-    // ── MOCK DATA ──
-    entradas = [[4, 18], [2, 6], [3, 4], [1, 2], [5, 2]];
-  }
+  if (chartEstados) { chartEstados.destroy(); chartEstados = null; }
+  const sinDatos = Object.keys(conteo).length === 0;
+  marcarSinDatos('chartEstados', sinDatos);
+  if (sinDatos) return;
 
+  const entradas = Object.entries(conteo).sort((a, b) => Number(a[0]) - Number(b[0]));
   const labels  = entradas.map(([id]) => ESTADO_MAP[id]?.nombre || `Estado ${id}`);
   const datos   = entradas.map(([, v]) => v);
   const colores = entradas.map(([id]) => ESTADO_MAP[id]?.color  || '#607d8b');
 
-  if (chartEstados) chartEstados.destroy();
   chartEstados = new Chart(document.getElementById('chartEstados').getContext('2d'), {
     type: 'doughnut',
     data: {
@@ -219,8 +220,7 @@ function actualizarChartEstadoPedidos(pedidos) {
 }
 
 // ── Chart 4: Pedidos por Barrio — Top 10 (Horizontal) ────────
-// Conectar: agrupa cachePedidos por barrios.nombre
-// Mock: ranking de barrios de Córdoba de ejemplo
+// Agrupa cachePedidos por barrios.nombre
 function actualizarChartPorBarrio(pedidos) {
   const conteo = {};
   pedidos.forEach(p => {
@@ -228,19 +228,12 @@ function actualizarChartPorBarrio(pedidos) {
     if (b) conteo[b] = (conteo[b] || 0) + 1;
   });
 
-  let sorted;
-  if (Object.keys(conteo).length) {
-    sorted = Object.entries(conteo).sort((a, b) => b[1] - a[1]).slice(0, 10);
-  } else {
-    // ── MOCK DATA ──
-    sorted = [
-      ['Nueva Córdoba', 14], ['Centro', 11], ['General Paz', 8],
-      ['Alberdi', 7],        ['Alta Córdoba', 6], ['Güemes', 5],
-      ['Cerro de las Rosas', 4], ['Villa Belgrano', 3],
-      ['San Vicente', 3],    ['Cofico', 2]
-    ];
-  }
+  if (chartBarrio) { chartBarrio.destroy(); chartBarrio = null; }
+  const sinDatos = Object.keys(conteo).length === 0;
+  marcarSinDatos('chartPorBarrio', sinDatos);
+  if (sinDatos) return;
 
+  const sorted  = Object.entries(conteo).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const labels  = sorted.map(([b]) => b);
   const datos   = sorted.map(([, v]) => v);
   // Degradado de verde oscuro a verde claro según posición
@@ -248,7 +241,6 @@ function actualizarChartPorBarrio(pedidos) {
     `hsl(${136 - i * 8}, ${68 - i * 2}%, ${38 + i * 3}%)`
   );
 
-  if (chartBarrio) chartBarrio.destroy();
   chartBarrio = new Chart(document.getElementById('chartPorBarrio').getContext('2d'), {
     type: 'bar',
     data: {
@@ -280,10 +272,10 @@ function actualizarChartPorBarrio(pedidos) {
 
 // ── Chart 5: Top Productos más vendidos (CONSERVADO) ─────────
 function actualizarChartTopProductos(data) {
-  if (!data || !data.length) {
-    if (chartTP) chartTP.destroy();
-    return;
-  }
+  if (chartTP) { chartTP.destroy(); chartTP = null; }
+  const sinDatos = !data || !data.length;
+  marcarSinDatos('chartTopProductos', sinDatos);
+  if (sinDatos) return;
 
   const labels  = data.map(d => truncar(d.nombre, 22));
   const valores = data.map(d => d.total_vendido);
@@ -292,7 +284,6 @@ function actualizarChartTopProductos(data) {
     '#ff5722','#607d8b','#e91e63','#4caf50','#795548'
   ].slice(0, data.length);
 
-  if (chartTP) chartTP.destroy();
   chartTP = new Chart(document.getElementById('chartTopProductos').getContext('2d'), {
     type: 'bar',
     data: {
@@ -325,7 +316,7 @@ function exportarCSV() {
     .filter(p => p.id_estado !== 5) // excluye cancelados
     .map(p => [
       p.id,
-      (p.fecha_pedido || '').slice(0, 10),
+      p.fecha_pedido ? fechaLocalISO(fechaDeTimestamp(p.fecha_pedido)) : '',
       p.cliente_nombre   || '',
       p.barrios?.nombre  || '',
       p.total            || 0,

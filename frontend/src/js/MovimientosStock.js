@@ -2,7 +2,6 @@
 // MovimientosStock.js — Registro de entradas y salidas de stock
 // ============================================================
 
-const API = 'http://localhost:3000';
 
 let todosMovimientos = [];
 let tipoActual = 'entrada'; // 'entrada' | 'salida'
@@ -27,7 +26,7 @@ function setFechaActual() {
 async function cargarMovimientos() {
   const tbody = document.getElementById('tablaBody');
   try {
-    const res = await fetch(`${API}/api/movimientos-stock`);
+    const res = await fetch(`/api/movimientos-stock`);
     if (!res.ok) throw new Error('Error al obtener movimientos');
     todosMovimientos = await res.json();
     renderTabla(todosMovimientos);
@@ -38,7 +37,7 @@ async function cargarMovimientos() {
 
 async function cargarInsumos() {
   try {
-    const res = await fetch(`${API}/api/insumos`);
+    const res = await fetch(`/api/insumos`);
     if (!res.ok) return;
     const insumos = await res.json();
     const select = document.getElementById('selectInsumo');
@@ -268,7 +267,7 @@ async function guardarMovimiento() {
     : null;
 
   try {
-    const res = await fetch(`${API}/api/movimientos-stock`, {
+    const res = await fetch(`/api/movimientos-stock`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -317,7 +316,7 @@ async function eliminarMovimiento(id, nombreInsumo, tipo) {
   if (!confirmar) return;
 
   try {
-    const res = await fetch(`${API}/api/movimientos-stock/${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/movimientos-stock/${id}`, { method: 'DELETE' });
     const data = await res.json();
 
     if (!res.ok) {

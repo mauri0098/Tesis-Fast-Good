@@ -730,8 +730,19 @@ app.post('/api/pedidos', async (req, res) => {// Endpoint para crear un nuevo pe
   res.json({ mensaje: 'Pedido creado correctamente', pedido });
 });
 
+// GET /api/pedidos?desde=YYYY-MM-DD&hasta=YYYY-MM-DD → pedidos, opcionalmente filtrados por fecha_pedido.
+// Sin parámetros devuelve todos (lo usa Consultar Pedidos). Los días son de Argentina (UTC-3, sin horario
+// de verano): fecha_pedido está en UTC, y un pedido de las 22 h del 30/09 es 01:00 UTC del 01/10.
+const OFFSET_ARGENTINA = '-03:00';
+const FORMATO_FECHA = /^\d{4}-\d{2}-\d{2}$/;
+
 app.get('/api/pedidos', async (req, res) => {
-  const { data, error } = await supabase
+  const { desde, hasta } = req.query;
+  if ((desde && !FORMATO_FECHA.test(desde)) || (hasta && !FORMATO_FECHA.test(hasta))) {
+    return res.status(400).json({ error: 'Las fechas deben tener el formato AAAA-MM-DD' });
+  }
+
+  let query = supabase
     .from('pedidos')
     .select(`
       id,
@@ -762,6 +773,11 @@ app.get('/api/pedidos', async (req, res) => {
       )
     `)
     .order('fecha_pedido', { ascending: false });
+
+  if (desde) query = query.gte('fecha_pedido', `${desde}T00:00:00${OFFSET_ARGENTINA}`);
+  if (hasta) query = query.lte('fecha_pedido', `${hasta}T23:59:59.999${OFFSET_ARGENTINA}`);
+
+  const { data, error } = await query;
 
   if (error) {
     return res.status(500).json({ error: error.message });

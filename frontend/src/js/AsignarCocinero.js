@@ -11,8 +11,8 @@ async function cargarDatos() {
 
   try {
     [todosPlatos, cocineros] = await Promise.all([
-      fetch('http://localhost:3000/api/productos/cocineros').then(r => r.json()),
-      fetch('http://localhost:3000/api/cocineros').then(r => r.json()),
+      fetch('/api/productos/cocineros').then(r => r.json()),
+      fetch('/api/cocineros').then(r => r.json()),
     ]);
 
     renderizarPlatos(todosPlatos);
@@ -117,7 +117,7 @@ async function guardarCocinero(platoId, btn) {
   btn.textContent = 'Guardando...';
 
   try {
-    const res = await fetch(`http://localhost:3000/api/productos/${platoId}/cocinero`, {
+    const res = await fetch(`/api/productos/${platoId}/cocinero`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

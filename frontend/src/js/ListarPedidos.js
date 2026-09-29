@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function fetchEstados() {
-  const response = await fetch('http://localhost:3000/api/estados');
+  const response = await fetch('/api/estados');
   const data = await response.json();
   return data;
 }
@@ -32,7 +32,7 @@ async function fetchPedidos() {
 
   try {
     estadoOptions = await fetchEstados();
-    const response = await fetch('http://localhost:3000/api/pedidos');
+    const response = await fetch('/api/pedidos');
     const data = await response.json();
 
     todosPedidos = data; // guardamos para que el filtro los pueda usar
@@ -197,7 +197,7 @@ function crearFilaPedido(pedido) {
 // si falla, vuelve el select al estado anterior.
 async function cambiarEstadoPedido(pedido, selectEstado, nuevoId, anteriorId) {
   try {
-    const res = await fetch(`http://localhost:3000/api/pedidos/${pedido.id}/estado`, {
+    const res = await fetch(`/api/pedidos/${pedido.id}/estado`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ estado_id: nuevoId })
@@ -234,7 +234,7 @@ async function cambiarEstadoPedido(pedido, selectEstado, nuevoId, anteriorId) {
 // vuelve a verificar al guardar el estado y, si falta stock, ese 409 muestra el mismo aviso.
 async function verificarStockPedido(pedidoId) {
   try {
-    const res = await fetch(`http://localhost:3000/api/pedidos/${pedidoId}/verificar-stock`, {
+    const res = await fetch(`/api/pedidos/${pedidoId}/verificar-stock`, {
       headers: { 'Authorization': 'Bearer ' + localStorage.getItem('fg_token') }
     });
     if (!res.ok) return null;
@@ -292,11 +292,11 @@ async function aceptarConfirmarPago() {
   const esMixto = pedido.metodo_pago === 'Mixto';
   try {
     const res = esMixto
-      ? await fetch(`http://localhost:3000/api/pedidos/${pedido.id}/transferencia-confirmada`, {
+      ? await fetch(`/api/pedidos/${pedido.id}/transferencia-confirmada`, {
           method: 'PUT',
           headers: { 'Authorization': 'Bearer ' + localStorage.getItem('fg_token') }
         })
-      : await fetch(`http://localhost:3000/api/pedidos/${pedido.id}/pagado`, {
+      : await fetch(`/api/pedidos/${pedido.id}/pagado`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pagado: true })
@@ -538,7 +538,7 @@ async function guardarPago() {
   ocultarErrorPago();
 
   try {
-    const res = await fetch(`http://localhost:3000/api/pedidos/${pedido.id}/pago`, {
+    const res = await fetch(`/api/pedidos/${pedido.id}/pago`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -769,7 +769,7 @@ async function confirmarAnulacion() {
   ocultarErrorAnular();
 
   try {
-    const res = await fetch(`http://localhost:3000/api/pedidos/${pedido.id}/anular`, {
+    const res = await fetch(`/api/pedidos/${pedido.id}/anular`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

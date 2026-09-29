@@ -14,7 +14,7 @@ async function fetchInsumos() {//Un fetch aclara lo que es un fetch
 
   try {//usamos el try catch para manejar errores por si el servidor no reponde 
    
-    const response = await fetch('http://localhost:3000/api/insumos');// AWAIT ESPERABA UNA REPUESTA, ACA LO QUE HACEMOS ES TRAER TODOS LOS INSUMOS DE LA BASE DE DATOS 
+    const response = await fetch('/api/insumos');// AWAIT ESPERABA UNA REPUESTA, ACA LO QUE HACEMOS ES TRAER TODOS LOS INSUMOS DE LA BASE DE DATOS 
     const data = await response.json();//Y NOS VA A REPONDER CON UN JSON PARA QUE LO PODAMOS USAR EN JS 
 
     todosInsumos = data; // PONEMOS LOS INSUMOS EN EL ARRAY
@@ -180,7 +180,7 @@ function iniciarFiltros() {
 async function abrirModalNuevoInsumo() {
   // cargar categorías desde la API
   try {
-    const res = await fetch('http://localhost:3000/api/categorias-insumos');
+    const res = await fetch('/api/categorias-insumos');
     const categorias = await res.json();
     const select = document.getElementById('niCategoria');
     select.innerHTML = '<option value="">Seleccione una categoría...</option>';
@@ -227,7 +227,7 @@ async function confirmarNuevoInsumo() {
   try {
     const token = localStorage.getItem('fg_token');
 
-    const res = await fetch('http://localhost:3000/api/insumos', {
+    const res = await fetch('/api/insumos', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -272,7 +272,7 @@ async function eliminarInsumo(id) {
   if (!confirmar) return;
 
   try {
-    const res  = await fetch(`http://localhost:3000/api/insumos/${id}`, { method: 'DELETE' });
+    const res  = await fetch(`/api/insumos/${id}`, { method: 'DELETE' });
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
@@ -318,7 +318,7 @@ async function abrirModalEditarInsumo(id) {
 
   // cargar categorías desde la API y preseleccionar la actual del insumo
   try {
-    const res = await fetch('http://localhost:3000/api/categorias-insumos');
+    const res = await fetch('/api/categorias-insumos');
     const categorias = await res.json();
     const select = document.getElementById('eiCategoria');
     select.innerHTML = '<option value="">Seleccione una categoría...</option>';
@@ -364,7 +364,7 @@ async function confirmarEditarInsumo() {
   }
 
   try {
-    const res = await fetch(`http://localhost:3000/api/insumos/${insumoEditandoId}`, {
+    const res = await fetch(`/api/insumos/${insumoEditandoId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
