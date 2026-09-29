@@ -331,7 +331,7 @@ Ordenado por prioridad. **P0** = antes de exponerlo a internet; **P1** = antes d
 ### P1-9 · Credenciales débiles y secretos cortos
 
 - **Qué es:**
-  - el usuario `mauro_admin` tiene contraseña `123`, escrita en `test_e2e.js` y en los informes;
+  - el usuario `mauro_admin` tiene contraseña `[REDACTADO]`, escrita en `test_e2e.js` y en los informes;
   - `JWT_SECRET` tiene 19 caracteres;
   - `ADMIN_PIN` es de 4 dígitos;
   - las altas y el registro no exigen ningún largo mínimo de contraseña.

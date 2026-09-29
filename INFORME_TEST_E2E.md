@@ -19,7 +19,7 @@ Se ejecutaron pruebas automáticas end-to-end contra el servidor Express corrien
 
 | Test | Resultado |
 |------|-----------|
-| Login con `nombre_usuario` "mauro_admin" + contraseña "123" | ✅ Token JWT generado |
+| Login con `nombre_usuario` "mauro_admin" + contraseña "[REDACTADO]" | ✅ Token JWT generado |
 | Login con contraseña incorrecta | ✅ Rechazado (401) |
 | Login con usuario inexistente | ✅ Rechazado (401) |
 | Login por email (`mauricio.test@fastgood.com`) | ✅ Funciona |
@@ -136,7 +136,7 @@ Se detectaron y corrigieron **5 bugs** relacionados con la migración de Supabas
 
 ## ⚠️ Nota sobre la Contraseña del Usuario `mauro_admin`
 
-El hash almacenado en la base de datos (`$2b$10$DaILwr26Drlge22RE5a0eeueM357/UPHOf7B8CEYR2rFZlSUMhoRe`) corresponde a la contraseña **`123`**, **NO** a `123456` como se pensaba originalmente. Esto fue verificado con `bcrypt.compare()`.
+El hash almacenado en la base de datos (`[REDACTADO]`) corresponde a la contraseña **[REDACTADO]**, **NO** a la que se pensaba originalmente. Esto fue verificado con `bcrypt.compare()`.
 
 ---
 
@@ -523,7 +523,7 @@ En esta verificación no se modificó código. El servidor en `:3000` estaba cor
 | `GET /api/envios` | ✅ 200 — 1 envío |
 | `GET /api/cocina/tareas` | ✅ 200 — 1 tarea |
 | `GET /api/reportes/resumen` | ✅ 200 — `{"ingresos":15241,"gastos":0,"ganancia":15241,"cantidad_pedidos":2}` |
-| `POST /api/login` (mauro_admin / 123) | ✅ 200 — devuelve `token` y `usuario` |
+| `POST /api/login` (mauro_admin / [REDACTADO]) | ✅ 200 — devuelve `token` y `usuario` |
 
 ### 3. Modal de pago: `PUT /api/pedidos/:id/pago` contra la base real
 
@@ -633,7 +633,7 @@ En Consultar Pedidos, el botón **Eliminar** borraba el pedido de la base sin pe
 
 | Archivo | Cambio |
 |---------|--------|
-| `.env` | `ADMIN_PIN=1234` (el `.env` está en `.gitignore`: hay que agregarlo a mano en cada máquina) |
+| `.env` | `ADMIN_PIN=[REDACTADO]` (el `.env` está en `.gitignore`: hay que agregarlo a mano en cada máquina) |
 | `server.js` | Nuevo `POST /api/pedidos/:id/anular` con `requireAuth`. Compara el PIN con `crypto.timingSafeEqual`. Si es correcto, `id_estado = 5`. El `DELETE /api/pedidos/:id` **se dejó igual** |
 | `ConsultarPedidos.html` | Modal `#modalAnular`: título, advertencia, campo `type="password"` (4 dígitos), botones Cancelar (gris) y Confirmar Anulación (rojo). Mismo estilo que el modal de Pago. También se agregó el aviso de éxito `.toast-exito` |
 | `ListarPedidos.js` | El botón pasa de "Eliminar" a "Anular". Si el pedido ya está cancelado se muestra "Anulado" deshabilitado. Se agregó la lógica del modal (`abrirModalAnular`, `cerrarModalAnular`, `confirmarAnulacion`, `mostrarExito`) y se quitó `eliminarPedido()`, que ya no se usaba |
@@ -657,10 +657,10 @@ En Consultar Pedidos, el botón **Eliminar** borraba el pedido de la base sin pe
 | Sin token | ✅ 401, estado sin cambios |
 | PIN `0000` | ✅ 403 "PIN incorrecto", estado sin cambios |
 | Sin PIN | ✅ 403, estado sin cambios |
-| PIN `12345` | ✅ 403, estado sin cambios |
+| PIN incorrecto (`[REDACTADO]`) | ✅ 403, estado sin cambios |
 | ID `abc` | ✅ 400 |
 | Pedido inexistente | ✅ 404 |
-| PIN `1234` | ✅ 200, estado = 5 |
+| PIN correcto (`[REDACTADO]`) | ✅ 200, estado = 5 |
 | Anular dos veces | ✅ 409 |
 | El pedido sigue existiendo | ✅ |
 | `DELETE /api/pedidos/:id` sigue funcionando | ✅ 200 (se usó para limpiar) |
@@ -861,7 +861,7 @@ El servidor de :3000 (PID 22180) arrancó el 28/09 a las 16:00:39 y `server.js` 
 | `GET /api/cocina/tareas` sin `cocinero_id` | ✅ 200. Pedido #33, todo con `es_mio=true` |
 | `GET /api/cocina/tareas?cocinero_id=<Juan>` | ✅ 200. #33 con POLLO `es_mio=true` |
 | `GET /api/pedidos` / `v1/catalogo` / `recetas` / `insumos` | ✅ 200 (5 / 4 / 2 / 36 filas) |
-| `POST /api/login` mauro_admin / 123 | ✅ 200 con token. Con contraseña incorrecta devuelve 401 |
+| `POST /api/login` mauro_admin / [REDACTADO] | ✅ 200 con token. Con contraseña incorrecta devuelve 401 |
 
 ### 4. Flujo de cocineros
 
