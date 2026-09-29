@@ -222,7 +222,7 @@ async function confirmarNuevoInsumo() {
     return;
   }
 
-  const hoy = new Date().toISOString().split('T')[0];
+  const hoy = fechaLocalISO(new Date()); // fecha LOCAL (toISOString() pasa a UTC y a las 21 h ya es mañana)
 
   try {
     const token = localStorage.getItem('fg_token');

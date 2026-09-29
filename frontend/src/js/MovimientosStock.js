@@ -15,11 +15,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function setFechaActual() {
   const ahora = new Date();
-  // Formato requerido por datetime-local: YYYY-MM-DDTHH:MM
-  const local = new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
-  document.getElementById('inputFecha').value = local;
+  // Formato requerido por datetime-local: YYYY-MM-DDTHH:MM, en hora local
+  const hh = String(ahora.getHours()).padStart(2, '0');
+  const mi = String(ahora.getMinutes()).padStart(2, '0');
+  document.getElementById('inputFecha').value = `${fechaLocalISO(ahora)}T${hh}:${mi}`;
 }
 
 // ── Carga de datos ────────────────────────────────────────────

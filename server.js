@@ -1866,8 +1866,9 @@ app.get('/api/reportes/productos-mas-vendidos', async (req, res) => {
   const { desde, hasta } = req.query;
   try {
     let qP = supabase.from('pedidos').select('id').neq('id_estado', 5);
-    if (desde) qP = qP.gte('fecha_pedido', desde + 'T00:00:00');
-    if (hasta) qP = qP.lte('fecha_pedido', hasta + 'T23:59:59');
+    // Mismo corte que GET /api/pedidos: días de Argentina, no de UTC
+    if (desde) qP = qP.gte('fecha_pedido', `${desde}T00:00:00${OFFSET_ARGENTINA}`);
+    if (hasta) qP = qP.lte('fecha_pedido', `${hasta}T23:59:59.999${OFFSET_ARGENTINA}`);
     const { data: pedidos } = await qP;
     const ids = (pedidos || []).map(p => p.id);
     if (!ids.length) return res.json([]);

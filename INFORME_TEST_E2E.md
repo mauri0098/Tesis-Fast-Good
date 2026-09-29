@@ -1373,3 +1373,28 @@ Se reutilizaron `fechaLocalISO` y `fechaDeTimestamp` de `fechas.js`; no se crear
 - **Reportes: "Top productos" usa otro corte horario.** `GET /api/reportes/productos-mas-vendidos` todavía corta los días en UTC (`'T00:00:00'`), no en hora de Argentina. En los bordes del período (pedidos entre las 21 h y la medianoche) puede no coincidir con el resto del panel. No se tocó porque la consigna limitaba `server.js` a `GET /api/pedidos`.
 - **Quedan `toISOString()` en otras pantallas:** `stock.js:225` (fecha por defecto del alta de insumo) y `MovimientosStock.js` (fecha del movimiento). Esta fase no las cubría.
 - **`GET /api/pedidos` sigue sin pedir login** (ver la parte de seguridad de `REVISION_CODIGO.md`).
+
+---
+
+## 🧹 Fase 1A — Pendientes resueltos
+
+**Fecha:** 29 de septiembre de 2026 · **Rama:** Rodriguez  
+**Resultado:** ✅ **7/7 pruebas pasaron**
+
+| Archivo | Cambio |
+|---------|--------|
+| `server.js` → `GET /api/reportes/productos-mas-vendidos` | Corta los días en **hora de Argentina** (`-03:00`), reutilizando la constante `OFFSET_ARGENTINA` de `GET /api/pedidos`. Antes cortaba en UTC (`'T00:00:00'`), así que el panel de reportes mezclaba dos cortes horarios |
+| `stock.js` / `stock.html` | La `fecha_ingreso` de un insumo nuevo usa `fechaLocalISO(new Date())` (antes `toISOString()`: después de las 21 h quedaba con la fecha de mañana). Se carga `fechas.js` |
+| `MovimientosStock.js` / `MovimientosStock.html` | La fecha y hora precargadas del movimiento (`setFechaActual`) se arman con `fechaLocalISO` más la hora local, en lugar del truco `toISOString()` + desfase horario (daba lo mismo, pero ahora es explícito). Se carga `fechas.js` |
+
+**Un `toISOString()` que se dejó a propósito:** `MovimientosStock.js:278`, `fecha: new Date(fecha).toISOString()`. Convierte la fecha y hora que eligió el usuario (hora local) en un instante UTC para guardarlo en la base, que guarda timestamps con zona. Es el uso correcto: con `fechaLocalISO` se perderían la hora y la zona.
+
+| Test | Resultado |
+|------|-----------|
+| Top productos: un pedido del 30/09 a las 23:30 (hora AR, 02:30 UTC del 01/10) cuenta en el **30/09** | ✅ |
+| Top productos: un pedido del 01/10 a las 00:30 (hora AR) cuenta en el **01/10**, y el de las 23:30 no | ✅ |
+| Top productos y `GET /api/pedidos` dan el mismo total en 4 rangos (mismo corte horario) | ✅ |
+| Movimientos de Stock a las 22:05 del 29/09: la fecha precargada es `2026-09-29T22:05` · sin errores | ✅ |
+| Stock: un insumo dado de alta a las 22:00 del 29/09 queda con `fecha_ingreso` **2026-09-29** (antes 30/09) · sin errores | ✅ |
+
+Se borraron los pedidos (#129, #130) y el insumo de prueba.
