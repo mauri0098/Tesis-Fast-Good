@@ -670,8 +670,8 @@ async function confirmarAnulacion() {
 
   const pinInput = document.getElementById('anularPin');
   const pin = pinInput.value.trim();
-  if (!/^\d{4}$/.test(pin)) {
-    mostrarErrorAnular('El PIN debe tener 4 dígitos.');
+  if (!/^\d{4,8}$/.test(pin)) {
+    mostrarErrorAnular('El PIN debe tener entre 4 y 8 dígitos.');
     pinInput.focus();
     return;
   }
