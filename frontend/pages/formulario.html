@@ -38,6 +38,10 @@
 
       <label for="fecha">Fecha de entrega</label>
       <input type="date" id="fecha" required>
+      <p class="aviso-entrega">
+        🕒 Tu pedido se elabora el día hábil siguiente al que lo hacés y se entrega al otro día hábil (48 hs hábiles).
+        Ejemplo: si pedís un martes, se cocina el miércoles y te llega el jueves.
+      </p>
 
       <label for="metodoPago">Método de Pago</label>
       <select id="metodoPago" required>
@@ -72,6 +76,7 @@
     </form>
   </div>
 
+  <script src="../src/js/fechas.js"></script>
   <script src="../src/js/funciones.js"></script>
   <script src="../src/js/formulario.js" defer></script>
 </body>

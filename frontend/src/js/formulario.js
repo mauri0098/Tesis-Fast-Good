@@ -21,53 +21,13 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================================================
-// 2. FECHAS HÁBILES
+// 2. FECHAS HÁBILES (FERIADOS, esDiaHabil y sumarDiasHabiles vienen de fechas.js)
 // ============================================================================
 
-const FERIADOS = [
-  // '2026-01-01', // Año Nuevo
-  // '2026-03-03', // Carnaval
-  // '2026-03-04', // Carnaval
-  // '2026-03-24', // Día de la Memoria
-  // '2026-04-02', // Malvinas
-  // '2026-04-03', // Viernes Santo
-  // '2026-05-01', // Día del Trabajador
-  // '2026-05-25', // Día de la Patria
-  // '2026-06-15', // Paso a la Inmortalidad del Gral. Belgrano
-  // '2026-07-09', // Día de la Independencia
-  // '2026-08-17', // Paso a la Inmortalidad del Gral. San Martín
-  // '2026-10-12', // Día del Respeto a la Diversidad Cultural
-  // '2026-11-23', // Día de la Soberanía Nacional
-  // '2026-12-08', // Inmaculada Concepción
-  // '2026-12-25', // Navidad
-];
-
-function esDiaHabil(fecha) {
-  const dia = fecha.getDay();
-  if (dia === 0 || dia === 6) return false;
-  const yyyy = fecha.getFullYear();
-  const mm   = String(fecha.getMonth() + 1).padStart(2, '0');
-  const dd   = String(fecha.getDate()).padStart(2, '0');
-  return !FERIADOS.includes(`${yyyy}-${mm}-${dd}`);
-}
-
+// 48 hs hábiles: el día hábil siguiente se cocina y el otro se entrega.
+// Ej.: pedido el martes → se cocina el miércoles → primera entrega posible el jueves.
 function calcularPrimeraFechaDisponible() {
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-
-  let count = 0;
-  const d = new Date(hoy);
-  while (count < 2) {
-    d.setDate(d.getDate() + 1);
-    if (esDiaHabil(d)) count++;
-  }
-
-  do { d.setDate(d.getDate() + 1); } while (!esDiaHabil(d));
-
-  const yyyy = d.getFullYear();
-  const mm   = String(d.getMonth() + 1).padStart(2, '0');
-  const dd   = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  return fechaLocalISO(sumarDiasHabiles(new Date(), 2));
 }
 
 function configurarFechaMinima() {
@@ -78,8 +38,7 @@ function configurarFechaMinima() {
 
   inputFecha.addEventListener('change', () => {
     if (!inputFecha.value) return;
-    const [y, m, d] = inputFecha.value.split('-').map(Number);
-    if (!esDiaHabil(new Date(y, m - 1, d))) {
+    if (!esDiaHabil(parseFechaLocal(inputFecha.value))) {
       alert('Esa fecha no está disponible (feriado o fin de semana). Por favor elegí otra.');
       inputFecha.value = '';
     }

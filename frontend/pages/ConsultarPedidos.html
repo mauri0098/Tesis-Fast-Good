@@ -31,16 +31,22 @@
 
   <main class="page-container">
     <div class="table-wrapper">
+      <!-- Qué se está mostrando: la producción de hoy, un rango de entregas o todo -->
+      <h2 id="tituloListado" class="titulo-listado"></h2>
+
       <div class="filtros-container">
         <input type="text"  id="CampoBusqueda" class="filtro-input" placeholder="Buscar por nombre o N° pedido..." autocomplete="one-time-code">
-        <input type="date"  id="FechaDesde"    class="filtro-input filtro-fecha">
-        <input type="date"  id="FechaHasta"    class="filtro-input filtro-fecha">
+        <!-- Filtran por fecha de entrega; se aplican con el botón "Aplicar" -->
+        <input type="date"  id="FechaDesde"    class="filtro-input filtro-fecha" title="Entrega desde">
+        <input type="date"  id="FechaHasta"    class="filtro-input filtro-fecha" title="Entrega hasta">
+        <button type="button" id="btnAplicarFechas" class="btn-filtro btn-filtro-aplicar">Aplicar</button>
+        <button type="button" id="btnVerTodos"      class="btn-filtro btn-filtro-todos">Ver todos</button>
       </div>
       <table class="standard-table">
         <thead>
           <tr>
             <th>N° Pedido</th>
-            <th>Fecha</th>
+            <th title="Fecha de entrega">Entrega</th>
             <th>Cliente</th>
             <th>Dirección</th>
             <th>Teléfono</th>
@@ -71,11 +77,14 @@
   <div id="modalDetalles" class="modal-overlay" onclick="cerrarModalDetalles(event)">
     <div class="modal-box">
       <div class="modal-header">
-        <h3 id="modalTitulo">Detalles del Pedido</h3>
+        <div>
+          <h3 id="modalTitulo">Detalles del Pedido</h3>
+        </div>
         <button class="modal-close-btn" onclick="cerrarModalDetalles()">✕</button>
       </div>
       <div class="modal-body">
         <table class="modal-tabla">
+          <p class="modal-fecha-pedido">Realizado el <span id="modalFechaPedido"></span></p>
           <thead>
             <tr>
               <th class="col-cant">Cantidad</th>
@@ -254,6 +263,7 @@
       cursor: pointer; color: #888; padding: 0.1rem 0.4rem; border-radius: 4px;
     }
     .modal-close-btn:hover { color: #d32f2f; background: #fdecea; }
+    .modal-fecha-pedido { margin: 2px 0 0; font-size: 12px; color: #999; }
     .modal-tabla { width: 100%; border-collapse: collapse; }
     .modal-tabla th {
       background: #f5f5f5; padding: 0.55rem 0.8rem;
@@ -407,6 +417,7 @@
 
   <script src="../src/js/global.js"></script>
   <script src="../src/js/paginacion.js"></script>
+  <script src="../src/js/fechas.js"></script>
   <script src="../src/js/ListarPedidos.js"></script>
 
 </div> <!-- /.admin-content -->

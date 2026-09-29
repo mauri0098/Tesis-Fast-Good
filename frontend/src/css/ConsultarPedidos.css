@@ -193,6 +193,30 @@ ul.ingredientes-list {
 }
 
 .filtro-fecha { width: 150px; }
+
+/* Título del listado: "Producción de hoy — entregas del ..." */
+.titulo-listado {
+  margin: 0 0 0.9rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #2e7d32;
+}
+
+/* Botones de los filtros de fecha */
+.btn-filtro {
+  padding: 0.55rem 1.1rem;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.btn-filtro-aplicar { background: #28a745; color: #fff; }
+.btn-filtro-aplicar:hover { background: #218838; }
+.btn-filtro-todos { background: #e9ecef; color: #495057; }
+.btn-filtro-todos:hover { background: #dee2e6; }
 .filtro-input:focus {
   outline: none;
   border-color: #28a745;

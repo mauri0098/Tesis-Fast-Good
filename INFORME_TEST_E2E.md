@@ -1207,3 +1207,114 @@ No se tocaron el stock, los estados, los cocineros, la anulación ni la forma en
 - **`PUT /api/pedidos/:id/pagado` sigue sin pedir token** (lo usa el botón Cobrado de Envíos, que tampoco lo manda). El control nuevo del Mixto aplica igual.
 - **`alert()` que quedan:** en el cambio de estado de Envíos y de Consultar Pedidos (errores que no son de stock). No se tocaron porque esta tarea no cubre los estados.
 - **Detalles visuales que ya estaban:** la columna Fecha de Consultar Pedidos muestra un día menos (la fecha se interpreta en UTC) y la etiqueta "EN PREPARACIÓN" se corta.
+
+---
+
+## 📅 Pedidos del día de producción (48 hs hábiles)
+
+**Fecha:** 29 de septiembre de 2026 · **Rama:** Rodriguez  
+**Resultado:** ✅ **22/22 pruebas pasaron** (Chrome headless, sobre `formulario.html` y `ConsultarPedidos.html`)
+
+**Regla de negocio:** el cliente pide un día, se cocina el día hábil siguiente y se entrega el día hábil después. Ejemplo: se pide el martes 29, se cocina el miércoles 30 y se entrega el jueves 1. Son días hábiles de lunes a viernes, salteando los `FERIADOS`.
+
+No se tocaron el stock, los pagos, los cocineros, los estados, `server.js` ni la barra de anuncio del inicio.
+
+### Cambios
+
+| Archivo | Cambio |
+|---------|--------|
+| `frontend/src/js/fechas.js` | **Nuevo**, compartido. Contiene `FERIADOS` (movido desde formulario.js, sin cambios) y `esDiaHabil` (movida), más cuatro funciones nuevas: `fechaLocalISO` (Date → `YYYY-MM-DD` local), `parseFechaLocal` (`YYYY-MM-DD` → Date local), `sumarDiasHabiles` y `proximoDiaHabil`. Todo con fecha **local**, sin `toISOString()` |
+| `formulario.js` | `calcularPrimeraFechaDisponible()` ahora es `sumarDiasHabiles(hoy, 2)`. Se sacó el `do/while` que sumaba un día hábil de más (el martes dejaba elegir desde el viernes). `FERIADOS` y `esDiaHabil` ya no están acá: vienen de `fechas.js` |
+| `formulario.html` / `formulario.css` | Cartel debajo del campo de fecha: *"🕒 Tu pedido se elabora el día hábil siguiente al que lo hacés y se entrega al otro día hábil (48 hs hábiles). Ejemplo: si pedís un martes, se cocina el miércoles y te llega el jueves."* Tiene el mismo estilo (verde claro con borde) que el resumen del pedido. Se carga `fechas.js` |
+| `ConsultarPedidos.html` / `.css` | Título arriba de la grilla, botones **Aplicar** y **Ver todos** junto a las fechas, y carga de `fechas.js` |
+| `ListarPedidos.js` | Los filtros Desde / Hasta **ahora filtran por `fecha_entrega`**, y se aplican con el botón **Aplicar**: cambiar una fecha sin apretarlo no filtra. Al abrir, ambos vienen con el **próximo día hábil** y el filtro ya aplicado |
+| `ListarPedidos.js` | Título: *"Producción de hoy — entregas del jueves 01/10/2026"* al abrir; *"Pedidos con entrega del X al Y"* si se aplica otro rango (o *"desde el X"* / *"hasta el Y"* si falta una punta); *"Todos los pedidos"* con **Ver todos** |
+| `ListarPedidos.js` | Si "Desde" es posterior a "Hasta", sale un aviso del sistema y se mantiene el filtro anterior. Los pedidos sin fecha de entrega no entran en un rango, pero sí en "Ver todos" |
+| `ListarPedidos.js` | La búsqueda por nombre y la paginación trabajan sobre lo filtrado (`filtrarPedidos()` combina las dos cosas) |
+| `ListarPedidos.js` | **Corrección:** la columna **Fecha** mostraba la fecha de entrega **un día antes** (se leía como UTC; ítem C-08 de la revisión). Ahora se lee como fecha local. Sin esto, el título decía "entregas del 01/10" y las filas "30/09" |
+
+### Pruebas
+
+Se simuló "hoy" en distintos días a las **22 h, hora de Córdoba**, justo cuando un cálculo en UTC ya pasó al día siguiente.
+
+**Formulario del cliente:**
+
+| Test | Resultado |
+|------|-----------|
+| Pedido un **martes 29/09** → primera fecha **jueves 01/10** | ✅ |
+| Pedido un **jueves 01/10** → primera fecha **lunes 05/10** | ✅ |
+| Pedido un **viernes 02/10** → primera fecha **martes 06/10** | ✅ |
+| Pedido un sábado 03/10 → martes 06/10 · pedido un miércoles 30/09 → viernes 02/10 | ✅ |
+| El **cartel** aparece justo debajo del campo de fecha, visible y con el texto pedido | ✅ |
+
+**Consultar Pedidos** (con pedidos de prueba con entrega el jueves 01/10, el viernes 02/10, el lunes 05/10 y uno sin fecha):
+
+| Test | Resultado |
+|------|-----------|
+| **Miércoles 30/09:** Desde y Hasta vienen con el **jueves 01/10**, y el título dice *"Producción de hoy — entregas del jueves 01/10/2026"* | ✅ |
+| → el filtro **ya está aplicado**: solo aparecen entregas del 01/10, la misma cantidad que en la base | ✅ |
+| → la columna Fecha muestra 01/10/2026 (antes mostraba 30/09) | ✅ |
+| Cambiar una fecha **sin** apretar Aplicar no cambia el listado | ✅ |
+| **Aplicar** 01/10 → 02/10: jueves y viernes sí, lunes no, con la cantidad correcta; el título cambia a *"Pedidos con entrega del jueves 01/10/2026 al viernes 02/10/2026"* | ✅ |
+| La búsqueda por nombre funciona dentro del rango | ✅ |
+| Desde posterior a Hasta → aviso del sistema, el filtro no cambia | ✅ |
+| **Ver todos** → fechas vacías, título "Todos los pedidos", todos los pedidos (incluido el sin fecha) y paginación de 15 por página | ✅ |
+| **Viernes 02/10:** muestra la producción del **lunes 05/10** | ✅ |
+| No aparece ningún `alert()` · sin errores de JavaScript | ✅ |
+
+**Entorno:** instancia aparte en :3001 (el :3000 no se tocó). Se borraron los pedidos de prueba (#101–#104).
+
+### A tener en cuenta
+
+- **La producción del día incluye pedidos anulados** (estado 5): en la prueba aparecieron #017 y #027, que están cancelados. No se cocinan, pero figuran en la lista. Excluirlos es un cambio de una línea en `filtrarPedidos()`; no se hizo porque la consigna era no tocar estados.
+- **La fecha mínima del formulario se controla solo en el navegador.** El servidor acepta cualquier `fecha_entrega` en `POST /api/pedidos`. Para que la regla de 48 hs sea obligatoria, habría que validarla también en el servidor.
+- **`FERIADOS` está vacío** (todas las fechas comentadas): hoy solo se saltean sábados y domingos. Hay que descomentar los feriados del año.
+- **Quedan `toISOString()` para calcular "hoy"** en otras pantallas que esta tarea no cubre: `Envios.js:227`, `reportes.js:33-34` y `stock.js:225` (C-08 de la revisión). Podrían usar `fechaLocalISO()` de `fechas.js`.
+
+---
+
+## 📅 Consultar Pedidos: columnas "Pedido" / "Entrega" y día de producción en el título
+
+**Fecha:** 29 de septiembre de 2026 · **Rama:** Rodriguez  
+**Resultado:** ✅ **17/17 pruebas pasaron** (Chrome headless con fechas simuladas y zona horaria de Córdoba)
+
+**Regla:** un pedido se cocina el día hábil anterior a su fecha de entrega, salteando fines de semana y `FERIADOS`. La grilla muestra cuándo se hizo el pedido y cuándo se entrega; el día de producción no va en una columna, lo explica el título.
+
+> **Versión intermedia descartada.** En una versión anterior de este ajuste se había agregado una columna "Producción", y la vista de entrada filtraba por "producción = hoy". Esa versión no se commiteó y se reemplazó por esta. La prueba de esa versión mostró algo que sigue vigente: con `FERIADOS` vacío, el lunes 12/10 cuenta como día hábil, así que la entrega del martes 13/10 se produce el **lun 12/10** y no el vie 09/10. Con el 12/10 cargado como feriado da vie 09/10 (verificado). Ver "A tener en cuenta".
+
+No se tocaron el stock, los pagos, los cocineros, los estados ni `server.js`.
+
+### Cambios
+
+| Archivo | Cambio |
+|---------|--------|
+| `fechas.js` | **Nuevas:** `diaHabilAnterior(fecha)` (el día de producción de una entrega), `fechaDiaCorto(fecha)` (formato "lun 28/09") y `fechaDeTimestamp(texto)` (lee `fecha_pedido`; si viniera sin zona horaria lo toma como UTC, porque `new Date()` lo tomaría como hora local) |
+| `ConsultarPedidos.html` | La columna "Fecha" pasa a ser dos: **Pedido** (`fecha_pedido`) y **Entrega** (`fecha_entrega`), en ese orden. La grilla queda con 12 columnas |
+| `ListarPedidos.js` | Las dos fechas se muestran como "lun 28/09". **Pedido** es el día **local** del timestamp (un pedido hecho a las 22 h no pasa al día siguiente). **Entrega** va en negrita. Se ajustaron los índices de las celdas (cliente, dirección, teléfono, mail, estado) y el `colspan` |
+| `ListarPedidos.js` | Filtro de entrada (misma lógica que antes): entregas del **próximo día hábil**, ahora **sin los cancelados**. Con un rango aplicado o con "Ver todos", los cancelados sí aparecen |
+| `ListarPedidos.js` | **Título:** al abrir, *"Producción de hoy (mar 29/09) — pedidos con entrega el mié 30/09"*. Con un rango, *"Pedidos con entrega del X al Y — se producen del [hábil anterior a X] al [hábil anterior a Y]"*, o *"Pedidos con entrega el X — se producen el Y"* si es un solo día. Con "Ver todos", *"Todos los pedidos"*. El día de producción sale de `diaHabilAnterior` (sin duplicar lógica) |
+| `ListarPedidos.js` | **Agregado:** si se abre un sábado, domingo o feriado, el título no dice "Producción de hoy", porque ese día no se cocina: *"Hoy (sáb 17/10) no se produce — pedidos con entrega el lun 19/10, se producen el vie 16/10"* |
+
+### Pruebas
+
+| Test | Resultado |
+|------|-----------|
+| **Martes 29/09 al abrir:** título *"Producción de hoy (mar 29/09) — pedidos con entrega el mié 30/09"*; Desde y Hasta = 30/09 y solo entregas del 30/09 | ✅ |
+| → sin los cancelados: un pedido cancelado con entrega 30/09 no aparece | ✅ |
+| Columnas en orden: N° Pedido, **Pedido**, **Entrega**, Cliente… (12 columnas, sin "Producción" ni "Fecha") | ✅ |
+| **Pedido hecho el lun 28/09 a las 22 h** (guardado como 29/09 01:00 UTC) → columna Pedido **"lun 28/09"**, Entrega "mié 30/09"; las demás celdas en su lugar | ✅ |
+| Un timestamp sin zona horaria también se lee como UTC → "lun 28/09" | ✅ |
+| Aplicar 30/09 → 30/09: *"Pedidos con entrega el mié 30/09 — se producen el mar 29/09"* | ✅ |
+| **Viernes 16/10 al abrir:** *"Producción de hoy (vie 16/10) — pedidos con entrega el lun 19/10"*, con el pedido del 19/10 | ✅ |
+| **Aplicar 19/10 → 20/10:** *"Pedidos con entrega del lun 19/10 al mar 20/10 — se producen del vie 16/10 al lun 19/10"* | ✅ |
+| Solo "Desde" 19/10: *"… desde el lun 19/10 — se producen desde el vie 16/10"* | ✅ |
+| "Ver todos": *"Todos los pedidos"*, con los cancelados | ✅ |
+| Sábado 17/10 al abrir: el título aclara que ese día no se produce | ✅ |
+| No aparece ningún `alert()` · sin errores de JavaScript | ✅ |
+
+**Entorno:** instancia aparte en :3001. Se borraron los pedidos de prueba (#106–#109 de la versión descartada y #111–#114 de esta).
+
+### A tener en cuenta
+
+- **`FERIADOS` sigue vacío:** hoy solo se saltean sábados y domingos, así que el lunes 12/10 cuenta como hábil. Falta decidir si se activan los feriados de 2026 en `fechas.js`, y después cargar los de cada año.
+- **La vista de entrada no incluye entregas en fin de semana:** muestra las entregas del próximo día hábil. Si hubiera un pedido viejo con entrega un sábado, no aparece en la producción del viernes; aparece con "Aplicar" o "Ver todos". El formulario ya no deja elegir sábados ni domingos.

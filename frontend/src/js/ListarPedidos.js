@@ -36,7 +36,7 @@ async function fetchPedidos() {
     const data = await response.json();
 
     todosPedidos = data; // guardamos para que el filtro los pueda usar
-    renderizarPedidos(todosPedidos);
+    renderizarPedidos(filtrarPedidos()); // ya con el filtro de fechas de entrada (producción de hoy)
 
   } catch (error) {
     console.error(error);
@@ -47,7 +47,10 @@ async function fetchPedidos() {
 // Dibuja la página indicada de la lista (ya filtrada) de pedidos
 function renderizarPedidos(pedidos, pagina = 1) {
   const hayBusqueda = document.getElementById('CampoBusqueda')?.value.trim() !== '';
-  const mensajeVacio = hayBusqueda ? 'No se encontraron pedidos con ese nombre' : 'No hay pedidos registrados';
+  const mensajeVacio = hayBusqueda                         ? 'No se encontraron pedidos con ese nombre'
+                     : filtroFechas.modo === 'hoy'        ? 'No hay pedidos para producir hoy'
+                     : filtroFechas.modo === 'entrega'    ? 'No hay pedidos con entrega en esas fechas'
+                     :                                      'No hay pedidos registrados';
 
   paginacionPedidos = crearPaginacion({
     datos: pedidos,
@@ -66,10 +69,9 @@ function crearFilaPedido(pedido) {
   // 1. N° Pedido
   const idFormatted = '#' + String(pedido.id).padStart(3, '0');
 
-  // 2. Fecha
-  const fecha = new Date(pedido.fecha_entrega || pedido.fecha_pedido).toLocaleDateString('es-AR', {
-    day: '2-digit', month: '2-digit', year: 'numeric'
-  });
+  // 2. Entrega, como "30/09/2026" (la fecha en que se hizo el pedido se ve en el modal de Detalles).
+  // fecha_entrega es 'YYYY-MM-DD': parseFechaLocal la lee como fecha local, no UTC.
+  const entrega = pedido.fecha_entrega ? fechaDDMMAAAA(parseFechaLocal(pedido.fecha_entrega)) : '—';
 
   // 3. Cliente
   const cliente = pedido.cliente_nombre || pedido.usuarios?.nombre || 'Anónimo';
@@ -114,7 +116,7 @@ function crearFilaPedido(pedido) {
   // Armar fila — las celdas con datos del usuario quedan vacías y se llenan abajo con textContent
   tr.innerHTML = `
     <td style="font-weight:bold">${idFormatted}</td>
-    <td>${fecha}</td>
+    <td style="font-weight:600">${entrega}</td>
     <td></td>
     <td></td>
     <td></td>
@@ -323,6 +325,10 @@ function abrirModalDetalles(pedidoId) {
 
   document.getElementById('modalTitulo').textContent =
     `Detalle del Pedido #${String(pedidoId).padStart(3, '0')}`;
+
+  // fecha_pedido es un timestamp en UTC: se muestra con fecha y hora locales (Argentina)
+  document.getElementById('modalFechaPedido').textContent =
+    pedido.fecha_pedido ? fechaHoraDDMMAAAA(fechaDeTimestamp(pedido.fecha_pedido)) : '—';
 
   const tbody = document.getElementById('modalDetallesBody');
   tbody.innerHTML = '';
@@ -567,6 +573,17 @@ async function guardarPago() {
 }
 // ─────────────────────────────────────────────────────────────
 
+// ── FILTROS POR FECHA DE ENTREGA ──────────────────────────────
+// Tres modos:
+// - 'hoy':     al abrir. Pedidos con entrega el próximo día hábil (los que se producen hoy), sin los cancelados.
+// - 'entrega': el rango Desde / Hasta sobre fecha_entrega, al apretar "Aplicar"
+//              (cambiar un input no filtra hasta apretar el botón).
+// - 'todos':   "Ver todos".
+// Fechas 'YYYY-MM-DD'; '' = sin límite de ese lado.
+const ESTADO_CANCELADO = 5;
+let filtroFechas = { modo: 'todos', desde: '', hasta: '' };
+let hoyISO = ''; // fecha local de hoy (para el título)
+
 function iniciarFiltro() {
   const FiltradodeProductos = document.getElementById('CampoBusqueda');
   const FechaDesde = document.getElementById('FechaDesde');
@@ -578,16 +595,86 @@ function iniciarFiltro() {
     renderizarPedidos(filtrarPedidos());
   });
 
+  // Al abrir: entregas del próximo día hábil = lo que se cocina hoy
+  const hoy = new Date();
+  hoyISO = fechaLocalISO(hoy);
+  const proximo = fechaLocalISO(proximoDiaHabil(hoy));
+  FechaDesde.value = proximo;
+  FechaHasta.value = proximo;
+  filtroFechas = { modo: 'hoy', desde: proximo, hasta: proximo };
+  actualizarTituloListado();
+
+  document.getElementById('btnAplicarFechas').addEventListener('click', aplicarFiltroFechas);
+  document.getElementById('btnVerTodos').addEventListener('click', verTodosLosPedidos);
 }
 
-// filtra el array de pedidos por nombre de cliente o por número de pedido
+function aplicarFiltroFechas() {
+  const desde = document.getElementById('FechaDesde').value;
+  const hasta = document.getElementById('FechaHasta').value;
+
+  if (desde && hasta && desde > hasta) {
+    mostrarAlerta('⚠ Fechas inválidas', 'La fecha "Desde" no puede ser posterior a la fecha "Hasta".');
+    return;
+  }
+
+  filtroFechas = (desde || hasta) ? { modo: 'entrega', desde, hasta } : { modo: 'todos', desde: '', hasta: '' };
+  actualizarTituloListado();
+  renderizarPedidos(filtrarPedidos());
+}
+
+function verTodosLosPedidos() {
+  document.getElementById('FechaDesde').value = '';
+  document.getElementById('FechaHasta').value = '';
+  filtroFechas = { modo: 'todos', desde: '', hasta: '' };
+  actualizarTituloListado();
+  renderizarPedidos(filtrarPedidos());
+}
+
+// El título explica qué se produce: cada entrega se cocina el día hábil anterior (diaHabilAnterior de fechas.js)
+function actualizarTituloListado() {
+  const titulo = document.getElementById('tituloListado');
+  if (!titulo) return;
+
+  const { modo, desde, hasta } = filtroFechas;
+  const fecha = f => fechaDDMMAAAA(parseFechaLocal(f));                   // 'YYYY-MM-DD' → "16/10/2026"
+  const seProduce = f => fechaDDMMAAAA(diaHabilAnterior(parseFechaLocal(f))); // día hábil anterior a la entrega
+
+  if (modo === 'hoy') {
+    titulo.textContent = esDiaHabil(parseFechaLocal(hoyISO))
+      ? `Producción de hoy (${fecha(hoyISO)}) — pedidos con entrega el ${fecha(desde)}`
+      : `Hoy (${fecha(hoyISO)}) no se produce — pedidos con entrega el ${fecha(desde)}, se producen el ${seProduce(desde)}`;
+  } else if (modo === 'todos') {
+    titulo.textContent = 'Todos los pedidos';
+  } else if (desde && hasta && desde === hasta) {
+    titulo.textContent = `Pedidos con entrega el ${fecha(desde)} — se producen el ${seProduce(desde)}`;
+  } else if (desde && hasta) {
+    titulo.textContent = `Pedidos con entrega del ${fecha(desde)} al ${fecha(hasta)} — se producen del ${seProduce(desde)} al ${seProduce(hasta)}`;
+  } else if (desde) {
+    titulo.textContent = `Pedidos con entrega desde el ${fecha(desde)} — se producen desde el ${seProduce(desde)}`;
+  } else {
+    titulo.textContent = `Pedidos con entrega hasta el ${fecha(hasta)} — se producen hasta el ${seProduce(hasta)}`;
+  }
+}
+
+// filtra el array de pedidos por fecha de entrega (según el modo) y por nombre de cliente o número de pedido
 function filtrarPedidos() {
   const TextoDeBusqueda = (document.getElementById('CampoBusqueda')?.value || '').toLowerCase();
+  const { modo, desde, hasta } = filtroFechas;
 
-  return todosPedidos.filter(pedido =>
-    pedido.cliente_nombre.toLowerCase().includes(TextoDeBusqueda) ||
-    pedido.id.toString().includes(TextoDeBusqueda)
-  );
+  return todosPedidos.filter(pedido => {
+    if (modo !== 'todos') {
+      // fecha_entrega es 'YYYY-MM-DD': se compara como texto. Sin fecha de entrega no entra en un rango.
+      const entrega = pedido.fecha_entrega || '';
+      if (!entrega) return false;
+      if (desde && entrega < desde) return false;
+      if (hasta && entrega > hasta) return false;
+    }
+    // La producción de hoy no incluye los pedidos cancelados (no se cocinan)
+    if (modo === 'hoy' && pedido.id_estado === ESTADO_CANCELADO) return false;
+
+    return pedido.cliente_nombre.toLowerCase().includes(TextoDeBusqueda) ||
+      pedido.id.toString().includes(TextoDeBusqueda);
+  });
 }
 
 // ── ALERTA DE STOCK INSUFICIENTE ─────────────────────────────
