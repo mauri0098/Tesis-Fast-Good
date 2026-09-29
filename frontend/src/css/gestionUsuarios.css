@@ -191,6 +191,21 @@ body {
   color: #155724;
 }
 
+.badge-repartidor {
+  background: #e0f7fa;
+  color: #006064;
+}
+
+.badge-dueno {
+  background: #ede7f6;
+  color: #4527a0;
+}
+
+.badge-sistema {
+  background: #343a40;
+  color: #ffffff;
+}
+
 /* =========================================
    BOTONES DE ACCIÓN EN LA TABLA
    ========================================= */

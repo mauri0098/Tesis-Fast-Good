@@ -42,6 +42,7 @@ body {
 
 /* =========================================
    MAIN TABLE LAYOUT (Simétrico)
+   Lo usan Consultar Pedidos y Asignar Cocineros (los dos cargan este CSS).
    ========================================= */
 .standard-table {
   width: 100%;
@@ -97,7 +98,7 @@ body {
 ul.ingredientes-list {
   padding-left: 0;
   margin: 0;
-  font-size: 0.85rem; /* <-- LETRA GRANDE RECUPERADA */
+  font-size: 0.82rem;
   color: #555;
   list-style-position: inside;
   text-align: left;
@@ -131,7 +132,7 @@ ul.ingredientes-list {
 
 .metodo-tag {
   font-weight: 600;
-  font-size: 0.85rem; /* <-- LETRA GRANDE RECUPERADA */
+  font-size: 0.82rem;
 }
 
 .status-paid {
@@ -196,8 +197,8 @@ ul.ingredientes-list {
 
 /* Título del listado: "Producción de hoy — entregas del ..." */
 .titulo-listado {
-  margin: 0 0 0.9rem;
-  font-size: 1.15rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: #2e7d32;
 }
@@ -224,6 +225,85 @@ ul.ingredientes-list {
 }
 
 /* =========================================
+   GRILLA DE CONSULTAR PEDIDOS — mismo diseño que la de Generar Receta
+   Con prefijo propio (.pagina-pedidos / .tabla-pedidos) porque este CSS también
+   lo carga Asignar Cocineros, que tiene que quedar como está.
+   ========================================= */
+.pagina-pedidos.page-container {
+  max-width: 1400px;
+  width: 100%;
+  padding: 1.5rem 1rem;
+}
+.pagina-pedidos .table-wrapper { padding: 1rem; }
+
+/* table-layout: auto + ancho guía por columna (en vez de 11 columnas iguales).
+   Mínimos solo donde un corte queda feo; el resto se reparte solo. */
+.standard-table.tabla-pedidos { table-layout: auto; }
+.tabla-pedidos thead th { font-size: 13px; padding: 0.9rem 0.3rem; }
+.tabla-pedidos tbody td { font-size: 14px; padding: 0.75rem 0.3rem; }
+/* Método de pago al mismo tamaño que el resto de las celdas; PAGADO / PENDIENTE un poco más chico */
+.tabla-pedidos .metodo-tag { font-size: 14px; }
+.tabla-pedidos .status-paid,
+.tabla-pedidos .status-pending { font-size: 12px; }
+
+/* N°, Entrega y Costo en un solo renglón (solo los datos; los encabezados pueden partirse) */
+.tabla-pedidos tbody td:nth-child(1),
+.tabla-pedidos tbody td:nth-child(2),
+.tabla-pedidos tbody td:nth-child(8) { white-space: nowrap; }
+
+.tabla-pedidos thead th:nth-child(1),
+.tabla-pedidos tbody td:nth-child(1)  { width: 5%;  }                    /* N° Pedido */
+.tabla-pedidos thead th:nth-child(2),
+.tabla-pedidos tbody td:nth-child(2)  { width: 7%;  }                    /* Entrega */
+.tabla-pedidos thead th:nth-child(3),
+.tabla-pedidos tbody td:nth-child(3)  { width: 12%; min-width: 115px; }                       /* Cliente: 2 renglones como mucho */
+.tabla-pedidos thead th:nth-child(4),
+.tabla-pedidos tbody td:nth-child(4)  { width: 9%;  }                                         /* Dirección */
+.tabla-pedidos thead th:nth-child(5),
+.tabla-pedidos tbody td:nth-child(5)  { width: 8%;  }                                         /* Teléfono */
+.tabla-pedidos thead th:nth-child(6),
+.tabla-pedidos tbody td:nth-child(6)  { width: 13%; min-width: 125px; }                       /* Mail: 2 renglones como mucho */
+.tabla-pedidos thead th:nth-child(7),
+.tabla-pedidos tbody td:nth-child(7)  { width: 7%;  }                                         /* Viandas */
+.tabla-pedidos thead th:nth-child(8),
+.tabla-pedidos tbody td:nth-child(8)  { width: 6%;  }                    /* Costo */
+.tabla-pedidos thead th:nth-child(9),
+.tabla-pedidos tbody td:nth-child(9)  { width: 10%; min-width: 118px; }                       /* Estado */
+.tabla-pedidos thead th:nth-child(10),
+.tabla-pedidos tbody td:nth-child(10) { width: 9%;  }                                         /* Método Pago */
+.tabla-pedidos thead th:nth-child(11),
+.tabla-pedidos tbody td:nth-child(11) { width: 10%; min-width: 118px; }                       /* Acciones: Pago + Anular en fila */
+
+/* Select de estado: angosto (110px), 12.5px en negrita; si el texto no entra en un
+   renglón pasa a dos ("LISTO PARA / ENTREGAR"). La forma redondeada y los colores
+   vienen de .select-estado y de aplicarColorEstado(). */
+.tabla-pedidos .select-estado {
+  width: 110px;
+  max-width: 100%;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: normal;
+  height: auto;
+  min-height: 32px;
+  padding: 0.35rem 0.5rem;
+}
+
+/* El mail largo se corta donde haga falta (sin partirse en 3 renglones) */
+.tabla-pedidos tbody td:nth-child(6) { overflow-wrap: anywhere; }
+
+/* Notebooks (hasta 1440px, ej. 1366): las 11 columnas entran sin scroll con la letra un poco más chica */
+@media (max-width: 1440px) {
+  /* 13px / 12px en notebooks para que las 11 columnas entren sin scroll (en pantallas grandes: 14px / 13px) */
+  .tabla-pedidos thead th { font-size: 12px; letter-spacing: 0.03em; padding: 0.9rem 0.25rem; }
+  .tabla-pedidos tbody td { font-size: 13px; padding: 0.75rem 0.25rem; }
+  .tabla-pedidos .metodo-tag { font-size: 13px; }
+  .tabla-pedidos tbody td:nth-child(3) { min-width: 122px; }   /* Cliente */
+  .tabla-pedidos tbody td:nth-child(6) { min-width: 110px; }   /* Mail */
+  .tabla-pedidos tbody td:nth-child(5) { overflow-wrap: anywhere; }  /* Teléfono largo: 2 renglones antes que scroll */
+}
+
+/* =========================================
    RESPONSIVE — Mobile / Tablet
    ========================================= */
 @media (max-width: 768px) {
@@ -241,9 +321,8 @@ ul.ingredientes-list {
     width: 100%;
   }
 
-  /* table-layout:fixed + width:100% hace que las 11 columnas se
-     compriman en vez de desbordar; con min-width forzamos el overflow
-     real para que .table-wrapper pueda scrollear horizontalmente. */
+  /* En pantallas chicas la tabla mantiene un ancho mínimo y .table-wrapper
+     scrollea horizontalmente, en vez de comprimir las 11 columnas. */
   .standard-table {
     min-width: 1000px;
   }

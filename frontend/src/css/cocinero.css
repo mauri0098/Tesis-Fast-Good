@@ -474,3 +474,10 @@ ul.platos-list li {
     pointer-events: auto;
   }
 }
+
+/* Tareas de Cocina vista por administración (roles 6, 5, 1): sin botón "Listo" */
+.solo-lectura {
+  font-size: 0.75rem;
+  color: #6c757d;
+  font-style: italic;
+}

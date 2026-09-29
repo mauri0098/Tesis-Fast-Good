@@ -2,17 +2,39 @@
 let todosUsuarios    = [];
 let idUsuarioEditando = null;
 
-// Mapa de roles → etiqueta visual y clase CSS
-const CONFIG_ROLES = {
-  1: { label: 'Admin',    clase: 'badge-admin'    },
-  2: { label: 'Cocinero', clase: 'badge-cocinero' },
-  4: { label: 'Usuario',  clase: 'badge-usuario'  }
-};
+// Mapa de roles → etiqueta visual y clase CSS (los nombres salen de roles.js)
+const CLASE_BADGE_ROL = { 1: 'badge-admin', 2: 'badge-cocinero', 3: 'badge-repartidor', 4: 'badge-usuario', 5: 'badge-dueno', 6: 'badge-sistema' };
+const CONFIG_ROLES = {};
+Object.keys(FG_ROLES.NOMBRES).forEach(function (id) {
+  CONFIG_ROLES[id] = { label: FG_ROLES.NOMBRES[id], clase: CLASE_BADGE_ROL[id] || 'badge-usuario' };
+});
+
+// Solo un Administrador del sistema (rol 6) puede asignar el rol 6 (el servidor también lo controla)
+const SOY_SISTEMA = parseInt(localStorage.getItem('usuario_rol') || '0', 10) === FG_ROLES.ROL.SISTEMA;
+
+function headersConToken() {
+  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('fg_token') };
+}
+
+// Agrega al select una opción por rol. En crear/editar, el rol 6 solo si el usuario logueado es rol 6.
+function llenarSelectRoles(select, incluirSistema) {
+  Object.keys(FG_ROLES.NOMBRES).forEach(function (id) {
+    if (Number(id) === FG_ROLES.ROL.SISTEMA && !incluirSistema) return;
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = FG_ROLES.NOMBRES[id];
+    select.appendChild(opt);
+  });
+}
 
 // ==========================================
 // INICIO
 // ==========================================
 document.addEventListener('DOMContentLoaded', function () {
+  llenarSelectRoles(document.getElementById('filtroRol'), true);
+  llenarSelectRoles(document.getElementById('uRol'), SOY_SISTEMA);
+  llenarSelectRoles(document.getElementById('eRol'), SOY_SISTEMA);
+
   fetchUsuarios();
   iniciarFiltros();
 
@@ -176,7 +198,19 @@ function abrirModalEditar(id) {
   document.getElementById('eEmail').value         = u.email           || '';
   document.getElementById('eTelefono').value      = u.telefono        || '';
   document.getElementById('eContrasena').value    = '';
-  document.getElementById('eRol').value       = u.id_rol    || 4;
+
+  // Un usuario rol 6 editado por alguien que no es rol 6: se muestra su rol, pero el servidor no deja modificarlo
+  const selectRol = document.getElementById('eRol');
+  selectRol.querySelectorAll('option[data-solo-mostrar]').forEach(function (o) { o.remove(); });
+  if (u.id_rol === FG_ROLES.ROL.SISTEMA && !SOY_SISTEMA) {
+    const opt = document.createElement('option');
+    opt.value = u.id_rol;
+    opt.textContent = FG_ROLES.NOMBRES[u.id_rol];
+    opt.disabled = true;
+    opt.dataset.soloMostrar = '1';
+    selectRol.appendChild(opt);
+  }
+  selectRol.value = u.id_rol || 4;
   document.getElementById('eError').style.display = 'none';
   document.getElementById('modalEditar').style.display = 'block';
 }
@@ -224,7 +258,7 @@ async function crearUsuario() {
   try {
     const response = await fetch('/api/usuarios/crear', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headersConToken(),
       body:    JSON.stringify({
         nombre,
         apellido,
@@ -279,7 +313,7 @@ async function guardarEdicion() {
   try {
     const response = await fetch('/api/usuarios/' + idUsuarioEditando, {
       method:  'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headersConToken(),
       body:    JSON.stringify(payload)
     });
 

@@ -92,6 +92,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tbody          = document.getElementById('tablaTareas');
   const contadorBadge  = document.getElementById('contador-badge');
   const cocineroId     = localStorage.getItem('usuario_id');
+  // El cocinero ve y marca sus platos. Administración (6, 5, 1) ve toda la cocina, solo para mirar.
+  const soloLectura    = parseInt(localStorage.getItem('usuario_rol') || '0', 10) !== FG_ROLES.ROL.COCINERO;
 
   // ── Toggle del panel lateral ─────────────────────────────────────────────
   const panelEl   = document.getElementById('panel-resumen');
@@ -142,7 +144,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ── 1. Traer tareas filtradas por el cocinero logueado ───────────────────
   let enPrep;
   try {
-    const url = cocineroId
+    const url = cocineroId && !soloLectura
       ? `/api/cocina/tareas?cocinero_id=${encodeURIComponent(cocineroId)}`
       : '/api/cocina/tareas';
     const res = await fetch(url);
@@ -194,9 +196,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         </td>
         <td>${pedido.observaciones || 'Sin observaciones'}</td>
         <td>
-          <button class="btn-listo" onclick="marcarListo(${pedido.id}, this)">
+          ${soloLectura
+            ? '<span class="solo-lectura">Solo lectura</span>'
+            : `<button class="btn-listo" onclick="marcarListo(${pedido.id}, this)">
             ✓ Listo para entregar
-          </button>
+          </button>`}
         </td>
       `;
       tbody.appendChild(tr);

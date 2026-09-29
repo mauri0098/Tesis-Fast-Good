@@ -644,7 +644,7 @@ function actualizarTituloListado() {
       ? `Producción de hoy (${fecha(hoyISO)}) — pedidos con entrega el ${fecha(desde)}`
       : `Hoy (${fecha(hoyISO)}) no se produce — pedidos con entrega el ${fecha(desde)}, se producen el ${seProduce(desde)}`;
   } else if (modo === 'todos') {
-    titulo.textContent = 'Todos los pedidos';
+    titulo.textContent = ''; // con "Ver todos" no hay título
   } else if (desde && hasta && desde === hasta) {
     titulo.textContent = `Pedidos con entrega el ${fecha(desde)} — se producen el ${seProduce(desde)}`;
   } else if (desde && hasta) {
@@ -654,6 +654,7 @@ function actualizarTituloListado() {
   } else {
     titulo.textContent = `Pedidos con entrega hasta el ${fecha(hasta)} — se producen hasta el ${seProduce(hasta)}`;
   }
+  titulo.hidden = titulo.textContent === ''; // sin título no ocupa lugar
 }
 
 // filtra el array de pedidos por fecha de entrega (según el modo) y por nombre de cliente o número de pedido

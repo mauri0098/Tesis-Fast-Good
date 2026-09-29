@@ -90,3 +90,9 @@ function fechaHoraDDMMAAAA(fecha) {
   const mi = String(fecha.getMinutes()).padStart(2, '0');
   return `${fechaDDMMAAAA(fecha)} ${hh}:${mi}`;
 }
+
+// En el servidor (Node) se reutiliza este mismo archivo para validar la fecha de entrega
+// (POST /api/pedidos). En el navegador `module` no existe y esto no hace nada.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { FERIADOS, fechaLocalISO, parseFechaLocal, esDiaHabil, sumarDiasHabiles, proximoDiaHabil, diaHabilAnterior, fechaDDMMAAAA };
+}

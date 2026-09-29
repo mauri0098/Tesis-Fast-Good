@@ -11,30 +11,11 @@
     document.head.appendChild(link);
   }
 
-  // soloAdmin: true → oculto en el sidebar cuando el usuario logueado es Cocinero.
-  // Mismo criterio que la lista blanca de guard.js (PAGINAS_COCINERO): el
-  // cocinero solo debe ver Tareas de Cocina, Gestión de Stock, Generar Receta
-  // y Movimientos de Stock.
-  const links = [
-    { href: base + 'admin.html',                      label: '🏠 Inicio',               soloAdmin: true },
-    { href: base + 'pages/ConsultarPedidos.html',      label: '🧾 Consultar Pedidos',    soloAdmin: true },
-    { href: base + 'pages/cocinero.html',              label: '🥗 Tareas de Cocina'     },
-    { href: base + 'pages/stock.html',                 label: '📦 Gestión de Stock'     },
-    { href: base + 'pages/generarReceta.html',         label: '📝 Generar Receta'       },
-    { href: base + 'pages/MovimientosStock.html',      label: '📋 Movimientos de Stock' },
-    { href: base + 'pages/AsignarCocinero.html',       label: '👨‍🍳 Asignar Cocineros',   soloAdmin: true },
-    { href: base + 'pages/Envios.html',                label: '🚗 Envíos del Día',       soloAdmin: true },
-    { href: base + 'pages/gestionUsuarios.html',       label: '👥 Gestión de Usuarios',  soloAdmin: true },
-  ];
+  // Solo las pantallas que el rol puede usar (la tabla está en roles.js, la misma que usa guard.js)
+  const usuarioRol = parseInt(localStorage.getItem('usuario_rol') || '0', 10);
 
-  const ROL_COCINERO = 2;
-  const usuarioRol   = parseInt(localStorage.getItem('usuario_rol') || '0', 10);
-  const esCocinero   = usuarioRol === ROL_COCINERO;
-
-  const linksVisibles = esCocinero ? links.filter(l => !l.soloAdmin) : links;
-
-  const navHTML = linksVisibles
-    .map(({ href, label }) => `<a href="${href}">${label}</a>`)
+  const navHTML = FG_ROLES.pantallasDelRol(usuarioRol)
+    .map(p => `<a href="${base + p.ruta}">${p.menu}</a>`)
     .join('\n      ');
 
   const sidebar = document.createElement('aside');

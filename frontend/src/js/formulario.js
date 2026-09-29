@@ -259,18 +259,19 @@ function limpiarFormulario() {
 // 8. WHATSAPP
 // ============================================================================
 
-function redirigirAWhatsApp(pedidoId, datos, carrito) {
+// total e items vienen de la respuesta del servidor: son los precios que realmente se cobraron
+// (si un precio cambió desde que se armó el carrito, el mensaje muestra el vigente).
+function redirigirAWhatsApp(pedidoId, datos, total, items) {
   const ahora = new Date();
   const fechaFormateada = ahora.toLocaleString('es-AR', {
     day: '2-digit', month: '2-digit', year: '2-digit',
     hour: '2-digit', minute: '2-digit', hour12: true
   }) + 'hs';
 
-  const total           = calcularTotalPedido(carrito);
-  const totalFormateado = total.toLocaleString('es-AR');
+  const totalFormateado = Number(total).toLocaleString('es-AR');
 
-  const lineasItems = carrito
-    .map(item => `${item.cantidad}x ${item.nombre}: $${(item.precio * item.cantidad).toLocaleString('es-AR')}`)
+  const lineasItems = items
+    .map(item => `${item.cantidad}x ${item.nombre}: $${Number(item.subtotal).toLocaleString('es-AR')}`)
     .join('\n');
 
   const lineaAlias = datos.metodoPago === 'Transferencia'
@@ -333,7 +334,7 @@ async function enviarFormulario() {
     limpiarCarritoDeStorage();
     limpiarFormulario();
 
-    redirigirAWhatsApp(pedidoId, datos, carrito);
+    redirigirAWhatsApp(pedidoId, datos, respuestaServidor.total, respuestaServidor.items);
     return true;
 
   } catch (error) {

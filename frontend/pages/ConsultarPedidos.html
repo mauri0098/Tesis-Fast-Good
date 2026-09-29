@@ -15,6 +15,7 @@
 </head>
 
 <body>
+<script src="../src/js/roles.js"></script>
 <script src="../src/js/guard.js"></script>
 <script src="../src/js/adminSidebar.js"></script>
 
@@ -29,7 +30,7 @@
     </div>
   </header>
 
-  <main class="page-container">
+  <main class="page-container pagina-pedidos">
     <div class="table-wrapper">
       <!-- Qué se está mostrando: la producción de hoy, un rango de entregas o todo -->
       <h2 id="tituloListado" class="titulo-listado"></h2>
@@ -42,7 +43,7 @@
         <button type="button" id="btnAplicarFechas" class="btn-filtro btn-filtro-aplicar">Aplicar</button>
         <button type="button" id="btnVerTodos"      class="btn-filtro btn-filtro-todos">Ver todos</button>
       </div>
-      <table class="standard-table">
+      <table class="standard-table tabla-pedidos">
         <thead>
           <tr>
             <th>N° Pedido</th>
@@ -275,31 +276,26 @@
     .modal-tabla td.col-cant { text-align: center; font-weight: 700; }
     .col-precio { text-align: right; }
     .modal-tabla td.col-precio { text-align: right; font-weight: 600; color: var(--color-primary); white-space: nowrap; }
-    .btn-detalles {
-      background: var(--color-secondary); color: white; border: none;
-      padding: 0.35rem 0.85rem; border-radius: 6px; cursor: pointer;
-      font-size: 0.82rem; font-weight: 600; transition: background 0.2s;
+    /* ── Botones de la grilla: misma forma que los de Generar Receta (pastilla, 0.72rem) ── */
+    .btn-detalles, .btn-pago, .btn-eliminar {
+      color: white; border: none; border-radius: 50px; cursor: pointer;
+      padding: 0.3rem 0.7rem; font-family: 'Poppins', sans-serif;
+      font-size: 12.5px; font-weight: 600; white-space: nowrap; transition: background-color 0.2s;
     }
+    .btn-detalles { background: var(--color-secondary); }
     .btn-detalles:hover { background: #e08700; }
-    .btn-eliminar {
-      background: #dc3545; color: white; border: none;
-      padding: 0.35rem 0.7rem; border-radius: 6px; cursor: pointer;
-      font-size: 0.82rem; font-weight: 600; transition: background 0.2s;
-    }
+    .btn-eliminar { background: #dc3545; }
     .btn-eliminar:hover { background: #b02a37; }
     .btn-eliminar:disabled { background: #adb5bd; cursor: not-allowed; }
-
-    /* ── Columna Acciones: Pago (azul) + Eliminar (rojo) ── */
-    .acciones-pedido { display: flex; flex-direction: column; gap: 0.35rem; align-items: stretch; }
-    .btn-pago {
-      background: #0d6efd; color: white; border: none;
-      padding: 0.35rem 0.7rem; border-radius: 6px; cursor: pointer;
-      font-size: 0.82rem; font-weight: 600; transition: background 0.2s;
-    }
+    .btn-pago { background: #0d6efd; }
     .btn-pago:hover { background: #0b5ed7; }
 
+    /* ── Columna Acciones: Pago (azul) + Anular (rojo), en fila y del mismo ancho ── */
+    .acciones-pedido { display: flex; flex-direction: row; gap: 6px; align-items: center; justify-content: center; flex-wrap: nowrap; }
+    .acciones-pedido .btn-pago, .acciones-pedido .btn-eliminar { min-width: 54px; }
+
     /* Desglose del pago mixto en la columna Método Pago */
-    .pago-detalle { font-size: 0.72rem; line-height: 1.35; color: #6c757d; white-space: nowrap; text-align: center; }
+    .pago-detalle { font-size: 12px; line-height: 1.35; color: #6c757d; white-space: nowrap; text-align: center; }
 
     /* ── Modal de pago ── */
     #modalPago .modal-box { max-width: 440px; }

@@ -182,6 +182,7 @@
   </div>
 
   <!-- SCRIPTS -->
+  <script src="./src/js/roles.js"></script>
   <script src="./src/js/auth.js"></script>
   <script src="./src/js/global.js"></script>
   <script src="./src/js/funciones.js"></script>
@@ -198,12 +199,12 @@
       if (dropdown) dropdown.style.display = 'none';
     });
 
-    // Si el admin ya tiene sesión activa, redirigir al panel
+    // Si el personal de administración (6, 5 o 1) ya tiene sesión activa, va a su pantalla principal
     (function () {
       var id  = localStorage.getItem('usuario_id');
       var rol = parseInt(localStorage.getItem('usuario_rol') || '0');
-      if (id && rol === 1) {
-        window.location.replace('./admin.html');
+      if (id && [6, 5, 1].indexOf(rol) !== -1) {
+        window.location.replace('./' + FG_ROLES.pantallaPrincipal(rol));
       }
     })();
 

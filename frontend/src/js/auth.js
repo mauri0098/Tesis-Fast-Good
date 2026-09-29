@@ -52,17 +52,9 @@ async function manejarLogin(e) {
     localStorage.setItem('usuario_telefono', data.usuario.telefono || '');
     localStorage.setItem('usuario_direccion', data.usuario.direccion || '');
 
-    // Redirigir según rol
-    const rol = data.usuario.id_rol;
-    if (rol === 1) {
-      window.location.href = 'admin.html';
-    } else if (rol === 2) {
-      window.location.href = 'pages/cocinero.html';
-    } else if (rol === 4) {
-      window.location.href = 'index.html';
-    } else {
-      mostrarError('loginError', 'No tienes permisos de acceso.');
-    }
+    // Cada rol va a su pantalla principal (tabla en roles.js):
+    // 6 y 5 → panel (Reportes) · 1 → Consultar Pedidos · 2 → Tareas de Cocina · 3 → Envíos del Día · 4 → catálogo
+    window.location.href = FG_ROLES.pantallaPrincipal(data.usuario.id_rol);
 
   } catch (error) {
     console.error('Error login:', error);

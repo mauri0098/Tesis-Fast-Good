@@ -30,33 +30,72 @@ const nodemailer = require('nodemailer');              // Envío de emails (recu
 const bcrypt     = require('bcryptjs');                // Hash de contraseñas
 const jwt        = require('jsonwebtoken');            // Tokens de autenticación
 const crypto     = require('crypto');                  // Comparación segura del PIN de anulación
+const fechas     = require('./frontend/src/js/fechas.js'); // Días hábiles y feriados (el mismo archivo que usa el frontend)
+
+/* ======================================================
+   LÍMITE DE INTENTOS POR IP (express-rate-limit)
+   Frena la fuerza bruta (contraseñas, PIN) y la carga masiva de pedidos falsos.
+   Cada endpoint tiene su propio contador. Superado el límite responde 429 con { error }.
+   Si el servidor queda detrás de un proxy (Nginx, Render, etc.) hay que configurar
+   app.set('trust proxy', 1): si no, todos los clientes comparten la IP del proxy.
+   ====================================================== */
+const { rateLimit } = require('express-rate-limit');
+
+function limitador({ minutos, maximo, mensaje, soloFallidos = false }) {
+  return rateLimit({
+    windowMs: minutos * 60 * 1000,
+    limit: maximo,
+    standardHeaders: 'draft-8', // informa el límite en el header RateLimit
+    legacyHeaders: false,
+    // soloFallidos: cuentan solo las respuestas de error (el objetivo es quien prueba claves, no el uso normal)
+    skipSuccessfulRequests: soloFallidos,
+    message: { error: mensaje }
+  });
+}
+
+const limiteLogin = limitador({
+  minutos: 15, maximo: 10, soloFallidos: true,
+  mensaje: 'Demasiados intentos de inicio de sesión fallidos. Esperá unos minutos y volvé a intentar.'
+});
+const limiteRegistro = limitador({
+  minutos: 15, maximo: 10,
+  mensaje: 'Demasiados intentos de registro seguidos. Esperá unos minutos y volvé a intentar.'
+});
+const limiteRecuperarPassword = limitador({
+  minutos: 15, maximo: 10,
+  mensaje: 'Demasiadas solicitudes de recuperación de contraseña. Esperá unos minutos y volvé a intentar.'
+});
+const limiteAnular = limitador({
+  minutos: 15, maximo: 10, soloFallidos: true,
+  mensaje: 'Demasiados intentos de anulación fallidos. Esperá unos minutos y volvé a intentar.'
+});
+const limitePedidos = limitador({
+  minutos: 10, maximo: 5,
+  mensaje: 'Hiciste demasiados pedidos seguidos, esperá unos minutos.'
+});
 
 /* ======================================================
    MIDDLEWARE DE AUTENTICACIÓN JWT
    Lee el token del header Authorization: Bearer <token>
    ====================================================== */
-function requireAuth(req, res, next) {
-  const authHeader = req.headers['authorization'];
-
-  if (!authHeader) {
-    return res.status(401).json({ error: 'No autorizado' });
-  }
-
-  const partes = authHeader.split(' ');
-
-  if (partes.length !== 2 || partes[0] !== 'Bearer') {
-    return res.status(401).json({ error: 'No autorizado' });
-  }
-
-  const token = partes[1];
-
+// Devuelve el payload del token ({ id, rol, iat, exp }) si viene uno válido, o null. No corta la request.
+function leerToken(req) {
+  const partes = (req.headers['authorization'] || '').split(' ');
+  if (partes.length !== 2 || partes[0] !== 'Bearer') return null;
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.usuario = payload; // { id, rol, iat, exp }
-    next();
+    return jwt.verify(partes[1], process.env.JWT_SECRET);
   } catch (err) {
+    return null;
+  }
+}
+
+function requireAuth(req, res, next) {
+  const payload = leerToken(req);
+  if (!payload) {
     return res.status(401).json({ error: 'No autorizado' });
   }
+  req.usuario = payload; // { id, rol, iat, exp }
+  next();
 }
 
 /* ======================================================
@@ -240,7 +279,7 @@ async function descontarStockPedido(pedidoId) {
    ====================================================== */
 
 // POST /api/login → Validar credenciales de usuario
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', limiteLogin, async (req, res) => {
   // Aceptar 'nombre', 'nombre_usuario', 'usuario' o 'email' desde el frontend
   const identificador = (
     req.body.nombre_usuario ||
@@ -356,7 +395,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 // POST /api/register → Crear cuenta de usuario (rol 4)
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', limiteRegistro, async (req, res) => {
   const { nombre, apellido, direccion, telefono, email, contraseña } = req.body;
 
   if (!nombre || !apellido || !email || !contraseña) {
@@ -379,6 +418,7 @@ app.post('/api/register', async (req, res) => {
     const hashContrasenaReg = await bcrypt.hash(contraseña, 10);
     const { data: nuevoUsuario, error } = await supabase
       .from('usuarios')
+      // Siempre rol 4 (Consumidor final): el registro es público, se ignora cualquier id_rol del body
       .insert([{ nombre, apellido, email, contrasena: hashContrasenaReg, telefono, direccion, id_rol: 4 }])
       .select()
       .single();
@@ -655,10 +695,29 @@ app.get('/api/pedidos/:id/cocineros', async (req, res) => {
    API PEDIDOS
    ====================================================== */
 
-app.post('/api/pedidos', async (req, res) => {// Endpoint para crear un nuevo pedido
+// Precio que se cobra por un producto: el de lista con su descuento (%) aplicado.
+// Mismo redondeo que muestra el catálogo (index.js → precioEfectivo). Es la única regla de precio del servidor.
+function precioFinal(producto) {
+  const precio    = Number(producto.precio);
+  const descuento = Number(producto.descuento) || 0;
+  return descuento > 0 ? Math.round(precio * (1 - descuento / 100)) : precio;
+}
+
+// "Hoy" en Argentina como Date de calendario (medianoche local del servidor), para operar con fechas.js.
+// El servidor puede correr en UTC: a las 22 h de Argentina, su "hoy" ya sería mañana.
+function hoyArgentina() {
+  const iso = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Cordoba' }).format(new Date()); // 'YYYY-MM-DD'
+  return fechas.parseFechaLocal(iso);
+}
+
+const CANTIDAD_MAXIMA_POR_PLATO = 100;
+
+// POST /api/pedidos → crea un pedido. Es público (lo usa el formulario sin login).
+// El navegador solo dice qué productos y cuántos: los precios y el total los calcula el servidor
+// (se ignora el "total" del body), y la fecha de entrega tiene que respetar las 48 hs hábiles.
+app.post('/api/pedidos', limitePedidos, async (req, res) => {
   const {
     usuario_id,
-    total,
     items,
     cliente_nombre,
     cliente_direccion,
@@ -671,6 +730,70 @@ app.post('/api/pedidos', async (req, res) => {// Endpoint para crear un nuevo pe
     tipo_entrega
   } = req.body;
 
+  // 1. Renglones: producto (entero) y cantidad (entero entre 1 y 100)
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'El pedido no tiene platos' });
+  }
+  for (const item of items) {
+    const cantidad = Number(item?.cantidad);
+    if (!Number.isInteger(Number(item?.producto_id))) {
+      return res.status(400).json({ error: 'Hay un plato con un identificador inválido' });
+    }
+    if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > CANTIDAD_MAXIMA_POR_PLATO) {
+      return res.status(400).json({ error: `La cantidad de cada plato tiene que ser un número entero entre 1 y ${CANTIDAD_MAXIMA_POR_PLATO}` });
+    }
+  }
+
+  // 2. Fecha de entrega: obligatoria, día hábil y al menos 48 hs hábiles después de hoy (misma regla que el formulario)
+  if (!fecha_entrega || !FORMATO_FECHA.test(fecha_entrega)) {
+    return res.status(400).json({ error: 'La fecha de entrega es obligatoria (formato AAAA-MM-DD)' });
+  }
+  const entrega = fechas.parseFechaLocal(fecha_entrega);
+  const primeraFecha = fechas.fechaLocalISO(fechas.sumarDiasHabiles(hoyArgentina(), 2));
+  if (!fechas.esDiaHabil(entrega)) {
+    return res.status(400).json({ error: 'La fecha de entrega tiene que ser un día hábil (de lunes a viernes, sin feriados)' });
+  }
+  if (fecha_entrega < primeraFecha) {
+    return res.status(400).json({
+      error: `La primera fecha de entrega disponible es el ${fechas.fechaDDMMAAAA(fechas.parseFechaLocal(primeraFecha))} (48 hs hábiles)`
+    });
+  }
+
+  // 3. Productos: tienen que existir, estar activos y tener precio
+  const productoIds = [...new Set(items.map(item => Number(item.producto_id)))];
+  const { data: productosDB, error: errorProductos } = await supabase
+    .from('productos')
+    .select('id, nombre, precio, descuento, activo')
+    .in('id', productoIds);
+
+  if (errorProductos) return res.status(500).json({ error: errorProductos.message });
+
+  const productoPorId = {};
+  (productosDB || []).forEach(p => { productoPorId[p.id] = p; });
+
+  for (const id of productoIds) {
+    const producto = productoPorId[id];
+    if (!producto) {
+      return res.status(400).json({ error: `El producto ${id} no existe` });
+    }
+    if (!producto.activo) {
+      return res.status(400).json({ error: `El plato "${producto.nombre}" ya no está disponible. Sacalo del carrito y volvé a intentar.` });
+    }
+    if (producto.precio == null) {
+      return res.status(400).json({ error: `El plato "${producto.nombre}" no tiene precio cargado` });
+    }
+  }
+
+  // 4. Precios y total calculados acá (se ignora el total del navegador)
+  const renglones = items.map(item => {
+    const producto = productoPorId[Number(item.producto_id)];
+    const cantidad = Number(item.cantidad);
+    const precio_unitario = precioFinal(producto);
+    return { producto, cantidad, precio_unitario };
+  });
+  const total = renglones.reduce((suma, r) => suma + r.cantidad * r.precio_unitario, 0);
+
+  // 5. Guardar el pedido y sus renglones
   // UUID fijo si no viene usuario_id
   const finalUserId = usuario_id || 'd9b1ae00-fda5-4488-86b3-90d769b47a02'; // "Consumidor Final" para pedidos públicos sin login
 
@@ -698,36 +821,34 @@ app.post('/api/pedidos', async (req, res) => {// Endpoint para crear un nuevo pe
     return res.status(500).json({ error: errorPedido.message });
   }
 
-  // Buscar precios reales desde la tabla productos
-  const productoIds = items.map(item => item.producto_id);
-  const { data: productosDB, error: errorPrecios } = await supabase
-    .from('productos')
-    .select('id, precio')
-    .in('id', productoIds);
-
-  if (errorPrecios) {
-    return res.status(500).json({ error: errorPrecios.message });
-  }
-
-  const precioMap = {};
-  productosDB.forEach(p => { precioMap[p.id] = p.precio; });
-
-  const itemsConPedido = items.map(item => ({
-    id_pedido: pedido.id,
-    id_producto: item.producto_id,
-    cantidad: item.cantidad,
-    precio_unitario: precioMap[item.producto_id] ?? 0
-  }));
-
   const { error: errorItems } = await supabase
     .from('pedido_detalles')
-    .insert(itemsConPedido);
+    .insert(renglones.map(r => ({
+      id_pedido:       pedido.id,
+      id_producto:     r.producto.id,
+      cantidad:        r.cantidad,
+      precio_unitario: r.precio_unitario
+    })));
 
   if (errorItems) {
+    // Sin renglones el pedido no sirve: se borra para no dejar un pedido vacío
+    await supabase.from('pedidos').delete().eq('id', pedido.id);
     return res.status(500).json({ error: errorItems.message });
   }
 
-  res.json({ mensaje: 'Pedido creado correctamente', pedido });
+  res.json({
+    mensaje: 'Pedido creado correctamente',
+    pedido,
+    total,
+    // Los renglones con el precio que se cobró (para el resumen de WhatsApp)
+    items: renglones.map(r => ({
+      producto_id:     r.producto.id,
+      nombre:          r.producto.nombre,
+      cantidad:        r.cantidad,
+      precio_unitario: r.precio_unitario,
+      subtotal:        r.cantidad * r.precio_unitario
+    }))
+  });
 });
 
 // GET /api/pedidos?desde=YYYY-MM-DD&hasta=YYYY-MM-DD → pedidos, opcionalmente filtrados por fecha_pedido.
@@ -1106,7 +1227,7 @@ app.put('/api/pedidos/:id/listo-cocinero', requireAuth, async (req, res) => {
 
 // Anular pedido: no se borra, se pasa a estado 5 (Cancelado).
 // Requiere el PIN de autorización configurado en .env (ADMIN_PIN); se valida acá, nunca en el front.
-app.post('/api/pedidos/:id/anular', requireAuth, async (req, res) => {
+app.post('/api/pedidos/:id/anular', limiteAnular, requireAuth, async (req, res) => {
   const id = parseInt(req.params.id);
   const pin = String(req.body?.pin ?? '');
 
@@ -2125,6 +2246,26 @@ app.get('/api/usuarios', async (req, res) => {
   res.json(data || []);
 });
 
+// Roles: 1 Administrador · 2 Cocinero · 3 Repartidor · 4 Consumidor final · 5 Dueño · 6 Administrador del sistema
+const ROL_SISTEMA = 6;
+const MENSAJE_SOLO_SISTEMA = 'Solo un Administrador del sistema puede asignar o modificar el rol "Administrador del sistema".';
+
+// Valida el rol que se quiere asignar: que exista en la tabla roles y que el rol 6 solo lo asigne un rol 6.
+// Quién asigna sale del token (si no hay token válido, no puede asignar el rol 6).
+// Devuelve null si está bien, o { status, error }.
+async function validarAsignacionDeRol(req, idRol) {
+  if (!Number.isInteger(idRol)) return { status: 400, error: 'Rol inválido' };
+
+  const { data: rol, error } = await supabase.from('roles').select('id').eq('id', idRol).maybeSingle();
+  if (error) return { status: 500, error: error.message };
+  if (!rol) return { status: 400, error: 'El rol elegido no existe' };
+
+  if (idRol === ROL_SISTEMA && leerToken(req)?.rol !== ROL_SISTEMA) {
+    return { status: 403, error: MENSAJE_SOLO_SISTEMA };
+  }
+  return null;
+}
+
 // POST /api/usuarios/crear → dar de alta un nuevo empleado
 // Body: { nombre, apellido, nombre_usuario, email, telefono, contraseña, id_rol }
 // La columna en la BD se llama "contrasena" (sin ñ)
@@ -2135,6 +2276,9 @@ app.post('/api/usuarios/crear', async (req, res) => {
   if (!nombre || !apellido || !nombre_usuario || !email || !contraseña || !id_rol) {
     return res.status(400).json({ error: 'Nombre, apellido, nombre de usuario, email, contraseña y rol son requeridos' });
   }
+
+  const rolInvalido = await validarAsignacionDeRol(req, Number(id_rol));
+  if (rolInvalido) return res.status(rolInvalido.status).json({ error: rolInvalido.error });
 
   // Verificar que el email no esté ya registrado
   const { data: existente } = await supabase
@@ -2186,6 +2330,17 @@ app.put('/api/usuarios/:id', async (req, res) => {
 
   if (!nombre || !apellido || !nombre_usuario || !email || !id_rol) {
     return res.status(400).json({ error: 'Nombre, apellido, nombre de usuario, email y rol son requeridos' });
+  }
+
+  const rolInvalido = await validarAsignacionDeRol(req, Number(id_rol));
+  if (rolInvalido) return res.status(rolInvalido.status).json({ error: rolInvalido.error });
+
+  // Un Administrador del sistema solo lo puede modificar otro (si no, un rol 5 le podría bajar el rol o cambiarle la clave)
+  const { data: actual, error: errActual } = await supabase.from('usuarios').select('id, id_rol').eq('id', id).maybeSingle();
+  if (errActual && errActual.code !== '22P02') return res.status(500).json({ error: errActual.message });
+  if (!actual) return res.status(404).json({ error: 'Usuario no encontrado' });
+  if (actual.id_rol === ROL_SISTEMA && leerToken(req)?.rol !== ROL_SISTEMA) {
+    return res.status(403).json({ error: MENSAJE_SOLO_SISTEMA });
   }
 
   const campos = {
@@ -2256,7 +2411,7 @@ app.get('/', (req, res) => {// Cuando se accede a la raíz, se envía el archivo
 // POST /api/recuperar-password
 // Body: { email }
 // Genera una clave temporal, la persiste en usuarios.contraseña y la envía por email.
-app.post('/api/recuperar-password', async (req, res) => {
+app.post('/api/recuperar-password', limiteRecuperarPassword, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'El email es requerido' });
 

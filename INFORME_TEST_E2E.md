@@ -1398,3 +1398,195 @@ Se reutilizaron `fechaLocalISO` y `fechaDeTimestamp` de `fechas.js`; no se crear
 | Stock: un insumo dado de alta a las 22:00 del 29/09 queda con `fecha_ingreso` **2026-09-29** (antes 30/09) · sin errores | ✅ |
 
 Se borraron los pedidos (#129, #130) y el insumo de prueba.
+
+---
+
+## 💰 Fase 1B — Precios y total calculados en el servidor (C-01, C-02 de la revisión)
+
+**Fecha:** 29 de septiembre de 2026 · **Rama:** Rodriguez  
+**Resultado:** ✅ **24/24 pruebas pasaron** (18 de API y 6 de interfaz en Chrome headless)
+
+**Antes:**
+- **C-01:** el navegador calculaba el total y el servidor lo guardaba sin revisarlo. Se podía mandar `total: 1` desde la consola, o se guardaba un precio viejo si el carrito había quedado abierto.
+- **C-02:** el total se guardaba con descuento y el `precio_unitario` de cada renglón sin descuento, así que no cerraban entre sí y "Top productos" mostraba ventas infladas.
+
+**Ahora el servidor es el único que decide los precios:** el navegador solo dice qué productos y cuántos. Lo que ve el cliente en pantalla no cambió.
+
+No se tocaron el stock, los pagos, los cocineros, los estados, el catálogo ni el carrito.
+
+### Cambios
+
+| Archivo | Cambio |
+|---------|--------|
+| `fechas.js` | Al final, `module.exports` con las funciones de días hábiles y feriados, para que **el servidor reutilice el mismo archivo** (en el navegador esa línea no hace nada). No se duplicó la lógica |
+| `server.js` | **Nueva** `precioFinal(producto)`: precio × (1 − descuento/100) con `Math.round`, igual que `precioEfectivo` de `index.js`; sin descuento, el precio tal cual. Es la única regla de precio del servidor |
+| `server.js` | **Nueva** `hoyArgentina()`: "hoy" en hora de Argentina. Si el servidor corre en UTC (lo normal en un hosting), a las 22 h su "hoy" ya sería mañana y rechazaría la primera fecha que el formulario deja elegir |
+| `server.js` → `POST /api/pedidos` | **Valida todo antes de guardar:** que haya platos; producto entero; cantidad entera entre 1 y 100; que el producto exista, esté activo y tenga precio; fecha de entrega obligatoria, **día hábil** y **al menos 48 hs hábiles después de hoy** (`sumarDiasHabiles(hoyArgentina(), 2)`, la misma regla que el formulario). Si algo falla, responde 400 con un mensaje claro y no guarda nada |
+| `server.js` → `POST /api/pedidos` | `precio_unitario = precioFinal(producto)` y `total = Σ cantidad × precio_unitario`. **Se ignora el `total` del body.** Antes, un producto inexistente se guardaba con precio $0 |
+| `server.js` → `POST /api/pedidos` | La respuesta devuelve `total` y los renglones (`items`: nombre, cantidad, precio cobrado y subtotal). Si falla el guardado de los renglones, se borra el pedido recién creado para no dejarlo vacío |
+| `formulario.js` | El mensaje de WhatsApp usa el **total y los renglones que devuelve el servidor** (antes, los del carrito). Si solo se cambiaba el total, con un precio desactualizado los renglones no habrían sumado el total del mensaje |
+| `tests/test_e2e.js` | Mandaba `fecha_entrega` = hoy, que ahora se rechaza. Pasa a mandar la primera fecha válida, calculada con `fechas.js` |
+
+### Pruebas
+
+Productos usados: POLLO $1.500 (sin descuento), fideos $15.000 con 10% ($13.500) y pollo con papas $5.000 con 10% ($4.500).
+
+**Precios y total:**
+
+| Test | Resultado |
+|------|-----------|
+| **Sin descuento:** POLLO × 2 → total $3.000, `precio_unitario` $1.500 | ✅ |
+| **Con 10% de descuento:** `precio_unitario` fideos $13.500 y pollo con papas $4.500 | ✅ |
+| → total 13.500 + 2 × 4.500 = **$22.500**, igual a la suma de los renglones | ✅ |
+| **Mandando `total: 1` a mano** se guarda el total real, $22.500 | ✅ |
+| La respuesta trae los renglones con el precio cobrado | ✅ |
+| **La página muestra lo mismo que se guarda:** la tarjeta de fideos en el inicio dice "$ 13500" (tachado $ 15000) = `precio_unitario` guardado | ✅ |
+
+**Validaciones (todas responden 400 y no guardan nada):**
+
+| Test | Resultado |
+|------|-----------|
+| **Producto inactivo** → *"El plato "pepe" ya no está disponible. Sacalo del carrito y volvé a intentar."* | ✅ |
+| **Producto inexistente** → *"El producto 99999 no existe"* | ✅ |
+| **Cantidad 0, negativa, con decimales o mayor a 100** → *"La cantidad de cada plato tiene que ser un número entero entre 1 y 100"* (con 100 se acepta) | ✅ |
+| Pedido sin platos | ✅ |
+| **Fecha antes de las 48 hs hábiles** (pedido el martes 29/09 con entrega el miércoles 30/09) → *"La primera fecha de entrega disponible es el 01/10/2026 (48 hs hábiles)"* | ✅ |
+| **Fecha en sábado o domingo** → *"La fecha de entrega tiene que ser un día hábil…"* | ✅ |
+| Sin fecha de entrega | ✅ |
+| Ninguno de esos pedidos quedó guardado | ✅ |
+
+**Formulario → WhatsApp** (con un carrito "viejo" que tenía fideos a $99.999 en el `localStorage`):
+
+| Test | Resultado |
+|------|-----------|
+| **El mensaje muestra el total real, $22.500** (no los $108.999 del carrito viejo) | ✅ |
+| Los renglones también usan el precio real: "1x fideos: $13.500" y "2x pollo con papas: $9.000" | ✅ |
+| El pedido quedó guardado con total $22.500 · sin errores de JavaScript | ✅ |
+
+**Entorno:** instancia aparte en :3001. Se borraron todos los pedidos de prueba. `tests/test_e2e.js` no se corrió en esta fase (pasa pedidos a "Listo" y descuenta stock real); solo se verificó que compila.
+
+### A tener en cuenta
+
+- **El carrito puede mostrar un precio viejo:** si un precio cambió mientras el carrito estaba abierto, el cliente ve el viejo hasta que confirma. El pedido se cobra al precio vigente y el mensaje de WhatsApp muestra ese precio. Si hace falta, el formulario podría avisar la diferencia antes de enviar.
+- **La página `viandasSaludables.html` sigue mostrando el precio sin descuento** (usa `/api/v1/productos`, que no trae `descuento`). Ahora se cobra con descuento, así que el cliente pagaría menos de lo que vio. La página no está enlazada desde ningún lado (C-13).
+- **`FERIADOS` sigue vacío:** el servidor valida con la misma lista que el formulario, así que los feriados se agregan en un solo lugar (`fechas.js`) y aplican a los dos.
+- **`usuario_id` todavía lo decide el body** (P0-7 de la revisión, parte de seguridad).
+
+---
+
+## 🚦 Límite de intentos por IP (P1-8 de la revisión)
+
+**Fecha:** 29 de septiembre de 2026 · **Rama:** Rodriguez  
+**Resultado:** ✅ **15/15 pruebas pasaron**
+
+Se instaló `express-rate-limit` 8.7.0 (compatible con Express 5). Cada endpoint tiene su propio contador por IP; al superarlo responde **429** con `{ error: "<mensaje>" }` y el header `RateLimit`.
+
+| Endpoint | Límite | Qué cuenta | Mensaje |
+|----------|--------|------------|---------|
+| `POST /api/login` | 10 cada 15 min | **solo los fallidos** | *"Demasiados intentos de inicio de sesión fallidos. Esperá unos minutos y volvé a intentar."* |
+| `POST /api/register` | 10 cada 15 min | todos | *"Demasiados intentos de registro seguidos…"* |
+| `POST /api/recuperar-password` | 10 cada 15 min | todos | *"Demasiadas solicitudes de recuperación de contraseña…"* |
+| `POST /api/pedidos/:id/anular` | 10 cada 15 min | **solo los fallidos** | *"Demasiados intentos de anulación fallidos…"* |
+| `POST /api/pedidos` | 5 cada 10 min | todos | *"Hiciste demasiados pedidos seguidos, esperá unos minutos."* |
+
+**Por qué en login y anular cuentan solo los fallidos:** el objetivo es frenar a quien prueba contraseñas o PINs. Si contaran también los exitosos, un admin que anula 11 pedidos seguidos quedaría bloqueado 15 minutos. Se cambia con `soloFallidos: false` en `server.js`.
+
+El frontend no se tocó: login, recuperar contraseña, anular y el formulario del pedido ya muestran el `error` que devuelve el servidor.
+
+### Pruebas
+
+| Test | Resultado |
+|------|-----------|
+| **Login:** 12 logins correctos seguidos → todos 200 (no cuentan); 10 con clave incorrecta → 401; el **intento 11 → 429**, aunque la clave sea correcta | ✅ |
+| → el header informa el límite (`"10-in-15min"; q=10; w=900`) | ✅ |
+| Los contadores son independientes: con el login bloqueado, `/api/register` sigue respondiendo | ✅ |
+| **Registro:** 10 intentos → 400 (datos faltantes, no se crea ningún usuario); el **11 → 429** | ✅ |
+| **Recuperar contraseña:** 10 solicitudes con un email inexistente → 404 (no se cambia ninguna contraseña ni se manda mail); la **11 → 429** | ✅ |
+| **Anular:** 10 intentos con PIN incorrecto → 403; el **11 → 429**, aunque el PIN sea correcto | ✅ |
+| **Pedidos:** 5 pedidos seguidos se crean; el **sexto → 429** con *"Hiciste demasiados pedidos seguidos, esperá unos minutos."* y no se guarda | ✅ |
+| El resto de la API no tiene límite (30 llamadas seguidas a `GET /api/estados` → 200) | ✅ |
+
+**Entorno:** instancia aparte en :3001; los contadores se reinician al apagarla. Se borraron los 5 pedidos de prueba.
+
+### A tener en cuenta
+
+- **Al publicarlo detrás de un proxy** (Nginx, Render, Railway…) hay que agregar `app.set('trust proxy', 1)`. Si no, todos los clientes llegan con la IP del proxy y comparten un mismo contador: con 5 pedidos de cualquier cliente, se bloquearía a todos. Quedó anotado en el comentario del código. No se activó ahora porque sin proxy permitiría falsear la IP con el header `X-Forwarded-For`.
+- **Los contadores están en memoria:** se reinician al reiniciar el servidor, y no se comparten si algún día corren varias instancias (para eso habría que usar un store compartido como Redis).
+- **Una misma conexión comparte el límite:** varias personas detrás de una misma IP pública (por ejemplo, una oficina) comparten los 5 pedidos cada 10 minutos.
+- **Pruebas automáticas:** los scripts de prueba que crean más de 5 pedidos seguidos contra el mismo servidor ahora reciben 429. Hay que espaciarlos o correrlos contra una instancia recién levantada.
+- **`npm audit` informa vulnerabilidades anteriores a este cambio** (no vienen de `express-rate-limit`): `nodemailer` alta (dependencia directa, se usa en recuperar contraseña), `qs` moderada y `body-parser` baja (estas dos a través de Express). Conviene actualizarlas en una tarea aparte.
+
+---
+
+## 👥 Roles y pantallas por rol
+
+**Fecha:** 29 de septiembre de 2026 · **Rama:** Rodriguez  
+**Resultado:** ✅ **39/39 pruebas pasaron** (35 de la prueba general y 4 de Tareas de Cocina con un pedido real)
+
+Roles (ya existían en la base, no se corrió SQL): **1** Administrador · **2** Cocinero · **3** Repartidor · **4** Consumidor final · **5** Dueño · **6** Administrador del sistema.
+
+| Pantalla | Roles | | Rol | Pantalla principal (al loguearse) |
+|----------|-------|-|-----|-----------------------------------|
+| Reportes (`admin.html`, "Inicio") | 6, 5 | | 6, 5 | Reportes (`admin.html`) |
+| Consultar Pedidos | 6, 5, 1 | | 1 | **Consultar Pedidos** |
+| Tareas de Cocina | 2; y 6, 5, 1 solo para ver | | 2 | Tareas de Cocina |
+| Gestión de Stock · Movimientos de Stock | 6, 5, 1 | | 3 | Envíos del Día |
+| Generar Receta · Asignar Cocineros · Gestión de Usuarios | 6, 5 | | 4 | Catálogo (`index.html`) |
+| Envíos del Día | 6, 5, 1, 3 | | | |
+
+**Decisión:** el "panel admin" (`admin.html`) es la pantalla de Reportes, que solo ven 6 y 5. Por eso la pantalla principal del **rol 1** es **Consultar Pedidos** (acordado con Mauri).
+
+Esto ordena **las pantallas**. La protección de los datos en el servidor (JWT y rol en cada endpoint) queda para un paso posterior.
+
+### Cambios
+
+| Archivo | Cambio |
+|---------|--------|
+| **`roles.js` (nuevo)** | La **única tabla de permisos** del frontend: nombres de los roles, qué roles ven cada pantalla (en el orden del menú) y la pantalla principal de cada rol. La usan `guard.js`, el menú, el login y Gestión de Usuarios |
+| `guard.js` | Cada pantalla se valida contra la tabla. Sin sesión → login; con un rol que no corresponde → su pantalla principal. Se sacaron el menú que se le inyectaba al cocinero (buscaba un `<nav>` en el header que ninguna página tiene, así que nunca se mostraba) y `cerrarSesionCocinero`, que solo usaba ese menú |
+| 8 pantallas internas | Cargan `roles.js` antes de `guard.js` |
+| `admin.html` | **Ahora carga `guard.js`** (no lo tenía). Se sacó su chequeo propio, que solo dejaba entrar al rol 1 |
+| `adminSidebar.js` | El menú lateral se arma con la tabla: solo las pantallas del rol |
+| `auth.js` · `login.html` | Después del login, cada rol va a su pantalla principal. Antes los roles 3, 5 y 6 recibían *"No tienes permisos de acceso"* |
+| `index.html` | Si un usuario con rol 6, 5 o 1 entra al catálogo con sesión activa, va a su pantalla principal (antes solo el rol 1, y lo mandaba a `admin.html`) |
+| `cocinero.js` / `cocinero.css` | **Solo lectura para 6, 5 y 1:** ven las tareas de toda la cocina (sin filtro de cocinero) y, en lugar del botón "Listo", *"Solo lectura"*. El cocinero sigue viendo solo sus platos con el botón |
+| `gestionUsuarios.html` / `.js` / `.css` | Los tres `<select>` de rol (filtro, crear, editar) se arman desde `roles.js` con los 6 roles. **En crear y editar, el rol 6 aparece solo si el usuario logueado es rol 6.** Etiquetas de color para los 6 roles. Crear y editar mandan el token |
+| `server.js` | **Nueva** `leerToken(req)`: lee el token sin cortar la request. `requireAuth` ahora la usa, así no hay dos verificaciones |
+| `server.js` | **Nueva** `validarAsignacionDeRol(req, idRol)`: el rol tiene que existir en la tabla `roles` (400 si no), y **solo un token con rol 6 puede asignar el rol 6** (403). Se usa en crear y en editar usuario |
+| `server.js` → `PUT /api/usuarios/:id` | **Además:** un usuario rol 6 solo lo puede modificar otro rol 6. Si no, un rol 5 le podría bajar el rol o cambiarle la contraseña al administrador del sistema. Si el usuario no existe, 404 (antes 500) |
+| `server.js` → `POST /api/register` | **Ya forzaba el rol 4** (guarda `id_rol: 4` fijo y no lee el del body). Se agregó un comentario que lo aclara |
+| Login | **Verificado sin cambios:** devuelve `usuario.id_rol` y el token incluye `{ id, rol }` |
+
+### Pruebas
+
+Se crearon usuarios temporales de los 6 roles (y se borraron al final).
+
+| Test | Resultado |
+|------|-----------|
+| El login devuelve `id_rol` y el token incluye el mismo `rol` | ✅ |
+| **Registrarse mandando `id_rol: 1` en el body → queda con rol 4** | ✅ |
+| **Un rol 5 no puede crear un usuario rol 6** → 403 · sin token tampoco → 403 | ✅ |
+| **Un rol 5 no puede subir a nadie a rol 6** (editar) → 403, y el rol queda igual | ✅ |
+| Un rol 5 no puede modificar a un Administrador del sistema (bajarle el rol) → 403 | ✅ |
+| Un rol 5 sí puede crear un Administrador (rol 1) · un rol 6 sí puede asignar el rol 6 | ✅ |
+| Rol inexistente (99) → 400 *"El rol elegido no existe"* · editar un usuario inexistente → 404 | ✅ |
+| Sin sesión, `admin.html` (que antes no tenía guard) manda al login | ✅ |
+| **Cada rol, al loguearse, cae en su pantalla principal** (6 y 5 → Reportes · 1 → Consultar Pedidos · 2 → Tareas de Cocina · 3 → Envíos · 4 → catálogo) | ✅ (6/6) |
+| **El menú muestra solo las pantallas del rol** (6 y 5: 9 · 1: 5 · 2: Tareas de Cocina · 3: Envíos del Día) | ✅ (5/5) |
+| **Escribiendo la URL de cada una de las 9 pantallas**, cada rol entra a las suyas y las demás lo mandan a su pantalla principal | ✅ (6 roles × 9 pantallas) |
+| Gestión de Usuarios: el filtro tiene los 6 roles; crear/editar incluyen el rol 6 para un rol 6 y no para un rol 5; la grilla muestra los nombres nuevos | ✅ |
+| **Tareas de Cocina con un pedido real en preparación:** el rol 1 lo ve (tareas sin filtro), sin botón "Listo" y con *"Solo lectura"*; el cocinero del plato lo ve con el botón y pide solo sus tareas | ✅ |
+| Sin errores de JavaScript | ✅ |
+
+La primera versión de la prueba de Tareas de Cocina pasó sin probar nada (no había pedidos en preparación) y se repitió con un pedido real. En la segunda, un error de la prueba (buscaba a Mariela como cocinera del POLLO, que hoy está asignado a juan) se corrigió.
+
+**Entorno:** instancia aparte en :3001. Se borraron los usuarios de prueba (8) y los pedidos de prueba.
+
+### A tener en cuenta
+
+- **La protección real de los datos todavía no está:** el guard y el menú ordenan lo que ve cada rol, pero la API sigue abierta (por ejemplo, `GET /api/usuarios` o `DELETE /api/usuarios/:id` responden sin login). Es el paso posterior, con JWT y rol en cada endpoint.
+- **Borrar un Administrador del sistema:** `DELETE /api/usuarios/:id` no tiene todavía la regla "solo un rol 6 puede tocar a un rol 6". Entra con la protección de rutas.
+- **El rol del menú sale del `localStorage`:** si alguien lo cambia a mano, ve más pantallas (sin datos, una vez protegida la API). Por eso la protección tiene que estar en el servidor.
+- **Tareas de Cocina:** el cocinero perdió el acceso a Gestión de Stock, Generar Receta y Movimientos de Stock, que tenía antes, porque la tabla nueva solo le da Tareas de Cocina.
+- **Código muerto en `index.html`:** hay un segundo login (`manejarLoginModal`) que manda al rol 1 a `index-admin.html`, una página que no existe, y usa un modal (`#loginModal`) que tampoco existe. No se tocó; se puede borrar.
+- **`cerrarSesion()` de `auth.js` no borra `fg_token`** (se va al cerrar sesión, pero el token queda en el navegador hasta que vence). Conviene borrarlo en el paso de seguridad.

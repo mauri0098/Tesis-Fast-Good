@@ -12,6 +12,7 @@
 
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true });
+const fechas = require(path.join(__dirname, '..', 'frontend', 'src', 'js', 'fechas.js'));
 
 const BASE_URL = 'http://localhost:3000';
 
@@ -296,7 +297,8 @@ async function testPedidoCompleto(productoId) {
     cliente_direccion: 'Calle Test 123',
     cliente_telefono: '1234567890',
     cliente_email: 'test_e2e@fastgood.com',
-    fecha_entrega: new Date().toISOString().split('T')[0],
+    // La primera fecha que acepta el servidor: 2 días hábiles después de hoy (misma regla que el formulario)
+    fecha_entrega: fechas.fechaLocalISO(fechas.sumarDiasHabiles(new Date(), 2)),
     metodo_pago: 'Efectivo',
     observaciones: 'Pedido de prueba automática E2E',
     tipo_entrega: 'Delivery'

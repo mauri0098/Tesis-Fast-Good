@@ -11,6 +11,7 @@
 </head>
 
 <body>
+<script src="../src/js/roles.js"></script>
 <script src="../src/js/guard.js"></script>
 <script src="../src/js/adminSidebar.js"></script>
 
@@ -31,11 +32,9 @@
       <div class="tabla-header">
         <div class="filtros-container">
           <input type="text" id="filtroNombre" class="filtro-input" placeholder="Buscar por nombre...">
+          <!-- Las opciones de rol las arma gestionUsuarios.js desde roles.js -->
           <select id="filtroRol" class="filtro-input">
             <option value="">Todos los roles</option>
-            <option value="1">Admin</option>
-            <option value="2">Cocinero</option>
-            <option value="4">Usuario</option>
           </select>
         </div>
         <button class="btn-agregar" onclick="abrirModalCrear()">+ Crear Nuevo Empleado</button>
@@ -102,9 +101,6 @@
           <label>Rol*</label>
           <select id="uRol">
             <option value="">Seleccioná un rol...</option>
-            <option value="1">Admin</option>
-            <option value="2">Cocinero</option>
-            <option value="4">Usuario</option>
           </select>
         </div>
       </div>
@@ -152,9 +148,6 @@
         <div class="form-group form-full">
           <label>Rol*</label>
           <select id="eRol">
-            <option value="1">Admin</option>
-            <option value="2">Cocinero</option>
-            <option value="4">Usuario</option>
           </select>
         </div>
       </div>
