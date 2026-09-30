@@ -17,6 +17,7 @@
 <body>
 <script src="../src/js/roles.js"></script>
 <script src="../src/js/guard.js"></script>
+<script src="../src/js/api.js"></script>
 <script src="../src/js/adminSidebar.js"></script>
 
 <div class="admin-content">
@@ -43,7 +44,7 @@
         <button type="button" id="btnAplicarFechas" class="btn-filtro btn-filtro-aplicar">Aplicar</button>
         <button type="button" id="btnVerTodos"      class="btn-filtro btn-filtro-todos">Ver todos</button>
       </div>
-      <table class="standard-table tabla-pedidos">
+      <table class="standard-table tabla-pedidos grilla-fg">
         <thead>
           <tr>
             <th>N° Pedido</th>
@@ -276,12 +277,7 @@
     .modal-tabla td.col-cant { text-align: center; font-weight: 700; }
     .col-precio { text-align: right; }
     .modal-tabla td.col-precio { text-align: right; font-weight: 600; color: var(--color-primary); white-space: nowrap; }
-    /* ── Botones de la grilla: misma forma que los de Generar Receta (pastilla, 0.72rem) ── */
-    .btn-detalles, .btn-pago, .btn-eliminar {
-      color: white; border: none; border-radius: 50px; cursor: pointer;
-      padding: 0.3rem 0.7rem; font-family: 'Poppins', sans-serif;
-      font-size: 12.5px; font-weight: 600; white-space: nowrap; transition: background-color 0.2s;
-    }
+    /* ── Botones de la grilla: forma y letra en .grilla-fg (global.css), igual que Generar Receta; acá el color ── */
     .btn-detalles { background: var(--color-secondary); }
     .btn-detalles:hover { background: #e08700; }
     .btn-eliminar { background: #dc3545; }
@@ -292,7 +288,6 @@
 
     /* ── Columna Acciones: Pago (azul) + Anular (rojo), en fila y del mismo ancho ── */
     .acciones-pedido { display: flex; flex-direction: row; gap: 6px; align-items: center; justify-content: center; flex-wrap: nowrap; }
-    .acciones-pedido .btn-pago, .acciones-pedido .btn-eliminar { min-width: 54px; }
 
     /* Desglose del pago mixto en la columna Método Pago */
     .pago-detalle { font-size: 12px; line-height: 1.35; color: #6c757d; white-space: nowrap; text-align: center; }

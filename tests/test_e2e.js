@@ -13,8 +13,10 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true });
 const fechas = require(path.join(__dirname, '..', 'frontend', 'src', 'js', 'fechas.js'));
+// Para la limpieza de pedidos de prueba: ya no existe DELETE /api/pedidos/:id (los pedidos se anulan)
+const supabase = require(path.join(__dirname, '..', 'config', 'supabaseClient'));
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
 
 const ADMIN_USER = process.env.TEST_ADMIN_USER;
 const ADMIN_PASS = process.env.TEST_ADMIN_PASS;
@@ -24,6 +26,13 @@ if (!ADMIN_USER || !ADMIN_PASS) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────
+// Token del admin (TEST_ADMIN_USER): se obtiene en testLogin() y va en todas las llamadas,
+// porque los endpoints no públicos piden JWT. Un header Authorization explícito tiene prioridad.
+let tokenAdmin = null;
+function conSesion(headers) {
+  return tokenAdmin && !headers.Authorization ? { Authorization: 'Bearer ' + tokenAdmin, ...headers } : headers;
+}
+
 let passCount = 0;
 let failCount = 0;
 let warnCount = 0;
@@ -47,28 +56,28 @@ function warn(testName, detail) {
 async function post(path, body, headers = {}) {
   const res = await fetch(BASE_URL + path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...headers },
+    headers: conSesion({ 'Content-Type': 'application/json', ...headers }),
     body: JSON.stringify(body)
   });
   const data = await res.json().catch(() => null);
   return { status: res.status, data };
 }
 async function get(path, headers = {}) {
-  const res = await fetch(BASE_URL + path, { headers });
+  const res = await fetch(BASE_URL + path, { headers: conSesion(headers) });
   const data = await res.json().catch(() => null);
   return { status: res.status, data };
 }
 async function put(path, body, headers = {}) {
   const res = await fetch(BASE_URL + path, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...headers },
+    headers: conSesion({ 'Content-Type': 'application/json', ...headers }),
     body: JSON.stringify(body)
   });
   const data = await res.json().catch(() => null);
   return { status: res.status, data };
 }
 async function del(path, headers = {}) {
-  const res = await fetch(BASE_URL + path, { method: 'DELETE', headers });
+  const res = await fetch(BASE_URL + path, { method: 'DELETE', headers: conSesion(headers) });
   const data = await res.json().catch(() => null);
   return { status: res.status, data };
 }
@@ -490,8 +499,9 @@ async function cleanup() {
   console.log('\n══════ LIMPIEZA ══════');
 
   for (const pid of cleanupIds.pedidos) {
-    const r = await del(`/api/pedidos/${pid}`);
-    console.log(`  🗑️  Pedido ${pid}: ${r.status === 200 ? 'eliminado' : 'error ' + r.status}`);
+    const { error: e1 } = await supabase.from('pedido_detalles').delete().eq('id_pedido', pid);
+    const { error: e2 } = e1 ? { error: e1 } : await supabase.from('pedidos').delete().eq('id', pid);
+    console.log(`  🗑️  Pedido ${pid}: ${e2 ? 'error ' + e2.message : 'eliminado'}`);
   }
   for (const prodId of cleanupIds.productos) {
     // Borrar receta primero
@@ -525,6 +535,7 @@ async function main() {
   }
 
   const token = await testLogin();
+  tokenAdmin = token;
   const planes = await testCatalogo();
   const insumos = await testStock();
   await testRecetas();

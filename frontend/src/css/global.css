@@ -539,3 +539,54 @@ footer {
     text-align: center;
     user-select: none;
 }
+
+/* =========================================
+   GRILLA DEL PANEL (clase compartida .grilla-fg)
+   El estilo de la grilla de Generar Receta: la usan Generar Receta y Consultar Pedidos.
+   Se escribe "table.grilla-fg" para ganarle a las reglas .standard-table de cada pantalla.
+   ========================================= */
+table.grilla-fg thead th {
+  background-color: #e8f5e9;
+  color: #4CAF50;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  padding: 0.9rem 0.4rem;
+  text-align: center;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid #28a745;
+}
+
+table.grilla-fg thead th:first-child { border-top-left-radius: 8px; }
+table.grilla-fg thead th:last-child  { border-top-right-radius: 8px; }
+
+table.grilla-fg tbody td {
+  padding: 0.75rem 0.4rem;
+  border-bottom: 1px solid #DEE2E6;
+  font-size: 0.82rem;
+  vertical-align: middle;
+  text-align: center;
+  word-wrap: break-word;
+}
+
+table.grilla-fg tbody tr:last-child td { border-bottom: none; }
+table.grilla-fg tbody tr:hover         { background-color: #f1f8f3; }
+
+/* Botones de las filas (Detalles / Editar / Borrar, Detalles / Pago / Anular):
+   forma y letra comunes; el color lo pone cada pantalla */
+.grilla-fg .btn-detalle,
+.grilla-fg .btn-editar,
+.grilla-fg .btn-borrar,
+.grilla-fg .btn-detalles,
+.grilla-fg .btn-pago,
+.grilla-fg .btn-eliminar {
+  padding: 0.3rem 0.7rem;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}

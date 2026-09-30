@@ -231,7 +231,7 @@ function setFechaHoy() {
 // ── Carga de estados ──────────────────────────────────────────
 async function cargarEstados() {
   try {
-    const res = await fetch(`/api/estados`);
+    const res = await apiFetch(`/api/estados`);
     if (!res.ok) return;
     todosEstados = await res.json();
   } catch (e) {
@@ -247,7 +247,7 @@ async function buscarEnvios() {
 
   try {
     const url = fecha ? `/api/envios?fecha=${fecha}` : `/api/envios`;
-    const res = await fetch(url);
+    const res = await apiFetch(url);
     if (!res.ok) throw new Error('Error al obtener envíos');
     todosEnvios = await res.json();
 
@@ -456,7 +456,7 @@ async function togglePagado(pedidoId, btn) {
   btn.disabled = true;
 
   try {
-    const res = await fetch(`/api/pedidos/${pedidoId}/pagado`, {
+    const res = await apiFetch(`/api/pedidos/${pedidoId}/pagado`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pagado: nuevoPagado })
@@ -488,7 +488,7 @@ async function togglePagado(pedidoId, btn) {
 async function cambiarEstado(pedidoId, nuevoEstadoId, selectEl) {
   selectEl.disabled = true;
   try {
-    const res = await fetch(`/api/pedidos/${pedidoId}/estado`, {
+    const res = await apiFetch(`/api/pedidos/${pedidoId}/estado`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ estado_id: Number(nuevoEstadoId) })

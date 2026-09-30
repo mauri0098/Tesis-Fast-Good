@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const url = cocineroId && !soloLectura
       ? `/api/cocina/tareas?cocinero_id=${encodeURIComponent(cocineroId)}`
       : '/api/cocina/tareas';
-    const res = await fetch(url);
+    const res = await apiFetch(url);
     enPrep = await res.json();
 
     // Cada cocinero ve solo sus platos pendientes dentro del pedido (es_mio lo marca el servidor).
@@ -248,7 +248,7 @@ window.confirmarListo = async function () {
   btnEl.textContent = 'Actualizando...';
 
   try {
-    const res = await fetch(`/api/pedidos/${pedidoId}/listo-cocinero`, {
+    const res = await apiFetch(`/api/pedidos/${pedidoId}/listo-cocinero`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

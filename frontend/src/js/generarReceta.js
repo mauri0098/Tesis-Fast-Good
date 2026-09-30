@@ -70,7 +70,7 @@ async function fetchRecetas() {
   const tbody = document.getElementById('recetasBody');
 
   try {
-    const response = await fetch('/api/recetas');
+    const response = await apiFetch('/api/recetas');
     const data     = await response.json();
 
     if (!response.ok) throw new Error(data.error || 'Error en el servidor');
@@ -415,7 +415,7 @@ async function subirImagenProducto(idProducto) {
   if (!imagenPendiente) return true;
 
   try {
-    const response = await fetch('/api/productos/' + idProducto + '/imagen', {
+    const response = await apiFetch('/api/productos/' + idProducto + '/imagen', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ imagen_base64: imagenPendiente.base64, tipo: imagenPendiente.tipo })
@@ -535,7 +535,7 @@ async function cargarCocinerosEnSelect(idAsignado, nombreAsignado) {
 
   let cocineros = [];
   try {
-    const response = await fetch('/api/cocineros');
+    const response = await apiFetch('/api/cocineros');
     if (response.ok) cocineros = await response.json();
   } catch (error) {
     console.error('Error al cargar cocineros:', error);
@@ -626,7 +626,7 @@ async function actualizarCodigoAutomatico(idPlan) {
   codigoInput.classList.add('calculando');
 
   try {
-    const response = await fetch('/api/planes/' + idPlan + '/siguiente-codigo');
+    const response = await apiFetch('/api/planes/' + idPlan + '/siguiente-codigo');
     const data     = await response.json();
 
     codigoInput.value = response.ok ? data.codigo : '';
@@ -643,7 +643,7 @@ async function actualizarCodigoAutomatico(idPlan) {
 // ==========================================
 async function cargarInsumosDisponibles() {
   try {
-    const response = await fetch('/api/insumos');
+    const response = await apiFetch('/api/insumos');
     todosInsumos   = await response.json();
   } catch (error) {
     console.error('Error al cargar insumos:', error);
@@ -807,7 +807,7 @@ async function guardarNuevoProductoConReceta(insumos) {
   const idCocinero = document.getElementById('edCocinero').value || null; // opcional
 
   try {
-    const response = await fetch('/api/productos/con-receta', {
+    const response = await apiFetch('/api/productos/con-receta', {
       method:  'POST',
       headers: {
         'Content-Type':  'application/json',
@@ -839,7 +839,7 @@ async function actualizarRecetaExistente(insumos) {
   const descuento = document.getElementById('edDescuento').value !== '' ? parseFloat(document.getElementById('edDescuento').value) : null;
 
   try {
-    const response = await fetch('/api/recetas', {
+    const response = await apiFetch('/api/recetas', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ id_producto: idProductoEditando, precio, descuento, insumos })
@@ -875,7 +875,7 @@ async function actualizarRecetaExistente(insumos) {
 // PUT /api/productos/:id/cocinero → devuelve null si salió bien, o el mensaje de error
 async function guardarCocineroDelPlato(idProducto, idCocinero) {
   try {
-    const response = await fetch('/api/productos/' + idProducto + '/cocinero', {
+    const response = await apiFetch('/api/productos/' + idProducto + '/cocinero', {
       method:  'PUT',
       headers: {
         'Content-Type':  'application/json',
@@ -911,7 +911,7 @@ async function borrarReceta(idProducto) {
   if (!confirmar) return;
 
   try {
-    const response = await fetch('/api/recetas/' + idProducto, { method: 'DELETE' });
+    const response = await apiFetch('/api/recetas/' + idProducto, { method: 'DELETE' });
     if (!response.ok) throw new Error('Error en el servidor');
     await fetchRecetas();
   } catch (error) {

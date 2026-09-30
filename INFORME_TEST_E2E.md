@@ -1590,3 +1590,167 @@ La primera versión de la prueba de Tareas de Cocina pasó sin probar nada (no h
 - **Tareas de Cocina:** el cocinero perdió el acceso a Gestión de Stock, Generar Receta y Movimientos de Stock, que tenía antes, porque la tabla nueva solo le da Tareas de Cocina.
 - **Código muerto en `index.html`:** hay un segundo login (`manejarLoginModal`) que manda al rol 1 a `index-admin.html`, una página que no existe, y usa un modal (`#loginModal`) que tampoco existe. No se tocó; se puede borrar.
 - **`cerrarSesion()` de `auth.js` no borra `fg_token`** (se va al cerrar sesión, pero el token queda en el navegador hasta que vence). Conviene borrarlo en el paso de seguridad.
+
+---
+
+## 🔐 Fase 2A — JWT y roles en todos los endpoints (P0-1, P0-2, P0-3 y P1-11 de la revisión)
+
+**Fecha:** 30/09/2026 · **Rama:** Rodriguez · **Entorno:** instancia aparte en :3001 (misma base). En cada prueba se crea un usuario por rol (`_test_2a_*`) y se borra al final.
+
+### Paso 0 — Preparación (sin proteger nada)
+
+- `requireRol(...roles)` en `server.js`: va después de `requireAuth` y responde **403** si el rol del token no está en la lista.
+- `apiFetch()` en `frontend/src/js/api.js` (nuevo), incluido en las 9 pantallas internas después de `guard.js`: agrega `Authorization: Bearer <fg_token>` y, si el servidor responde **401**, borra la sesión y manda al login.
+- 43 llamadas `fetch` → `apiFetch` en 9 archivos. Quedan con `fetch` solo las públicas (login, register, recuperar-password, POST /api/pedidos, /api/v1/*, /api/barrios).
+
+| Test | Resultado |
+|------|-----------|
+| Cada pantalla con cada rol que la puede ver (6 roles, 26 combinaciones): sin errores JS, sin alert, sin respuestas ≥ 400 y **toda llamada no pública con token** | ✅ 26/26 |
+| `apiFetch` agrega el header · con token inválido (401) borra la sesión y manda a `login.html` | ✅ 2/2 |
+| Consultar Pedidos: filtros, paginación, Detalles, Pago, Anular | ✅ 10/10 |
+
+### Grupo 1 — Usuarios (roles 6 y 5)
+
+`GET /api/usuarios`, `POST /api/usuarios/crear`, `PUT /api/usuarios/:id`, `DELETE /api/usuarios/:id` → `requireAuth, requireRol(6, 5)`. En el DELETE, **a un rol 6 solo lo borra otro rol 6** (403 si no).
+
+| Test | Resultado |
+|------|-----------|
+| Sin token: listar, crear, editar y borrar → **401** (y no se borra nada) | ✅ 5/5 |
+| Roles 1, 2, 3 y 4: listar, crear, editar y borrar → **403** (y nadie crea ni borra) | ✅ 5/5 |
+| Rol 5: lista, crea, edita y borra un usuario → **200** · crear un rol 6 → 403 (regla anterior) | ✅ 5/5 |
+| **Rol 5 borra a un rol 6 → 403** (el usuario sigue) · rol 6 borra a otro rol 6 → 200 | ✅ 2/2 |
+| Pantalla Gestión de Usuarios con rol 5 y 6: carga la lista | ✅ 2/2 |
+| **Desde la pantalla**, con rol 5 y con rol 6: crear, editar y borrar un usuario | ✅ 6/6 |
+| `tests/test_e2e.js` (ahora con el token de `TEST_ADMIN_USER` en todas las llamadas) | ✅ 37/37 |
+
+`tests/test_e2e.js`: el login del admin ya estaba; ahora ese token va en todas las llamadas, y la URL se puede cambiar con `TEST_BASE_URL` (por defecto sigue siendo `http://localhost:3000`).
+
+### Grupo 2 — Pedidos (roles 6, 5 y 1; pagado y estado también el 3)
+
+- `GET /api/pedidos`, `PUT /:id/pago`, `PUT /:id/transferencia-confirmada`, `GET /:id/verificar-stock`, `POST /:id/anular` → `requireAuth, requireRol(6, 5, 1)`.
+- `PUT /:id/pagado` → `requireRol(6, 5, 1, 3)`. `PUT /:pedidoId/estado` → `requireRol(6, 5, 1, 3)`, y **el rol 3 solo puede pasar a 4 (Entregado)**: cualquier otro `estado_id` → 403.
+- **Eliminados:** `DELETE /api/pedidos/:id` (la pantalla anula en vez de borrar) y `GET /api/pedidos/:id/cocineros` (usaba la tabla `pedido_cocineros`, que ya no existe).
+- `POST /api/pedidos` sigue público.
+- `tests/test_e2e.js`: la limpieza borraba los pedidos de prueba con el DELETE eliminado; ahora los borra directo en la base.
+
+| Test | Resultado |
+|------|-----------|
+| `POST /api/pedidos` sin token → 200 · **desde el formulario web sin sesión**: crea el pedido y abre WhatsApp, sin llamar nada que pida token | ✅ 3/3 |
+| Sin token: los 7 endpoints → **401** | ✅ |
+| Roles 2 y 4: los 7 endpoints → **403** · Rol 3: listar, pago, transferencia, verificar stock y anular → 403 | ✅ 3/3 |
+| **Rol 3 pasa un pedido a En Preparación → 403** · ninguno de esos intentos cambió el pedido | ✅ 2/2 |
+| Rol 1: `GET /api/pedidos` y verificar stock → 200 · roles 5 y 6 → 200 | ✅ 4/4 |
+| `DELETE /api/pedidos/:id` → 404 (el pedido sigue) · `GET /api/pedidos/:id/cocineros` → 404 | ✅ 2/2 |
+| **Consultar Pedidos con rol 1, desde la pantalla:** Pago (pasar a Mixto) · En Preparación confirmando la transferencia del Mixto · En Preparación de una Transferencia (queda pagada) · Anular con PIN | ✅ 4/4 |
+| En esa pantalla: sin errores JS, sin respuestas con error, todas las llamadas con token | ✅ |
+| Recorrido de todas las pantallas con los 6 roles | ✅ 26/26 |
+| `tests/test_e2e.js` | ✅ 37/37 |
+
+Los pedidos de prueba (`_TEST_2A_`) se borraron. Ninguno llegó a Listo ni a Entregado, así que no se descontó stock.
+
+### Grupo 3 — Stock, movimientos e insumos
+
+- `GET /api/insumos`, `GET /api/categorias-insumos`, `GET/POST/DELETE /api/movimientos-stock` → `requireAuth, requireRol(6, 5, 1)`.
+- `POST /api/insumos`, `PUT /api/insumos/:id`, `DELETE /api/insumos/:id` → `requireAuth, requireRol(6, 5)` (el acceso del rol 1 con PIN va en un paso posterior).
+- Todo sobre un insumo de prueba (`_TEST_2A_INSUMO`, borrado al final con sus movimientos): el stock real no se tocó.
+
+| Test | Resultado |
+|------|-----------|
+| Sin token: los 8 endpoints → **401** | ✅ |
+| Roles 2, 3 y 4: los 8 endpoints → **403** · ninguno de esos intentos cambió el insumo ni sus movimientos | ✅ 4/4 |
+| **Rol 1** lee insumos, categorías y movimientos → 200 · **registra un movimiento → 200** (el stock sube) · lo borra → 200 (el stock vuelve) | ✅ 5/5 |
+| **Rol 1 edita, crea o borra un insumo → 403** (el insumo queda igual) | ✅ |
+| **Rol 5 edita un insumo → 200** · rol 6 también · rol 5 crea el insumo de prueba → 200 | ✅ 3/3 |
+| Pantalla Movimientos de Stock con rol 1: registrar una entrada y borrarla | ✅ 2/2 |
+| Pantalla Gestión de Stock con rol 1: la lista carga; al guardar una edición el servidor responde 403 y la pantalla muestra *"Error al guardar. Intentá de nuevo."* (no se rompe) | ✅ |
+| Pantalla Gestión de Stock con rol 5: edita el insumo | ✅ |
+| Recorrido de todas las pantallas con los 6 roles | ✅ 26/26 |
+| `tests/test_e2e.js` | ✅ 37/37 |
+
+En la primera corrida fallaron 4 pruebas de pantalla por errores de la prueba, no del sistema: el insumo de prueba usaba la unidad "kg", que la pantalla no ofrece (solo g, ml y u), y un valor de stock esperado no contaba una edición anterior. Se corrigieron y se repitió todo.
+
+**A tener en cuenta:** el rol 1 sigue viendo los botones Editar, Eliminar y "Nuevo insumo" en Gestión de Stock. Si los usa, el servidor responde 403 y la pantalla muestra un error genérico. Se resuelve con el paso del PIN.
+
+### Grupo 4 — Recetas, productos, cocineros, planes y reportes (roles 6 y 5)
+
+- `GET/POST /api/recetas`, `DELETE /api/recetas/:idProducto`, `POST /api/productos/con-receta`, `POST /api/productos/:id/imagen`, `GET /api/planes/:id/siguiente-codigo`, `GET /api/cocineros`, `GET /api/productos/cocineros`, `PUT /api/productos/:id/cocinero`, `GET /api/planes`, `GET /api/planes/cocineros`, `PUT /api/planes/:id/cocinero` y los 5 `GET /api/reportes/*` → `requireAuth, requireRol(6, 5)`.
+- `POST /api/productos/con-receta`: antes pedía sesión solo si venía un cocinero (`requireAuthSiHayCocinero`, que se borró). Ahora la pide siempre.
+- **Eliminado:** `GET /api/productos-test` (endpoint de prueba que nadie usaba).
+
+| Test | Resultado |
+|------|-----------|
+| Sin token: los 17 endpoints → **401** | ✅ |
+| **Roles 1**, 2, 3 y 4: los 17 endpoints → **403** · ninguno de esos intentos creó, cambió ni borró nada | ✅ 5/5 |
+| Rol 5: los 11 GET → 200 · crea un plato con receta, edita la receta, asigna cocinero al plato, guarda el cocinero del plan (el mismo que tenía), borra la receta → **200** | ✅ 6/6 |
+| Rol 5, imagen: pasa la autorización (sin imagen → 400 de validación, no 401/403) · rol 6: los 11 GET → 200 | ✅ 2/2 |
+| **Generar Receta** con rol 5 y 6, desde la pantalla: crear un plato (categoría, plan, código automático, insumo), editarlo y borrarlo, sin errores y todo con token | ✅ 6/6 |
+| **Asignar Cocineros** con rol 5 y 6: asignar y desasignar el cocinero de un plato | ✅ 2/2 |
+| **Reportes** con rol 5 y 6: indicadores y 4 gráficos | ✅ 2/2 |
+| Recorrido de todas las pantallas con los 6 roles | ✅ 26/26 |
+| `tests/test_e2e.js` | ✅ 37/37 |
+
+Los platos de prueba (`_TEST_2A_PLATO_*`) se borraron. El cocinero del plan 1 se guardó con el mismo valor que tenía, así que no cambió.
+
+### Grupo 5 — Cocina y envíos
+
+- `GET /api/cocina/tareas` y `PUT /api/pedidos/:id/listo-cocinero` → `requireAuth, requireRol(2, 6, 5, 1)`. **Con rol 2 el cocinero sale del token** (`req.usuario.id`): se ignora el `cocinero_id` de la URL.
+- `GET /api/envios` → `requireAuth, requireRol(6, 5, 1, 3)`.
+- Datos de prueba: un plato `_TEST_2A_PLATO_COCINA` del cocinero de prueba, **sin receta**, para que "Listo" y "Entregado" no descuenten stock real, y 3 pedidos `_TEST_2A_`. Se borró todo al final.
+
+| Test | Resultado |
+|------|-----------|
+| Sin token: tareas, listo-cocinero y envíos → **401** | ✅ |
+| **Cocinero:** ve el pedido que tiene un plato suyo y no el que es solo de otro cocinero · dentro del pedido, su plato es `es_mio` y el ajeno no | ✅ 2/2 |
+| **Cocinero pidiendo `?cocinero_id=` de OTRO cocinero → igual ve solo lo suyo** | ✅ |
+| Rol 1 ve todas las tareas · roles 5 y 6 → 200 · roles 3 y 4: tareas y listo-cocinero → 403 | ✅ 4/4 |
+| **Pantalla Tareas de Cocina (cocinero):** ve solo su pedido; marca "Listo" → su plato queda listo, el ajeno no, y el pedido sigue En Preparación | ✅ 2/2 |
+| **Repartidor:** `GET /api/envios` → 200 · roles 1, 5 y 6 → 200 · **cocinero → 403** · consumidor → 403 · **repartidor en `/api/pedidos` → 403** | ✅ 7/7 |
+| **Repartidor pasa el pedido a Cancelado, Listo, En Preparación o Registrado → 403** (el pedido no cambia) | ✅ |
+| **Pantalla Envíos (repartidor):** ve el envío, lo marca "Cobrado" (200) y lo pasa a **Entregado (200)**, sin descontar stock | ✅ 3/3 |
+| Pantalla Envíos: el repartidor intenta volverlo a Listo → 403, el pedido sigue Entregado, sin errores JS | ✅ |
+| Recorrido de todas las pantallas con los 6 roles | ✅ 26/26 |
+| `tests/test_e2e.js` | ✅ 37/37 |
+
+**A tener en cuenta:** en Envíos, el select de estado le muestra al repartidor todos los estados. Si elige uno que no sea Entregado, el servidor responde 403 y la pantalla muestra *"No se pudo actualizar el estado. Intentá de nuevo."*. Se podría mostrar solo "Entregado" para el rol 3; no se hizo porque en este paso no se cambia la lógica.
+
+### Grupo 6 — Auxiliares y barrido final
+
+- `GET /api/estados` → `requireAuth, requireRol(6, 5, 1, 3)` (lo usan Consultar Pedidos y Envíos). `GET /api/categorias-insumos` ya había quedado en el Grupo 3, y `GET /api/cocineros` y `GET /api/planes` en el Grupo 4.
+- `cerrarSesion()` (`auth.js`) ahora borra también `fg_token`.
+
+| Test | Resultado |
+|------|-----------|
+| **Las 52 rutas de `server.js`** (leídas del código): 12 son de la lista de públicas y 40 tienen `requireAuth` + `requireRol` con exactamente los roles de la matriz. Ninguna queda abierta fuera de la lista | ✅ |
+| No hay `app.use()` que exponga rutas de API (solo cors, express.json y los archivos estáticos) · los endpoints eliminados ya no están | ✅ 2/2 |
+| **En vivo: 40 endpoints × (sin token + 6 roles) = 229 llamadas.** Sin token → 401, rol fuera de la lista → 403, roles de la lista en los GET → pasan | ✅ |
+| Públicos sin token: catálogo (`/api/v1/*`) y barrios → 200 · login → 200 · recuperar-password no pide sesión | ✅ 3/3 |
+| **`POST /api/register` con `id_rol: 1` → queda con rol 4** | ✅ |
+| **Recorrido en el navegador con los 6 roles:** cada rol usa sus pantallas sin errores y con token en todo; las 9 pantallas probadas con cada rol, y las que no le corresponden lo mandan a su pantalla principal | ✅ 6/6 |
+| **Un rol 1 que se pone `usuario_rol=6` a mano** entra a Gestión de Usuarios, pero la API responde 403 y no ve ningún usuario | ✅ |
+| `cerrarSesion()` en `index.html` y `admin.html` borra `fg_token` · el botón "Cerrar sesión" del menú lateral también | ✅ 3/3 |
+
+En la primera corrida falló una prueba de la prueba: se pidió `/api/v1/productos/1`, que es un producto inactivo, y el catálogo responde 404 para los inactivos (es su lógica). Se repitió con un producto activo → 200.
+
+### Regresión final (servidor con los 6 grupos aplicados)
+
+| Prueba | Resultado |
+|------|-----------|
+| Grupo 1 (API + pantalla) | ✅ 19/19 · 6/6 |
+| Grupo 2 (API + pedido web) | ✅ 18/18 · 2/2 |
+| Grupo 3 | ✅ 18/18 |
+| Grupo 4 | ✅ 24/24 |
+| Grupo 5 | ✅ 22/22 |
+| Grupo 6 | ✅ 18/18 |
+| `apiFetch` · Consultar Pedidos funcional | ✅ 2/2 · 10/10 |
+| `tests/test_e2e.js` | ✅ 37/37 |
+
+**Datos de prueba:** al final no quedó ningún usuario, pedido, plato, insumo ni movimiento de prueba (`_test_2a_*` / `_TEST_2A_*`). No se descontó stock real.
+
+**Para correr el E2E contra el servidor protegido:** `node tests/test_e2e.js` (usa `TEST_ADMIN_USER` y `TEST_ADMIN_PASS` del `.env`). El servidor de `:3000` tiene que reiniciarse para tomar los cambios.
+
+### A tener en cuenta
+
+- **El servidor de :3000 sigue con el código viejo** hasta que se reinicie. Mientras tanto, la API sigue abierta ahí.
+- **Rate limit en las pruebas:** `limitePedidos` (5 cada 10 min) y `limiteAnular` cuentan también los intentos rechazados por 401/403, porque van antes que `requireAuth`. En uso normal no afecta.
+- **Envíos:** el repartidor ve todos los estados en el select, pero solo puede guardar Entregado (ver Grupo 5).
+- **Gestión de Stock con rol 1:** ve los botones de alta, edición y baja, pero reciben 403 hasta el paso del PIN (ver Grupo 3).

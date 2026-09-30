@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function () {
 async function fetchUsuarios() {
   const tbody = document.getElementById('usuariosBody');
   try {
-    const response = await fetch('/api/usuarios');
+    const response = await apiFetch('/api/usuarios');
     const data     = await response.json();
 
     if (!response.ok) throw new Error(data.error || 'Error en el servidor');
@@ -256,7 +256,7 @@ async function crearUsuario() {
   }
 
   try {
-    const response = await fetch('/api/usuarios/crear', {
+    const response = await apiFetch('/api/usuarios/crear', {
       method:  'POST',
       headers: headersConToken(),
       body:    JSON.stringify({
@@ -311,7 +311,7 @@ async function guardarEdicion() {
   if (contrasena) payload.contraseña = contrasena;
 
   try {
-    const response = await fetch('/api/usuarios/' + idUsuarioEditando, {
+    const response = await apiFetch('/api/usuarios/' + idUsuarioEditando, {
       method:  'PUT',
       headers: headersConToken(),
       body:    JSON.stringify(payload)
@@ -342,7 +342,7 @@ async function eliminarUsuario(id, nombre, apellido) {
   if (!confirmar) return;
 
   try {
-    const response = await fetch('/api/usuarios/' + id, { method: 'DELETE' });
+    const response = await apiFetch('/api/usuarios/' + id, { method: 'DELETE' });
     const data     = await response.json();
     if (!response.ok) throw new Error(data.error || 'Error en el servidor');
     await fetchUsuarios();

@@ -98,6 +98,17 @@ function requireAuth(req, res, next) {
   next();
 }
 
+// Va después de requireAuth: deja pasar solo a los roles de la lista (403 si no).
+// Roles: 1 Administrador, 2 Cocinero, 3 Repartidor, 4 Consumidor final, 5 Dueño, 6 Administrador del sistema.
+function requireRol(...roles) {
+  return (req, res, next) => {
+    if (!req.usuario || !roles.includes(Number(req.usuario.rol))) {
+      return res.status(403).json({ error: 'No tenés permiso para esta acción' });
+    }
+    next();
+  };
+}
+
 /* ======================================================
    LÓGICA DE STOCK POR RECETA
    - verificarStockPedido: al pasar a "En Preparación" (2). Solo lee, no descuenta.
@@ -440,31 +451,6 @@ app.post('/api/register', limiteRegistro, async (req, res) => {
 });
 
 /* ======================================================
-   API PRODUCTOS
-   ====================================================== */
-
-app.get('/api/productos-test', async (req, res) => {
-  const { data, error } = await supabase
-    .from('productos')
-    .select(`
-      id,
-      nombre,
-      planes (
-        nombre,
-        categorias (
-          nombre
-        )
-      )
-    `);
-
-  if (error) {
-    return res.status(500).json({ error: error.message });
-  }
-
-  res.json(data);
-});
-
-/* ======================================================
    API v1 — CATÁLOGO (Categorías → Planes → Productos)
    ====================================================== */
 
@@ -593,8 +579,9 @@ function platoEsDelCocinero(producto, cocineroId) {
 // cocinero (asignado al plato o, como respaldo, por su plan) sin marcar como listo.
 // Cada detalle lleva es_mio: true/false y listo.
 // Sin cocinero_id devuelve todos los pedidos en estado 2 con es_mio: true (modo admin/debug).
-app.get('/api/cocina/tareas', async (req, res) => {
-  const { cocinero_id } = req.query;
+// Un cocinero (rol 2) ve siempre solo lo suyo: el cocinero sale del token y se ignora cocinero_id.
+app.get('/api/cocina/tareas', requireAuth, requireRol(2, 6, 5, 1), async (req, res) => {
+  const cocinero_id = req.usuario.rol === 2 ? req.usuario.id : req.query.cocinero_id;
   let idsPedidos = null;      // null = sin filtro por cocinero
   let misProductos = null;    // Set de id_producto del cocinero
 
@@ -661,34 +648,6 @@ app.get('/api/cocina/tareas', async (req, res) => {
   }));
 
   res.json(resultado);
-});
-
-/* ======================================================
-   API COCINEROS POR PEDIDO
-   ====================================================== */
-
-// GET /api/pedidos/:id/cocineros → cocineros asignados a un pedido
-app.get('/api/pedidos/:id/cocineros', async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
-
-  const { data: asignaciones, error } = await supabase
-    .from('pedido_cocineros')
-    .select('cocinero_id')
-    .eq('pedido_id', id);
-
-  if (error) return res.status(500).json({ error: error.message });
-  if (!asignaciones || asignaciones.length === 0) return res.json([]);
-
-  const ids = [...new Set(asignaciones.map(r => r.cocinero_id))];
-
-  const { data: usuarios, error: err2 } = await supabase
-    .from('usuarios')
-    .select('id, nombre')
-    .in('id', ids);
-
-  if (err2) return res.status(500).json({ error: err2.message });
-  res.json(usuarios || []);
 });
 
 /* ======================================================
@@ -857,7 +816,7 @@ app.post('/api/pedidos', limitePedidos, async (req, res) => {
 const OFFSET_ARGENTINA = '-03:00';
 const FORMATO_FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
-app.get('/api/pedidos', async (req, res) => {
+app.get('/api/pedidos', requireAuth, requireRol(6, 5, 1), async (req, res) => {
   const { desde, hasta } = req.query;
   if ((desde && !FORMATO_FECHA.test(desde)) || (hasta && !FORMATO_FECHA.test(hasta))) {
     return res.status(400).json({ error: 'Las fechas deben tener el formato AAAA-MM-DD' });
@@ -910,7 +869,7 @@ app.get('/api/pedidos', async (req, res) => {
 // pagado = true significa que el pedido está TOTALMENTE cobrado.
 // En un Mixto eso requiere que la transferencia ya esté confirmada (la marca el admin al pasarlo a
 // En Preparación); el repartidor completa el cobro del efectivo con el botón Cobrado de Envíos.
-app.put('/api/pedidos/:id/pagado', async (req, res) => {
+app.put('/api/pedidos/:id/pagado', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => {
   const { id } = req.params;
   const { pagado } = req.body;
 
@@ -943,7 +902,7 @@ app.put('/api/pedidos/:id/pagado', async (req, res) => {
 
 // PUT /api/pedidos/:id/transferencia-confirmada → en un Mixto, registra que la parte por
 // transferencia ya llegó. No toca pagado: el efectivo se cobra al entregar.
-app.put('/api/pedidos/:id/transferencia-confirmada', requireAuth, async (req, res) => {
+app.put('/api/pedidos/:id/transferencia-confirmada', requireAuth, requireRol(6, 5, 1), async (req, res) => {
   const id = parseInt(req.params.id);
   if (!Number.isInteger(id)) {
     return res.status(400).json({ error: 'ID de pedido inválido' });
@@ -977,7 +936,7 @@ app.put('/api/pedidos/:id/transferencia-confirmada', requireAuth, async (req, re
 // Los montos se calculan / validan contra el total guardado en la base, no contra el que manda el front.
 // Siempre se escriben los tres montos (los que no corresponden en 0) para que no queden valores
 // viejos al cambiar de método. pago_anticipado solo puede ser true con Efectivo.
-app.put('/api/pedidos/:id/pago', requireAuth, async (req, res) => {
+app.put('/api/pedidos/:id/pago', requireAuth, requireRol(6, 5, 1), async (req, res) => {
   const id = parseInt(req.params.id);
   const { metodo_pago, monto_efectivo, monto_transferencia, monto_tarjeta, pago_anticipado } = req.body;
 
@@ -1096,7 +1055,7 @@ async function cambiarEstadoPedido(pedidoId, nuevoEstado) {
 
 // GET /api/pedidos/:id/verificar-stock → ¿alcanza el stock para preparar el pedido? Solo lee.
 // La usa la grilla antes de abrir "Confirmar Pago", para no pedir la confirmación si igual no puede pasar a 2.
-app.get('/api/pedidos/:id/verificar-stock', requireAuth, async (req, res) => {
+app.get('/api/pedidos/:id/verificar-stock', requireAuth, requireRol(6, 5, 1), async (req, res) => {
   const id = parseInt(req.params.id);
   if (!Number.isInteger(id)) {
     return res.status(400).json({ error: 'ID de pedido inválido' });
@@ -1115,10 +1074,15 @@ app.get('/api/pedidos/:id/verificar-stock', requireAuth, async (req, res) => {
   res.json(errorStock ? { ok: false, error: errorStock } : { ok: true });
 });
 
-app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
+app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => {
   const { pedidoId } = req.params;
   const { estado_id } = req.body;
   const nuevoEstado = parseInt(estado_id);
+
+  // El repartidor (rol 3) solo puede marcar un pedido como Entregado (4)
+  if (req.usuario.rol === 3 && nuevoEstado !== 4) {
+    return res.status(403).json({ error: 'El repartidor solo puede marcar un pedido como Entregado' });
+  }
 
   try {
     // Verificar que el pedido existe
@@ -1149,7 +1113,7 @@ app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
 // El cocinero sale del JWT, no del body. Cuando todos los platos del pedido quedan listos, el pedido
 // pasa a 3 (Listo para Entregar) con la misma lógica que usa el admin, incluido el descuento de stock.
 // Si falta stock, los platos quedan listos, el pedido sigue en 2 y se avisa (lo resuelve el admin).
-app.put('/api/pedidos/:id/listo-cocinero', requireAuth, async (req, res) => {
+app.put('/api/pedidos/:id/listo-cocinero', requireAuth, requireRol(2, 6, 5, 1), async (req, res) => {
   const id = parseInt(req.params.id);
   const cocineroId = req.usuario.id;
 
@@ -1227,7 +1191,7 @@ app.put('/api/pedidos/:id/listo-cocinero', requireAuth, async (req, res) => {
 
 // Anular pedido: no se borra, se pasa a estado 5 (Cancelado).
 // Requiere el PIN de autorización configurado en .env (ADMIN_PIN); se valida acá, nunca en el front.
-app.post('/api/pedidos/:id/anular', limiteAnular, requireAuth, async (req, res) => {
+app.post('/api/pedidos/:id/anular', limiteAnular, requireAuth, requireRol(6, 5, 1), async (req, res) => {
   const id = parseInt(req.params.id);
   const pin = String(req.body?.pin ?? '');
 
@@ -1275,37 +1239,11 @@ app.post('/api/pedidos/:id/anular', limiteAnular, requireAuth, async (req, res) 
   res.json({ mensaje: 'Pedido anulado correctamente', pedido: data });
 });
 
-app.delete('/api/pedidos/:id', async (req, res) => {
-  const { id } = req.params;
-
-  const { error: errorDetalles } = await supabase
-    .from('pedido_detalles')
-    .delete()
-    .eq('id_pedido', id);
-
-  if (errorDetalles) {
-    console.error('[DELETE pedido] error en pedido_detalles:', errorDetalles);
-    return res.status(500).json({ error: errorDetalles.message });
-  }
-
-  const { error } = await supabase
-    .from('pedidos')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    console.error('[DELETE pedido] error en pedidos:', error);
-    return res.status(500).json({ error: error.message });
-  }
-
-  res.json({ mensaje: 'Pedido eliminado correctamente' });
-});
-
 /* ======================================================
    API COCINEROS / ASIGNACIÓN A PLANES
    ====================================================== */
 
-app.get('/api/cocineros', async (req, res) => {
+app.get('/api/cocineros', requireAuth, requireRol(6, 5), async (req, res) => {
   const { data, error } = await supabase
     .from('usuarios')
     .select('id, nombre, apellido')
@@ -1316,7 +1254,7 @@ app.get('/api/cocineros', async (req, res) => {
   res.json(data || []);
 });
 
-app.get('/api/planes/cocineros', async (req, res) => {
+app.get('/api/planes/cocineros', requireAuth, requireRol(6, 5), async (req, res) => {
   const { data: planes, error: errorPlanes } = await supabase
     .from('planes')
     .select('id, nombre, activo, id_cocinero, id_cocinero_suplente, categorias(nombre)')
@@ -1340,7 +1278,7 @@ app.get('/api/planes/cocineros', async (req, res) => {
   res.json(resultado);
 });
 
-app.put('/api/planes/:id/cocinero', async (req, res) => {
+app.put('/api/planes/:id/cocinero', requireAuth, requireRol(6, 5), async (req, res) => {
   const { id } = req.params;
   const { id_cocinero, id_cocinero_suplente } = req.body;
 
@@ -1365,7 +1303,7 @@ app.put('/api/planes/:id/cocinero', async (req, res) => {
    ====================================================== */
 
 // GET /api/productos/cocineros → platos activos con su cocinero propio y el efectivo
-app.get('/api/productos/cocineros', async (req, res) => {
+app.get('/api/productos/cocineros', requireAuth, requireRol(6, 5), async (req, res) => {
   const { data: productos, error } = await supabase
     .from('productos')
     .select('id, codigo_plato, nombre, id_cocinero, planes ( id, nombre, id_cocinero, id_cocinero_suplente )')
@@ -1427,7 +1365,7 @@ async function validarCocinero(idCocinero) {
 }
 
 // PUT /api/productos/:id/cocinero → asignar (o quitar, con null) el cocinero de un plato
-app.put('/api/productos/:id/cocinero', requireAuth, async (req, res) => {
+app.put('/api/productos/:id/cocinero', requireAuth, requireRol(6, 5), async (req, res) => {
   const id = parseInt(req.params.id);
   const idCocinero = req.body?.id_cocinero || null;
 
@@ -1458,7 +1396,7 @@ app.put('/api/productos/:id/cocinero', requireAuth, async (req, res) => {
    API ESTADOS
    ====================================================== */
 
-app.get('/api/estados', async (req, res) => {
+app.get('/api/estados', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => {
   const { data, error } = await supabase
     .from('estados')
     .select('id, nombre')
@@ -1473,7 +1411,7 @@ app.get('/api/estados', async (req, res) => {
 /* ======================================================
    API STOCK
    ====================================================== */
-app.get('/api/insumos', async (req, res) => {
+app.get('/api/insumos', requireAuth, requireRol(6, 5, 1), async (req, res) => {
   const { data, error } = await supabase
     .from('insumos')
     .select(`
@@ -1490,7 +1428,7 @@ app.get('/api/insumos', async (req, res) => {
   res.json(data);
 });
 
-app.post('/api/insumos', requireAuth, async (req, res) => {
+app.post('/api/insumos', requireAuth, requireRol(6, 5), async (req, res) => {
   const { nombre, stock_actual, stock_minimo, unidad_medida, fecha_ingreso, fecha_caducidad, id_categoria_insumo } = req.body;
 
   const { data, error } = await supabase
@@ -1513,7 +1451,7 @@ app.post('/api/insumos', requireAuth, async (req, res) => {
 
   res.json({ mensaje: 'Insumo creado correctamente', insumo: data });
 });
-app.put('/api/insumos/:id', async (req, res) => {
+app.put('/api/insumos/:id', requireAuth, requireRol(6, 5), async (req, res) => {
   const { id } = req.params;
   const { stock_actual, nombre, stock_minimo, unidad_medida, id_categoria_insumo } = req.body;
 
@@ -1546,7 +1484,7 @@ app.put('/api/insumos/:id', async (req, res) => {
 });
 
 // DELETE /api/insumos/:id → eliminar insumo (si no tiene referencias en recetas/movimientos)
-app.delete('/api/insumos/:id', async (req, res) => {
+app.delete('/api/insumos/:id', requireAuth, requireRol(6, 5), async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -1574,7 +1512,7 @@ app.delete('/api/insumos/:id', async (req, res) => {
   }
 });
 
-app.get('/api/categorias-insumos', async (req, res) => {
+app.get('/api/categorias-insumos', requireAuth, requireRol(6, 5, 1), async (req, res) => {
   const { data, error } = await supabase
     .from('categorias_insumos')
     .select('id, nombre')
@@ -1587,7 +1525,7 @@ app.get('/api/categorias-insumos', async (req, res) => {
    ====================================================== */
 
 // GET /api/recetas → productos que tienen receta, con sus insumos
-app.get('/api/recetas', async (req, res) => {
+app.get('/api/recetas', requireAuth, requireRol(6, 5), async (req, res) => {
   const { data, error } = await supabase
     .from('productos')
     .select(`
@@ -1647,7 +1585,7 @@ app.get('/api/recetas', async (req, res) => {
 
 // POST /api/recetas → crear o reemplazar la receta de un producto y actualizar precio/descuento
 // Body: { id_producto, precio?, descuento?, insumos: [{ id_insumo, cantidad_necesaria, unidad_medida }] }
-app.post('/api/recetas', async (req, res) => {
+app.post('/api/recetas', requireAuth, requireRol(6, 5), async (req, res) => {
   const { id_producto, precio, descuento, insumos } = req.body;
 
   if (!id_producto || !insumos || insumos.length === 0) {
@@ -1695,7 +1633,7 @@ app.post('/api/recetas', async (req, res) => {
 
 // DELETE /api/recetas/:idProducto → borrar receta de un producto y desactivarlo
 // El producto NO se borra (soft delete) para no dejar pedidos históricos con id_producto huérfano
-app.delete('/api/recetas/:idProducto', async (req, res) => {
+app.delete('/api/recetas/:idProducto', requireAuth, requireRol(6, 5), async (req, res) => {
   const { idProducto } = req.params;
 
   const { error } = await supabase
@@ -1722,7 +1660,7 @@ const BUCKET_IMAGENES_PRODUCTOS = 'imagenes-productos';
 const EXTENSIONES_IMAGEN = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 const TAMANIO_MAX_IMAGEN = 2 * 1024 * 1024; // 2MB
 
-app.post('/api/productos/:id/imagen', async (req, res) => {
+app.post('/api/productos/:id/imagen', requireAuth, requireRol(6, 5), async (req, res) => {
   const { id } = req.params;
   const { imagen_base64, tipo } = req.body;
 
@@ -1781,7 +1719,7 @@ app.post('/api/productos/:id/imagen', async (req, res) => {
    ====================================================== */
 
 // GET /api/movimientos-stock → listar todos los movimientos
-app.get('/api/movimientos-stock', async (req, res) => {
+app.get('/api/movimientos-stock', requireAuth, requireRol(6, 5, 1), async (req, res) => {
   const { data, error } = await supabase
     .from('movimientos_stock')
     .select(`
@@ -1821,7 +1759,7 @@ function convertirACantidadBase(cantidad, unidadIngresada, unidadBaseInsumo) {
 }
 
 // POST /api/movimientos-stock → registrar entrada o salida, actualiza stock_actual
-app.post('/api/movimientos-stock', async (req, res) => {
+app.post('/api/movimientos-stock', requireAuth, requireRol(6, 5, 1), async (req, res) => {
   const { id_insumo, tipo, cantidad, unidad, motivo, fecha, costo_unitario } = req.body;
 
   if (!id_insumo || !tipo || !cantidad) {
@@ -1888,7 +1826,7 @@ app.post('/api/movimientos-stock', async (req, res) => {
 });
 
 // DELETE /api/movimientos-stock/:id → eliminar movimiento y revertir stock
-app.delete('/api/movimientos-stock/:id', async (req, res) => {
+app.delete('/api/movimientos-stock/:id', requireAuth, requireRol(6, 5, 1), async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -1944,7 +1882,7 @@ app.delete('/api/movimientos-stock/:id', async (req, res) => {
    API REPORTES
    ====================================================== */
 
-app.get('/api/reportes/resumen', async (req, res) => {
+app.get('/api/reportes/resumen', requireAuth, requireRol(6, 5), async (req, res) => {
   const { desde, hasta } = req.query;
   try {
     let qP = supabase.from('pedidos').select('total').neq('id_estado', 5);
@@ -1958,7 +1896,7 @@ app.get('/api/reportes/resumen', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/reportes/ingresos-por-dia', async (req, res) => {
+app.get('/api/reportes/ingresos-por-dia', requireAuth, requireRol(6, 5), async (req, res) => {
   const { desde, hasta } = req.query;
   let query = supabase.from('pedidos').select('fecha_pedido, total').neq('id_estado', 5);
   if (desde) query = query.gte('fecha_pedido', desde + 'T00:00:00');
@@ -1970,7 +1908,7 @@ app.get('/api/reportes/ingresos-por-dia', async (req, res) => {
   res.json(Object.entries(map).map(([dia,ingresos])=>({dia,ingresos})).sort((a,b)=>a.dia.localeCompare(b.dia)));
 });
 
-app.get('/api/reportes/gastos-por-dia', async (req, res) => {
+app.get('/api/reportes/gastos-por-dia', requireAuth, requireRol(6, 5), async (req, res) => {
   const { desde, hasta } = req.query;
   let query = supabase.from('movimientos_stock').select('fecha, costo_total')
     .eq('tipo', 'entrada').not('costo_total', 'is', null);
@@ -1983,7 +1921,7 @@ app.get('/api/reportes/gastos-por-dia', async (req, res) => {
   res.json(Object.entries(map).map(([dia,gastos])=>({dia,gastos})).sort((a,b)=>a.dia.localeCompare(b.dia)));
 });
 
-app.get('/api/reportes/productos-mas-vendidos', async (req, res) => {
+app.get('/api/reportes/productos-mas-vendidos', requireAuth, requireRol(6, 5), async (req, res) => {
   const { desde, hasta } = req.query;
   try {
     let qP = supabase.from('pedidos').select('id').neq('id_estado', 5);
@@ -2007,7 +1945,7 @@ app.get('/api/reportes/productos-mas-vendidos', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/reportes/stock-movimientos', async (req, res) => {
+app.get('/api/reportes/stock-movimientos', requireAuth, requireRol(6, 5), async (req, res) => {
   const { desde, hasta } = req.query;
   let query = supabase.from('movimientos_stock').select('fecha, tipo, cantidad');
   if (desde) query = query.gte('fecha', desde + 'T00:00:00');
@@ -2041,7 +1979,7 @@ app.get('/api/barrios', async (req, res) => {
    API ENVÍOS (delivery del día, agrupado por barrio)
    ====================================================== */
 
-app.get('/api/envios', async (req, res) => {
+app.get('/api/envios', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => {
   const { fecha } = req.query;
 
   let query = supabase
@@ -2091,7 +2029,7 @@ app.get('/api/envios', async (req, res) => {
    ====================================================== */
 
 // GET /api/planes → planes activos con su prefijo de código
-app.get('/api/planes', async (req, res) => {
+app.get('/api/planes', requireAuth, requireRol(6, 5), async (req, res) => {
   const { data, error } = await supabase
     .from('planes')
     .select('id, nombre, codigo_plan, id_categoria')
@@ -2102,7 +2040,7 @@ app.get('/api/planes', async (req, res) => {
 });
 
 // GET /api/planes/:id/siguiente-codigo → calcula el próximo código correlativo del plan
-app.get('/api/planes/:id/siguiente-codigo', async (req, res) => {
+app.get('/api/planes/:id/siguiente-codigo', requireAuth, requireRol(6, 5), async (req, res) => {
   const idPlan = parseInt(req.params.id, 10);
   if (isNaN(idPlan)) return res.status(400).json({ error: 'ID de plan inválido' });
 
@@ -2140,14 +2078,7 @@ app.get('/api/planes/:id/siguiente-codigo', async (req, res) => {
 
 // POST /api/productos/con-receta → crea producto nuevo + receta de forma atómica
 // Body: { nombre, id_plan, insumos: [{ id_insumo, cantidad_necesaria, unidad_medida }] }
-// Asignar un cocinero requiere sesión (igual que PUT /api/productos/:id/cocinero);
-// crear la receta sin cocinero sigue funcionando como antes.
-function requireAuthSiHayCocinero(req, res, next) {
-  if (req.body?.id_cocinero) return requireAuth(req, res, next);
-  next();
-}
-
-app.post('/api/productos/con-receta', requireAuthSiHayCocinero, async (req, res) => {
+app.post('/api/productos/con-receta', requireAuth, requireRol(6, 5), async (req, res) => {
   const { nombre, id_plan, precio, descuento, insumos } = req.body;
   const idCocinero = req.body.id_cocinero || null; // opcional: null = usa el cocinero del plan
 
@@ -2236,7 +2167,7 @@ app.post('/api/productos/con-receta', requireAuthSiHayCocinero, async (req, res)
    ====================================================== */
 
 // GET /api/usuarios → lista completa de usuarios
-app.get('/api/usuarios', async (req, res) => {
+app.get('/api/usuarios', requireAuth, requireRol(6, 5), async (req, res) => {
   const { data, error } = await supabase
     .from('usuarios')
     .select('id, nombre, apellido, nombre_usuario, email, telefono, id_rol')
@@ -2269,7 +2200,7 @@ async function validarAsignacionDeRol(req, idRol) {
 // POST /api/usuarios/crear → dar de alta un nuevo empleado
 // Body: { nombre, apellido, nombre_usuario, email, telefono, contraseña, id_rol }
 // La columna en la BD se llama "contrasena" (sin ñ)
-app.post('/api/usuarios/crear', async (req, res) => {
+app.post('/api/usuarios/crear', requireAuth, requireRol(6, 5), async (req, res) => {
   const { nombre, apellido, nombre_usuario, email, telefono, id_rol } = req.body;
   const contraseña = req.body['contraseña'];
 
@@ -2323,7 +2254,7 @@ app.post('/api/usuarios/crear', async (req, res) => {
 
 // PUT /api/usuarios/:id → editar datos de un usuario existente
 // Body: { nombre, apellido, nombre_usuario, email, telefono?, contraseña?, id_rol }
-app.put('/api/usuarios/:id', async (req, res) => {
+app.put('/api/usuarios/:id', requireAuth, requireRol(6, 5), async (req, res) => {
   const { id } = req.params;
   const { nombre, apellido, nombre_usuario, email, telefono, id_rol } = req.body;
   const nuevaContrasena = req.body['contraseña'];
@@ -2376,8 +2307,15 @@ app.put('/api/usuarios/:id', async (req, res) => {
 });
 
 // DELETE /api/usuarios/:id → eliminar un usuario
-app.delete('/api/usuarios/:id', async (req, res) => {
+app.delete('/api/usuarios/:id', requireAuth, requireRol(6, 5), async (req, res) => {
   const { id } = req.params;
+
+  // A un Administrador del sistema solo lo puede borrar otro Administrador del sistema
+  const { data: aBorrar, error: errABorrar } = await supabase.from('usuarios').select('id_rol').eq('id', id).maybeSingle();
+  if (errABorrar && errABorrar.code !== '22P02') return res.status(500).json({ error: errABorrar.message });
+  if (aBorrar?.id_rol === ROL_SISTEMA && req.usuario.rol !== ROL_SISTEMA) {
+    return res.status(403).json({ error: 'Solo un Administrador del sistema puede borrar a otro Administrador del sistema.' });
+  }
 
   const { error } = await supabase
     .from('usuarios')

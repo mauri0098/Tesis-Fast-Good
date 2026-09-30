@@ -69,7 +69,7 @@ async function cargarReportes() {
 }
 
 async function fetchJSON(url) {
-  const res = await fetch(url);
+  const res = await apiFetch(url);
   if (!res.ok) throw new Error(`Error ${res.status} en ${url}`);
   return res.json();
 }

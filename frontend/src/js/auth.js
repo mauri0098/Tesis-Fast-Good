@@ -224,6 +224,7 @@ function toggleDropdownAuth(e) {
  * Cierra la sesión del usuario
  */
 function cerrarSesion() {
+  localStorage.removeItem('fg_token');
   localStorage.removeItem('usuario_id');
   localStorage.removeItem('usuario_nombre');
   localStorage.removeItem('usuario_rol');

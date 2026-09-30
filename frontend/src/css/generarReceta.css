@@ -100,20 +100,7 @@ body {
   table-layout: auto;
 }
 
-.standard-table thead th {
-  background-color: #e8f5e9;
-  color: #4CAF50;
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.78rem;
-  padding: 0.9rem 0.4rem;
-  text-align: center;
-  letter-spacing: 0.05em;
-  border-bottom: 2px solid #28a745;
-}
-
-.standard-table thead th:first-child { border-top-left-radius: var(--radius); }
-.standard-table thead th:last-child  { border-top-right-radius: var(--radius); }
+/* Encabezado, celdas, bordes y hover: clase compartida .grilla-fg (global.css) */
 
 /* Anchos por columna — 9 columnas, guías + mínimos garantizados */
 .standard-table thead th:nth-child(1),
@@ -157,18 +144,6 @@ body {
   color: var(--primary-green);
   letter-spacing: 0.04em;
 }
-
-.standard-table tbody td {
-  padding: 0.75rem 0.4rem;
-  border-bottom: 1px solid var(--border-light);
-  font-size: 0.82rem;
-  vertical-align: middle;
-  text-align: center;
-  word-wrap: break-word;
-}
-
-.standard-table tbody tr:last-child td { border-bottom: none; }
-.standard-table tbody tr:hover         { background-color: #f1f8f3; }
 
 .loading-text {
   text-align: center;
@@ -221,17 +196,10 @@ body {
 
 /* =========================================
    BOTONES DE ACCIÓN EN LA TABLA
+   (forma y letra en .grilla-fg de global.css; acá solo el color)
    ========================================= */
 .btn-detalle {
-  padding: 0.3rem 0.7rem;
   background-color: #17a2b8;
-  color: #fff;
-  border: none;
-  border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
   margin-right: 0.25rem;
   transition: background-color 0.2s;
 }
@@ -239,15 +207,7 @@ body {
 .btn-detalle:hover { background-color: #117a8b; }
 
 .btn-editar {
-  padding: 0.3rem 0.7rem;
   background-color: var(--primary-green);
-  color: #fff;
-  border: none;
-  border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
   margin-right: 0.25rem;
   transition: background-color 0.2s;
 }
@@ -255,15 +215,7 @@ body {
 .btn-editar:hover { background-color: #218838; }
 
 .btn-borrar {
-  padding: 0.3rem 0.7rem;
   background-color: #dc3545;
-  color: #fff;
-  border: none;
-  border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
   transition: background-color 0.2s;
 }
 
