@@ -18,7 +18,12 @@ if (process.env.NODE_ENV === 'production') {
 // La CSP queda desactivada por ahora: la que trae helmet por defecto bloquea los onclick y <script> inline.
 app.use(helmet({ contentSecurityPolicy: false }));
 
-const origenesPermitidos = ['http://localhost:3000', 'http://127.0.0.1:3000'];
+// Orígenes permitidos: localhost (desarrollo) + los de CORS_ORIGIN (el dominio publicado; varios, separados por coma)
+const origenesPermitidos = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  ...(process.env.CORS_ORIGIN || '').split(',').map(o => o.trim().replace(/\/+$/, '')).filter(Boolean)
+];
 
 app.use(cors({
   origin: function (origin, callback) {
