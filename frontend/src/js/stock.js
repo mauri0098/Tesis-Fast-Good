@@ -91,7 +91,7 @@ function crearFilaInsumo(insumo) {// SE ARMA LA FILA DE UN INSUMO, LA PAGINACION
 
   tr.innerHTML = `
     <td style="font-weight:bold">${codigo}</td>
-    <td><strong>${nombre}</strong></td>
+    <td><strong>${escHtml(nombre)}</strong></td>
     <td style="font-weight:600">${stockActual}</td>
     <td>${unidad}</td>
     <td>${categoria}</td>

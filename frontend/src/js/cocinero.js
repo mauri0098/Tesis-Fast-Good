@@ -2,13 +2,6 @@
 // Se declara fuera de DOMContentLoaded para que marcarListo() también acceda.
 let _tareasActivas = [];
 
-// ── Escape seguro para inserción de texto en innerHTML ────────────────────────
-function _esc(str) {
-  const d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
-}
-
 // ── Normalización de observaciones ────────────────────────────────────────────
 // Vacíos, nulos y "sin observaciones" se tratan como la clave estándar.
 const _OBS_STD = 'Sin observaciones';
@@ -68,13 +61,13 @@ function construirResumen(tareas) {
     const cardClass  = esEspecial ? 'resumen-card resumen-card--especial' : 'resumen-card';
     const obsHTML    = esEspecial
       ? `<div class="resumen-card-obs">
-           <span class="resumen-card-obs-icon">⚠</span>${_esc(obs)}
+           <span class="resumen-card-obs-icon">⚠</span>${escHtml(obs)}
          </div>`
       : '';
     return `
       <div class="${cardClass}">
         <div class="resumen-card-info">
-          <div class="resumen-card-nombre">${_esc(nombre)}</div>
+          <div class="resumen-card-nombre">${escHtml(nombre)}</div>
           ${obsHTML}
         </div>
         <div class="resumen-card-right">
@@ -191,10 +184,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         <td>${fecha}</td>
         <td><strong>${codigo}</strong></td>
         <td>
-          <span class="plato-nombre">${nombre}</span>
+          <span class="plato-nombre">${escHtml(nombre)}</span>
           <br><span class="plato-cant">${cantidad}</span>
         </td>
-        <td>${pedido.observaciones || 'Sin observaciones'}</td>
+        <td>${escHtml(pedido.observaciones || 'Sin observaciones')}</td>
         <td>
           ${soloLectura
             ? '<span class="solo-lectura">Solo lectura</span>'

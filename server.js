@@ -3,8 +3,20 @@ require('dotenv').config();// credeceales secretas de supabase (URL Y CLAVE) en 
 const express = require('express');// Framework para crear el servidor y manejar rutas
 const cors = require('cors');// Middleware para permitir solicitudes desde el frontend (CORS)
 const path = require('path');// Módulo para manejar rutas de archivos (para servir el frontend)
+const helmet = require('helmet');// Headers de seguridad HTTP
 
 const app = express();// Crear instancia del servidor Express
+
+// Detrás del proxy del hosting la IP real del cliente llega en X-Forwarded-For: hace falta para que el
+// límite de intentos cuente por cliente y no por la IP del proxy. Solo en producción: sin proxy,
+// cualquiera podría inventar ese header y saltear el límite.
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
+// Headers de seguridad (X-Frame-Options, nosniff, HSTS, Referrer-Policy, etc.).
+// La CSP queda desactivada por ahora: la que trae helmet por defecto bloquea los onclick y <script> inline.
+app.use(helmet({ contentSecurityPolicy: false }));
 
 const origenesPermitidos = ['http://localhost:3000', 'http://127.0.0.1:3000'];
 
@@ -23,7 +35,9 @@ app.use(cors({
     }
   }
 }));
-app.use(express.json({ limit: '6mb' })); // permite subir imágenes de recetas en base64 (máx. 2MB + overhead)
+// Tamaño máximo del cuerpo: 6 MB solo para subir imágenes de recetas (base64, máx. 2MB + overhead); el resto, 100 KB
+app.use('/api/productos/:id/imagen', express.json({ limit: '6mb' }));
+app.use(express.json({ limit: '100kb' }));
 
 const supabase   = require('./config/supabaseClient');// Cliente de Supabase para interactuar con la base de datos
 const nodemailer = require('nodemailer');              // Envío de emails (recuperación de contraseña)
@@ -107,6 +121,17 @@ function requireRol(...roles) {
     }
     next();
   };
+}
+
+// Errores internos: el detalle va a la consola del servidor; al cliente, un mensaje genérico
+// (no se filtran mensajes de la base ni stack traces).
+const MENSAJE_ERROR_INTERNO = 'Error interno del servidor';
+function mensajeInterno(err) {
+  console.error('[ERROR INTERNO]', err);
+  return MENSAJE_ERROR_INTERNO;
+}
+function errorInterno(res, err) {
+  return res.status(500).json({ error: mensajeInterno(err) });
 }
 
 /* ======================================================
@@ -434,10 +459,7 @@ app.post('/api/register', limiteRegistro, async (req, res) => {
       .select()
       .single();
 
-    if (error) {
-      console.error('Error al registrar:', error);
-      return res.status(500).json({ error: 'Error al crear la cuenta: ' + error.message });
-    }
+    if (error) return errorInterno(res, error);
 
     return res.json({
       mensaje: 'Cuenta creada exitosamente',
@@ -478,7 +500,7 @@ app.get('/api/v1/catalogo', async (req, res) => {
       )
     `);
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
 
   // Filtrar planes y productos activos en el servidor
   const catalogo = (data || []).map(cat => ({
@@ -502,7 +524,7 @@ app.get('/api/v1/categorias', async (req, res) => {
   const { data, error } = await supabase
     .from('categorias')
     .select('id, nombre');
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   res.json(data);
 });
 
@@ -515,7 +537,7 @@ app.get('/api/v1/categorias/:id/planes', async (req, res) => {
     .select('id, nombre, descripcion_nutricional')
     .eq('id_categoria', id)
     .eq('activo', true);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   if (!data || data.length === 0) return res.status(404).json({ error: 'No se encontraron planes para esta categoría' });
   res.json(data);
 });
@@ -529,7 +551,7 @@ app.get('/api/v1/planes/:id/productos', async (req, res) => {
     .select('id, nombre, descripcion, imagen, precio')
     .eq('id_plan', id)
     .eq('activo', true);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   if (!data || data.length === 0) return res.status(404).json({ error: 'No se encontraron productos para este plan' });
   res.json(data);
 });
@@ -540,7 +562,7 @@ app.get('/api/v1/productos', async (req, res) => {
     .from('productos')
     .select('id, nombre, descripcion, imagen, precio')
     .eq('activo', true);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   res.json(data);
 });
 
@@ -556,7 +578,7 @@ app.get('/api/v1/productos/:id', async (req, res) => {
     .single();
   if (error) {
     if (error.code === 'PGRST116') return res.status(404).json({ error: 'Producto no encontrado' });
-    return res.status(500).json({ error: error.message });
+    return errorInterno(res, error);
   }
   res.json(data);
 });
@@ -591,7 +613,7 @@ app.get('/api/cocina/tareas', requireAuth, requireRol(2, 6, 5, 1), async (req, r
       .from('productos')
       .select('id, id_cocinero, planes ( id_cocinero, id_cocinero_suplente )');
 
-    if (errProductos) return res.status(500).json({ error: errProductos.message });
+    if (errProductos) return errorInterno(res, errProductos);
 
     misProductos = new Set(
       (productos || []).filter(p => platoEsDelCocinero(p, cocinero_id)).map(p => p.id)
@@ -606,7 +628,7 @@ app.get('/api/cocina/tareas', requireAuth, requireRol(2, 6, 5, 1), async (req, r
       .in('id_producto', [...misProductos])
       .eq('listo', false);
 
-    if (errDetalles) return res.status(500).json({ error: errDetalles.message });
+    if (errDetalles) return errorInterno(res, errDetalles);
 
     idsPedidos = [...new Set((detalles || []).map(d => d.id_pedido))];
     if (idsPedidos.length === 0) return res.json([]);
@@ -636,7 +658,7 @@ app.get('/api/cocina/tareas', requireAuth, requireRol(2, 6, 5, 1), async (req, r
   }
 
   const { data, error } = await query;
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
 
   // 4. Marcar en cada detalle si el plato es del cocinero que consulta
   const resultado = (data || []).map(pedido => ({
@@ -671,12 +693,22 @@ function hoyArgentina() {
 
 const CANTIDAD_MAXIMA_POR_PLATO = 100;
 
+// Valores permitidos (lista cerrada) y largo máximo de lo que manda el formulario público
+const METODOS_PAGO  = ['Efectivo', 'Transferencia', 'Tarjeta Débito', 'Tarjeta Crédito', 'Mixto'];
+const TIPOS_ENTREGA = ['Delivery', 'Retiro en local'];
+const LARGO_MAXIMO_PEDIDO = [
+  ['cliente_nombre',    'El nombre',        100],
+  ['cliente_direccion', 'La dirección',     200],
+  ['cliente_telefono',  'El teléfono',       30],
+  ['observaciones',     'Las observaciones', 500]
+];
+const ID_CONSUMIDOR_FINAL = 'd9b1ae00-fda5-4488-86b3-90d769b47a02'; // usuario "Consumidor Final" de los pedidos sin login
+
 // POST /api/pedidos → crea un pedido. Es público (lo usa el formulario sin login).
 // El navegador solo dice qué productos y cuántos: los precios y el total los calcula el servidor
 // (se ignora el "total" del body), y la fecha de entrega tiene que respetar las 48 hs hábiles.
 app.post('/api/pedidos', limitePedidos, async (req, res) => {
   const {
-    usuario_id,
     items,
     cliente_nombre,
     cliente_direccion,
@@ -703,6 +735,20 @@ app.post('/api/pedidos', limitePedidos, async (req, res) => {
     }
   }
 
+  // Datos del cliente, método de pago y tipo de entrega: valores conocidos y largo máximo
+  if (!METODOS_PAGO.includes(metodo_pago)) {
+    return res.status(400).json({ error: 'Método de pago inválido' });
+  }
+  if (tipo_entrega != null && !TIPOS_ENTREGA.includes(tipo_entrega)) {
+    return res.status(400).json({ error: 'Tipo de entrega inválido' });
+  }
+  for (const [campo, nombre, maximo] of LARGO_MAXIMO_PEDIDO) {
+    const valor = req.body[campo];
+    if (valor != null && (typeof valor !== 'string' || valor.length > maximo)) {
+      return res.status(400).json({ error: `${nombre} admite hasta ${maximo} caracteres` });
+    }
+  }
+
   // 2. Fecha de entrega: obligatoria, día hábil y al menos 48 hs hábiles después de hoy (misma regla que el formulario)
   if (!fecha_entrega || !FORMATO_FECHA.test(fecha_entrega)) {
     return res.status(400).json({ error: 'La fecha de entrega es obligatoria (formato AAAA-MM-DD)' });
@@ -725,7 +771,7 @@ app.post('/api/pedidos', limitePedidos, async (req, res) => {
     .select('id, nombre, precio, descuento, activo')
     .in('id', productoIds);
 
-  if (errorProductos) return res.status(500).json({ error: errorProductos.message });
+  if (errorProductos) return errorInterno(res, errorProductos);
 
   const productoPorId = {};
   (productosDB || []).forEach(p => { productoPorId[p.id] = p; });
@@ -753,8 +799,8 @@ app.post('/api/pedidos', limitePedidos, async (req, res) => {
   const total = renglones.reduce((suma, r) => suma + r.cantidad * r.precio_unitario, 0);
 
   // 5. Guardar el pedido y sus renglones
-  // UUID fijo si no viene usuario_id
-  const finalUserId = usuario_id || 'd9b1ae00-fda5-4488-86b3-90d769b47a02'; // "Consumidor Final" para pedidos públicos sin login
+  // El usuario sale del token si el cliente está logueado; si no, "Consumidor Final". Nunca del body.
+  const finalUserId = leerToken(req)?.id || ID_CONSUMIDOR_FINAL;
 
   const { data: pedido, error: errorPedido } = await supabase
     .from('pedidos')
@@ -777,7 +823,7 @@ app.post('/api/pedidos', limitePedidos, async (req, res) => {
     .single();
 
   if (errorPedido) {
-    return res.status(500).json({ error: errorPedido.message });
+    return errorInterno(res, errorPedido);
   }
 
   const { error: errorItems } = await supabase
@@ -792,7 +838,7 @@ app.post('/api/pedidos', limitePedidos, async (req, res) => {
   if (errorItems) {
     // Sin renglones el pedido no sirve: se borra para no dejar un pedido vacío
     await supabase.from('pedidos').delete().eq('id', pedido.id);
-    return res.status(500).json({ error: errorItems.message });
+    return errorInterno(res, errorItems);
   }
 
   res.json({
@@ -860,7 +906,7 @@ app.get('/api/pedidos', requireAuth, requireRol(6, 5, 1), async (req, res) => {
   const { data, error } = await query;
 
   if (error) {
-    return res.status(500).json({ error: error.message });
+    return errorInterno(res, error);
   }
 
   res.json(data);
@@ -880,7 +926,7 @@ app.put('/api/pedidos/:id/pagado', requireAuth, requireRol(6, 5, 1, 3), async (r
       .eq('id', id)
       .maybeSingle();
 
-    if (errLectura) return res.status(500).json({ error: errLectura.message });
+    if (errLectura) return errorInterno(res, errLectura);
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
     if (pedido.metodo_pago === 'Mixto' && !pedido.transferencia_confirmada) {
       return res.status(409).json({
@@ -896,7 +942,7 @@ app.put('/api/pedidos/:id/pagado', requireAuth, requireRol(6, 5, 1, 3), async (r
     .select()
     .single();
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   res.json({ mensaje: 'Pago actualizado', pedido: data });
 });
 
@@ -914,7 +960,7 @@ app.put('/api/pedidos/:id/transferencia-confirmada', requireAuth, requireRol(6, 
     .eq('id', id)
     .maybeSingle();
 
-  if (errLectura) return res.status(500).json({ error: errLectura.message });
+  if (errLectura) return errorInterno(res, errLectura);
   if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
   if (pedido.metodo_pago !== 'Mixto') {
     return res.status(409).json({ error: 'Solo los pedidos con pago Mixto tienen una transferencia para confirmar.' });
@@ -927,7 +973,7 @@ app.put('/api/pedidos/:id/transferencia-confirmada', requireAuth, requireRol(6, 
     .select()
     .single();
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   res.json({ mensaje: 'Transferencia confirmada', pedido: data });
 });
 
@@ -944,7 +990,6 @@ app.put('/api/pedidos/:id/pago', requireAuth, requireRol(6, 5, 1), async (req, r
     return res.status(400).json({ error: 'ID de pedido inválido' });
   }
 
-  const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Tarjeta Débito', 'Tarjeta Crédito', 'Mixto'];
   if (!METODOS_PAGO.includes(metodo_pago)) {
     return res.status(400).json({ error: 'Método de pago inválido. Debe ser Efectivo, Transferencia, Tarjeta Débito, Tarjeta Crédito o Mixto.' });
   }
@@ -955,7 +1000,7 @@ app.put('/api/pedidos/:id/pago', requireAuth, requireRol(6, 5, 1), async (req, r
     .eq('id', id)
     .maybeSingle();
 
-  if (errLectura) return res.status(500).json({ error: errLectura.message });
+  if (errLectura) return errorInterno(res, errLectura);
   if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
 
   // Se trabaja en centavos para no arrastrar errores de redondeo (0.1 + 0.2 !== 0.3)
@@ -1010,7 +1055,7 @@ app.put('/api/pedidos/:id/pago', requireAuth, requireRol(6, 5, 1), async (req, r
         error: `La base de datos no acepta el método "${metodo_pago}". Hay que actualizar la restricción (CHECK) de metodo_pago en la tabla pedidos.`
       });
     }
-    return res.status(500).json({ error: error.message });
+    return errorInterno(res, error);
   }
   res.json({ mensaje: 'Método de pago actualizado', pedido: data });
 });
@@ -1038,7 +1083,7 @@ async function cambiarEstadoPedido(pedidoId, nuevoEstado) {
     .select()
     .single();
 
-  if (error) return { status: 500, error: error.message };
+  if (error) return { status: 500, error: mensajeInterno(error) };
 
   if (nuevoEstado === 3) {
     const { error: errListo } = await supabase
@@ -1067,7 +1112,7 @@ app.get('/api/pedidos/:id/verificar-stock', requireAuth, requireRol(6, 5, 1), as
     .eq('id', id)
     .maybeSingle();
 
-  if (errLectura) return res.status(500).json({ error: errLectura.message });
+  if (errLectura) return errorInterno(res, errLectura);
   if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
 
   const errorStock = await verificarStockPedido(id);
@@ -1078,6 +1123,11 @@ app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), as
   const { pedidoId } = req.params;
   const { estado_id } = req.body;
   const nuevoEstado = parseInt(estado_id);
+
+  // Cancelar (5) solo se puede por POST /anular, que pide el PIN
+  if (nuevoEstado === 5) {
+    return res.status(403).json({ error: 'Para cancelar un pedido usá "Anular", que pide el PIN de autorización' });
+  }
 
   // El repartidor (rol 3) solo puede marcar un pedido como Entregado (4)
   if (req.usuario.rol === 3 && nuevoEstado !== 4) {
@@ -1092,10 +1142,7 @@ app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), as
       .eq('id', pedidoId)
       .single();
 
-    if (errLectura) {
-      console.error('[ESTADO] Error leyendo pedido:', errLectura.message);
-      return res.status(500).json({ error: `Error al leer pedido: ${errLectura.message}` });
-    }
+    if (errLectura) return errorInterno(res, errLectura);
     if (!pedidoActual) {
       return res.status(404).json({ error: 'Pedido no encontrado' });
     }
@@ -1105,7 +1152,7 @@ app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), as
 
     res.json({ mensaje: 'Estado actualizado', pedido: resultado.pedido });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    errorInterno(res, e);
   }
 });
 
@@ -1136,7 +1183,7 @@ app.put('/api/pedidos/:id/listo-cocinero', requireAuth, requireRol(2, 6, 5, 1), 
       .eq('id', id)
       .maybeSingle();
 
-    if (errLectura) return res.status(500).json({ error: errLectura.message });
+    if (errLectura) return errorInterno(res, errLectura);
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
     if (pedido.id_estado !== 2) {
       return res.status(409).json({ error: 'El pedido ya no está En Preparación' });
@@ -1153,7 +1200,7 @@ app.put('/api/pedidos/:id/listo-cocinero', requireAuth, requireRol(2, 6, 5, 1), 
       .update({ listo: true })
       .in('id', mios.map(d => d.id));
 
-    if (errListo) return res.status(500).json({ error: errListo.message });
+    if (errListo) return errorInterno(res, errListo);
 
     // Platos de otros cocineros que todavía no están listos
     const idsMios = new Set(mios.map(d => d.id));
@@ -1185,7 +1232,7 @@ app.put('/api/pedidos/:id/listo-cocinero', requireAuth, requireRol(2, 6, 5, 1), 
       pedido: resultado.pedido
     });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    errorInterno(res, e);
   }
 });
 
@@ -1218,7 +1265,7 @@ app.post('/api/pedidos/:id/anular', limiteAnular, requireAuth, requireRol(6, 5, 
     .eq('id', id)
     .maybeSingle();
 
-  if (errLectura) return res.status(500).json({ error: errLectura.message });
+  if (errLectura) return errorInterno(res, errLectura);
   if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
   if (pedido.id_estado === 5) {
     return res.status(409).json({ error: 'El pedido ya está anulado' });
@@ -1233,7 +1280,7 @@ app.post('/api/pedidos/:id/anular', limiteAnular, requireAuth, requireRol(6, 5, 
 
   if (error) {
     console.error('[ANULAR pedido] error:', error);
-    return res.status(500).json({ error: error.message });
+    return errorInterno(res, error);
   }
 
   res.json({ mensaje: 'Pedido anulado correctamente', pedido: data });
@@ -1250,7 +1297,7 @@ app.get('/api/cocineros', requireAuth, requireRol(6, 5), async (req, res) => {
     .eq('id_rol', 2)
     .order('nombre', { ascending: true });
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   res.json(data || []);
 });
 
@@ -1260,7 +1307,7 @@ app.get('/api/planes/cocineros', requireAuth, requireRol(6, 5), async (req, res)
     .select('id, nombre, activo, id_cocinero, id_cocinero_suplente, categorias(nombre)')
     .order('nombre', { ascending: true });
 
-  if (errorPlanes) return res.status(500).json({ error: errorPlanes.message });
+  if (errorPlanes) return errorInterno(res, errorPlanes);
 
   const { data: usuarios } = await supabase
     .from('usuarios')
@@ -1292,7 +1339,7 @@ app.put('/api/planes/:id/cocinero', requireAuth, requireRol(6, 5), async (req, r
     .select()
     .single();
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   res.json({ mensaje: 'Cocinero actualizado correctamente', plan: data });
 });
 
@@ -1309,13 +1356,13 @@ app.get('/api/productos/cocineros', requireAuth, requireRol(6, 5), async (req, r
     .select('id, codigo_plato, nombre, id_cocinero, planes ( id, nombre, id_cocinero, id_cocinero_suplente )')
     .eq('activo', true);
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
 
   const { data: usuarios, error: errUsuarios } = await supabase
     .from('usuarios')
     .select('id, nombre, apellido, id_rol');
 
-  if (errUsuarios) return res.status(500).json({ error: errUsuarios.message });
+  if (errUsuarios) return errorInterno(res, errUsuarios);
 
   const mapaUsuarios = {};
   (usuarios || []).forEach(u => {
@@ -1359,7 +1406,7 @@ async function validarCocinero(idCocinero) {
     .maybeSingle();
 
   // 22P02 = el texto no es un UUID válido
-  if (error && error.code !== '22P02') return { status: 500, error: error.message };
+  if (error && error.code !== '22P02') return { status: 500, error: mensajeInterno(error) };
   if (!usuario || usuario.id_rol !== 2) return { status: 400, error: 'El usuario elegido no es un cocinero' };
   return null;
 }
@@ -1386,7 +1433,7 @@ app.put('/api/productos/:id/cocinero', requireAuth, requireRol(6, 5), async (req
     .select('id, codigo_plato, nombre, id_cocinero')
     .maybeSingle();
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   if (!data) return res.status(404).json({ error: 'Producto no encontrado' });
 
   res.json({ mensaje: 'Cocinero del plato actualizado', producto: data });
@@ -1403,7 +1450,7 @@ app.get('/api/estados', requireAuth, requireRol(6, 5, 1, 3), async (req, res) =>
     .order('id', { ascending: true });
 
   if (error) {
-    return res.status(500).json({ error: error.message });
+    return errorInterno(res, error);
   }
 
   res.json(data);
@@ -1422,7 +1469,7 @@ app.get('/api/insumos', requireAuth, requireRol(6, 5, 1), async (req, res) => {
     .order('nombre', { ascending: true });
 
   if (error) {
-    return res.status(500).json({ error: error.message });
+    return errorInterno(res, error);
   }
 
   res.json(data);
@@ -1446,7 +1493,7 @@ app.post('/api/insumos', requireAuth, requireRol(6, 5), async (req, res) => {
     .single();
 
   if (error) {
-    return res.status(500).json({ error: error.message });
+    return errorInterno(res, error);
   }
 
   res.json({ mensaje: 'Insumo creado correctamente', insumo: data });
@@ -1473,13 +1520,13 @@ app.put('/api/insumos/:id', requireAuth, requireRol(6, 5), async (req, res) => {
 
     if (error) {
       console.error('Error al actualizar insumo:', error);
-      return res.status(500).json({ error: error.message });
+      return errorInterno(res, error);
     }
 
     res.json({ mensaje: 'Insumo actualizado', insumo: data });
   } catch (e) {
     console.error('Excepción al actualizar insumo:', e);
-    res.status(500).json({ error: e.message });
+    errorInterno(res, e);
   }
 });
 
@@ -1502,13 +1549,13 @@ app.delete('/api/insumos/:id', requireAuth, requireRol(6, 5), async (req, res) =
         });
       }
       console.error('Error al eliminar insumo:', error);
-      return res.status(500).json({ error: error.message });
+      return errorInterno(res, error);
     }
 
     res.json({ mensaje: 'Insumo eliminado correctamente' });
   } catch (e) {
     console.error('Excepción al eliminar insumo:', e);
-    res.status(500).json({ error: e.message });
+    errorInterno(res, e);
   }
 });
 
@@ -1517,7 +1564,7 @@ app.get('/api/categorias-insumos', requireAuth, requireRol(6, 5, 1), async (req,
     .from('categorias_insumos')
     .select('id, nombre')
     .order('nombre', { ascending: true });
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   res.json(data);
 });
 /* ======================================================
@@ -1551,7 +1598,7 @@ app.get('/api/recetas', requireAuth, requireRol(6, 5), async (req, res) => {
     `)
     .order('nombre', { ascending: true });
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
 
   // Solo productos que tienen al menos un insumo en la receta
   const conReceta = data.filter(p => p.insumos && p.insumos.length > 0);
@@ -1603,7 +1650,7 @@ app.post('/api/recetas', requireAuth, requireRol(6, 5), async (req, res) => {
       .update(camposActualizar)
       .eq('id', id_producto);
 
-    if (errProd) return res.status(500).json({ error: errProd.message });
+    if (errProd) return errorInterno(res, errProd);
   }
 
   // 2. Borrar la receta anterior del producto (si existe)
@@ -1612,7 +1659,7 @@ app.post('/api/recetas', requireAuth, requireRol(6, 5), async (req, res) => {
     .delete()
     .eq('id_producto', id_producto);
 
-  if (errorDelete) return res.status(500).json({ error: errorDelete.message });
+  if (errorDelete) return errorInterno(res, errorDelete);
 
   // 3. Insertar los nuevos insumos
   const filas = insumos.map(ins => ({
@@ -1626,7 +1673,7 @@ app.post('/api/recetas', requireAuth, requireRol(6, 5), async (req, res) => {
     .from('producto_insumo')
     .insert(filas);
 
-  if (errorInsert) return res.status(500).json({ error: errorInsert.message });
+  if (errorInsert) return errorInterno(res, errorInsert);
 
   res.json({ mensaje: 'Receta guardada correctamente' });
 });
@@ -1641,7 +1688,7 @@ app.delete('/api/recetas/:idProducto', requireAuth, requireRol(6, 5), async (req
     .delete()
     .eq('id_producto', idProducto);
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
 
   // Desactivar el producto para que deje de aparecer en el catálogo
   const { error: errProd } = await supabase
@@ -1649,7 +1696,7 @@ app.delete('/api/recetas/:idProducto', requireAuth, requireRol(6, 5), async (req
     .update({ activo: false })
     .eq('id', idProducto);
 
-  if (errProd) return res.status(500).json({ error: errProd.message });
+  if (errProd) return errorInterno(res, errProd);
 
   res.json({ mensaje: 'Receta eliminada y producto desactivado correctamente' });
 });
@@ -1705,12 +1752,12 @@ app.post('/api/productos/:id/imagen', requireAuth, requireRol(6, 5), async (req,
       .update({ imagen: urlPublica })
       .eq('id', id);
 
-    if (errUpdate) return res.status(500).json({ error: errUpdate.message });
+    if (errUpdate) return errorInterno(res, errUpdate);
 
     res.json({ mensaje: 'Imagen actualizada correctamente', imagen: urlPublica });
   } catch (e) {
     console.error('Excepción al subir imagen:', e);
-    res.status(500).json({ error: e.message });
+    errorInterno(res, e);
   }
 });
 
@@ -1728,7 +1775,7 @@ app.get('/api/movimientos-stock', requireAuth, requireRol(6, 5, 1), async (req, 
     `)
     .order('fecha', { ascending: false });
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   res.json(data);
 });
 
@@ -1808,7 +1855,7 @@ app.post('/api/movimientos-stock', requireAuth, requireRol(6, 5, 1), async (req,
       .select()
       .single();
 
-    if (errMov) return res.status(500).json({ error: errMov.message });
+    if (errMov) return errorInterno(res, errMov);
 
     // Actualizar únicamente el stock; la unidad de medida del insumo
     // es fija y solo se edita desde Alta/Gestión de Insumos.
@@ -1817,11 +1864,11 @@ app.post('/api/movimientos-stock', requireAuth, requireRol(6, 5, 1), async (req,
       .update({ stock_actual: nuevoStock })
       .eq('id', id_insumo);
 
-    if (errUpdate) return res.status(500).json({ error: errUpdate.message });
+    if (errUpdate) return errorInterno(res, errUpdate);
 
     res.json({ mensaje: 'Movimiento registrado', movimiento });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    errorInterno(res, e);
   }
 });
 
@@ -1863,18 +1910,18 @@ app.delete('/api/movimientos-stock/:id', requireAuth, requireRol(6, 5, 1), async
       .delete()
       .eq('id', id);
 
-    if (errDelete) return res.status(500).json({ error: errDelete.message });
+    if (errDelete) return errorInterno(res, errDelete);
 
     const { error: errUpdate } = await supabase
       .from('insumos')
       .update({ stock_actual: nuevoStock })
       .eq('id', mov.id_insumo);
 
-    if (errUpdate) return res.status(500).json({ error: errUpdate.message });
+    if (errUpdate) return errorInterno(res, errUpdate);
 
     res.json({ mensaje: 'Movimiento eliminado y stock revertido' });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    errorInterno(res, e);
   }
 });
 
@@ -1893,7 +1940,7 @@ app.get('/api/reportes/resumen', requireAuth, requireRol(6, 5), async (req, res)
     const ingresos = (pedidos || []).reduce((s, p) => s + Number(p.total), 0);
     const gastos   = (movs    || []).reduce((s, m) => s + Number(m.costo_total), 0);
     res.json({ ingresos, gastos, ganancia: ingresos - gastos, cantidad_pedidos: (pedidos || []).length });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { errorInterno(res, e); }
 });
 
 app.get('/api/reportes/ingresos-por-dia', requireAuth, requireRol(6, 5), async (req, res) => {
@@ -1902,7 +1949,7 @@ app.get('/api/reportes/ingresos-por-dia', requireAuth, requireRol(6, 5), async (
   if (desde) query = query.gte('fecha_pedido', desde + 'T00:00:00');
   if (hasta) query = query.lte('fecha_pedido', hasta + 'T23:59:59');
   const { data, error } = await query;
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   const map = {};
   (data || []).forEach(p => { const d = p.fecha_pedido.slice(0,10); map[d] = (map[d]||0) + Number(p.total); });
   res.json(Object.entries(map).map(([dia,ingresos])=>({dia,ingresos})).sort((a,b)=>a.dia.localeCompare(b.dia)));
@@ -1915,7 +1962,7 @@ app.get('/api/reportes/gastos-por-dia', requireAuth, requireRol(6, 5), async (re
   if (desde) query = query.gte('fecha', desde + 'T00:00:00');
   if (hasta) query = query.lte('fecha', hasta + 'T23:59:59');
   const { data, error } = await query;
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   const map = {};
   (data || []).forEach(m => { const d = m.fecha.slice(0,10); map[d] = (map[d]||0) + Number(m.costo_total); });
   res.json(Object.entries(map).map(([dia,gastos])=>({dia,gastos})).sort((a,b)=>a.dia.localeCompare(b.dia)));
@@ -1933,7 +1980,7 @@ app.get('/api/reportes/productos-mas-vendidos', requireAuth, requireRol(6, 5), a
     if (!ids.length) return res.json([]);
     const { data: detalles, error } = await supabase
       .from('pedido_detalles').select('cantidad, precio_unitario, productos ( nombre )').in('id_pedido', ids);
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) return errorInterno(res, error);
     const map = {};
     (detalles || []).forEach(d => {
       const n = d.productos?.nombre || 'Desconocido';
@@ -1942,7 +1989,7 @@ app.get('/api/reportes/productos-mas-vendidos', requireAuth, requireRol(6, 5), a
       map[n].ingresos      += Number(d.cantidad) * Number(d.precio_unitario);
     });
     res.json(Object.values(map).sort((a,b)=>b.total_vendido-a.total_vendido).slice(0,10));
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { errorInterno(res, e); }
 });
 
 app.get('/api/reportes/stock-movimientos', requireAuth, requireRol(6, 5), async (req, res) => {
@@ -1951,7 +1998,7 @@ app.get('/api/reportes/stock-movimientos', requireAuth, requireRol(6, 5), async 
   if (desde) query = query.gte('fecha', desde + 'T00:00:00');
   if (hasta) query = query.lte('fecha', hasta + 'T23:59:59');
   const { data, error } = await query;
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   const map = {};
   (data || []).forEach(m => {
     const d = m.fecha.slice(0,10);
@@ -1971,7 +2018,7 @@ app.get('/api/barrios', async (req, res) => {
     .from('barrios')
     .select('id, nombre')
     .order('nombre', { ascending: true });
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   res.json(data);
 });
 
@@ -2020,7 +2067,7 @@ app.get('/api/envios', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => 
   }
 
   const { data, error } = await query;
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   res.json(data);
 });
 
@@ -2035,7 +2082,7 @@ app.get('/api/planes', requireAuth, requireRol(6, 5), async (req, res) => {
     .select('id, nombre, codigo_plan, id_categoria')
     .eq('activo', true)
     .order('nombre', { ascending: true });
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   res.json(data || []);
 });
 
@@ -2060,7 +2107,7 @@ app.get('/api/planes/:id/siguiente-codigo', requireAuth, requireRol(6, 5), async
       .select('codigo_plato')
       .eq('id_plan', idPlan);
 
-    if (errProd) return res.status(500).json({ error: errProd.message });
+    if (errProd) return errorInterno(res, errProd);
 
     let maxNum = 0;
     (productos || []).forEach(p => {
@@ -2072,7 +2119,7 @@ app.get('/api/planes/:id/siguiente-codigo', requireAuth, requireRol(6, 5), async
 
     res.json({ codigo: prefix + (maxNum + 1) });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    errorInterno(res, e);
   }
 });
 
@@ -2109,7 +2156,7 @@ app.post('/api/productos/con-receta', requireAuth, requireRol(6, 5), async (req,
       .select('codigo_plato')
       .eq('id_plan', id_plan);
 
-    if (errExist) return res.status(500).json({ error: errExist.message });
+    if (errExist) return errorInterno(res, errExist);
 
     let maxNum = 0;
     (existentes || []).forEach(p => {
@@ -2136,7 +2183,7 @@ app.post('/api/productos/con-receta', requireAuth, requireRol(6, 5), async (req,
       .select()
       .single();
 
-    if (errProducto) return res.status(500).json({ error: errProducto.message });
+    if (errProducto) return errorInterno(res, errProducto);
 
     // Paso 2: insertar la receta (producto_insumo)
     const filas = insumos.map(ins => ({
@@ -2153,12 +2200,12 @@ app.post('/api/productos/con-receta', requireAuth, requireRol(6, 5), async (req,
     if (errReceta) {
       // Rollback manual: borrar el producto recién creado
       await supabase.from('productos').delete().eq('id', producto.id);
-      return res.status(500).json({ error: errReceta.message });
+      return errorInterno(res, errReceta);
     }
 
     res.json({ mensaje: 'Producto y receta creados correctamente', producto });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    errorInterno(res, e);
   }
 });
 
@@ -2173,7 +2220,7 @@ app.get('/api/usuarios', requireAuth, requireRol(6, 5), async (req, res) => {
     .select('id, nombre, apellido, nombre_usuario, email, telefono, id_rol')
     .order('nombre', { ascending: true });
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   res.json(data || []);
 });
 
@@ -2188,7 +2235,7 @@ async function validarAsignacionDeRol(req, idRol) {
   if (!Number.isInteger(idRol)) return { status: 400, error: 'Rol inválido' };
 
   const { data: rol, error } = await supabase.from('roles').select('id').eq('id', idRol).maybeSingle();
-  if (error) return { status: 500, error: error.message };
+  if (error) return { status: 500, error: mensajeInterno(error) };
   if (!rol) return { status: 400, error: 'El rol elegido no existe' };
 
   if (idRol === ROL_SISTEMA && leerToken(req)?.rol !== ROL_SISTEMA) {
@@ -2244,11 +2291,11 @@ app.post('/api/usuarios/crear', requireAuth, requireRol(6, 5), async (req, res) 
       if (error.code === '23505') {
         return res.status(409).json({ error: 'El nombre de usuario ya está en uso. Por favor, elige otro.' });
       }
-      return res.status(500).json({ error: error.message });
+      return errorInterno(res, error);
     }
     res.json({ mensaje: 'Usuario creado correctamente', usuario: data });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    errorInterno(res, e);
   }
 });
 
@@ -2268,7 +2315,7 @@ app.put('/api/usuarios/:id', requireAuth, requireRol(6, 5), async (req, res) => 
 
   // Un Administrador del sistema solo lo puede modificar otro (si no, un rol 5 le podría bajar el rol o cambiarle la clave)
   const { data: actual, error: errActual } = await supabase.from('usuarios').select('id, id_rol').eq('id', id).maybeSingle();
-  if (errActual && errActual.code !== '22P02') return res.status(500).json({ error: errActual.message });
+  if (errActual && errActual.code !== '22P02') return errorInterno(res, errActual);
   if (!actual) return res.status(404).json({ error: 'Usuario no encontrado' });
   if (actual.id_rol === ROL_SISTEMA && leerToken(req)?.rol !== ROL_SISTEMA) {
     return res.status(403).json({ error: MENSAJE_SOLO_SISTEMA });
@@ -2298,11 +2345,11 @@ app.put('/api/usuarios/:id', requireAuth, requireRol(6, 5), async (req, res) => 
       if (error.code === '23505') {
         return res.status(409).json({ error: 'El nombre de usuario ya está en uso. Por favor, elige otro.' });
       }
-      return res.status(500).json({ error: error.message });
+      return errorInterno(res, error);
     }
     res.json({ mensaje: 'Usuario actualizado correctamente', usuario: data });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    errorInterno(res, e);
   }
 });
 
@@ -2312,7 +2359,7 @@ app.delete('/api/usuarios/:id', requireAuth, requireRol(6, 5), async (req, res) 
 
   // A un Administrador del sistema solo lo puede borrar otro Administrador del sistema
   const { data: aBorrar, error: errABorrar } = await supabase.from('usuarios').select('id_rol').eq('id', id).maybeSingle();
-  if (errABorrar && errABorrar.code !== '22P02') return res.status(500).json({ error: errABorrar.message });
+  if (errABorrar && errABorrar.code !== '22P02') return errorInterno(res, errABorrar);
   if (aBorrar?.id_rol === ROL_SISTEMA && req.usuario.rol !== ROL_SISTEMA) {
     return res.status(403).json({ error: 'Solo un Administrador del sistema puede borrar a otro Administrador del sistema.' });
   }
@@ -2322,7 +2369,7 @@ app.delete('/api/usuarios/:id', requireAuth, requireRol(6, 5), async (req, res) 
     .delete()
     .eq('id', id);
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return errorInterno(res, error);
   res.json({ mensaje: 'Usuario eliminado correctamente' });
 });
 
@@ -2350,27 +2397,30 @@ app.get('/', (req, res) => {// Cuando se accede a la raíz, se envía el archivo
 // Body: { email }
 // Genera una clave temporal, la persiste en usuarios.contraseña y la envía por email.
 app.post('/api/recuperar-password', limiteRecuperarPassword, async (req, res) => {
-  const { email } = req.body;
+  // Email normalizado (sin espacios, en minúsculas) y buscado exacto: sin comodines de ilike
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   if (!email) return res.status(400).json({ error: 'El email es requerido' });
+
+  // La respuesta es siempre la misma, exista o no el email, para no revelar qué cuentas hay
+  const RESPUESTA = { mensaje: 'Si el email está registrado, te enviamos una contraseña temporal.' };
 
   // 1. Buscar usuario por email
   const { data: usuario, error: errBusca } = await supabase
     .from('usuarios')
     .select('id, nombre, email')
-    .ilike('email', email.trim())
+    .eq('email', email)
     .limit(1)
     .maybeSingle();
 
-  if (errBusca || !usuario) {
-    return res.status(404).json({ error: 'No encontramos una cuenta con ese email' });
-  }
+  if (errBusca) return errorInterno(res, errBusca);
+  if (!usuario) return res.json(RESPUESTA);
 
-  // 2. Generar contraseña temporal de 8 caracteres alfanuméricos
+  // 2. Generar contraseña temporal de 8 caracteres alfanuméricos con un generador criptográfico
   //    (sin letras/números ambiguos: O, 0, I, l, 1)
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
   let claveTemporal = '';
   for (let i = 0; i < 8; i++) {
-    claveTemporal += chars[Math.floor(Math.random() * chars.length)];
+    claveTemporal += chars[crypto.randomInt(chars.length)];
   }
 
   // 3. Actualizar en Supabase — se guarda el HASH, no el texto plano
@@ -2385,8 +2435,8 @@ app.post('/api/recuperar-password', limiteRecuperarPassword, async (req, res) =>
     .eq('id', usuario.id);
 
   if (errUpdate) {
-    console.error('Error actualizando contraseña:', errUpdate.message);
-    return res.status(500).json({ error: 'No se pudo actualizar la contraseña. Intentá de nuevo.' });
+    console.error('Error actualizando contraseña:', errUpdate);
+    return res.json(RESPUESTA);
   }
 
   // 4. Enviar email con Nodemailer
@@ -2425,16 +2475,33 @@ app.post('/api/recuperar-password', limiteRecuperarPassword, async (req, res) =>
       `,
     });
 
-    res.json({ mensaje: 'Te enviamos una contraseña temporal a tu correo' });
+    res.json(RESPUESTA);
 
   } catch (errMail) {
-    console.error('Error al enviar email:', errMail.message);
-    // La contraseña ya fue actualizada en la BD; informar al admin pero dar respuesta parcial
-    res.status(500).json({ error: 'La contraseña se actualizó pero no pudimos enviar el email. Contactá al administrador.' });
+    // La contraseña ya se actualizó pero el mail no salió: queda en el log del servidor.
+    // Al cliente, la misma respuesta de siempre (una distinta revelaría que el email existe).
+    console.error('Error al enviar email de recuperación:', errMail);
+    res.json(RESPUESTA);
   }
 });
 
-const PORT = 3000;
+/* ======================================================
+   MANEJADOR DE ERRORES (al final de todo)
+   Errores no atrapados en las rutas (y los del parser de JSON): nunca devuelve el stack trace.
+   ====================================================== */
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'El contenido enviado es demasiado grande' });
+  }
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'El contenido enviado no es un JSON válido' });
+  }
+  console.error(`[ERROR] ${req.method} ${req.originalUrl}:`, err);
+  res.status(500).json({ error: MENSAJE_ERROR_INTERNO });
+});
+
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
   console.log(`Accesible en red local via IP:3000`);

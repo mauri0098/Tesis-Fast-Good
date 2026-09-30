@@ -182,10 +182,10 @@ function renderHojaRuta(envios) {
         <div class="tl-dot ${dotClass}">${idx + 1}</div>
         <div class="tl-card${cardClass}">
           <div class="tl-label">Parada ${idx + 1} · Pedido #${num}</div>
-          <div class="tl-nombre">${barrio} — ${p.cliente_nombre || '—'}</div>
+          <div class="tl-nombre">${escHtml(barrio)} — ${escHtml(p.cliente_nombre || '—')}</div>
           <div class="tl-info">
-            <span>📍 ${dir}</span>
-            <span>📞 ${tel}</span>
+            <span>📍 ${escHtml(dir)}</span>
+            <span>📞 ${escHtml(tel)}</span>
           </div>
           ${distHtml}
           <a class="btn-maps" href="${mapsUrl}" target="_blank" rel="noopener noreferrer">
@@ -380,11 +380,11 @@ function buildCard(p) {
   const badgeEstadoClass = `badge-estado-${estadoId}`;
 
   const itemsHtml = (p.pedido_detalles || [])
-    .map(d => `<div class="card-item-linea">${d.cantidad}× ${d.productos?.nombre || '—'}</div>`)
+    .map(d => `<div class="card-item-linea">${d.cantidad}× ${escHtml(d.productos?.nombre || '—')}</div>`)
     .join('');
 
   const obsHtml = p.observaciones
-    ? `<div class="card-obs">💬 ${p.observaciones}</div>`
+    ? `<div class="card-obs">💬 ${escHtml(p.observaciones)}</div>`
     : '';
 
   const fechaHtml = p.fecha_entrega
@@ -406,10 +406,10 @@ function buildCard(p) {
 
       <!-- Cuerpo -->
       <div class="card-body">
-        <div class="card-nombre">${p.cliente_nombre || '—'}</div>
+        <div class="card-nombre">${escHtml(p.cliente_nombre || '—')}</div>
 
-        <div class="card-dato"><span class="icono">📍</span>${p.cliente_direccion || '—'}</div>
-        <div class="card-dato"><span class="icono">📞</span>${p.cliente_telefono || '—'}</div>
+        <div class="card-dato"><span class="icono">📍</span>${escHtml(p.cliente_direccion || '—')}</div>
+        <div class="card-dato"><span class="icono">📞</span>${escHtml(p.cliente_telefono || '—')}</div>
         ${fechaHtml}
 
         <hr class="card-sep" />
@@ -523,22 +523,22 @@ async function cambiarEstado(pedidoId, nuevoEstadoId, selectEl) {
 // ── Vista compacta para impresión ────────────────────────────
 function buildPrintRow(p) {
   const num     = String(p.id).padStart(3, '0');
-  const items   = (p.pedido_detalles || []).map(d => `${d.cantidad}× ${d.productos?.nombre || '—'}`).join(' · ');
+  const items   = (p.pedido_detalles || []).map(d => `${d.cantidad}× ${escHtml(d.productos?.nombre || '—')}`).join(' · ');
   const total   = Number(p.total).toLocaleString('es-AR', { minimumFractionDigits: 0 });
   const pago    = infoMetodoPago(p.metodo_pago).corto;
   const cobro   = infoCobro(p);
   const cobrado = p.pagado ? '✓ COB' : '☐ COB';
   const cobClass = p.pagado ? 'si' : 'no';
   const obsRow  = p.observaciones
-    ? `<div class="pr-obs">⚠️ ${p.observaciones}</div>` : '';
+    ? `<div class="pr-obs">⚠️ ${escHtml(p.observaciones)}</div>` : '';
 
   return `
     <div class="print-row">
       <span class="pr-check">☐</span>
       <span class="pr-num">#${num}</span>
-      <span class="pr-cliente">${p.cliente_nombre || '—'}</span>
-      <span class="pr-dir">📍 ${p.cliente_direccion || '—'}</span>
-      <span class="pr-tel">📞 ${p.cliente_telefono || '—'}</span>
+      <span class="pr-cliente">${escHtml(p.cliente_nombre || '—')}</span>
+      <span class="pr-dir">📍 ${escHtml(p.cliente_direccion || '—')}</span>
+      <span class="pr-tel">📞 ${escHtml(p.cliente_telefono || '—')}</span>
       <span class="pr-total">$${total}</span>
       <span class="pr-pago">
         ${pago}

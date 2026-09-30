@@ -162,13 +162,15 @@ function crearFilaMovimiento(m) {
 
   tr.innerHTML = `
     <td>${fecha}</td>
-    <td><strong>${m.insumos?.nombre || '-'}</strong></td>
+    <td><strong>${escHtml(m.insumos?.nombre || '-')}</strong></td>
     <td><span class="badge ${badgeClass}">${badgeLabel}</span></td>
     <td>${Number(m.cantidad).toLocaleString('es-AR')}</td>
-    <td>${m.unidad || m.insumos?.unidad_medida || '-'}</td>
-    <td style="color:var(--color-muted); font-size:0.83rem;">${m.motivo || '—'}</td>
-    <td><button class="btn-eliminar" onclick="eliminarMovimiento(${m.id}, '${m.insumos?.nombre || ''}', '${m.tipo}')">✕ Eliminar</button></td>
+    <td>${escHtml(m.unidad || m.insumos?.unidad_medida || '-')}</td>
+    <td style="color:var(--color-muted); font-size:0.83rem;">${escHtml(m.motivo || '—')}</td>
+    <td><button class="btn-eliminar">✕ Eliminar</button></td>
   `;
+  // Sin onclick armado con texto: el nombre del insumo no se mete en el HTML
+  tr.querySelector('.btn-eliminar').addEventListener('click', () => eliminarMovimiento(m.id, m.insumos?.nombre || '', m.tipo));
   return tr;
 }
 

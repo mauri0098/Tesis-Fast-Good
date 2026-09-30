@@ -1754,3 +1754,58 @@ En la primera corrida falló una prueba de la prueba: se pidió `/api/v1/product
 - **Rate limit en las pruebas:** `limitePedidos` (5 cada 10 min) y `limiteAnular` cuentan también los intentos rechazados por 401/403, porque van antes que `requireAuth`. En uso normal no afecta.
 - **Envíos:** el repartidor ve todos los estados en el select, pero solo puede guardar Entregado (ver Grupo 5).
 - **Gestión de Stock con rol 1:** ve los botones de alta, edición y baja, pero reciben 403 hasta el paso del PIN (ver Grupo 3).
+
+---
+
+## 🚀 Preparación para producción — cambios de la auditoría de seguridad
+
+**Fecha:** 30/09/2026 · **Rama:** Rodriguez · **Entorno de prueba:** instancia aparte en :3001 (misma base nueva). La base vieja y `submain` no se tocaron. **No se ejecutó ningún SQL.**
+
+### Qué se cambió
+
+| Bloque | Cambio | Archivos |
+|---|---|---|
+| 1.1 | El servidor usa `SUPABASE_SERVICE_ROLE_KEY` (antes la anon key). El frontend no usa Supabase en ningún lado (ni cliente, ni claves, ni llamadas directas): todo va al backend. | `config/supabaseClient.js` |
+| 1.2 | SQL para activar RLS en las 13 tablas, sin políticas para anon, más consultas de verificación (tablas sin RLS, políticas existentes y storage). **No se ejecutó.** | `sql/activar_rls.sql` (nuevo) |
+| 1.3 | `.env.example` con todas las variables comentadas y placeholders (sale `SUPABASE_ANON_KEY`, entran `SUPABASE_SERVICE_ROLE_KEY`, `PORT` y `NODE_ENV`). `.env` sigue en `.gitignore`. | `.env.example` |
+| 2.1 | `escHtml()` centralizada en `escape.js` (reemplaza a `_esc` de cocinero.js y `escHtml` de gestionUsuarios.js; ahora escapa también `'`). Se escapa todo lo que entra con `innerHTML` en Envíos, Cocina, Consultar Pedidos, Movimientos, Stock y el catálogo. En Movimientos, el botón Eliminar usa `addEventListener` en vez de un `onclick` armado con texto. | `frontend/src/js/escape.js` (nuevo), `Envios.js`, `cocinero.js`, `ListarPedidos.js`, `MovimientosStock.js`, `stock.js`, `index.js`, `gestionUsuarios.js` y 7 HTML (cargan `escape.js`) |
+| 2.2 | `POST /api/pedidos`: `metodo_pago` y `tipo_entrega` en lista cerrada; largo máximo de nombre (100), dirección (200), teléfono (30) y observaciones (500); el usuario sale del token o es "Consumidor Final" (se ignora `usuario_id` del body). Cuerpo máximo 100 KB en todas las rutas, salvo la de imágenes (6 MB). | `server.js` |
+| 3.1 | `helmet` 8.3.0 (headers X-Frame-Options, nosniff, HSTS, Referrer-Policy, etc.), **con la CSP desactivada** (la de helmet por defecto rompería los `onclick` y `<script>` inline). | `server.js`, `package.json`, `package-lock.json` |
+| 3.2 | Puerto desde `process.env.PORT` (si no, 3000). `trust proxy` activado solo con `NODE_ENV=production`. | `server.js` |
+| 3.3 | 78 respuestas `500` que devolvían el mensaje de la base pasan a `errorInterno(res, err)`: `{ error: 'Error interno del servidor' }` al cliente y el detalle a la consola. También los 3 helpers que devolvían `error.message` y los mensajes armados del registro y del cambio de estado. Manejador de errores al final: sin stack traces; JSON mal formado → 400 y cuerpo grande → 413, con mensajes genéricos. | `server.js` |
+| 4.1 | `PUT /api/pedidos/:id/estado` rechaza `estado_id: 5` (403): cancelar solo por `/anular` (con PIN). En Consultar Pedidos, el select ya no ofrece "Cancelado" (salvo en los pedidos que ya están cancelados). | `server.js`, `ListarPedidos.js` |
+| 5 | Recuperar contraseña: email normalizado (`trim` + minúsculas) y buscado con `.eq` (sin comodines); clave temporal con `crypto.randomInt`; **siempre la misma respuesta**, exista o no el email. | `server.js` |
+
+### Pruebas
+
+Para probar sin tocar el `.env` (que todavía no tiene la clave service_role), la instancia de prueba cargó `SUPABASE_SERVICE_ROLE_KEY` en memoria con el valor de la anon key. Hasta que se active RLS, las dos se comportan igual. El envío de mails se reemplazó por uno falso que solo anota el destinatario.
+
+| Test (con `NODE_ENV=production`) | Resultado |
+|------|-----------|
+| Headers: X-Frame-Options, nosniff, HSTS y Referrer-Policy presentes; sin X-Powered-By y sin CSP | ✅ 2/2 |
+| `POST /api/pedidos` con método de pago inventado, con HTML o ausente; tipo de entrega inventado; nombre de 101, dirección de 201, teléfono de 31, observaciones de 501; nombre que no es texto → **400** (9 casos) | ✅ |
+| Pedido con los largos justos en el límite → 200 · **`usuario_id` del body se ignora** (sin token → Consumidor Final; con token → el usuario del token) | ✅ 3/3 |
+| Cuerpo de 150 KB → **413** genérico · la ruta de imágenes acepta 1 MB · JSON mal formado → 400 genérico sin stack | ✅ 3/3 |
+| Error de la base → **500 "Error interno del servidor"** sin el mensaje de Postgres · excepción no atrapada → 500 genérico sin stack · el detalle queda en la consola | ✅ 3/3 |
+| **`PUT /estado` con `estado_id: 5` (roles 1, 5 y 6) → 403** y el pedido no se cancela · los demás cambios de estado siguen · anular con PIN sigue funcionando | ✅ 3/3 |
+| Recuperar: email inexistente y existente → **misma respuesta** · email con mayúsculas y espacios → se normaliza y encuentra la cuenta · **comodines (`%`, `_test_2a_%`) → misma respuesta y no se cambia ninguna contraseña** · usa `crypto.randomInt` | ✅ 4/4 |
+| **XSS** con `<img src=x onerror=…>` en nombre, dirección, teléfono, observaciones, método de pago, plato, insumo y motivo: se muestra como texto y **no se ejecuta** en Envíos (tarjeta, hoja de ruta e impresión), Tareas de Cocina, Consultar Pedidos (grilla y Detalles), Movimientos, Gestión de Stock y el catálogo público | ✅ 8/8 |
+| Consultar Pedidos: el select no ofrece "Cancelado"; un pedido ya cancelado lo sigue mostrando · Movimientos: el botón Eliminar (addEventListener) funciona | ✅ 3/3 |
+| **Total** | ✅ **29/29** |
+
+**Regresión (modo desarrollo):** Grupo 1 19/19 · 6/6 · Grupo 2 18/18 · 2/2 · Grupo 3 18/18 · Grupo 4 24/24 · Grupo 5 22/22 · Grupo 6 18/18 · recorrido de pantallas con los 6 roles 26/26 · `apiFetch` 2/2 · Consultar Pedidos 10/10 · `tests/test_e2e.js` 37/37. Sin datos de prueba en la base al terminar.
+
+### Antes de publicar
+
+1. Agregar `SUPABASE_SERVICE_ROLE_KEY` al `.env` (y a las variables del hosting) y reiniciar. **Sin esa variable el servidor no arranca.**
+2. Recién después, ejecutar `sql/activar_rls.sql` en la base nueva y revisar sus consultas de verificación.
+3. **CORS:** `origenesPermitidos` (`server.js`) solo acepta `localhost:3000`. En el hosting, el navegador manda el `Origin` del dominio real en los POST, PUT y DELETE, y el servidor los rechazaría. Hay que agregar el dominio (por ejemplo, desde una variable de entorno). No se cambió porque no estaba en la lista.
+4. En el hosting: `NODE_ENV=production` (activa `trust proxy`) y HTTPS.
+
+### Pendientes (no estaban en la lista)
+
+- `scripts/migrarPasswords.js` sigue usando `SUPABASE_ANON_KEY`: con RLS activado dejaría de funcionar.
+- Las funciones de stock (`calcularConsumoPedido` y `descontarStockPedido`) devuelven mensajes de la base dentro de respuestas 409. No se tocaron porque el descuento de stock quedó fuera de este cambio.
+- 3 usuarios tienen el email guardado con mayúsculas o espacios: con la búsqueda exacta en minúsculas no van a poder recuperar la contraseña hasta normalizarlos.
+- Como ahora el usuario del pedido sale del token, y el formulario web no lo manda, los pedidos de clientes logueados quedan como "Consumidor Final".
+- `npm audit` informa 3 avisos (body-parser, nodemailer, qs). No se aplicó `npm audit fix`.

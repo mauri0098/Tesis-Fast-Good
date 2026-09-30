@@ -105,7 +105,7 @@ function crearFilaPedido(pedido) {
   }
   const pagoHtml = `
     <div class="pago-info">
-      <span class="metodo-tag">${metodo}</span>
+      <span class="metodo-tag">${escHtml(metodo)}</span>
       ${detallePago}
       <span class="${isPaid ? 'status-paid' : 'status-pending'}">
         ${isPaid ? 'PAGADO' : 'PENDIENTE'}
@@ -151,6 +151,8 @@ function crearFilaPedido(pedido) {
   selectEstado.dataset.estadoActual = estadoActualId;
 
   estadoOptions.forEach(op => {
+    // Cancelar solo se hace con "Anular" (pide el PIN). La opción queda solo en los pedidos ya cancelados.
+    if (op.id === ESTADO_CANCELADO && op.id !== estadoActualId) return;
     const option = document.createElement('option');
     option.value = op.id;
     option.textContent = op.nombre;
@@ -343,7 +345,7 @@ function abrirModalDetalles(pedidoId) {
       const precio = d.precio_unitario != null ? formatPrecio(d.precio_unitario) : '-';
       tr.innerHTML = `
         <td class="col-cant">${d.cantidad}</td>
-        <td>${d.productos?.nombre || 'Producto'}</td>
+        <td>${escHtml(d.productos?.nombre || 'Producto')}</td>
         <td class="col-precio">${precio}</td>
       `;
       tbody.appendChild(tr);

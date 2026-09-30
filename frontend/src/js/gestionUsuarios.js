@@ -352,13 +352,4 @@ async function eliminarUsuario(id, nombre, apellido) {
   }
 }
 
-// ==========================================
-// UTILIDAD: escape básico de HTML
-// ==========================================
-function escHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+// escHtml(): en escape.js (compartido)

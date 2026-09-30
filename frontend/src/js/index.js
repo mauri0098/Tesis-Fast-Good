@@ -64,12 +64,12 @@
         return `
             <article class="plato-card" data-id="${p.id}" style="animation-delay:${delay}ms">
                 <div class="plato-card__img">
-                    <img src="${img}" alt="${p.nombre}" loading="lazy"
+                    <img src="${escHtml(img)}" alt="${escHtml(p.nombre)}" loading="lazy"
                          onerror="this.src='${IMG_DEFAULT}'" />
                 </div>
                 <div class="plato-card__body">
-                    <h3 class="plato-card__nombre">${p.nombre}</h3>
-                    <p  class="plato-card__desc">${p.descripcion || ''}</p>
+                    <h3 class="plato-card__nombre">${escHtml(p.nombre)}</h3>
+                    <p  class="plato-card__desc">${escHtml(p.descripcion || '')}</p>
                     ${renderPrecio(p.precio, p.descuento)}
                 </div>
                 <div class="plato-card__footer">
