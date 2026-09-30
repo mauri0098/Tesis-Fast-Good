@@ -6,6 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Iniciar Sesión - Fast Good</title>
 
+  <!-- Evita el flash de contenido sin estilos (FOUC): el body se muestra cuando la página terminó de cargar -->
+  <style>
+    body { visibility: hidden; opacity: 0; transition: opacity 0.15s ease-in; }
+    body.cargada { visibility: visible; opacity: 1; }
+  </style>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/webp" href="./src/assets/img/logo.webp">
 
@@ -213,6 +218,11 @@
       }
     }
   </script>
+<script>
+  // Muestra el body apenas están el HTML y el CSS; a los 2 s se muestra igual, como respaldo
+  document.addEventListener('DOMContentLoaded', () => document.body.classList.add('cargada'));
+  setTimeout(() => document.body.classList.add('cargada'), 2000);
+</script>
 </body>
 
 </html>
