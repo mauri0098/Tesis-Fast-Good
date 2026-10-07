@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fast Good — Heladera</title>
+  <!-- Evita el flash de contenido sin estilos (FOUC): el body se muestra cuando la página terminó de cargar -->
+  <style>
+    body { visibility: hidden; opacity: 0; transition: opacity 0.15s ease-in; }
+    body.cargada { visibility: visible; opacity: 1; }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/global.css">
+  <link rel="stylesheet" href="../src/css/stock.css">
+  <link rel="stylesheet" href="../src/css/heladera.css">
+</head>
+
+<body>
+<script src="../src/js/roles.js"></script>
+<script src="../src/js/guard.js"></script>
+<script src="../src/js/api.js"></script>
+<script src="../src/js/escape.js"></script>
+<script src="../src/js/adminSidebar.js"></script>
+
+<div class="admin-content">
+
+  <header>
+    <div class="container-centrado">
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <img src="../src/assets/img/logo.webp" alt="Fast Good" style="height:40px; border-radius:4px;" onerror="this.style.display='none'">
+        <h1>Heladera</h1>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-container">
+    <!-- Dos columnas en escritorio: platos (ancha) y movimientos (angosta). En celular, una debajo de la otra -->
+    <div class="heladera-layout">
+
+      <!-- VIANDAS EN HELADERA -->
+      <section class="table-wrapper">
+
+        <div class="tabla-header">
+          <div class="filtros-container">
+            <input type="text" id="filtroNombre" class="filtro-input" placeholder="Buscar plato...">
+          </div>
+          <div class="acciones-header">
+            <button class="btn-secundario" onclick="abrirModalTanda()">+ Cargar un plato</button>
+            <button class="btn-nuevo-insumo" onclick="abrirModalCombo()">+ Cargar combo</button>
+          </div>
+        </div>
+
+        <table class="standard-table">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Plato</th>
+              <th>Plan</th>
+              <th>En heladera</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="heladeraBody">
+            <tr>
+              <td colspan="5" class="loading-text">Cargando datos...</td>
+            </tr>
+          </tbody>
+        </table>
+        <div id="paginacion" class="paginacion"></div>
+
+      </section>
+
+      <!-- ÚLTIMOS MOVIMIENTOS (lista compacta con scroll propio) -->
+      <aside class="table-wrapper panel-movimientos">
+        <h2 class="titulo-seccion">Últimos movimientos</h2>
+        <ul id="listaMovimientos" class="lista-movimientos">
+          <li class="mov-vacio">Cargando...</li>
+        </ul>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 Fast Good - Panel de Administración</p>
+  </footer>
+
+  <!-- MODAL: Cargar combo (un plan entero, repartido entre sus platos) -->
+  <div id="modalCombo" class="modal">
+    <div class="modal-content modal-stock modal-combo">
+      <span class="close" onclick="cerrarModalCombo()">&times;</span>
+      <h3>Cargar combo</h3>
+
+      <div class="modal-grid">
+        <label>Plan *</label>
+        <select id="cPlan">
+          <option value="">Seleccione...</option>
+        </select>
+
+        <label>Cantidad de viandas *</label>
+        <div class="cantidad-combo">
+          <input id="cCantidad" type="number" min="1" step="1" placeholder="Ej: 20">
+          <button type="button" class="btn-rapido" onclick="elegirCantidadRapida(10)">10</button>
+          <button type="button" class="btn-rapido" onclick="elegirCantidadRapida(20)">20</button>
+          <button type="button" class="btn-rapido" onclick="elegirCantidadRapida(30)">30</button>
+        </div>
+
+        <label>Motivo</label>
+        <input id="cMotivo" type="text" maxlength="200" placeholder="Opcional">
+      </div>
+
+      <!-- Platos del plan con la cantidad que le tocó a cada uno (editable) -->
+      <div id="cPlatos" class="lista-platos-combo"></div>
+      <div id="cContador" class="contador-reparto"></div>
+
+      <button id="cCalcular" class="btn-editar btn-calcular" onclick="calcularCombo()" disabled>Calcular insumos</button>
+
+      <div id="cCalculo" class="calculo-tanda"></div>
+
+      <div id="cError" class="modal-error"></div>
+
+      <div class="modal-actions">
+        <button class="btn-cancelar" onclick="cerrarModalCombo()">Cancelar</button>
+        <button id="cConfirmar" class="btn-confirmar" onclick="confirmarCombo()" disabled>Confirmar combo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Cargar un plato -->
+  <div id="modalTanda" class="modal">
+    <div class="modal-content modal-stock">
+      <span class="close" onclick="cerrarModalTanda()">&times;</span>
+      <h3>Cargar un plato</h3>
+
+      <div class="modal-grid">
+        <label>Plato *</label>
+        <select id="tPlato">
+          <option value="">Seleccione...</option>
+        </select>
+
+        <label>Cantidad *</label>
+        <input id="tCantidad" type="number" min="1" step="1" placeholder="Ej: 20">
+
+        <label>Motivo</label>
+        <input id="tMotivo" type="text" maxlength="200" placeholder="Opcional">
+      </div>
+
+      <button class="btn-editar btn-calcular" onclick="calcularTanda()">Calcular insumos</button>
+
+      <div id="tCalculo" class="calculo-tanda"></div>
+
+      <div id="tError" class="modal-error"></div>
+
+      <div class="modal-actions">
+        <button class="btn-cancelar" onclick="cerrarModalTanda()">Cancelar</button>
+        <button id="tConfirmar" class="btn-confirmar" onclick="confirmarTanda()" disabled>Confirmar tanda</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Descartar viandas -->
+  <div id="modalDescarte" class="modal">
+    <div class="modal-content modal-stock">
+      <span class="close" onclick="cerrarModalDescarte()">&times;</span>
+      <h3>Descartar viandas</h3>
+      <p id="dInfo"></p>
+
+      <div class="modal-grid">
+        <label>Cantidad *</label>
+        <input id="dCantidad" type="number" min="1" step="1" placeholder="Ej: 2">
+
+        <label>Motivo *</label>
+        <input id="dMotivo" type="text" maxlength="200" placeholder="Ej: Vencidas">
+      </div>
+
+      <div id="dError" class="modal-error"></div>
+
+      <div class="modal-actions">
+        <button class="btn-cancelar" onclick="cerrarModalDescarte()">Cancelar</button>
+        <button id="dConfirmar" class="btn-confirmar" onclick="confirmarDescarte()">Confirmar descarte</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../src/js/paginacion.js"></script>
+  <script src="../src/js/fechas.js"></script>
+  <script src="../src/js/heladera.js"></script>
+
+</div> <!-- /.admin-content -->
+<script>
+  // Muestra el body apenas están el HTML y el CSS; a los 2 s se muestra igual, como respaldo
+  document.addEventListener('DOMContentLoaded', () => document.body.classList.add('cargada'));
+  setTimeout(() => document.body.classList.add('cargada'), 2000);
+</script>
+</body>
+
+</html>

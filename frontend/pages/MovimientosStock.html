@@ -88,10 +88,113 @@
     .badge-compra   { background: #d4edda; color: #155724; }   /* verde  — entrada */
     .badge-venta    { background: #cce5ff; color: #004085; }   /* azul   — salida por venta */
     .badge-descarte { background: #fdecea; color: #b71c1c; }   /* rojo   — salida por descarte/merma */
+    .badge-combo      { background: #ede7f6; color: #4527a0; } /* violeta — salida por carga de combo en heladera */
+    .badge-produccion { background: #fff3e0; color: #e65100; } /* naranja — salida por carga de un plato en heladera */
 
     /* Filas por concepto de negocio */
     tbody tr.fila-venta    { border-left: 4px solid #1565c0; }
     tbody tr.fila-descarte { border-left: 4px solid #e53935; }
+    tbody tr.fila-combo      { border-left: 4px solid #6a1b9a; }
+    tbody tr.fila-produccion { border-left: 4px solid #ef6c00; }
+
+    /* Renglón agrupado (combo o plato suelto de la heladera) y su detalle desplegable */
+    .flecha-grupo {
+      display: inline-block;
+      width: 0.9rem;
+      color: var(--color-muted);
+      transition: transform 0.2s ease;
+    }
+    .flecha-grupo.abierta { transform: rotate(90deg); }
+    .btn-detalles {
+      padding: 0.25rem 0.75rem;
+      background: transparent;
+      color: #28a745;
+      border: 1px solid #28a745;
+      border-radius: 50px;
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-detalles:hover,
+    .btn-detalles[aria-expanded="true"] { background: #28a745; color: #fff; }
+    /* Fondo gris muy claro que ocupa todo el ancho de la tabla */
+    tbody tr.fila-detalle-grupo td { background: #f6f7f9; padding: 1rem 1.25rem 0.9rem; }
+    tbody tr.fila-detalle-grupo:hover td { background: #f6f7f9; }
+
+    /* Color de detalle: violeta para combo, naranja para producción */
+    .detalle-combo      { --color-detalle: #6a1b9a; --fondo-detalle: #f3effa; --texto-detalle: #4527a0; }
+    .detalle-produccion { --color-detalle: #ef6c00; --fondo-detalle: #fff3e0; --texto-detalle: #e65100; }
+
+    /* Tarjetas de platos en hilera: si no entran, bajan a la línea siguiente */
+    .tarjetas-platos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.9rem;
+    }
+    .tarjeta-plato {
+      flex: 1 1 240px;
+      max-width: 380px;
+      background: #fff;
+      border: 1px solid #e3e6ea;
+      border-left: 3px solid var(--color-detalle);
+      border-radius: 8px;
+      padding: 0.75rem 0.9rem 0.6rem;
+    }
+    .tarjeta-plato-titulo {
+      margin-bottom: 0.45rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid #f0f1f3;
+      font-size: 0.88rem;
+    }
+    .tarjeta-plato-viandas { color: var(--color-muted); font-size: 0.8rem; }
+    .tarjeta-plato-insumos { list-style: none; margin: 0; padding: 0; }
+    .tarjeta-plato-insumos li {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.18rem 0.3rem;
+      font-size: 0.82rem;
+    }
+    /* Cantidades a la derecha, con números del mismo ancho para que queden alineadas */
+    .cantidad-insumo { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+    /* Insumo buscado con el filtro: resaltado en amarillo */
+    .tarjeta-plato-insumos li.insumo-resaltado { background: #fff3cd; font-weight: 600; border-radius: 4px; }
+
+    /* Franja "Total del combo" con etiquetas */
+    .total-combo {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem 0.8rem;
+      margin-top: 0.9rem;
+      padding: 0.6rem 0.9rem;
+      background: #fff;
+      border: 1px solid #e3e6ea;
+      border-radius: 8px;
+    }
+    .total-combo-titulo { font-size: 0.82rem; font-weight: 600; color: var(--texto-detalle); }
+    .total-combo-etiquetas { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .etiqueta-insumo {
+      padding: 0.2rem 0.65rem;
+      background: var(--fondo-detalle);
+      color: var(--texto-detalle);
+      border-radius: 50px;
+      font-size: 0.78rem;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    .etiqueta-insumo.insumo-resaltado { background: #fff3cd; color: #856404; font-weight: 600; }
+
+    /* Pie: quién cargó y cuándo */
+    .pie-detalle { margin-top: 0.7rem; font-size: 0.75rem; color: var(--color-muted); }
+
+    /* En celular, una tarjeta debajo de la otra */
+    @media (max-width: 600px) {
+      .tarjeta-plato { flex-basis: 100%; max-width: none; }
+    }
 
     .empty-row td { text-align: center; padding: 3rem; color: var(--color-muted); }
 
@@ -235,6 +338,11 @@
         <option value="">Todos los movimientos</option>
         <option value="entrada">Solo entradas</option>
         <option value="salida">Solo salidas</option>
+        <option value="compra">Compra</option>
+        <option value="venta">Venta</option>
+        <option value="descarte">Descarte</option>
+        <option value="combo">Combo</option>
+        <option value="produccion">Producción</option>
       </select>
       <input type="date" id="filtroDesde" onchange="aplicarFiltros()" title="Desde" />
       <input type="date" id="filtroHasta" onchange="aplicarFiltros()" title="Hasta" />

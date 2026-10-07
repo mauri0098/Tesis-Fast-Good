@@ -1775,8 +1775,9 @@ app.get('/api/movimientos-stock', requireAuth, requireRol(6, 5, 1), async (req, 
   const { data, error } = await supabase
     .from('movimientos_stock')
     .select(`
-      id, tipo, cantidad, unidad, motivo, fecha,
-      insumos ( id, nombre, unidad_medida )
+      id, tipo, cantidad, unidad, motivo, fecha, id_movimiento_vianda,
+      insumos ( id, nombre, unidad_medida ),
+      movimientos_viandas ( id_lote, cantidad, productos ( nombre, planes ( nombre ) ), usuarios ( nombre, apellido ) )
     `)
     .order('fecha', { ascending: false });
 
@@ -1884,11 +1885,17 @@ app.delete('/api/movimientos-stock/:id', requireAuth, requireRol(6, 5, 1), async
   try {
     const { data: mov, error: errMov } = await supabase
       .from('movimientos_stock')
-      .select('id, id_insumo, tipo, cantidad, unidad')
+      .select('id, id_insumo, tipo, cantidad, unidad, id_movimiento_vianda')
       .eq('id', id)
       .single();
 
     if (errMov || !mov) return res.status(404).json({ error: 'Movimiento no encontrado' });
+
+    // Las salidas de una tanda de viandas no se borran sueltas: el insumo volvería
+    // al stock pero las viandas seguirían en la heladera
+    if (mov.id_movimiento_vianda) {
+      return res.status(409).json({ error: 'Esta salida pertenece a una tanda de viandas y no se puede borrar desde acá' });
+    }
 
     const { data: insumo, error: errInsumo } = await supabase
       .from('insumos')
@@ -1928,6 +1935,407 @@ app.delete('/api/movimientos-stock/:id', requireAuth, requireRol(6, 5, 1), async
   } catch (e) {
     errorInterno(res, e);
   }
+});
+
+/* ======================================================
+   API STOCK DE VIANDAS (HELADERA)
+   Viandas ya cocinadas guardadas en heladera (productos.stock_heladera).
+   La tanda y el descarte se hacen en funciones de la base
+   (sql/stock_viandas_funciones.sql) para que todo quede en una sola transacción.
+   ====================================================== */
+
+const ROLES_HELADERA = [6, 5, 1, 2]; // administradores, dueño y cocinero
+const LARGO_MAXIMO_MOTIVO_VIANDA = 200;
+const ENTERO_MAXIMO_BASE = 2147483647; // tope de una columna integer de Postgres
+
+const MAXIMO_PLATOS_COMBO = 100;
+
+// Cantidad de viandas: entero mayor a 0 (o mayor o igual a 0 si permitirCero).
+// Devuelve el número, o null si no es válida.
+function leerCantidadViandas(valor, permitirCero) {
+  if (typeof valor !== 'number' && typeof valor !== 'string') return null;
+  if (String(valor).trim() === '') return null;
+  const cantidad = Number(valor);
+  let minimo = 1;
+  if (permitirCero) minimo = 0;
+  if (!Number.isInteger(cantidad) || cantidad < minimo || cantidad > ENTERO_MAXIMO_BASE) return null;
+  return cantidad;
+}
+
+// Lista de platos de un combo: [{ id_producto, cantidad }], con cantidad entera >= 0 y al menos una > 0.
+// Suma los platos repetidos y saca los que quedan en 0.
+// Devuelve { items } (ordenados por id_producto) o { error }.
+function leerItemsViandas(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return { error: 'La lista de platos está vacía' };
+  }
+  if (items.length > MAXIMO_PLATOS_COMBO) {
+    return { error: `Un combo admite hasta ${MAXIMO_PLATOS_COMBO} platos` };
+  }
+
+  const cantidadPorPlato = {};
+  for (const item of items) {
+    if (!item || typeof item !== 'object') {
+      return { error: 'La lista de platos es inválida' };
+    }
+    const idProducto = Number(item.id_producto);
+    if (!Number.isInteger(idProducto) || idProducto <= 0) {
+      return { error: 'Hay un plato con un identificador inválido' };
+    }
+    const cantidad = leerCantidadViandas(item.cantidad, true);
+    if (cantidad === null) {
+      return { error: 'Cada cantidad tiene que ser un número entero mayor o igual a 0' };
+    }
+    cantidadPorPlato[idProducto] = (cantidadPorPlato[idProducto] || 0) + cantidad;
+    if (cantidadPorPlato[idProducto] > ENTERO_MAXIMO_BASE) {
+      return { error: 'La cantidad de un plato es demasiado grande' };
+    }
+  }
+
+  const limpios = Object.entries(cantidadPorPlato)
+    .map(([id, cantidad]) => ({ id_producto: Number(id), cantidad }))
+    .filter(i => i.cantidad > 0)
+    .sort((a, b) => a.id_producto - b.id_producto);
+
+  if (limpios.length === 0) {
+    return { error: 'Cargá al menos un plato con cantidad mayor a 0' };
+  }
+  return { items: limpios };
+}
+
+// Insumos que gastaría cargar estos platos (receta × cantidad, sumado entre todos) y si alcanzan.
+// Solo lee. Misma regla que calcularConsumoPedido y que las funciones de la base: SIN convertir unidades.
+// items: [{ id_producto, cantidad }] con cantidad > 0 (ya validados).
+// Devuelve { errorBase } si falla la consulta, o { alcanza, insumos, error? }: error explica por qué
+// no se puede cargar (plato inexistente, inactivo o sin receta) aunque los insumos alcancen.
+async function calcularInsumosTanda(items) {
+  const ids = items.map(i => i.id_producto);
+  const cantidadPorPlato = {};
+  items.forEach(i => { cantidadPorPlato[i.id_producto] = i.cantidad; });
+
+  // 1. Platos (para saber si existen y están activos) y sus recetas con el stock de cada insumo
+  const [consultaPlatos, consultaReceta] = await Promise.all([
+    supabase.from('productos').select('id, nombre, activo').in('id', ids),
+    supabase
+      .from('producto_insumo')
+      .select('id_producto, id_insumo, cantidad_necesaria, insumos ( nombre, stock_actual, unidad_medida )')
+      .in('id_producto', ids)
+  ]);
+  if (consultaPlatos.error) return { errorBase: consultaPlatos.error };
+  if (consultaReceta.error) return { errorBase: consultaReceta.error };
+
+  const receta = consultaReceta.data || [];
+
+  // 2. Problemas que impiden la carga: plato inexistente, inactivo o sin receta
+  const platoPorId = {};
+  (consultaPlatos.data || []).forEach(p => { platoPorId[p.id] = p; });
+  const conReceta = new Set(receta.map(r => Number(r.id_producto)));
+
+  const problemas = [];
+  const sinReceta = [];
+  for (const id of ids) {
+    const plato = platoPorId[id];
+    if (!plato) {
+      problemas.push(`El plato ${id} no existe`);
+    } else if (!plato.activo) {
+      problemas.push(`El plato "${plato.nombre}" no está activo`);
+    } else if (!conReceta.has(id)) {
+      sinReceta.push(`"${plato.nombre}"`);
+    }
+  }
+  if (sinReceta.length === 1) {
+    problemas.push(`El plato ${sinReceta[0]} no tiene receta cargada`);
+  } else if (sinReceta.length > 1) {
+    problemas.push(`Estos platos no tienen receta cargada: ${sinReceta.join(', ')}`);
+  }
+
+  // 3. Consumo total por insumo (si dos platos comparten un insumo, se suma)
+  const porInsumo = {};
+  for (const fila of receta) {
+    const id = Number(fila.id_insumo);
+    if (!porInsumo[id]) {
+      let nombre = String(id);
+      let disponible = 0;
+      let unidad = null;
+      if (fila.insumos) {
+        nombre     = fila.insumos.nombre || nombre;
+        disponible = Number(fila.insumos.stock_actual ?? 0);
+        unidad     = fila.insumos.unidad_medida || null;
+      }
+      porInsumo[id] = { id_insumo: id, nombre, unidad_medida: unidad, necesario: 0, disponible };
+    }
+    porInsumo[id].necesario += Number(fila.cantidad_necesaria || 0) * cantidadPorPlato[Number(fila.id_producto)];
+  }
+
+  // 4. ¿Alcanza cada uno?
+  const insumos = Object.values(porInsumo)
+    .sort((a, b) => a.id_insumo - b.id_insumo)
+    .map(i => ({ ...i, alcanza: i.disponible >= i.necesario }));
+
+  const resultado = { alcanza: problemas.length === 0 && insumos.every(i => i.alcanza), insumos };
+  if (problemas.length > 0) resultado.error = problemas.join('. ');
+  return resultado;
+}
+
+// Motivo: texto opcional de hasta 200 caracteres. Devuelve { motivo } o { error }.
+function leerMotivoVianda(valor, obligatorio) {
+  if (valor == null || (typeof valor === 'string' && valor.trim() === '')) {
+    if (obligatorio) return { error: 'El motivo es obligatorio' };
+    return { motivo: null };
+  }
+  if (typeof valor !== 'string' || valor.length > LARGO_MAXIMO_MOTIVO_VIANDA) {
+    return { error: `El motivo admite hasta ${LARGO_MAXIMO_MOTIVO_VIANDA} caracteres` };
+  }
+  return { motivo: valor.trim() };
+}
+
+// GET /api/viandas-stock → platos activos con las viandas que hay en heladera, su plan y si tienen receta.
+// La pantalla arma el select de planes del combo con estos datos (plan_activo), así el cocinero
+// no necesita permiso sobre /api/planes.
+app.get('/api/viandas-stock', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
+  const { data, error } = await supabase
+    .from('productos')
+    .select('id, nombre, codigo_plato, stock_heladera, id_plan, planes ( nombre, activo ), producto_insumo ( id_insumo )')
+    .eq('activo', true)
+    .order('nombre', { ascending: true });
+
+  if (error) return errorInterno(res, error);
+
+  const resultado = (data || []).map(p => {
+    let planNombre = null;
+    let planActivo = false;
+    if (p.planes) {
+      planNombre = p.planes.nombre;
+      planActivo = Boolean(p.planes.activo);
+    }
+    return {
+      id:             p.id,
+      nombre:         p.nombre,
+      codigo_plato:   p.codigo_plato,
+      stock_heladera: Number(p.stock_heladera || 0),
+      id_plan:        p.id_plan,
+      plan_nombre:    planNombre,
+      plan_activo:    planActivo,
+      tiene_receta:   Array.isArray(p.producto_insumo) && p.producto_insumo.length > 0
+    };
+  });
+
+  res.json(resultado);
+});
+
+// GET /api/viandas-stock/:idProducto/calculo?cantidad=N → qué insumos gastaría una tanda y si alcanzan.
+// Solo lee, no guarda nada. Es una vista previa: la verificación que vale es la de
+// registrar_tanda_viandas al confirmar (el stock puede cambiar en el medio).
+// Misma regla que calcularConsumoPedido: cantidad_necesaria × N, SIN convertir unidades.
+app.get('/api/viandas-stock/:idProducto/calculo', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
+  const idProducto = Number(req.params.idProducto);
+  if (!Number.isInteger(idProducto)) {
+    return res.status(400).json({ error: 'ID de plato inválido' });
+  }
+  const cantidad = leerCantidadViandas(req.query.cantidad);
+  if (cantidad === null) {
+    return res.status(400).json({ error: 'La cantidad tiene que ser un número entero mayor a 0' });
+  }
+
+  try {
+    // Mismo cálculo que el combo, con un solo plato
+    const calculo = await calcularInsumosTanda([{ id_producto: idProducto, cantidad }]);
+    if (calculo.errorBase) return errorInterno(res, calculo.errorBase);
+    res.json(calculo);
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// POST /api/viandas-stock/calculo-multiple → insumos que gastaría un combo, sumados entre todos los platos.
+// Body: { items: [{ id_producto, cantidad }] }. Solo lee, no guarda nada. Es una vista previa:
+// la verificación que vale es la de registrar_tanda_multiple al confirmar.
+app.post('/api/viandas-stock/calculo-multiple', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
+  const lectura = leerItemsViandas(req.body.items);
+  if (lectura.error) return res.status(400).json({ error: lectura.error });
+
+  try {
+    const calculo = await calcularInsumosTanda(lectura.items);
+    if (calculo.errorBase) return errorInterno(res, calculo.errorBase);
+    res.json(calculo);
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// POST /api/viandas-stock/tanda-multiple → registra un combo entero (registrar_tanda_multiple).
+// Body: { items: [{ id_producto, cantidad }], motivo? }. Todo o nada. El usuario sale del token.
+app.post('/api/viandas-stock/tanda-multiple', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
+  const lectura = leerItemsViandas(req.body.items);
+  if (lectura.error) return res.status(400).json({ error: lectura.error });
+  const lecturaMotivo = leerMotivoVianda(req.body.motivo, false);
+  if (lecturaMotivo.error) return res.status(400).json({ error: lecturaMotivo.error });
+
+  try {
+    const { data, error } = await supabase.rpc('registrar_tanda_multiple', {
+      p_items:      lectura.items,
+      p_id_usuario: req.usuario.id,
+      p_motivo:     lecturaMotivo.motivo
+    });
+
+    if (error) return errorInterno(res, error);
+
+    // ok: false = no se cargó ningún plato. Se devuelve cuál falló y qué le falta.
+    if (!data || !data.ok) {
+      let mensaje = 'No se pudo registrar el combo';
+      let plato = null;
+      let faltantes = [];
+      if (data && data.error) mensaje = data.error;
+      if (data && data.plato) plato = data.plato;
+      if (data && data.faltantes) faltantes = data.faltantes;
+      return res.status(409).json({ error: mensaje, plato, faltantes });
+    }
+
+    res.json({ mensaje: 'Combo registrado', total: data.total, items: data.items });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// POST /api/viandas-stock/tanda → registra una tanda cocinada (registrar_tanda_viandas).
+// Body: { id_producto, cantidad, motivo? }. El usuario sale del token, nunca del body.
+app.post('/api/viandas-stock/tanda', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
+  const idProducto = Number(req.body.id_producto);
+  if (!Number.isInteger(idProducto)) {
+    return res.status(400).json({ error: 'ID de plato inválido' });
+  }
+  const cantidad = leerCantidadViandas(req.body.cantidad);
+  if (cantidad === null) {
+    return res.status(400).json({ error: 'La cantidad tiene que ser un número entero mayor a 0' });
+  }
+  const lecturaMotivo = leerMotivoVianda(req.body.motivo, false);
+  if (lecturaMotivo.error) return res.status(400).json({ error: lecturaMotivo.error });
+
+  try {
+    const { data, error } = await supabase.rpc('registrar_tanda_viandas', {
+      p_id_producto: idProducto,
+      p_cantidad:    cantidad,
+      p_id_usuario:  req.usuario.id,
+      p_motivo:      lecturaMotivo.motivo
+    });
+
+    if (error) return errorInterno(res, error);
+
+    // ok: false = no se hizo nada (falta algún insumo, plato sin receta, etc.)
+    if (!data || !data.ok) {
+      let mensaje = 'No se pudo registrar la tanda';
+      let faltantes = [];
+      if (data && data.error) mensaje = data.error;
+      if (data && data.faltantes) faltantes = data.faltantes;
+      return res.status(409).json({ error: mensaje, faltantes });
+    }
+
+    res.json({ mensaje: 'Tanda registrada', id_movimiento: data.id_movimiento, stock_heladera: data.stock_heladera });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// POST /api/viandas-stock/descarte → descarta viandas de la heladera (registrar_descarte_vianda).
+// Body: { id_producto, cantidad, motivo }. No toca insumos. El usuario sale del token.
+app.post('/api/viandas-stock/descarte', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
+  const idProducto = Number(req.body.id_producto);
+  if (!Number.isInteger(idProducto)) {
+    return res.status(400).json({ error: 'ID de plato inválido' });
+  }
+  const cantidad = leerCantidadViandas(req.body.cantidad);
+  if (cantidad === null) {
+    return res.status(400).json({ error: 'La cantidad tiene que ser un número entero mayor a 0' });
+  }
+  const lecturaMotivo = leerMotivoVianda(req.body.motivo, true);
+  if (lecturaMotivo.error) return res.status(400).json({ error: lecturaMotivo.error });
+
+  try {
+    const { data, error } = await supabase.rpc('registrar_descarte_vianda', {
+      p_id_producto: idProducto,
+      p_cantidad:    cantidad,
+      p_id_usuario:  req.usuario.id,
+      p_motivo:      lecturaMotivo.motivo
+    });
+
+    if (error) return errorInterno(res, error);
+
+    if (!data || !data.ok) {
+      let mensaje = 'No se pudo registrar el descarte';
+      if (data && data.error) mensaje = data.error;
+      return res.status(409).json({ error: mensaje });
+    }
+
+    res.json({ mensaje: 'Descarte registrado', id_movimiento: data.id_movimiento, stock_heladera: data.stock_heladera });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// GET /api/movimientos-viandas → últimos 50 movimientos de la heladera, del más nuevo al más viejo.
+// Si un combo (id_lote) quedó cortado en el límite de 50, se completa con sus movimientos
+// que faltaban, para que la pantalla muestre el total del combo entero.
+const COLUMNAS_MOVIMIENTOS_VIANDAS =
+  'id, tipo, cantidad, motivo, fecha, id_lote, productos ( nombre, planes ( nombre ) ), usuarios ( nombre, apellido )';
+
+app.get('/api/movimientos-viandas', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
+  const { data, error } = await supabase
+    .from('movimientos_viandas')
+    .select(COLUMNAS_MOVIMIENTOS_VIANDAS)
+    .order('fecha', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(50);
+
+  if (error) return errorInterno(res, error);
+
+  let filas = data || [];
+
+  // Completar los combos cortados: se piden todos los movimientos de los combos que
+  // aparecieron y se agregan los que no estaban entre los 50
+  const lotes = [...new Set(filas.filter(m => m.id_lote != null).map(m => m.id_lote))];
+  if (lotes.length > 0) {
+    const { data: delCombo, error: errCombo } = await supabase
+      .from('movimientos_viandas')
+      .select(COLUMNAS_MOVIMIENTOS_VIANDAS)
+      .in('id_lote', lotes);
+
+    if (errCombo) return errorInterno(res, errCombo);
+
+    const yaEstan = new Set(filas.map(m => m.id));
+    const faltantes = (delCombo || []).filter(m => !yaEstan.has(m.id));
+    if (faltantes.length > 0) {
+      // Se vuelve a ordenar igual que la consulta: del más nuevo al más viejo
+      filas = filas.concat(faltantes).sort((a, b) => {
+        const porFecha = new Date(b.fecha) - new Date(a.fecha);
+        if (porFecha !== 0) return porFecha;
+        return b.id - a.id;
+      });
+    }
+  }
+
+  const resultado = filas.map(m => {
+    let platoNombre = '-';
+    let planNombre = null;
+    if (m.productos) {
+      platoNombre = m.productos.nombre;
+      if (m.productos.planes) planNombre = m.productos.planes.nombre;
+    }
+    let usuarioNombre = '-';
+    if (m.usuarios) usuarioNombre = [m.usuarios.nombre, m.usuarios.apellido].filter(Boolean).join(' ');
+    return {
+      id:             m.id,
+      tipo:           m.tipo,
+      cantidad:       m.cantidad,
+      motivo:         m.motivo,
+      fecha:          m.fecha,
+      id_lote:        m.id_lote,
+      plato_nombre:   platoNombre,
+      plan_nombre:    planNombre,
+      usuario_nombre: usuarioNombre
+    };
+  });
+
+  res.json(resultado);
 });
 
 /* ======================================================

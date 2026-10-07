@@ -4,6 +4,9 @@
 
 
 let todosMovimientos = [];
+let renglonesPantalla = [];        // movimientos ya agrupados (combos y tandas en un renglón)
+let gruposAbiertos = new Set();    // claves de los renglones agrupados con el detalle desplegado
+let textoResaltado = '';           // texto del filtro de insumo, para resaltarlo en los detalles
 let tipoActual = 'entrada'; // 'entrada' | 'salida'
 
 // ── Inicialización ───────────────────────────────────────────
@@ -28,7 +31,8 @@ async function cargarMovimientos() {
     const res = await apiFetch(`/api/movimientos-stock`);
     if (!res.ok) throw new Error('Error al obtener movimientos');
     todosMovimientos = await res.json();
-    renderTabla(todosMovimientos);
+    renglonesPantalla = agruparMovimientos(todosMovimientos);
+    aplicarFiltros(); // dibuja respetando los filtros que ya estén puestos
   } catch (e) {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="6" style="color:#d32f2f;">Error al conectar con el servidor</td></tr>`;
   }
@@ -110,11 +114,22 @@ function actualizarUnidadSegunInsumo() {
 
 // ── Clasificar movimiento por concepto de negocio ─────────────
 // La BD solo conoce 'entrada' / 'salida'. Esta función traduce
-// esos valores a los términos visuales Compra / Venta / Descarte
-// leyendo el campo `motivo` para distinguir las salidas.
+// esos valores a los términos visuales Compra / Venta / Descarte /
+// Combo / Producción. `clave` es la que usa el filtro por tipo.
 function clasificarMovimiento(m) {
   if (m.tipo === 'entrada') {
-    return { filaClass: 'fila-entrada', badgeClass: 'badge-compra', icono: '▲', label: 'Compra' };
+    return { clave: 'compra', filaClass: 'fila-entrada', badgeClass: 'badge-compra', icono: '▲', label: 'Compra' };
+  }
+
+  // Salidas de la heladera: se reconocen por id_movimiento_vianda (la tanda que las provocó),
+  // no por el texto. Es combo si su movimiento de viandas tiene número de carga (id_lote);
+  // los combos viejos, sin ese número, se reconocen por el motivo "Producción combo ...".
+  if (m.id_movimiento_vianda) {
+    const motivoHeladera = (m.motivo || '').toLowerCase();
+    if (idLoteDe(m) !== null || motivoHeladera.startsWith('producción combo')) {
+      return { clave: 'combo', filaClass: 'fila-combo', badgeClass: 'badge-combo', icono: '🍱', label: 'Combo' };
+    }
+    return { clave: 'produccion', filaClass: 'fila-produccion', badgeClass: 'badge-produccion', icono: '🧊', label: 'Producción' };
   }
 
   // Lista blanca de señales inequívocas de consumo productivo automatizado.
@@ -125,21 +140,288 @@ function clasificarMovimiento(m) {
   const esVenta = PALABRAS_VENTA.some(kw => motivo.includes(kw));
 
   if (esVenta) {
-    return { filaClass: 'fila-venta',    badgeClass: 'badge-venta',    icono: '💰', label: 'Venta'    };
+    return { clave: 'venta',    filaClass: 'fila-venta',    badgeClass: 'badge-venta',    icono: '💰', label: 'Venta'    };
   }
-  return   { filaClass: 'fila-descarte', badgeClass: 'badge-descarte', icono: '✖', label: 'Descarte' };
+  return   { clave: 'descarte', filaClass: 'fila-descarte', badgeClass: 'badge-descarte', icono: '✖', label: 'Descarte' };
+}
+
+// ── Agrupar salidas de la heladera ────────────────────────────
+// Las salidas de una carga de combo (mismo id_lote) van en UN renglón; las de un
+// plato suelto, en un renglón por tanda (id_movimiento_vianda). Compras, ventas,
+// descartes y combos viejos sin número de carga siguen de a uno.
+
+// Número de carga de combo de la salida, o null si no tiene
+function idLoteDe(m) {
+  if (m.movimientos_viandas && m.movimientos_viandas.id_lote != null) return m.movimientos_viandas.id_lote;
+  return null;
+}
+
+// Devuelve los renglones de pantalla, en el orden de los movimientos (más nuevo primero):
+//   { esGrupo: false, mov }
+//   { esGrupo: true, clave, idLote, fecha, usuario, total, insumos: [...], platos: [...] }
+function agruparMovimientos(movimientos) {
+  const renglones = [];
+  const grupoPorClave = {};
+
+  movimientos.forEach(m => {
+    const clasif = clasificarMovimiento(m);
+    const mv = m.movimientos_viandas;
+
+    // ¿A qué grupo pertenece? Sin grupo → renglón suelto
+    let claveGrupo = null;
+    if (m.id_movimiento_vianda && mv) {
+      if (idLoteDe(m) !== null) {
+        claveGrupo = 'combo-' + idLoteDe(m);
+      } else if (clasif.clave === 'produccion') {
+        claveGrupo = 'tanda-' + m.id_movimiento_vianda;
+      }
+    }
+    if (claveGrupo === null) {
+      renglones.push({ esGrupo: false, mov: m });
+      return;
+    }
+
+    let grupo = grupoPorClave[claveGrupo];
+    if (!grupo) {
+      let usuario = '-';
+      if (mv.usuarios) usuario = [mv.usuarios.nombre, mv.usuarios.apellido].filter(Boolean).join(' ');
+      grupo = {
+        esGrupo:   true,
+        claveGrupo,
+        clave:     clasif.clave,   // 'combo' o 'produccion'
+        clasif,
+        idLote:    idLoteDe(m),
+        fecha:     m.fecha,         // el primero que aparece es el más nuevo
+        usuario,
+        insumoPorClave: {},
+        platoPorTanda:  {}
+      };
+      grupoPorClave[claveGrupo] = grupo;
+      renglones.push(grupo);
+    }
+
+    // Insumo de esta salida
+    let idInsumo = '';
+    let nombreInsumo = '-';
+    let unidad = m.unidad || '';
+    if (m.insumos) {
+      idInsumo = m.insumos.id;
+      nombreInsumo = m.insumos.nombre || '-';
+      if (!unidad) unidad = m.insumos.unidad_medida || '';
+    }
+    const claveInsumo = idInsumo + '|' + unidad;
+
+    // Total del grupo: el insumo se suma entre todos los platos (por insumo y unidad)
+    if (!grupo.insumoPorClave[claveInsumo]) {
+      grupo.insumoPorClave[claveInsumo] = { nombre: nombreInsumo, unidad, total: 0 };
+    }
+    grupo.insumoPorClave[claveInsumo].total += Number(m.cantidad);
+
+    // Plato: uno por tanda (id_movimiento_vianda). La cantidad de viandas se toma una sola vez,
+    // porque cada insumo la repite. Cada plato junta sus propios insumos, para su tarjeta.
+    if (!grupo.platoPorTanda[m.id_movimiento_vianda]) {
+      let plato = '-';
+      let plan = '';
+      if (mv.productos) {
+        plato = mv.productos.nombre || '-';
+        if (mv.productos.planes) plan = mv.productos.planes.nombre || '';
+      }
+      grupo.platoPorTanda[m.id_movimiento_vianda] = {
+        nombre: plato,
+        plan,
+        cantidad: Number(mv.cantidad),
+        insumoPorClave: {}
+      };
+      // Motivo escrito al cargar (se guarda en movimientos_viandas). En un combo es el mismo para todos los platos.
+      if (mv.motivo && !grupo.motivoEscrito) grupo.motivoEscrito = mv.motivo;
+    }
+    const platoActual = grupo.platoPorTanda[m.id_movimiento_vianda];
+    if (!platoActual.insumoPorClave[claveInsumo]) {
+      platoActual.insumoPorClave[claveInsumo] = { nombre: nombreInsumo, unidad, total: 0 };
+    }
+    platoActual.insumoPorClave[claveInsumo].total += Number(m.cantidad);
+  });
+
+  // Listas finales (ordenadas por nombre) y total de viandas de cada grupo
+  const porNombre = (a, b) => a.nombre.localeCompare(b.nombre, 'es');
+  renglones.forEach(r => {
+    if (!r.esGrupo) return;
+    r.insumos = Object.values(r.insumoPorClave).sort(porNombre);
+    r.platos  = Object.values(r.platoPorTanda).sort(porNombre);
+    r.platos.forEach(p => { p.insumos = Object.values(p.insumoPorClave).sort(porNombre); });
+    r.total   = r.platos.reduce((suma, p) => suma + p.cantidad, 0);
+  });
+
+  return renglones;
+}
+
+// Título del renglón agrupado: "Combo Mantenimiento #12", "Combo #12" si hay platos
+// de más de un plan (o sin plan), o "Producción: 5 Pollo" para un plato suelto
+function tituloGrupo(grupo) {
+  if (grupo.clave === 'combo') {
+    const planes = [...new Set(grupo.platos.map(p => p.plan))];
+    let numero = '';
+    if (grupo.idLote !== null) numero = ' #' + grupo.idLote;
+    if (planes.length === 1 && planes[0]) return 'Combo ' + planes[0] + numero;
+    return 'Combo' + numero;
+  }
+  const plato = grupo.platos[0];
+  return 'Producción: ' + plato.cantidad + ' ' + plato.nombre;
+}
+
+// Fecha y hora local: "07/10/2026 14:30"
+function formatearFechaMovimiento(texto) {
+  if (!texto) return '-';
+  return new Date(texto).toLocaleString('es-AR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
 }
 
 // ── Render de tabla (paginada de a 15) ────────────────────────
-function renderTabla(movimientos) {
+function renderTabla(renglones) {
   crearPaginacion({
-    datos:                movimientos,
+    datos:                renglones,
     porPagina:            15,
     contenedorTabla:      document.getElementById('tablaBody'),
     contenedorPaginacion: document.getElementById('paginacion'),
-    funcionRenderFila:    crearFilaMovimiento,
+    funcionRenderFila:    crearFilaRenglon,
     filaVacia:            `<tr class="empty-row"><td colspan="7">No hay movimientos registrados todavía.</td></tr>`
   });
+}
+
+function crearFilaRenglon(renglon) {
+  if (renglon.esGrupo) return crearFilaGrupo(renglon);
+  return crearFilaMovimiento(renglon.mov);
+}
+
+// Cantidad de insumo con formato argentino y su unidad: "2.500 g"
+function cantidadConUnidad(total, unidad) {
+  const numero = Number(total).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+  if (unidad) return numero + ' ' + unidad;
+  return numero;
+}
+
+// ¿El insumo coincide con lo escrito en el filtro de insumo? (para resaltarlo)
+function coincideConFiltro(nombre) {
+  return Boolean(textoResaltado) && nombre.toLowerCase().includes(textoResaltado);
+}
+
+// Tarjeta de un plato: nombre y viandas arriba, y sus insumos uno por renglón
+function htmlTarjetaPlato(plato) {
+  let textoViandas = plato.cantidad + ' viandas';
+  if (plato.cantidad === 1) textoViandas = '1 vianda';
+
+  const insumos = plato.insumos.map(i => {
+    let clase = '';
+    if (coincideConFiltro(i.nombre)) clase = 'insumo-resaltado';
+    return `
+      <li class="${clase}">
+        <span>${escHtml(i.nombre)}</span>
+        <span class="cantidad-insumo">${escHtml(cantidadConUnidad(i.total, i.unidad))}</span>
+      </li>`;
+  }).join('');
+
+  return `
+    <div class="tarjeta-plato">
+      <div class="tarjeta-plato-titulo">
+        <strong>${escHtml(plato.nombre)}</strong>
+        <span class="tarjeta-plato-viandas">· ${escHtml(textoViandas)}</span>
+      </div>
+      <ul class="tarjeta-plato-insumos">${insumos}</ul>
+    </div>`;
+}
+
+// Franja "Total del combo": cada insumo sumado entre todos los platos, como etiquetas
+function htmlTotalCombo(grupo) {
+  const etiquetas = grupo.insumos.map(i => {
+    let clase = 'etiqueta-insumo';
+    if (coincideConFiltro(i.nombre)) clase += ' insumo-resaltado';
+    return `<span class="${clase}">${escHtml(i.nombre)} <b>${escHtml(cantidadConUnidad(i.total, i.unidad))}</b></span>`;
+  }).join('');
+
+  return `
+    <div class="total-combo">
+      <span class="total-combo-titulo">Total del combo</span>
+      <div class="total-combo-etiquetas">${etiquetas}</div>
+    </div>`;
+}
+
+// Columna Motivo del renglón agrupado: "Producción de combo" o "Producción",
+// más el motivo que se escribió al cargar, si hay
+function motivoGrupo(grupo) {
+  let texto = 'Producción';
+  if (grupo.clave === 'combo') texto = 'Producción de combo';
+  if (grupo.motivoEscrito) texto += ' · ' + grupo.motivoEscrito;
+  return texto;
+}
+
+// Renglón agrupado (combo o plato suelto) + fila de detalle desplegable debajo.
+// Devuelve un fragmento con las dos filas. Sin botón de borrar: las salidas de
+// una tanda no se borran desde acá (el servidor también lo bloquea).
+function crearFilaGrupo(grupo) {
+  const { filaClass, badgeClass, icono, label } = grupo.clasif;
+  const fragmento = document.createDocumentFragment();
+
+  // Fila principal
+  const tr = document.createElement('tr');
+  tr.className = filaClass + ' fila-grupo';
+  tr.innerHTML = `
+    <td>${escHtml(formatearFechaMovimiento(grupo.fecha))}</td>
+    <td><span class="flecha-grupo">▸</span> <strong>${escHtml(tituloGrupo(grupo))}</strong></td>
+    <td><span class="badge ${badgeClass}">${icono} ${label}</span></td>
+    <td>${Number(grupo.total).toLocaleString('es-AR')}</td>
+    <td>viandas</td>
+    <td style="color:var(--color-muted); font-size:0.83rem;">${escHtml(motivoGrupo(grupo))}</td>
+    <td><button type="button" class="btn-detalles" aria-expanded="false">Detalles</button></td>
+  `;
+
+  // Fila de detalle: una tarjeta por plato, el total del combo (si hay más de un plato)
+  // y al pie quién lo cargó y cuándo. El color del borde depende de si es combo o producción.
+  const tarjetas = grupo.platos.map(htmlTarjetaPlato).join('');
+
+  let total = '';
+  if (grupo.clave === 'combo' && grupo.platos.length > 1) total = htmlTotalCombo(grupo);
+
+  const pie = 'Cargado por ' + grupo.usuario + ' · ' + formatearFechaMovimiento(grupo.fecha);
+
+  const trDetalle = document.createElement('tr');
+  trDetalle.className = 'fila-detalle-grupo';
+  trDetalle.innerHTML = `
+    <td colspan="7">
+      <div class="detalle-grupo detalle-${grupo.clave}">
+        <div class="tarjetas-platos">${tarjetas}</div>
+        ${total}
+        <div class="pie-detalle">${escHtml(pie)}</div>
+      </div>
+    </td>
+  `;
+
+  // Abrir / cerrar en el lugar: la flechita gira y el botón pasa a "Ocultar".
+  // Se recuerda cuáles quedaron abiertos para que no se cierren al cambiar de página o de filtro.
+  const boton = tr.querySelector('.btn-detalles');
+  const flecha = tr.querySelector('.flecha-grupo');
+
+  function mostrarDetalle(abierto) {
+    trDetalle.hidden = !abierto;
+    boton.setAttribute('aria-expanded', String(abierto));
+    if (abierto) {
+      boton.textContent = 'Ocultar';
+      flecha.classList.add('abierta');
+      gruposAbiertos.add(grupo.claveGrupo);
+    } else {
+      boton.textContent = 'Detalles';
+      flecha.classList.remove('abierta');
+      gruposAbiertos.delete(grupo.claveGrupo);
+    }
+  }
+
+  boton.addEventListener('click', () => mostrarDetalle(trDetalle.hidden));
+  mostrarDetalle(gruposAbiertos.has(grupo.claveGrupo));
+
+  fragmento.appendChild(tr);
+  fragmento.appendChild(trDetalle);
+  return fragmento;
 }
 
 function crearFilaMovimiento(m) {
@@ -181,11 +463,43 @@ function aplicarFiltros() {
   const desde       = document.getElementById('filtroDesde').value;
   const hasta       = document.getElementById('filtroHasta').value;
 
-  const filtrados = todosMovimientos.filter(m => {
-    const nombreOk = !textoInsumo || (m.insumos?.nombre || '').toLowerCase().includes(textoInsumo);
-    const tipoOk   = !tipo || m.tipo === tipo;
-    const fechaMov = m.fecha ? new Date(m.fecha) : null;
-    const desdeOk  = !desde || (fechaMov && fechaMov >= new Date(desde));
+  textoResaltado = textoInsumo;
+
+  // Se filtran los renglones ya agrupados: así el detalle de un combo nunca queda incompleto
+  const filtrados = renglonesPantalla.filter(r => {
+    // Datos que necesita cada filtro, según sea un renglón agrupado o uno suelto
+    let nombresInsumo;
+    let tipoBase;
+    let claveTipo;
+    let fechaTexto;
+    if (r.esGrupo) {
+      nombresInsumo = r.insumos.map(i => i.nombre.toLowerCase());
+      tipoBase      = 'salida';
+      claveTipo     = r.clave;
+      fechaTexto    = r.fecha;
+    } else {
+      nombresInsumo = [(r.mov.insumos?.nombre || '').toLowerCase()];
+      tipoBase      = r.mov.tipo;
+      claveTipo     = clasificarMovimiento(r.mov).clave;
+      fechaTexto    = r.mov.fecha;
+    }
+
+    // Insumo: un grupo pasa si contiene alguno que coincida
+    const nombreOk = !textoInsumo || nombresInsumo.some(n => n.includes(textoInsumo));
+
+    // Tipo: "entrada" / "salida" comparan la columna de la base; el resto
+    // (compra, venta, descarte, combo, produccion) compara la etiqueta de la pantalla
+    let tipoOk = true;
+    if (tipo === 'entrada' || tipo === 'salida') {
+      tipoOk = tipoBase === tipo;
+    } else if (tipo) {
+      tipoOk = claveTipo === tipo;
+    }
+
+    let fechaMov = null;
+    if (fechaTexto) fechaMov = new Date(fechaTexto);
+    // "Desde" a medianoche LOCAL (new Date('YYYY-MM-DD') la toma como UTC: 21 h del día anterior)
+    const desdeOk  = !desde || (fechaMov && fechaMov >= parseFechaLocal(desde));
     const hastaOk  = !hasta || (fechaMov && fechaMov <= new Date(hasta + 'T23:59:59'));
     return nombreOk && tipoOk && desdeOk && hastaOk;
   });
