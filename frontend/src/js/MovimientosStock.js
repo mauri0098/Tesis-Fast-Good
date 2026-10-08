@@ -4,7 +4,7 @@
 
 
 let todosMovimientos = [];
-let renglonesPantalla = [];        // movimientos ya agrupados (combos y tandas en un renglón)
+let renglonesPantalla = [];        // movimientos ya agrupados (cada plato producido en un renglón)
 let gruposAbiertos = new Set();    // claves de los renglones agrupados con el detalle desplegado
 let textoResaltado = '';           // texto del filtro de insumo, para resaltarlo en los detalles
 let tipoActual = 'entrada'; // 'entrada' | 'salida'
@@ -115,21 +115,20 @@ function actualizarUnidadSegunInsumo() {
 // ── Clasificar movimiento por concepto de negocio ─────────────
 // La BD solo conoce 'entrada' / 'salida'. Esta función traduce
 // esos valores a los términos visuales Compra / Venta / Descarte /
-// Combo / Producción. `clave` es la que usa el filtro por tipo.
+// Pedido a cocina / Producción. `clave` es la que usa el filtro por tipo.
 function clasificarMovimiento(m) {
   if (m.tipo === 'entrada') {
     return { clave: 'compra', filaClass: 'fila-entrada', badgeClass: 'badge-compra', icono: '▲', label: 'Compra' };
   }
 
-  // Salidas de la heladera: se reconocen por id_movimiento_vianda (la tanda que las provocó),
-  // no por el texto. Es combo si su movimiento de viandas tiene número de carga (id_lote);
-  // los combos viejos, sin ese número, se reconocen por el motivo "Producción combo ...".
+  // Salidas por producir viandas: se reconocen por id_movimiento_vianda (la entrada de viandas
+  // que las provocó), no por el texto. Si esa entrada vino de un plato marcado "Hecho" en un
+  // pedido a cocina, es "Pedido a cocina"; si no (tandas viejas), "Producción".
   if (m.id_movimiento_vianda) {
-    const motivoHeladera = (m.motivo || '').toLowerCase();
-    if (idLoteDe(m) !== null || motivoHeladera.startsWith('producción combo')) {
-      return { clave: 'combo', filaClass: 'fila-combo', badgeClass: 'badge-combo', icono: '🍱', label: 'Combo' };
+    if (idOrdenDe(m) !== null) {
+      return { clave: 'pedido', filaClass: 'fila-pedido', badgeClass: 'badge-pedido', icono: '🍳', label: 'Pedido a cocina' };
     }
-    return { clave: 'produccion', filaClass: 'fila-produccion', badgeClass: 'badge-produccion', icono: '🧊', label: 'Producción' };
+    return { clave: 'produccion', filaClass: 'fila-produccion', badgeClass: 'badge-produccion', icono: '🍳', label: 'Producción' };
   }
 
   // Lista blanca de señales inequívocas de consumo productivo automatizado.
@@ -145,20 +144,23 @@ function clasificarMovimiento(m) {
   return   { clave: 'descarte', filaClass: 'fila-descarte', badgeClass: 'badge-descarte', icono: '✖', label: 'Descarte' };
 }
 
-// ── Agrupar salidas de la heladera ────────────────────────────
-// Las salidas de una carga de combo (mismo id_lote) van en UN renglón; las de un
-// plato suelto, en un renglón por tanda (id_movimiento_vianda). Compras, ventas,
-// descartes y combos viejos sin número de carga siguen de a uno.
+// ── Agrupar salidas por producción ────────────────────────────
+// Las salidas de insumos de un mismo plato producido (mismo id_movimiento_vianda) van
+// en UN renglón. Compras, ventas y descartes siguen de a uno.
 
-// Número de carga de combo de la salida, o null si no tiene
-function idLoteDe(m) {
-  if (m.movimientos_viandas && m.movimientos_viandas.id_lote != null) return m.movimientos_viandas.id_lote;
+// Número del pedido a cocina de la salida, o null si no vino de uno.
+// orden_produccion_detalles llega como lista (la relación va desde el renglón del pedido).
+function idOrdenDe(m) {
+  const mv = m.movimientos_viandas;
+  if (mv && Array.isArray(mv.orden_produccion_detalles) && mv.orden_produccion_detalles.length > 0) {
+    return mv.orden_produccion_detalles[0].id_orden_produccion;
+  }
   return null;
 }
 
 // Devuelve los renglones de pantalla, en el orden de los movimientos (más nuevo primero):
 //   { esGrupo: false, mov }
-//   { esGrupo: true, clave, idLote, fecha, usuario, total, insumos: [...], platos: [...] }
+//   { esGrupo: true, clave, idOrden, fecha, usuario, total, insumos: [...], platos: [...] }
 function agruparMovimientos(movimientos) {
   const renglones = [];
   const grupoPorClave = {};
@@ -169,13 +171,7 @@ function agruparMovimientos(movimientos) {
 
     // ¿A qué grupo pertenece? Sin grupo → renglón suelto
     let claveGrupo = null;
-    if (m.id_movimiento_vianda && mv) {
-      if (idLoteDe(m) !== null) {
-        claveGrupo = 'combo-' + idLoteDe(m);
-      } else if (clasif.clave === 'produccion') {
-        claveGrupo = 'tanda-' + m.id_movimiento_vianda;
-      }
-    }
+    if (m.id_movimiento_vianda && mv) claveGrupo = 'tanda-' + m.id_movimiento_vianda;
     if (claveGrupo === null) {
       renglones.push({ esGrupo: false, mov: m });
       return;
@@ -188,9 +184,9 @@ function agruparMovimientos(movimientos) {
       grupo = {
         esGrupo:   true,
         claveGrupo,
-        clave:     clasif.clave,   // 'combo' o 'produccion'
+        clave:     clasif.clave,   // 'pedido' o 'produccion'
         clasif,
-        idLote:    idLoteDe(m),
+        idOrden:   idOrdenDe(m),
         fecha:     m.fecha,         // el primero que aparece es el más nuevo
         usuario,
         insumoPorClave: {},
@@ -232,7 +228,7 @@ function agruparMovimientos(movimientos) {
         cantidad: Number(mv.cantidad),
         insumoPorClave: {}
       };
-      // Motivo escrito al cargar (se guarda en movimientos_viandas). En un combo es el mismo para todos los platos.
+      // Motivo escrito al cargar (se guarda en movimientos_viandas)
       if (mv.motivo && !grupo.motivoEscrito) grupo.motivoEscrito = mv.motivo;
     }
     const platoActual = grupo.platoPorTanda[m.id_movimiento_vianda];
@@ -255,18 +251,13 @@ function agruparMovimientos(movimientos) {
   return renglones;
 }
 
-// Título del renglón agrupado: "Combo Mantenimiento #12", "Combo #12" si hay platos
-// de más de un plan (o sin plan), o "Producción: 5 Pollo" para un plato suelto
+// Título del renglón agrupado: "Pedido a cocina #3: 10 Pollo al horno",
+// o "Producción: 5 Pollo" para una tanda vieja
 function tituloGrupo(grupo) {
-  if (grupo.clave === 'combo') {
-    const planes = [...new Set(grupo.platos.map(p => p.plan))];
-    let numero = '';
-    if (grupo.idLote !== null) numero = ' #' + grupo.idLote;
-    if (planes.length === 1 && planes[0]) return 'Combo ' + planes[0] + numero;
-    return 'Combo' + numero;
-  }
   const plato = grupo.platos[0];
-  return 'Producción: ' + plato.cantidad + ' ' + plato.nombre;
+  const detalle = plato.cantidad + ' ' + plato.nombre;
+  if (grupo.clave === 'pedido') return 'Pedido a cocina #' + grupo.idOrden + ': ' + detalle;
+  return 'Producción: ' + detalle;
 }
 
 // Fecha y hora local: "07/10/2026 14:30"
@@ -332,31 +323,16 @@ function htmlTarjetaPlato(plato) {
     </div>`;
 }
 
-// Franja "Total del combo": cada insumo sumado entre todos los platos, como etiquetas
-function htmlTotalCombo(grupo) {
-  const etiquetas = grupo.insumos.map(i => {
-    let clase = 'etiqueta-insumo';
-    if (coincideConFiltro(i.nombre)) clase += ' insumo-resaltado';
-    return `<span class="${clase}">${escHtml(i.nombre)} <b>${escHtml(cantidadConUnidad(i.total, i.unidad))}</b></span>`;
-  }).join('');
-
-  return `
-    <div class="total-combo">
-      <span class="total-combo-titulo">Total del combo</span>
-      <div class="total-combo-etiquetas">${etiquetas}</div>
-    </div>`;
-}
-
-// Columna Motivo del renglón agrupado: "Producción de combo" o "Producción",
-// más el motivo que se escribió al cargar, si hay
+// Columna Motivo del renglón agrupado. En un pedido a cocina el título ya dice todo;
+// en una tanda vieja, "Producción" y el motivo que se escribió al cargar, si hay.
 function motivoGrupo(grupo) {
+  if (grupo.clave === 'pedido') return 'Hecho en cocina';
   let texto = 'Producción';
-  if (grupo.clave === 'combo') texto = 'Producción de combo';
   if (grupo.motivoEscrito) texto += ' · ' + grupo.motivoEscrito;
   return texto;
 }
 
-// Renglón agrupado (combo o plato suelto) + fila de detalle desplegable debajo.
+// Renglón agrupado (un plato producido) + fila de detalle desplegable debajo.
 // Devuelve un fragmento con las dos filas. Sin botón de borrar: las salidas de
 // una tanda no se borran desde acá (el servidor también lo bloquea).
 function crearFilaGrupo(grupo) {
@@ -376,12 +352,9 @@ function crearFilaGrupo(grupo) {
     <td><button type="button" class="btn-detalles" aria-expanded="false">Detalles</button></td>
   `;
 
-  // Fila de detalle: una tarjeta por plato, el total del combo (si hay más de un plato)
-  // y al pie quién lo cargó y cuándo. El color del borde depende de si es combo o producción.
+  // Fila de detalle: la tarjeta del plato con sus insumos y al pie quién lo cargó y cuándo.
+  // El color del borde depende de si es pedido a cocina o producción.
   const tarjetas = grupo.platos.map(htmlTarjetaPlato).join('');
-
-  let total = '';
-  if (grupo.clave === 'combo' && grupo.platos.length > 1) total = htmlTotalCombo(grupo);
 
   const pie = 'Cargado por ' + grupo.usuario + ' · ' + formatearFechaMovimiento(grupo.fecha);
 
@@ -391,7 +364,6 @@ function crearFilaGrupo(grupo) {
     <td colspan="7">
       <div class="detalle-grupo detalle-${grupo.clave}">
         <div class="tarjetas-platos">${tarjetas}</div>
-        ${total}
         <div class="pie-detalle">${escHtml(pie)}</div>
       </div>
     </td>
@@ -465,7 +437,7 @@ function aplicarFiltros() {
 
   textoResaltado = textoInsumo;
 
-  // Se filtran los renglones ya agrupados: así el detalle de un combo nunca queda incompleto
+  // Se filtran los renglones ya agrupados: así el detalle de un plato nunca queda incompleto
   const filtrados = renglonesPantalla.filter(r => {
     // Datos que necesita cada filtro, según sea un renglón agrupado o uno suelto
     let nombresInsumo;
@@ -488,7 +460,7 @@ function aplicarFiltros() {
     const nombreOk = !textoInsumo || nombresInsumo.some(n => n.includes(textoInsumo));
 
     // Tipo: "entrada" / "salida" comparan la columna de la base; el resto
-    // (compra, venta, descarte, combo, produccion) compara la etiqueta de la pantalla
+    // (compra, venta, descarte, pedido, produccion) compara la etiqueta de la pantalla
     let tipoOk = true;
     if (tipo === 'entrada' || tipo === 'salida') {
       tipoOk = tipoBase === tipo;

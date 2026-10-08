@@ -16,13 +16,6 @@ alter table productos
   add column if not exists stock_heladera integer not null default 0
   check (stock_heladera >= 0);
 
--- 2) PEDIDO_DETALLES: columna nueva "cantidad_de_heladera"
--- De las viandas de esa línea del pedido, cuántas salieron
--- de la heladera. El resto es lo que hay que cocinar.
-alter table pedido_detalles
-  add column if not exists cantidad_de_heladera integer not null default 0
-  check (cantidad_de_heladera >= 0);
-
 -- 3) TABLA NUEVA: movimientos_viandas
 -- Cada fila es una entrada o salida de viandas de la heladera.
 create table if not exists movimientos_viandas (

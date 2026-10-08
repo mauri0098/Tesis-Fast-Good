@@ -7,6 +7,10 @@
 -- Las llama el servidor con supabase.rpc(...):
 --   POST /api/viandas-stock/tanda    → registrar_tanda_viandas
 --   POST /api/viandas-stock/descarte → registrar_descarte_vianda
+-- aplicar_produccion_viandas es de uso interno: la llaman registrar_tanda_viandas
+-- y marcar_detalle_hecho (sql/Produccion.sql), no el servidor.
+-- Todas llevan "set search_path = public" en su definición: al reejecutar el
+-- primer bloque no se pierde esa configuración.
 --
 -- Cada función corre entera dentro de una sola transacción: si algo falla
 -- a la mitad, no queda nada a medio guardar.
@@ -18,15 +22,159 @@
 begin;
 
 -- -----------------------------------------------------
+-- aplicar_produccion_viandas  (USO INTERNO: la llaman otras funciones, no el servidor)
+-- Registra N viandas producidas de un plato: movimiento de viandas, salidas de insumos
+-- según la receta y suma al stock del plato.
+--
+-- p_estricta = true  → si a algún insumo no le alcanza, NO hace nada y devuelve
+--                      { ok: false, error, faltantes } (lo usa registrar_tanda_viandas).
+-- p_estricta = false → carga igual: el insumo que no alcanza queda en negativo y se
+--                      avisa; sin receta, entran las viandas sin mover insumos y se avisa
+--                      (lo usa marcar_detalle_hecho, en sql/Produccion.sql).
+--
+-- ANTES de llamarla hay que bloquear el plato (select ... for update): el orden de
+-- bloqueos en todas las funciones es primero el plato y después los insumos.
+-- No convierte unidades (mismo aviso que calcularConsumoPedido en server.js).
+-- Devuelve { ok: true, id_movimiento, stock_heladera, avisos }.
+-- -----------------------------------------------------
+create or replace function aplicar_produccion_viandas(
+  p_id_producto     integer,
+  p_cantidad        integer,
+  p_id_usuario      uuid,
+  p_motivo_viandas  text,
+  p_motivo_insumos  text,
+  p_estricta        boolean
+)
+returns jsonb
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_insumo          record;
+  v_faltantes       jsonb := '[]'::jsonb;  -- insumos que no alcanzan
+  v_avisos          jsonb := '[]'::jsonb;  -- lo que se informa en modo flexible
+  v_cant_receta     integer;
+  v_id_movimiento   integer;
+  v_stock_heladera  integer;
+begin
+  -- 1. ¿Tiene receta? Sin receta entran las viandas sin mover insumos, y se avisa.
+  --    (En modo estricto no llega acá sin receta: registrar_tanda_viandas lo frena antes.)
+  select count(*) into v_cant_receta
+    from producto_insumo
+   where id_producto = p_id_producto;
+
+  if v_cant_receta = 0 then
+    v_avisos := v_avisos || jsonb_build_object(
+      'tipo',    'sin_receta',
+      'mensaje', 'El plato no tiene receta: entraron las viandas sin descontar insumos'
+    );
+  end if;
+
+  -- 2. Bloquear los insumos de la receta, SIEMPRE ordenados por id
+  --    (si dos producciones comparten insumos, una espera a la otra en lugar de trabarse)
+  perform 1
+     from insumos
+    where id in (select id_insumo from producto_insumo where id_producto = p_id_producto)
+    order by id
+      for update;
+
+  -- 3. ¿Alcanza cada insumo? (receta × cantidad; un insumo repetido en la receta se suma)
+  for v_insumo in
+    select i.id,
+           i.nombre,
+           i.unidad_medida,
+           coalesce(i.stock_actual, 0)                             as disponible,
+           sum(coalesce(pi.cantidad_necesaria, 0)) * p_cantidad    as necesario
+      from producto_insumo pi
+      join insumos i on i.id = pi.id_insumo
+     where pi.id_producto = p_id_producto
+     group by i.id, i.nombre, i.unidad_medida, i.stock_actual
+     order by i.id
+  loop
+    if v_insumo.disponible < v_insumo.necesario then
+      v_faltantes := v_faltantes || jsonb_build_object(
+        'id_insumo',  v_insumo.id,
+        'nombre',     v_insumo.nombre,
+        'unidad',     v_insumo.unidad_medida,
+        'necesario',  v_insumo.necesario,
+        'disponible', v_insumo.disponible,
+        'falta',      v_insumo.necesario - v_insumo.disponible
+      );
+    end if;
+  end loop;
+
+  if jsonb_array_length(v_faltantes) > 0 then
+    -- Estricta: no se hace nada y se devuelve qué falta (como hacía registrar_tanda_viandas)
+    if p_estricta then
+      return jsonb_build_object(
+        'ok',        false,
+        'error',     'No alcanzan los insumos para esta tanda',
+        'faltantes', v_faltantes
+      );
+    end if;
+
+    -- Flexible: se carga igual y cada insumo corto queda como aviso
+    select v_avisos || coalesce(jsonb_agg(f || jsonb_build_object('tipo', 'insumo_corto')), '[]'::jsonb)
+      into v_avisos
+      from jsonb_array_elements(v_faltantes) f;
+  end if;
+
+  -- 4. Entrada de viandas (cantidad positiva = entran)
+  insert into movimientos_viandas (id_producto, id_usuario, tipo, cantidad, motivo)
+  values (p_id_producto, p_id_usuario, 'produccion', p_cantidad, nullif(trim(p_motivo_viandas), ''))
+  returning id into v_id_movimiento;
+
+  -- 5. Descontar cada insumo y dejar su salida atada a esa entrada (id_movimiento_vianda).
+  --    Si no alcanzaba (modo flexible), el stock queda en negativo: es la señal de que
+  --    falta cargar una compra. La salida se registra por lo que pide la receta.
+  for v_insumo in
+    select pi.id_insumo                                            as id,
+           i.unidad_medida,
+           sum(coalesce(pi.cantidad_necesaria, 0)) * p_cantidad    as necesario
+      from producto_insumo pi
+      join insumos i on i.id = pi.id_insumo
+     where pi.id_producto = p_id_producto
+     group by pi.id_insumo, i.unidad_medida
+     order by pi.id_insumo
+  loop
+    -- Un insumo que no se gasta (cantidad 0 en la receta) no genera movimiento
+    if v_insumo.necesario <= 0 then
+      continue;
+    end if;
+
+    update insumos
+       set stock_actual = coalesce(stock_actual, 0) - v_insumo.necesario
+     where id = v_insumo.id;
+
+    insert into movimientos_stock (id_insumo, tipo, cantidad, unidad, motivo, fecha, id_usuario, id_movimiento_vianda)
+    values (v_insumo.id, 'salida', v_insumo.necesario, v_insumo.unidad_medida, p_motivo_insumos, now(), p_id_usuario, v_id_movimiento);
+  end loop;
+
+  -- 6. Sumar las viandas al stock del plato
+  update productos
+     set stock_heladera = stock_heladera + p_cantidad
+   where id = p_id_producto
+  returning stock_heladera into v_stock_heladera;
+
+  return jsonb_build_object(
+    'ok',             true,
+    'id_movimiento',  v_id_movimiento,
+    'stock_heladera', v_stock_heladera,
+    'avisos',         v_avisos
+  );
+end;
+$$;
+
+-- -----------------------------------------------------
 -- registrar_tanda_viandas
 -- Se cocinó una tanda de N viandas de un plato: descuenta los insumos de la
 -- receta y suma las viandas a la heladera.
+-- Exige plato activo y con receta, y frena si falta algún insumo (modo estricto).
+-- El registro en sí lo hace aplicar_produccion_viandas (compartida con marcar_detalle_hecho).
 --
 -- OJO, UNIDADES: igual que calcularConsumoPedido en server.js, NO convierte
--- unidades. Resta cantidad_necesaria × N tal cual de insumos.stock_actual
--- (producto_insumo.unidad_medida se ignora). Así una tanda y un pedido
--- calculan lo mismo. Si algún día se agrega la conversión, hay que cambiarla
--- en los dos lugares a la vez.
+-- unidades. Si algún día se agrega la conversión, hay que cambiarla en
+-- aplicar_produccion_viandas y en server.js a la vez.
 -- -----------------------------------------------------
 create or replace function registrar_tanda_viandas(
   p_id_producto integer,
@@ -36,15 +184,12 @@ create or replace function registrar_tanda_viandas(
 )
 returns jsonb
 language plpgsql
+set search_path = public
 as $$
 declare
-  v_producto        record;
-  v_insumo          record;
-  v_faltantes       jsonb := '[]'::jsonb;
-  v_cant_receta     integer;
-  v_id_movimiento   integer;
-  v_stock_heladera  integer;
-  v_motivo_insumos  text;
+  v_producto     record;
+  v_cant_receta  integer;
+  v_resultado    jsonb;
 begin
   -- 1. La cantidad tiene que ser un entero mayor a 0
   if p_cantidad is null or p_cantidad <= 0 then
@@ -54,7 +199,7 @@ begin
   -- 2. El plato tiene que existir y estar activo.
   --    "for update" bloquea la fila del plato hasta que termine la transacción:
   --    si llegan dos tandas del mismo plato a la vez, la segunda espera a la primera.
-  select id, nombre, activo, stock_heladera
+  select id, nombre, activo
     into v_producto
     from productos
    where id = p_id_producto
@@ -76,91 +221,25 @@ begin
     return jsonb_build_object('ok', false, 'error', 'El plato "' || v_producto.nombre || '" no tiene receta cargada');
   end if;
 
-  -- 4. Bloquear los insumos de la receta, SIEMPRE ordenados por id.
-  --    Si dos tandas de platos distintos comparten insumos, las dos los bloquean
-  --    en el mismo orden: una espera a la otra en lugar de trabarse entre sí.
-  perform 1
-     from insumos
-    where id in (select id_insumo from producto_insumo where id_producto = p_id_producto)
-    order by id
-      for update;
+  -- 4. Registrar en modo estricto: si falta un insumo no se hace nada y vuelven los faltantes
+  v_resultado := aplicar_produccion_viandas(
+    p_id_producto,
+    p_cantidad,
+    p_id_usuario,
+    p_motivo,
+    'Producción tanda: ' || p_cantidad || ' ' || v_producto.nombre,
+    true
+  );
 
-  -- 5. Pre-chequeo: ¿alcanza cada insumo? (receta × cantidad de viandas)
-  --    Si un insumo aparece dos veces en la receta, se suman sus cantidades.
-  --    No se toca nada todavía: si falta algo, se devuelve la lista y listo.
-  for v_insumo in
-    select i.id,
-           i.nombre,
-           coalesce(i.stock_actual, 0)                             as disponible,
-           sum(coalesce(pi.cantidad_necesaria, 0)) * p_cantidad    as necesario
-      from producto_insumo pi
-      join insumos i on i.id = pi.id_insumo
-     where pi.id_producto = p_id_producto
-     group by i.id, i.nombre, i.stock_actual
-     order by i.id
-  loop
-    if v_insumo.disponible < v_insumo.necesario then
-      v_faltantes := v_faltantes || jsonb_build_object(
-        'id_insumo',  v_insumo.id,
-        'nombre',     v_insumo.nombre,
-        'necesario',  v_insumo.necesario,
-        'disponible', v_insumo.disponible,
-        'falta',      v_insumo.necesario - v_insumo.disponible
-      );
-    end if;
-  end loop;
-
-  if jsonb_array_length(v_faltantes) > 0 then
-    return jsonb_build_object(
-      'ok',        false,
-      'error',     'No alcanzan los insumos para esta tanda',
-      'faltantes', v_faltantes
-    );
+  if not coalesce((v_resultado->>'ok')::boolean, false) then
+    return v_resultado;
   end if;
 
-  -- 6. Registrar la tanda en movimientos_viandas (cantidad positiva = entran)
-  insert into movimientos_viandas (id_producto, id_usuario, tipo, cantidad, motivo)
-  values (p_id_producto, p_id_usuario, 'produccion', p_cantidad, nullif(trim(p_motivo), ''))
-  returning id into v_id_movimiento;
-
-  -- 7. Descontar cada insumo y dejar su salida en movimientos_stock,
-  --    apuntando a la tanda que la provocó (id_movimiento_vianda).
-  --    La unidad que se guarda es la del insumo: la cantidad ya está en esa unidad.
-  v_motivo_insumos := 'Producción tanda: ' || p_cantidad || ' ' || v_producto.nombre;
-
-  for v_insumo in
-    select pi.id_insumo                                            as id,
-           i.unidad_medida,
-           sum(coalesce(pi.cantidad_necesaria, 0)) * p_cantidad    as necesario
-      from producto_insumo pi
-      join insumos i on i.id = pi.id_insumo
-     where pi.id_producto = p_id_producto
-     group by pi.id_insumo, i.unidad_medida
-     order by pi.id_insumo
-  loop
-    -- Un insumo que no se gasta (cantidad 0 en la receta) no genera movimiento
-    if v_insumo.necesario <= 0 then
-      continue;
-    end if;
-
-    update insumos
-       set stock_actual = stock_actual - v_insumo.necesario
-     where id = v_insumo.id;
-
-    insert into movimientos_stock (id_insumo, tipo, cantidad, unidad, motivo, fecha, id_usuario, id_movimiento_vianda)
-    values (v_insumo.id, 'salida', v_insumo.necesario, v_insumo.unidad_medida, v_motivo_insumos, now(), p_id_usuario, v_id_movimiento);
-  end loop;
-
-  -- 8. Sumar las viandas a la heladera
-  update productos
-     set stock_heladera = stock_heladera + p_cantidad
-   where id = p_id_producto
-  returning stock_heladera into v_stock_heladera;
-
+  -- Misma respuesta que antes (la tanda nunca tiene avisos)
   return jsonb_build_object(
     'ok',             true,
-    'id_movimiento',  v_id_movimiento,
-    'stock_heladera', v_stock_heladera
+    'id_movimiento',  v_resultado->'id_movimiento',
+    'stock_heladera', v_resultado->'stock_heladera'
   );
 end;
 $$;
@@ -178,6 +257,7 @@ create or replace function registrar_descarte_vianda(
 )
 returns jsonb
 language plpgsql
+set search_path = public
 as $$
 declare
   v_producto        record;
@@ -235,10 +315,12 @@ $$;
 -- Se le saca el permiso a anon y authenticated (el acceso "de afuera")
 -- y se deja solo a service_role, que es la clave que usa server.js.
 -- -----------------------------------------------------
-revoke execute on function registrar_tanda_viandas(integer, integer, uuid, text)   from public, anon, authenticated;
-revoke execute on function registrar_descarte_vianda(integer, integer, uuid, text) from public, anon, authenticated;
-grant  execute on function registrar_tanda_viandas(integer, integer, uuid, text)   to service_role;
-grant  execute on function registrar_descarte_vianda(integer, integer, uuid, text) to service_role;
+revoke execute on function aplicar_produccion_viandas(integer, integer, uuid, text, text, boolean) from public, anon, authenticated;
+revoke execute on function registrar_tanda_viandas(integer, integer, uuid, text)                    from public, anon, authenticated;
+revoke execute on function registrar_descarte_vianda(integer, integer, uuid, text)                  from public, anon, authenticated;
+grant  execute on function aplicar_produccion_viandas(integer, integer, uuid, text, text, boolean) to service_role;
+grant  execute on function registrar_tanda_viandas(integer, integer, uuid, text)                    to service_role;
+grant  execute on function registrar_descarte_vianda(integer, integer, uuid, text)                  to service_role;
 
 commit;
 

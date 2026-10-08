@@ -13,6 +13,7 @@
   <link rel="icon" href="../src/assets/img/logo.webp" type="image/webp"/>
   <link rel="stylesheet" href="../src/css/global.css"/>
   <link rel="stylesheet" href="../src/css/cocinero.css"/>
+  <link rel="stylesheet" href="../src/css/pedidosCocina.css"/>
 </head>
 <body>
 <script src="../src/js/roles.js"></script>
@@ -33,6 +34,15 @@
 </header>
 
 <main class="page-container pagina-cocina">
+
+  <!-- PARA STOCK: pedidos a cocina pendientes (lo arma pedidosCocina.js) -->
+  <section class="table-wrapper para-stock">
+    <h2 class="para-stock-titulo">Para stock</h2>
+    <div id="listaParaStock">
+      <p class="pend-vacio">Cargando...</p>
+    </div>
+  </section>
+
   <div class="cocina-layout">
 
     <!-- Columna principal: tabla de tareas -->
@@ -103,6 +113,26 @@
 </div>
 
 <script src="../src/js/cocinero.js"></script>
+<script src="../src/js/fechas.js"></script>
+<script src="../src/js/pedidosCocina.js"></script>
+<script>
+  // "Para stock": pedidos a cocina pendientes. "Hecho" solo para el cocinero
+  // (administración, como en el resto de esta pantalla, solo mira).
+  // Se refresca cada 60 segundos, salvo mientras se está marcando un plato.
+  (function () {
+    const esCocinero = parseInt(localStorage.getItem('usuario_rol') || '0', 10) === FG_ROLES.ROL.COCINERO;
+    const opciones = {
+      conBotonHecho: esCocinero,
+      recargar: () => cargarPendientes('listaParaStock')
+    };
+
+    document.addEventListener('DOMContentLoaded', () => cargarPendientes('listaParaStock', opciones));
+
+    setInterval(() => {
+      if (!marcandoHecho) cargarPendientes('listaParaStock');
+    }, 60000);
+  })();
+</script>
 
 </div> <!-- /.admin-content -->
 <script>

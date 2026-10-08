@@ -21,7 +21,7 @@
   }
 }
 
-/* Botones de la cabecera: "+ Cargar un plato" (secundario) y "+ Cargar combo" (principal) */
+/* Botones de la cabecera: "+ Pedir a cocina" (principal) y "Pendientes de cocina" (secundario) */
 .acciones-header {
   display: flex;
   gap: 0.6rem;
@@ -46,8 +46,7 @@
   color: #fff;
 }
 
-.btn-confirmar:disabled,
-.btn-editar:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-confirmar:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-borrar:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* =========================================
@@ -112,51 +111,6 @@
   overflow-wrap: anywhere;
 }
 
-/* Renglón agrupado de un combo: flechita, botón "Detalles" y lista de platos desplegable */
-.mov-flecha {
-  display: inline-block;
-  width: 0.8rem;
-  color: #6c757d;
-}
-
-.btn-detalles {
-  margin-left: auto;
-  padding: 0.15rem 0.6rem;
-  background-color: transparent;
-  color: var(--primary-green);
-  border: 1px solid var(--primary-green);
-  border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.7rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.btn-detalles:hover,
-.btn-detalles[aria-expanded="true"] {
-  background-color: var(--primary-green);
-  color: #fff;
-}
-
-.mov-subdetalle {
-  list-style: none;
-  margin: 0.4rem 0 0.2rem 3.3rem;
-  padding: 0.35rem 0.6rem;
-  background-color: #f8f9fa;
-  border-radius: var(--radius);
-}
-
-.mov-subdetalle li {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.15rem 0;
-  font-size: 0.75rem;
-}
-
-.mov-subdetalle .mov-cantidad { min-width: 0; }
-
 .mov-vacio {
   padding: 1rem 0;
   text-align: center;
@@ -164,41 +118,7 @@
   font-size: 0.85rem;
 }
 
-/* =========================================
-   CÁLCULO DE INSUMOS (modales de plato y de combo)
-   ========================================= */
-.btn-calcular { margin: 0 0 1rem; }
-
-.calculo-tanda { margin-bottom: 1rem; font-size: 0.85rem; }
-.calculo-tanda table { width: 100%; border-collapse: collapse; }
-.calculo-tanda th,
-.calculo-tanda td { padding: 0.35rem 0.5rem; border-bottom: 1px solid #e9ecef; text-align: left; }
-.calculo-tanda .no-alcanza { color: #721c24; background-color: #fff5f5; }
-
-.calculo-resumen { margin-top: 0.6rem; font-weight: 600; }
-.calculo-resumen.ok    { color: #155724; }
-.calculo-resumen.falta { color: #721c24; }
-
-/* =========================================
-   MODAL CARGAR COMBO
-   ========================================= */
-.modal-combo {
-  max-width: 640px;
-  margin-top: 5%;
-}
-
-/* Casillero de cantidad + botones rápidos 10 / 20 / 30 */
-.cantidad-combo {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.modal-grid .cantidad-combo input {
-  width: 110px;
-}
-
+/* Botones rápidos de "Cargar rápido" (ventana de pedir) */
 .btn-rapido {
   padding: 0.4rem 0.9rem;
   background-color: #e9f7ef;
@@ -213,58 +133,12 @@
 
 .btn-rapido:hover { background-color: #d4edda; }
 
-/* Lista de platos del plan, cada uno con su casillero editable */
-.lista-platos-combo {
-  max-height: 260px;
-  overflow-y: auto;
-  border: 1px solid #e9ecef;
-  border-radius: var(--radius);
-  margin-bottom: 0.6rem;
-}
-
-.lista-platos-combo:empty { display: none; }
-
-.plato-combo {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.4rem 0.7rem;
-  border-bottom: 1px solid #f1f3f5;
-  font-size: 0.85rem;
-}
-
-.plato-combo:last-child { border-bottom: none; }
-
-.plato-combo input {
-  width: 80px;
-  padding: 0.35rem 0.5rem;
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius);
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.85rem;
-}
-
-.plato-combo.sin-receta { color: #adb5bd; }
-
+/* Etiqueta "sin receta" de los renglones de la ventana de pedir */
 .etiqueta-sin-receta {
   margin-left: 0.4rem;
   font-size: 0.72rem;
   font-style: italic;
 }
-
-/* Contador "Repartidas X de Y": rojo si no coincide */
-.contador-reparto {
-  margin-bottom: 0.8rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #155724;
-}
-
-.contador-reparto.no-coincide { color: #721c24; }
-
-/* Botones que por ahora no se usan ("Cargar un plato" y "Cargar combo"): no ocupan lugar */
-.acciones-header .boton-oculto { display: none; }
 
 /* Botón principal "+ Pedir a cocina": verde, para distinguirlo del resto */
 .btn-pedir-cocina { background-color: var(--primary-green); }
@@ -395,69 +269,7 @@
 /* La lista toma el alto que sobra debajo del título y scrollea adentro */
 .lista-pendientes { flex: 1; min-height: 0; overflow-y: auto; }
 
-.pend-resumen { margin: 0 0 1rem; color: #495057; font-size: 0.95rem; font-weight: 600; }
-
-/* Una tarjeta por cocinero */
-.tarjeta-cocinero {
-  margin-bottom: 1rem;
-  padding: 0.9rem 1.1rem;
-  background-color: #fff;
-  border: 1px solid #e9ecef;
-  border-left: 4px solid var(--primary-green);
-  border-radius: var(--radius);
-}
-
-.tarjeta-cocinero.sin-asignar { background-color: #f8f9fa; border-left-color: #adb5bd; }
-
-.tarjeta-cabecera {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.5rem;
-}
-
-.tarjeta-nombre  { margin: 0; font-size: 1.1rem; font-weight: 700; }
-.tarjeta-resumen { color: #6c757d; font-size: 0.85rem; font-weight: 600; }
-
-/* Renglón: cantidad grande | plato, plan, fecha y número de pedido */
-.pend-platos { list-style: none; margin: 0; padding: 0; }
-
-.pend-platos li {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  padding: 0.5rem 0.6rem;
-  border-top: 1px solid #f1f3f5;
-  border-radius: var(--radius);
-}
-
-.pend-platos li:first-child { border-top: none; }
-
-.pend-cantidad { min-width: 2.6rem; font-size: 1.35rem; font-weight: 700; text-align: right; }
-.pend-info     { min-width: 0; }
-.pend-plato    { font-weight: 600; overflow-wrap: anywhere; }
-.pend-plan     { color: #6c757d; font-size: 0.85rem; font-weight: 400; }
-.pend-detalle  { color: #6c757d; font-size: 0.8rem; }
-.pend-numero   { color: #adb5bd; font-size: 0.75rem; }
-
-/* Urgencia: para hoy (amarillo) o atrasado (rojo) */
-.pend-hoy      { background-color: #fff8e1; }
-.pend-atrasado { background-color: #fdecea; }
-
-.marca-urgencia {
-  display: inline-block;
-  margin-left: 0.4rem;
-  padding: 0 0.5rem;
-  border-radius: 50px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.pend-hoy .marca-urgencia      { background-color: #ffe08a; color: #7a5300; }
-.pend-atrasado .marca-urgencia { background-color: #f5c2c7; color: #721c24; }
+/* Las tarjetas y renglones de la lista están en pedidosCocina.css (compartido con Tareas de Cocina) */
 
 /* =========================================
    VENTANA PEDIR A COCINA
@@ -611,3 +423,32 @@
 
   .btn-enviar-cocina { flex: 1; }
 }
+
+/* =========================================
+   HECHO HOY (debajo de la tabla)
+   ========================================= */
+.hecho-hoy {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.lista-hecho-hoy { list-style: none; margin: 0; padding: 0; }
+
+.lista-hecho-hoy li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  padding: 0.4rem 0.2rem;
+  border-bottom: 1px solid #f1f3f5;
+  font-size: 0.85rem;
+}
+
+.lista-hecho-hoy li:last-child { border-bottom: none; }
+.lista-hecho-hoy li.mov-vacio  { display: block; }
+
+.hh-hora     { min-width: 2.8rem; color: #6c757d; }
+.hh-cantidad { min-width: 2rem; font-weight: 700; text-align: right; }
+.hh-plato    { flex: 1; font-weight: 600; overflow-wrap: anywhere; }
+.hh-plan     { color: #6c757d; font-weight: 400; }
+.hh-quien    { color: #6c757d; font-size: 0.8rem; white-space: nowrap; }

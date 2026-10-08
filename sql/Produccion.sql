@@ -192,3 +192,100 @@ revoke execute on function crear_orden_produccion(uuid, date, jsonb) from public
 grant  execute on function crear_orden_produccion(uuid, date, jsonb) to service_role;
 
 commit;
+
+
+-- =====================================================
+-- MARCAR HECHO UN PLATO DE UN PEDIDO A COCINA — marcar_detalle_hecho
+-- Agregado después: se puede ejecutar solo este bloque (de "begin" a "commit").
+-- Antes hay que ejecutar el primer bloque de sql/stock_viandas_funciones.sql,
+-- que crea aplicar_produccion_viandas.
+-- =====================================================
+
+begin;
+
+-- -----------------------------------------------------
+-- marcar_detalle_hecho
+-- La cocina terminó un plato del pedido: entran las viandas al stock, se descuentan
+-- los insumos de la receta y el renglón queda hecho. TODO O NADA.
+-- A diferencia de una tanda, NO frena: si un insumo no alcanza queda en negativo,
+-- y si el plato no tiene receta entran las viandas igual. En los dos casos se avisa.
+-- Se puede marcar aunque el plato se haya desactivado después de pedirlo.
+-- Devuelve { ok: true, id_movimiento, stock_heladera, avisos } o { ok: false, error }.
+-- -----------------------------------------------------
+create or replace function marcar_detalle_hecho(
+  p_id_detalle integer,
+  p_id_usuario uuid
+)
+returns jsonb
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_detalle    record;
+  v_plato      text;
+  v_resultado  jsonb;
+begin
+  if p_id_usuario is null then
+    return jsonb_build_object('ok', false, 'error', 'Falta el usuario que marca el plato');
+  end if;
+
+  -- 1. Bloquear el renglón: si dos personas lo marcan a la vez, la segunda espera acá
+  --    y después lo encuentra ya hecho. Ninguna otra función bloquea estos renglones,
+  --    así que bloquearlo antes que el plato no puede trabar a nadie.
+  select id, id_orden_produccion, id_producto, cantidad, hecho
+    into v_detalle
+    from orden_produccion_detalles
+   where id = p_id_detalle
+     for update;
+
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'El plato del pedido no existe');
+  end if;
+  if v_detalle.hecho then
+    return jsonb_build_object('ok', false, 'error', 'Este plato ya estaba marcado como hecho');
+  end if;
+
+  -- 2. Bloquear el plato (mismo orden que las demás funciones: plato y después insumos).
+  --    No se exige que esté activo.
+  select nombre
+    into v_plato
+    from productos
+   where id = v_detalle.id_producto
+     for update;
+
+  -- 3. Registrar en modo flexible (los insumos los bloquea aplicar_produccion_viandas, por id)
+  v_resultado := aplicar_produccion_viandas(
+    v_detalle.id_producto,
+    v_detalle.cantidad,
+    p_id_usuario,
+    'Pedido a cocina #' || v_detalle.id_orden_produccion,
+    'Producción pedido a cocina #' || v_detalle.id_orden_produccion || ': ' || v_detalle.cantidad || ' ' || v_plato,
+    false
+  );
+
+  -- En modo flexible no debería volver ok: false; si pasara, no se marca nada
+  if not coalesce((v_resultado->>'ok')::boolean, false) then
+    return v_resultado;
+  end if;
+
+  -- 4. El renglón queda hecho, con la hora y la entrada de viandas que generó
+  update orden_produccion_detalles
+     set hecho                = true,
+         fecha_hecho          = now(),
+         id_movimiento_vianda = (v_resultado->>'id_movimiento')::integer
+   where id = p_id_detalle;
+
+  return jsonb_build_object(
+    'ok',             true,
+    'id_movimiento',  v_resultado->'id_movimiento',
+    'stock_heladera', v_resultado->'stock_heladera',
+    'avisos',         v_resultado->'avisos'
+  );
+end;
+$$;
+
+-- Permisos: solo la ejecuta el servidor (service_role)
+revoke execute on function marcar_detalle_hecho(integer, uuid) from public, anon, authenticated;
+grant  execute on function marcar_detalle_hecho(integer, uuid) to service_role;
+
+commit;

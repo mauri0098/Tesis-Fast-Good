@@ -481,3 +481,7 @@ ul.platos-list li {
   color: #6c757d;
   font-style: italic;
 }
+
+/* "Para stock" (pedidos a cocina pendientes), arriba de las tareas */
+.para-stock { margin-bottom: 1.5rem; }
+.para-stock-titulo { margin: 0 0 0.8rem; font-size: 1.05rem; }

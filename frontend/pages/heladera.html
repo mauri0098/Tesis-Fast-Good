@@ -13,6 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../src/css/global.css">
   <link rel="stylesheet" href="../src/css/stock.css">
+  <link rel="stylesheet" href="../src/css/pedidosCocina.css">
   <link rel="stylesheet" href="../src/css/heladera.css">
 </head>
 
@@ -54,9 +55,6 @@
           <div class="acciones-header">
             <button id="btnPedirCocina" class="btn-nuevo-insumo btn-pedir-cocina" onclick="abrirModalPedido()" style="display:none">+ Pedir a cocina</button>
             <button id="btnPendientes" class="btn-secundario" onclick="abrirModalPendientes()">Pendientes de cocina</button>
-            <!-- Ocultos por ahora (sus ventanas y su código siguen): se sacan en otro paso -->
-            <button class="btn-secundario boton-oculto" onclick="abrirModalTanda()">+ Cargar un plato</button>
-            <button class="btn-nuevo-insumo boton-oculto" onclick="abrirModalCombo()">+ Cargar combo</button>
           </div>
         </div>
 
@@ -81,6 +79,14 @@
           </tbody>
         </table>
         <div id="paginacion" class="paginacion"></div>
+
+        <!-- HECHO HOY: platos de pedidos a cocina marcados hechos hoy (lo arma heladera.js) -->
+        <div class="hecho-hoy">
+          <h2 class="titulo-seccion">Hecho hoy</h2>
+          <ul id="listaHechoHoy" class="lista-hecho-hoy">
+            <li class="mov-vacio">Cargando...</li>
+          </ul>
+        </div>
 
       </section>
 
@@ -140,86 +146,13 @@
     </div>
   </div>
 
-  <!-- MODAL: Pendientes de cocina (lo pedido que todavía no se cocinó, agrupado por pedido) -->
+  <!-- MODAL: Pendientes de cocina (lo pedido que todavía no se cocinó, agrupado por cocinero) -->
   <div id="modalPendientes" class="modal">
     <div class="modal-content modal-stock modal-pendientes">
       <span class="close" onclick="cerrarModalPendientes()">&times;</span>
       <h3>Pendientes de cocina</h3>
       <div id="listaPendientes" class="lista-pendientes">
         <p class="mov-vacio">Cargando...</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL: Cargar combo (un plan entero, repartido entre sus platos) -->
-  <div id="modalCombo" class="modal">
-    <div class="modal-content modal-stock modal-combo">
-      <span class="close" onclick="cerrarModalCombo()">&times;</span>
-      <h3>Cargar combo</h3>
-
-      <div class="modal-grid">
-        <label>Plan *</label>
-        <select id="cPlan">
-          <option value="">Seleccione...</option>
-        </select>
-
-        <label>Cantidad de viandas *</label>
-        <div class="cantidad-combo">
-          <input id="cCantidad" type="number" min="1" step="1" placeholder="Ej: 20">
-          <button type="button" class="btn-rapido" onclick="elegirCantidadRapida(10)">10</button>
-          <button type="button" class="btn-rapido" onclick="elegirCantidadRapida(20)">20</button>
-          <button type="button" class="btn-rapido" onclick="elegirCantidadRapida(30)">30</button>
-        </div>
-
-        <label>Motivo</label>
-        <input id="cMotivo" type="text" maxlength="200" placeholder="Opcional">
-      </div>
-
-      <!-- Platos del plan con la cantidad que le tocó a cada uno (editable) -->
-      <div id="cPlatos" class="lista-platos-combo"></div>
-      <div id="cContador" class="contador-reparto"></div>
-
-      <button id="cCalcular" class="btn-editar btn-calcular" onclick="calcularCombo()" disabled>Calcular insumos</button>
-
-      <div id="cCalculo" class="calculo-tanda"></div>
-
-      <div id="cError" class="modal-error"></div>
-
-      <div class="modal-actions">
-        <button class="btn-cancelar" onclick="cerrarModalCombo()">Cancelar</button>
-        <button id="cConfirmar" class="btn-confirmar" onclick="confirmarCombo()" disabled>Confirmar combo</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL: Cargar un plato -->
-  <div id="modalTanda" class="modal">
-    <div class="modal-content modal-stock">
-      <span class="close" onclick="cerrarModalTanda()">&times;</span>
-      <h3>Cargar un plato</h3>
-
-      <div class="modal-grid">
-        <label>Plato *</label>
-        <select id="tPlato">
-          <option value="">Seleccione...</option>
-        </select>
-
-        <label>Cantidad *</label>
-        <input id="tCantidad" type="number" min="1" step="1" placeholder="Ej: 20">
-
-        <label>Motivo</label>
-        <input id="tMotivo" type="text" maxlength="200" placeholder="Opcional">
-      </div>
-
-      <button class="btn-editar btn-calcular" onclick="calcularTanda()">Calcular insumos</button>
-
-      <div id="tCalculo" class="calculo-tanda"></div>
-
-      <div id="tError" class="modal-error"></div>
-
-      <div class="modal-actions">
-        <button class="btn-cancelar" onclick="cerrarModalTanda()">Cancelar</button>
-        <button id="tConfirmar" class="btn-confirmar" onclick="confirmarTanda()" disabled>Confirmar tanda</button>
       </div>
     </div>
   </div>
@@ -250,6 +183,7 @@
 
   <script src="../src/js/paginacion.js"></script>
   <script src="../src/js/fechas.js"></script>
+  <script src="../src/js/pedidosCocina.js"></script>
   <script src="../src/js/heladera.js"></script>
 
 </div> <!-- /.admin-content -->
