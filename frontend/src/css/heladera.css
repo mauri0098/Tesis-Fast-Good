@@ -50,8 +50,6 @@
 .btn-editar:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-borrar:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.stock-cero { color: #adb5bd; }
-
 /* =========================================
    PANEL "ÚLTIMOS MOVIMIENTOS"
    Lista compacta con alto fijo y scroll propio (no estira la página)
@@ -264,3 +262,352 @@
 }
 
 .contador-reparto.no-coincide { color: #721c24; }
+
+/* Botones que por ahora no se usan ("Cargar un plato" y "Cargar combo"): no ocupan lugar */
+.acciones-header .boton-oculto { display: none; }
+
+/* Botón principal "+ Pedir a cocina": verde, para distinguirlo del resto */
+.btn-pedir-cocina { background-color: var(--primary-green); }
+.btn-pedir-cocina:hover { background-color: #1e7e34; }
+
+/* =========================================
+   CRUZ DE CERRAR (ventanas de pedir y de pendientes)
+   Fija arriba a la derecha, por encima del contenido y con 44px para tocarla.
+   El float de global.css no sirve en .modal-pedido, que es una columna flex.
+   ========================================= */
+/* El fondo oscuro de estas dos ventanas va por encima del encabezado (capa 1000),
+   del menú lateral (999) y del botón hamburguesa (1001). Los avisos (10000) siguen arriba. */
+#modalPedido,
+#modalPendientes { z-index: 1100; }
+
+/* Ventana centrada en horizontal y en vertical: absoluta sobre todo el fondo con margin auto.
+   height: fit-content hace que tome el alto de su contenido; max-height la achica si no entra,
+   dejando 1.5rem parejo arriba y abajo. No usa transform: lo usa la animación de entrada.
+   Al ser absoluta, también sirve de referencia para ubicar la cruz. */
+.modal-pedido,
+.modal-pendientes {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  height: fit-content;
+  max-height: calc(100% - 3rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-pedido .close,
+.modal-pendientes .close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  float: none;
+  border-radius: 50%;
+}
+
+.modal-pedido .close:hover,
+.modal-pendientes .close:hover { background-color: #f1f3f5; }
+
+/* Que el título no quede debajo de la cruz */
+.modal-pedido h3,
+.modal-pendientes h3 { padding-right: 48px; }
+
+/* =========================================
+   AVISO DE FALTANTES (franja arriba de todo)
+   ========================================= */
+.aviso-faltantes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.2rem;
+  padding: 0.9rem 1.2rem;
+  background-color: #fff3cd;
+  border: 1px solid #ffe08a;
+  border-left: 5px solid #e0a800;
+  border-radius: var(--radius);
+  color: #7a5300;
+  font-weight: 600;
+}
+
+/* =========================================
+   FILTROS POR ESTADO (arriba de la tabla)
+   ========================================= */
+.filtros-estado {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.btn-filtro-estado {
+  padding: 0.4rem 1rem;
+  background-color: #fff;
+  color: var(--text-dark);
+  border: 1px solid var(--border-light);
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-filtro-estado:hover { border-color: var(--primary-green); }
+
+.btn-filtro-estado.activo {
+  background-color: var(--primary-green);
+  border-color: var(--primary-green);
+  color: #fff;
+}
+
+/* Número de "En stock": grande y en negrita */
+.celda-stock { font-size: 1.15rem; font-weight: 700; }
+
+/* =========================================
+   ETIQUETAS DE ESTADO (tabla y ventana de pedir)
+   ========================================= */
+.etiqueta-estado {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.estado-sin  { background-color: #f8d7da; color: #721c24; }
+.estado-bajo { background-color: #fff3cd; color: #7a5300; }
+.estado-bien { background-color: #d4edda; color: #155724; }
+
+.estado-sincontrol { color: #adb5bd; font-size: 0.8rem; white-space: nowrap; }
+
+/* =========================================
+   VENTANA PENDIENTES DE COCINA
+   ========================================= */
+.modal-pendientes { max-width: 720px; }
+
+/* La lista toma el alto que sobra debajo del título y scrollea adentro */
+.lista-pendientes { flex: 1; min-height: 0; overflow-y: auto; }
+
+.pend-resumen { margin: 0 0 1rem; color: #495057; font-size: 0.95rem; font-weight: 600; }
+
+/* Una tarjeta por cocinero */
+.tarjeta-cocinero {
+  margin-bottom: 1rem;
+  padding: 0.9rem 1.1rem;
+  background-color: #fff;
+  border: 1px solid #e9ecef;
+  border-left: 4px solid var(--primary-green);
+  border-radius: var(--radius);
+}
+
+.tarjeta-cocinero.sin-asignar { background-color: #f8f9fa; border-left-color: #adb5bd; }
+
+.tarjeta-cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.tarjeta-nombre  { margin: 0; font-size: 1.1rem; font-weight: 700; }
+.tarjeta-resumen { color: #6c757d; font-size: 0.85rem; font-weight: 600; }
+
+/* Renglón: cantidad grande | plato, plan, fecha y número de pedido */
+.pend-platos { list-style: none; margin: 0; padding: 0; }
+
+.pend-platos li {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.5rem 0.6rem;
+  border-top: 1px solid #f1f3f5;
+  border-radius: var(--radius);
+}
+
+.pend-platos li:first-child { border-top: none; }
+
+.pend-cantidad { min-width: 2.6rem; font-size: 1.35rem; font-weight: 700; text-align: right; }
+.pend-info     { min-width: 0; }
+.pend-plato    { font-weight: 600; overflow-wrap: anywhere; }
+.pend-plan     { color: #6c757d; font-size: 0.85rem; font-weight: 400; }
+.pend-detalle  { color: #6c757d; font-size: 0.8rem; }
+.pend-numero   { color: #adb5bd; font-size: 0.75rem; }
+
+/* Urgencia: para hoy (amarillo) o atrasado (rojo) */
+.pend-hoy      { background-color: #fff8e1; }
+.pend-atrasado { background-color: #fdecea; }
+
+.marca-urgencia {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0 0.5rem;
+  border-radius: 50px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.pend-hoy .marca-urgencia      { background-color: #ffe08a; color: #7a5300; }
+.pend-atrasado .marca-urgencia { background-color: #f5c2c7; color: #721c24; }
+
+/* =========================================
+   VENTANA PEDIR A COCINA
+   Columna: controles arriba, lista con scroll propio y pie fijo abajo
+   ========================================= */
+.modal-pedido {
+  width: 92%;
+  max-width: 900px;
+  padding: 1.8rem 2rem 1.4rem;
+}
+
+/* Para cuándo · Filtro · Cargar rápido */
+.pedido-controles {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem 1.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.control-pedido {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.control-pedido select { min-width: 220px; }
+
+.carga-rapida { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.carga-rapida input { width: 90px; }
+
+.btn-limpiar { background-color: #f1f3f5; color: #495057; border-color: #dee2e6; }
+.btn-limpiar:hover { background-color: #e9ecef; }
+
+.pedido-controles input,
+.pedido-controles select,
+.pp-cantidad input {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.95rem;
+}
+
+/* Lista de platos: toma el alto que sobra y tiene su propio scroll */
+.lista-pedido {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid #e9ecef;
+  border-radius: var(--radius);
+}
+
+/* Renglón: info a la izquierda, − cantidad + a la derecha */
+.plato-pedido {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid #f1f3f5;
+  transition: background-color 0.15s;
+}
+
+.plato-pedido:last-child { border-bottom: none; }
+.plato-pedido.con-cantidad { background-color: #f1faf3; }
+
+.pp-info    { min-width: 0; }
+.pp-nombre  { font-size: 1.02rem; font-weight: 600; overflow-wrap: anywhere; }
+.pp-nombre .etiqueta-estado { margin-left: 0.4rem; vertical-align: middle; }
+.pp-detalle { margin-top: 0.15rem; color: #6c757d; font-size: 0.8rem; }
+
+.pp-cantidad { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+
+.pp-cantidad input {
+  width: 64px;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.pp-cantidad input.invalido { border-color: #dc3545; background-color: #fff5f5; }
+
+/* Botones redondos − y + */
+.btn-paso {
+  width: 40px;
+  height: 40px;
+  background-color: #fff;
+  color: var(--primary-green);
+  border: 1px solid var(--border-light);
+  border-radius: 50%;
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.btn-paso:hover { background-color: #e9f7ef; border-color: var(--primary-green); }
+
+.pedido-vacio { padding: 1.2rem; text-align: center; color: #6c757d; }
+
+/* Pie: total a la izquierda, botón grande a la derecha */
+.pedido-pie {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.pedido-total        { display: flex; flex-direction: column; }
+.pedido-total-numero { font-size: 1.35rem; font-weight: 700; }
+.pedido-total-platos { color: #6c757d; font-size: 0.85rem; }
+
+.btn-enviar-cocina { padding: 0.85rem 2.2rem; font-size: 1.05rem; }
+
+/* Celular: pantalla completa, controles uno debajo del otro, botones de 44px */
+@media (max-width: 600px) {
+  /* Pantalla completa: ocupa todo el fondo (que ya cubre la pantalla) */
+  .modal-pedido {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    margin: 0;
+    padding: 1.2rem 1rem;
+    border-radius: 0;
+  }
+
+  .pedido-controles { flex-direction: column; align-items: stretch; }
+  .control-pedido select { min-width: 0; }
+
+  /* Cargar rápido: el casillero en una línea y los tres botones debajo */
+  .carga-rapida input { flex: 1 1 100%; width: auto; }
+  .carga-rapida .btn-rapido { flex: 1; min-height: 44px; }
+
+  /* Si el nombre es largo, la cantidad baja a su propia línea */
+  .plato-pedido { flex-wrap: wrap; padding: 0.7rem 0.8rem; }
+  .pp-cantidad { margin-left: auto; }
+
+  .btn-paso { width: 44px; height: 44px; }
+  .pp-cantidad input { width: 56px; min-height: 44px; }
+
+  .btn-enviar-cocina { flex: 1; }
+}

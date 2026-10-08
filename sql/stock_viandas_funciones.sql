@@ -426,3 +426,8 @@ revoke execute on function registrar_tanda_multiple(jsonb, uuid, text) from publ
 grant  execute on function registrar_tanda_multiple(jsonb, uuid, text) to service_role;
 
 commit;
+
+-- Seguridad: las funciones buscan las tablas siempre en la carpeta public
+alter function registrar_tanda_viandas(integer, integer, uuid, text)   set search_path = public;
+alter function registrar_descarte_vianda(integer, integer, uuid, text) set search_path = public;
+alter function registrar_tanda_multiple(jsonb, uuid, text)             set search_path = public;

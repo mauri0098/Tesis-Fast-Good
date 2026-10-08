@@ -11,29 +11,95 @@ let calculoVigente = null;  // { idProducto, cantidad } del último cálculo de 
 let platoDescarte = null;   // plato que se está descartando
 let platosCombo = [];       // platos del plan elegido en el combo: [{ plato, cantidad }]
 let calculoComboVigente = null; // items [{ id_producto, cantidad }] del último cálculo de combo que alcanzó
+let cantidadesPedido = {};  // pedir a cocina: id_producto → lo escrito en "A pedir" (sobrevive a los filtros)
+let filtroEstado = 'todos'; // filtro de la tabla: 'todos', 'sin', 'bajo', 'bien' o 'sincontrol'
+
+const INTERVALO_ACTUALIZACION = 60000; // cada 60 segundos se vuelven a pedir stock y pendientes
 
 document.addEventListener('DOMContentLoaded', () => {
   fetchPlatos();
   fetchHistorial();
+  fetchPendientes();
   iniciarFiltro();
   iniciarModalTanda();
   iniciarModalCombo();
+  iniciarModalPedido();
+  mostrarBotonPedir();
+  iniciarActualizacionAutomatica();
 });
+
+// ==========================================
+// ESTADO DEL STOCK DE UN PLATO
+// Única regla de la pantalla (la usan tabla, filtros, aviso y ventana de pedir):
+//   mínimo 0              → 'sincontrol' (no se controla, nunca falta)
+//   0 viandas             → 'sin'   (Sin stock)
+//   menos que el mínimo   → 'bajo'
+//   el mínimo o más       → 'bien'
+// ==========================================
+
+const ESTADOS_STOCK = {
+  sin:        { texto: 'Sin stock',   clase: 'estado-sin',  orden: 0 },
+  bajo:       { texto: 'Bajo',        clase: 'estado-bajo', orden: 1 },
+  bien:       { texto: 'Bien',        clase: 'estado-bien', orden: 2 },
+  sincontrol: { texto: 'Sin control', clase: '',            orden: 3 }
+};
+
+function estadoStock(plato) {
+  const minimo = Number(plato.stock_minimo);
+  const stock = Number(plato.stock_heladera);
+  if (minimo === 0) return 'sincontrol';
+  if (stock <= 0) return 'sin';
+  if (stock < minimo) return 'bajo';
+  return 'bien';
+}
+
+// "Los que faltan": los Sin stock más los Bajos
+function faltaPlato(plato) {
+  const estado = estadoStock(plato);
+  return estado === 'sin' || estado === 'bajo';
+}
+
+// Etiqueta de color del estado. "Sin control" es un guion gris, no una etiqueta.
+function etiquetaEstado(plato) {
+  const estado = estadoStock(plato);
+  if (estado === 'sincontrol') return '<span class="estado-sincontrol">— Sin control</span>';
+  const datos = ESTADOS_STOCK[estado];
+  return `<span class="etiqueta-estado ${datos.clase}">${datos.texto}</span>`;
+}
+
+// Cuántos platos hay en cada estado
+function contarEstados() {
+  const cuenta = { sin: 0, bajo: 0, bien: 0, sincontrol: 0 };
+  todosPlatos.forEach(p => { cuenta[estadoStock(p)] += 1; });
+  return cuenta;
+}
+
+// Orden por estado (Sin stock, Bajo, Bien, Sin control). 0 si los dos están en el mismo estado.
+function compararEstado(a, b) {
+  return ESTADOS_STOCK[estadoStock(a)].orden - ESTADOS_STOCK[estadoStock(b)].orden;
+}
+
+// "1 plato" / "3 platos"
+function conPlural(cantidad, singular, plural) {
+  if (cantidad === 1) return cantidad + ' ' + singular;
+  return cantidad + ' ' + plural;
+}
 
 // ==========================================
 // TRAER DATOS DEL SERVIDOR
 // ==========================================
 
-async function fetchPlatos() {
+// mantenerPagina: true en la recarga automática, para no volver a la página 1
+async function fetchPlatos(mantenerPagina) {
   const tbody = document.getElementById('heladeraBody');
 
   try {
     const res = await apiFetch('/api/viandas-stock');
     if (!res.ok) throw new Error();
     todosPlatos = await res.json();
-    aplicarFiltro();
+    aplicarFiltro(mantenerPagina);
   } catch {
-    tbody.innerHTML = '<tr><td colspan="5" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
   }
 }
 
@@ -50,43 +116,56 @@ async function fetchHistorial() {
   }
 }
 
+// ¿Hay alguna ventana abierta? Mientras haya una, la pantalla no se recarga sola
+function hayVentanaAbierta() {
+  return [...document.querySelectorAll('.modal')].some(m => m.style.display === 'block');
+}
+
+function iniciarActualizacionAutomatica() {
+  setInterval(() => {
+    if (hayVentanaAbierta()) return;
+    fetchPlatos(true);
+    fetchPendientes();
+  }, INTERVALO_ACTUALIZACION);
+}
+
 // ==========================================
 // TABLA DE PLATOS (paginada de a 15)
 // ==========================================
 
-function renderizarPlatos(platos) {
-  crearPaginacion({
+let paginacionPlatos = null; // lo que devuelve crearPaginacion: sirve para saber en qué página está
+
+function renderizarPlatos(platos, mantenerPagina) {
+  let pagina = 1;
+  if (mantenerPagina && paginacionPlatos) pagina = paginacionPlatos.paginaActual();
+
+  paginacionPlatos = crearPaginacion({
     datos: platos,
     porPagina: 15,
     contenedorTabla: document.getElementById('heladeraBody'),
     contenedorPaginacion: document.getElementById('paginacion'),
     funcionRenderFila: crearFilaPlato,
-    filaVacia: '<tr><td colspan="5" class="loading-text">No se encontraron platos</td></tr>'
+    filaVacia: '<tr><td colspan="6" class="loading-text">No se encontraron platos</td></tr>',
+    paginaInicial: pagina
   });
 }
 
 function crearFilaPlato(plato) {
   const tr = document.createElement('tr');
 
-  let codigo = '-';
-  if (plato.codigo_plato) codigo = plato.codigo_plato;
-
   let plan = '-';
   if (plato.plan_nombre) plan = plato.plan_nombre;
 
-  // Sin viandas: el número se ve gris y no se puede descartar
-  let claseStock = '';
+  // Sin viandas no se puede descartar
   let deshabilitado = '';
-  if (plato.stock_heladera <= 0) {
-    claseStock = 'stock-cero';
-    deshabilitado = 'disabled';
-  }
+  if (plato.stock_heladera <= 0) deshabilitado = 'disabled';
 
   tr.innerHTML = `
-    <td style="font-weight:bold">${escHtml(codigo)}</td>
     <td><strong>${escHtml(plato.nombre)}</strong></td>
     <td>${escHtml(plan)}</td>
-    <td style="font-weight:600" class="${claseStock}">${Number(plato.stock_heladera)}</td>
+    <td class="celda-stock">${Number(plato.stock_heladera)}</td>
+    <td>${Number(plato.stock_minimo)}</td>
+    <td>${etiquetaEstado(plato)}</td>
     <td class="td-acciones">
       <div class="acciones-grupo">
         <button class="btn-borrar" onclick="abrirModalDescarte(${Number(plato.id)})" ${deshabilitado}>✖ Descartar</button>
@@ -101,10 +180,69 @@ function crearFilaPlato(plato) {
 // FILTRO POR NOMBRE
 // ==========================================
 
-function aplicarFiltro() {
+// Buscador + filtro de estado, ordenado por estado y nombre.
+// También actualiza los botones de filtro y la franja de faltantes (cambian con cada recarga).
+function aplicarFiltro(mantenerPagina) {
+  const cuenta = contarEstados();
+  renderizarFiltrosEstado(cuenta);
+  actualizarAvisoFaltantes(cuenta);
+
   const texto = document.getElementById('filtroNombre').value.toLowerCase();
-  const filtrados = todosPlatos.filter(p => (p.nombre || '').toLowerCase().includes(texto));
-  renderizarPlatos(filtrados);
+  const filtrados = todosPlatos
+    .filter(p => (p.nombre || '').toLowerCase().includes(texto))
+    .filter(p => filtroEstado === 'todos' || estadoStock(p) === filtroEstado)
+    .sort((a, b) => compararEstado(a, b) || (a.nombre || '').localeCompare(b.nombre || '', 'es'));
+  renderizarPlatos(filtrados, mantenerPagina);
+}
+
+// Botones "Todos (20)", "Sin stock (2)", "Bajos (3)", "Bien (15)" y, si hay, "Sin control (N)"
+function renderizarFiltrosEstado(cuenta) {
+  const opciones = [
+    { valor: 'todos', texto: 'Todos',     cantidad: todosPlatos.length },
+    { valor: 'sin',   texto: 'Sin stock', cantidad: cuenta.sin },
+    { valor: 'bajo',  texto: 'Bajos',     cantidad: cuenta.bajo },
+    { valor: 'bien',  texto: 'Bien',      cantidad: cuenta.bien }
+  ];
+  if (cuenta.sincontrol > 0) {
+    opciones.push({ valor: 'sincontrol', texto: 'Sin control', cantidad: cuenta.sincontrol });
+  }
+
+  // Si el filtro elegido ya no existe (no quedan "Sin control"), vuelve a Todos
+  if (!opciones.some(o => o.valor === filtroEstado)) filtroEstado = 'todos';
+
+  const contenedor = document.getElementById('filtrosEstado');
+  contenedor.innerHTML = '';
+  opciones.forEach(opcion => {
+    const boton = document.createElement('button');
+    boton.type = 'button';
+    boton.className = 'btn-filtro-estado';
+    boton.classList.toggle('activo', opcion.valor === filtroEstado);
+    boton.textContent = opcion.texto + ' (' + opcion.cantidad + ')';
+    boton.addEventListener('click', () => {
+      filtroEstado = opcion.valor;
+      aplicarFiltro();
+    });
+    contenedor.appendChild(boton);
+  });
+}
+
+// Franja "Te faltan 5 platos: 2 sin stock y 3 bajos". Solo para quien puede pedir y solo si falta algo.
+function actualizarAvisoFaltantes(cuenta) {
+  const aviso = document.getElementById('avisoFaltantes');
+  const faltan = cuenta.sin + cuenta.bajo;
+
+  if (!puedePedir() || faltan === 0) {
+    aviso.style.display = 'none';
+    return;
+  }
+
+  const partes = [];
+  if (cuenta.sin > 0) partes.push(cuenta.sin + ' sin stock');
+  if (cuenta.bajo > 0) partes.push(conPlural(cuenta.bajo, 'bajo', 'bajos'));
+
+  document.getElementById('avisoTexto').textContent =
+    'Te faltan ' + conPlural(faltan, 'plato', 'platos') + ': ' + partes.join(' y ');
+  aviso.style.display = '';
 }
 
 function iniciarFiltro() {
@@ -464,7 +602,7 @@ async function confirmarTanda() {
     }
 
     cerrarModalTanda();
-    mostrarToast('Tanda registrada. En heladera: ' + data.stock_heladera + ' viandas.', 'exito');
+    mostrarToast('Tanda registrada. En stock: ' + data.stock_heladera + ' viandas.', 'exito');
     await Promise.all([fetchPlatos(), fetchHistorial()]);
   } catch {
     mostrarErrorModal('tError', 'No se pudo conectar con el servidor.');
@@ -751,10 +889,489 @@ async function confirmarCombo() {
     }
 
     cerrarModalCombo();
-    mostrarToast('Combo registrado: ' + data.total + ' viandas cargadas en heladera.', 'exito');
+    mostrarToast('Combo registrado: ' + data.total + ' viandas cargadas en stock.', 'exito');
     await Promise.all([fetchPlatos(), fetchHistorial()]);
   } catch {
     mostrarErrorModal('cError', 'No se pudo conectar con el servidor.');
+    btn.disabled = false;
+  }
+}
+
+// ==========================================
+// PENDIENTES DE COCINA
+// Lo pedido a cocina que todavía no está hecho, agrupado por cocinero.
+// ==========================================
+
+async function fetchPendientes() {
+  const contenedor = document.getElementById('listaPendientes');
+  const boton = document.getElementById('btnPendientes');
+
+  try {
+    const res = await apiFetch('/api/ordenes-produccion/pendientes');
+    if (!res.ok) throw new Error();
+    const pendientes = await res.json();
+    // N = cantidad de platos pendientes (el servidor manda un renglón por plato de cada pedido)
+    boton.textContent = 'Pendientes de cocina (' + pendientes.length + ')';
+    renderizarPendientes(pendientes);
+  } catch {
+    boton.textContent = 'Pendientes de cocina';
+    contenedor.innerHTML = '<p class="mov-vacio" style="color:red;">Error al cargar los pendientes de cocina</p>';
+  }
+}
+
+// "2026-10-08" → "08/10"
+function diaMes(texto) {
+  const fecha = parseFechaLocal(texto);
+  const dd = String(fecha.getDate()).padStart(2, '0');
+  const mm = String(fecha.getMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}`;
+}
+
+// Urgencia de una fecha "AAAA-MM-DD" comparada con hoy (fecha de la computadora):
+// 'atrasado' si ya pasó, 'hoy' si es hoy, '' si es más adelante
+function urgenciaFecha(fechaPara) {
+  const hoy = fechaLocalISO(new Date());
+  if (fechaPara < hoy) return 'atrasado';
+  if (fechaPara === hoy) return 'hoy';
+  return '';
+}
+
+function renderizarPendientes(pendientes) {
+  const contenedor = document.getElementById('listaPendientes');
+
+  if (!pendientes || pendientes.length === 0) {
+    contenedor.innerHTML = '<p class="mov-vacio">No hay nada pendiente en cocina.</p>';
+    return;
+  }
+
+  // Una tarjeta por cocinero (agrupado por id). El servidor manda todo ordenado por fecha y
+  // número de pedido, así que las tarjetas quedan en orden de urgencia (la primera es la que
+  // tiene lo más urgente) y adentro de cada una también. Sin cocinero: tarjeta aparte, al final.
+  const tarjetas = [];
+  const tarjetaPorId = {};
+  const sinCocinero = { nombre: 'Sin cocinero asignado', sinAsignar: true, platos: [] };
+  let totalViandas = 0;
+
+  pendientes.forEach(d => {
+    totalViandas += Number(d.cantidad);
+
+    if (!d.id_cocinero) {
+      sinCocinero.platos.push(d);
+      return;
+    }
+
+    let tarjeta = tarjetaPorId[d.id_cocinero];
+    if (!tarjeta) {
+      let nombre = 'Cocinero';
+      if (d.cocinero) nombre = d.cocinero;
+      tarjeta = { nombre, sinAsignar: false, platos: [] };
+      tarjetaPorId[d.id_cocinero] = tarjeta;
+      tarjetas.push(tarjeta);
+    }
+    tarjeta.platos.push(d);
+  });
+
+  if (sinCocinero.platos.length > 0) tarjetas.push(sinCocinero);
+
+  const resumen = `
+    <p class="pend-resumen">
+      ${conPlural(pendientes.length, 'plato pendiente', 'platos pendientes')} · ${conPlural(totalViandas, 'vianda', 'viandas')}
+    </p>
+  `;
+  contenedor.innerHTML = resumen + tarjetas.map(crearTarjetaCocinero).join('');
+}
+
+// Tarjeta de un cocinero: nombre grande, "3 platos · 25 viandas" y un renglón por plato
+function crearTarjetaCocinero(tarjeta) {
+  let viandas = 0;
+  tarjeta.platos.forEach(d => { viandas += Number(d.cantidad); });
+
+  const filas = tarjeta.platos.map(d => {
+    const urgencia = urgenciaFecha(d.fecha_para);
+    let clase = '';
+    let marca = '';
+    if (urgencia) {
+      clase = 'pend-' + urgencia;
+      marca = `<span class="marca-urgencia">${urgencia}</span>`;
+    }
+
+    let plan = '';
+    if (d.plan) plan = `<span class="pend-plan">${escHtml(d.plan)}</span>`;
+
+    return `
+      <li class="${clase}">
+        <span class="pend-cantidad">${Number(d.cantidad)}</span>
+        <div class="pend-info">
+          <div class="pend-plato">${escHtml(d.plato)} ${plan}</div>
+          <div class="pend-detalle">
+            para el ${escHtml(diaMes(d.fecha_para))}${marca}
+            <span class="pend-numero">· pedido #${Number(d.id_orden)}</span>
+          </div>
+        </div>
+      </li>
+    `;
+  }).join('');
+
+  let claseTarjeta = 'tarjeta-cocinero';
+  if (tarjeta.sinAsignar) claseTarjeta += ' sin-asignar';
+
+  return `
+    <div class="${claseTarjeta}">
+      <div class="tarjeta-cabecera">
+        <h4 class="tarjeta-nombre">${escHtml(tarjeta.nombre)}</h4>
+        <span class="tarjeta-resumen">${conPlural(tarjeta.platos.length, 'plato', 'platos')} · ${conPlural(viandas, 'vianda', 'viandas')}</span>
+      </div>
+      <ul class="pend-platos">${filas}</ul>
+    </div>
+  `;
+}
+
+// Al abrir se vuelve a pedir la lista, para mostrar lo último (y actualizar el número del botón)
+function abrirModalPendientes() {
+  fetchPendientes();
+  document.getElementById('modalPendientes').style.display = 'block';
+}
+
+function cerrarModalPendientes() {
+  document.getElementById('modalPendientes').style.display = 'none';
+}
+
+// ==========================================
+// MODAL PEDIR A COCINA
+// Una lista de platos activos con "−", un casillero y "+". El filtro (Los que faltan, Sin stock,
+// Bajos, Todos los planes o un plan) solo decide lo que se ve: lo escrito se guarda en cantidadesPedido.
+// Se piden los platos con un número mayor a 0. Acá no se calculan insumos.
+// ==========================================
+
+// Pueden pedir a cocina: administrador del sistema, dueño y administrador (el cocinero no pide)
+function puedePedir() {
+  const rol = parseInt(localStorage.getItem('usuario_rol') || '0', 10);
+  const rolesQuePiden = [FG_ROLES.ROL.SISTEMA, FG_ROLES.ROL.DUENO, FG_ROLES.ROL.ADMINISTRADOR];
+  return rolesQuePiden.includes(rol);
+}
+
+function mostrarBotonPedir() {
+  if (puedePedir()) {
+    document.getElementById('btnPedirCocina').style.display = '';
+  }
+}
+
+function iniciarModalPedido() {
+  document.getElementById('pPlan').addEventListener('change', alCambiarPlanPedido);
+}
+
+// Agrega una opción a un select (textContent: el texto no se interpreta como HTML)
+function agregarOpcion(select, valor, texto) {
+  const option = document.createElement('option');
+  option.value = valor;
+  option.textContent = texto;
+  select.appendChild(option);
+}
+
+function abrirModalPedido() {
+  // Para cuándo: arranca en mañana y no deja elegir días pasados
+  const hoy = new Date();
+  const manana = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1);
+  const inputFecha = document.getElementById('pFecha');
+  inputFecha.min = fechaLocalISO(hoy);
+  inputFecha.value = fechaLocalISO(manana);
+
+  // Filtro: "Los que faltan (N)", "Sin stock (N)", "Bajos (N)", "Todos los planes" y cada plan activo.
+  // Las cantidades salen de contarEstados (la regla única): los "sin control" no entran en ninguna.
+  const cuenta = contarEstados();
+  const cantidadFaltan = cuenta.sin + cuenta.bajo;
+  const select = document.getElementById('pPlan');
+  select.innerHTML = '';
+
+  agregarOpcion(select, 'faltan', 'Los que faltan (' + cantidadFaltan + ')');
+  agregarOpcion(select, 'sin', 'Sin stock (' + cuenta.sin + ')');
+  agregarOpcion(select, 'bajo', 'Bajos (' + cuenta.bajo + ')');
+  agregarOpcion(select, '', 'Todos los planes');
+  planesDelCombo().forEach(plan => agregarOpcion(select, plan.id, plan.nombre));
+
+  // Si falta algo abre en "Los que faltan"; si no, en "Todos los planes"
+  select.value = '';
+  if (cantidadFaltan > 0) select.value = 'faltan';
+
+  document.getElementById('pRapidoCantidad').value = '';
+  document.getElementById('pError').style.display = 'none';
+  cantidadesPedido = {};
+
+  alCambiarPlanPedido();
+  document.getElementById('modalPedido').style.display = 'block';
+}
+
+function cerrarModalPedido() {
+  document.getElementById('modalPedido').style.display = 'none';
+}
+
+// Lo escrito para un plato: 0 si está vacío, el número si es un entero >= 0, o null si es inválido
+function cantidadAPedir(idProducto) {
+  const valor = (cantidadesPedido[idProducto] || '').trim();
+  if (valor === '') return 0;
+  const cantidad = Number(valor);
+  if (!Number.isInteger(cantidad) || cantidad < 0) return null;
+  return cantidad;
+}
+
+// Orden de la lista: por estado (Sin stock, Bajo, Bien, Sin control); después por plan (sin plan al final) y por nombre
+function compararPlatosPedido(a, b) {
+  const porEstado = compararEstado(a, b);
+  if (porEstado !== 0) return porEstado;
+
+  const planA = a.plan_nombre || '';
+  const planB = b.plan_nombre || '';
+  if (planA !== planB) {
+    if (!planA) return 1;
+    if (!planB) return -1;
+    return planA.localeCompare(planB, 'es');
+  }
+  return (a.nombre || '').localeCompare(b.nombre || '', 'es');
+}
+
+// Platos que se ven con el filtro elegido, ya ordenados.
+// slice(): copia la lista para que sort no desordene todosPlatos.
+function platosVisiblesPedido() {
+  const filtro = document.getElementById('pPlan').value;
+  let platos = todosPlatos;
+  if (filtro === 'faltan') {
+    platos = todosPlatos.filter(faltaPlato);
+  } else if (filtro === 'sin' || filtro === 'bajo') {
+    // El valor del filtro es el mismo que devuelve estadoStock
+    platos = todosPlatos.filter(p => estadoStock(p) === filtro);
+  } else if (filtro !== '') {
+    platos = todosPlatos.filter(p => p.id_plan === Number(filtro));
+  }
+  return platos.slice().sort(compararPlatosPedido);
+}
+
+// Filtros que no son un plan: los de estado y "Todos los planes"
+const FILTROS_PEDIDO_SIN_PLAN = ['faltan', 'sin', 'bajo', ''];
+
+// ¿El filtro elegido es un plan? (entonces el plan no se repite en cada renglón)
+function filtroEsPlan() {
+  const filtro = document.getElementById('pPlan').value;
+  return !FILTROS_PEDIDO_SIN_PLAN.includes(filtro);
+}
+
+function alCambiarPlanPedido() {
+  renderizarListaPedido();
+}
+
+function renderizarListaPedido() {
+  const contenedor = document.getElementById('pPlatos');
+  const platos = platosVisiblesPedido();
+  contenedor.innerHTML = '';
+
+  if (platos.length === 0) {
+    contenedor.innerHTML = '<div class="pedido-vacio">No hay platos para este filtro</div>';
+    actualizarResumenPedido();
+    return;
+  }
+
+  platos.forEach(plato => {
+    const fila = document.createElement('div');
+    fila.className = 'plato-pedido';
+
+    // Etiquetas: el estado solo si falta (Sin stock / Bajo), y "sin receta"
+    let etiquetas = '';
+    if (faltaPlato(plato)) etiquetas += etiquetaEstado(plato);
+    if (!plato.tiene_receta) {
+      etiquetas += '<span class="etiqueta-sin-receta">sin receta</span>';
+    }
+
+    // Línea gris: "En stock: N · mínimo M" (+ el plan, si el filtro no es un plan)
+    let detalle = 'En stock: ' + Number(plato.stock_heladera);
+    if (estadoStock(plato) === 'sincontrol') {
+      detalle += ' · sin control';
+    } else {
+      detalle += ' · mínimo ' + Number(plato.stock_minimo);
+    }
+    if (!filtroEsPlan()) {
+      let plan = 'Sin plan';
+      if (plato.plan_nombre) plan = plato.plan_nombre;
+      detalle += ' · ' + plan;
+    }
+
+    fila.innerHTML = `
+      <div class="pp-info">
+        <div class="pp-nombre">${escHtml(plato.nombre)}${etiquetas}</div>
+        <div class="pp-detalle">${escHtml(detalle)}</div>
+      </div>
+      <div class="pp-cantidad">
+        <button type="button" class="btn-paso" data-paso="-1" aria-label="Uno menos">−</button>
+        <input type="text" inputmode="numeric" placeholder="0" aria-label="Cantidad a pedir">
+        <button type="button" class="btn-paso" data-paso="1" aria-label="Uno más">+</button>
+      </div>
+    `;
+
+    // El valor se pone por DOM; cada cambio se guarda en cantidadesPedido
+    const input = fila.querySelector('input');
+    input.value = cantidadesPedido[plato.id] || '';
+    pintarFilaPedido(fila, input, plato.id);
+
+    input.addEventListener('input', () => {
+      cantidadesPedido[plato.id] = input.value;
+      pintarFilaPedido(fila, input, plato.id);
+      actualizarResumenPedido();
+    });
+
+    // "−" y "+": suman o restan 1 sin redibujar la lista (no se pierde el scroll)
+    fila.querySelectorAll('.btn-paso').forEach(boton => {
+      boton.addEventListener('click', () => {
+        cambiarCantidadPedido(plato.id, Number(boton.dataset.paso));
+        input.value = cantidadesPedido[plato.id];
+        pintarFilaPedido(fila, input, plato.id);
+        actualizarResumenPedido();
+      });
+    });
+
+    contenedor.appendChild(fila);
+  });
+
+  actualizarResumenPedido();
+}
+
+// Rojo si el casillero es inválido; fondo verde suave si tiene más de 0
+function pintarFilaPedido(fila, input, idProducto) {
+  const cantidad = cantidadAPedir(idProducto);
+  input.classList.toggle('invalido', cantidad === null);
+  fila.classList.toggle('con-cantidad', cantidad > 0);
+}
+
+// Suma o resta 1. Nunca baja de 0. Si había algo inválido escrito, arranca de 0.
+function cambiarCantidadPedido(idProducto, paso) {
+  let actual = cantidadAPedir(idProducto);
+  if (actual === null) actual = 0;
+  let nueva = actual + paso;
+  if (nueva < 0) nueva = 0;
+  cantidadesPedido[idProducto] = String(nueva);
+}
+
+// Reparto en partes iguales: el sobrante va de a uno a los primeros (misma cuenta que repartirCombo).
+// Ej.: 10 en 6 platos → [2, 2, 2, 2, 1, 1]
+function partesIguales(total, cantidadPlatos) {
+  const base = Math.floor(total / cantidadPlatos);
+  const sobrante = total % cantidadPlatos;
+  const partes = [];
+  for (let i = 0; i < cantidadPlatos; i++) {
+    let parte = base;
+    if (i < sobrante) parte = base + 1;
+    partes.push(parte);
+  }
+  return partes;
+}
+
+// "Cargar rápido": las tres acciones trabajan sobre los platos que se ven con el filtro elegido.
+// Devuelve el número del casillero, o null (y muestra el error) si está vacío o es inválido.
+function leerCargaRapida() {
+  const cantidad = leerCantidad('pRapidoCantidad');
+  if (cantidad === null) {
+    mostrarErrorModal('pError', 'Escribí un número entero mayor a 0 en "Cargar rápido".');
+  }
+  return cantidad;
+}
+
+// "A cada uno": el mismo número en cada plato visible
+function pedidoACadaUno() {
+  const cantidad = leerCargaRapida();
+  if (cantidad === null) return;
+  platosVisiblesPedido().forEach(plato => {
+    cantidadesPedido[plato.id] = String(cantidad);
+  });
+  renderizarListaPedido();
+}
+
+// "Repartir": el número en partes iguales entre los visibles (el sobrante, de a uno a los primeros)
+function pedidoRepartir() {
+  const total = leerCargaRapida();
+  if (total === null) return;
+  const visibles = platosVisiblesPedido();
+  if (visibles.length === 0) {
+    mostrarErrorModal('pError', 'No hay platos para repartir.');
+    return;
+  }
+  const partes = partesIguales(total, visibles.length);
+  visibles.forEach((plato, indice) => {
+    cantidadesPedido[plato.id] = String(partes[indice]);
+  });
+  renderizarListaPedido();
+}
+
+// "Limpiar": deja en 0 los visibles (los ocultos por el filtro no se tocan)
+function pedidoLimpiar() {
+  platosVisiblesPedido().forEach(plato => {
+    delete cantidadesPedido[plato.id];
+  });
+  renderizarListaPedido();
+}
+
+// Total de viandas pedidas, en cuántos platos, y si se puede enviar.
+// Cuenta TODOS los platos, también los que no se ven por el filtro elegido.
+function actualizarResumenPedido() {
+  let total = 0;
+  let platos = 0;
+  let hayInvalida = false;
+
+  todosPlatos.forEach(plato => {
+    const cantidad = cantidadAPedir(plato.id);
+    if (cantidad === null) {
+      hayInvalida = true;
+      return;
+    }
+    total += cantidad;
+    if (cantidad > 0) platos += 1;
+  });
+
+  document.getElementById('pTotal').textContent = 'Total: ' + conPlural(total, 'vianda', 'viandas');
+  document.getElementById('pTotalPlatos').textContent = 'en ' + conPlural(platos, 'plato', 'platos');
+
+  const errEl = document.getElementById('pError');
+  if (hayInvalida) {
+    mostrarErrorModal('pError', 'Hay una cantidad inválida: tiene que ser un número entero mayor o igual a 0.');
+  } else {
+    errEl.style.display = 'none';
+  }
+
+  document.getElementById('pEnviar').disabled = total === 0 || hayInvalida;
+}
+
+// Platos con un número mayor a 0, en el formato que espera el servidor
+function itemsDelPedido() {
+  return todosPlatos
+    .filter(plato => cantidadAPedir(plato.id) > 0)
+    .map(plato => ({ id_producto: plato.id, cantidad: cantidadAPedir(plato.id) }));
+}
+
+async function enviarPedido() {
+  const fecha = document.getElementById('pFecha').value;
+  if (!fecha) {
+    mostrarErrorModal('pError', 'Elegí para cuándo es el pedido.');
+    return;
+  }
+
+  const btn = document.getElementById('pEnviar');
+  btn.disabled = true; // evita doble click mientras se guarda
+
+  try {
+    const res = await apiFetch('/api/ordenes-produccion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fecha_para: fecha, items: itemsDelPedido() })
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      mostrarErrorModal('pError', data.error || 'No se pudo enviar el pedido a cocina.');
+      btn.disabled = false;
+      return;
+    }
+
+    cerrarModalPedido();
+    mostrarToast('Pedido a cocina #' + data.id_orden + ' enviado.', 'exito');
+    await fetchPendientes();
+  } catch {
+    mostrarErrorModal('pError', 'No se pudo conectar con el servidor.');
     btn.disabled = false;
   }
 }
@@ -769,7 +1386,7 @@ function abrirModalDescarte(idProducto) {
 
   platoDescarte = plato;
   document.getElementById('dInfo').textContent =
-    plato.nombre + ' — en heladera: ' + plato.stock_heladera + ' viandas';
+    plato.nombre + ' — en stock: ' + plato.stock_heladera + ' viandas';
   document.getElementById('dCantidad').value = '';
   document.getElementById('dCantidad').max = plato.stock_heladera;
   document.getElementById('dMotivo').value = '';
@@ -795,7 +1412,7 @@ async function confirmarDescarte() {
     return;
   }
   if (cantidad > platoDescarte.stock_heladera) {
-    mostrarErrorModal('dError', 'No podés descartar más viandas de las que hay en la heladera.');
+    mostrarErrorModal('dError', 'No podés descartar más viandas de las que hay en stock.');
     return;
   }
   if (!motivo) {
@@ -821,7 +1438,7 @@ async function confirmarDescarte() {
     }
 
     cerrarModalDescarte();
-    mostrarToast('Descarte registrado. En heladera: ' + data.stock_heladera + ' viandas.', 'exito');
+    mostrarToast('Descarte registrado. En stock: ' + data.stock_heladera + ' viandas.', 'exito');
     await Promise.all([fetchPlatos(), fetchHistorial()]);
   } catch {
     mostrarErrorModal('dError', 'No se pudo conectar con el servidor.');
@@ -834,6 +1451,7 @@ window.addEventListener('click', (e) => {
   if (e.target === document.getElementById('modalCombo')) cerrarModalCombo();
   if (e.target === document.getElementById('modalTanda')) cerrarModalTanda();
   if (e.target === document.getElementById('modalDescarte')) cerrarModalDescarte();
+  if (e.target === document.getElementById('modalPendientes')) cerrarModalPendientes();
 });
 
 // ==========================================

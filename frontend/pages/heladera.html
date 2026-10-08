@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fast Good — Heladera</title>
+  <title>Fast Good — Producción</title>
   <!-- Evita el flash de contenido sin estilos (FOUC): el body se muestra cuando la página terminó de cargar -->
   <style>
     body { visibility: hidden; opacity: 0; transition: opacity 0.15s ease-in; }
@@ -29,12 +29,18 @@
     <div class="container-centrado">
       <div style="display:flex; align-items:center; gap:1rem;">
         <img src="../src/assets/img/logo.webp" alt="Fast Good" style="height:40px; border-radius:4px;" onerror="this.style.display='none'">
-        <h1>Heladera</h1>
+        <h1>Producción</h1>
       </div>
     </div>
   </header>
 
   <main class="page-container">
+    <!-- Aviso de faltantes: solo para quien puede pedir y solo si falta algo (lo maneja heladera.js) -->
+    <div id="avisoFaltantes" class="aviso-faltantes" style="display:none">
+      <span id="avisoTexto"></span>
+      <button class="btn-confirmar" onclick="abrirModalPedido()">Pedir los que faltan</button>
+    </div>
+
     <!-- Dos columnas en escritorio: platos (ancha) y movimientos (angosta). En celular, una debajo de la otra -->
     <div class="heladera-layout">
 
@@ -46,24 +52,31 @@
             <input type="text" id="filtroNombre" class="filtro-input" placeholder="Buscar plato...">
           </div>
           <div class="acciones-header">
-            <button class="btn-secundario" onclick="abrirModalTanda()">+ Cargar un plato</button>
-            <button class="btn-nuevo-insumo" onclick="abrirModalCombo()">+ Cargar combo</button>
+            <button id="btnPedirCocina" class="btn-nuevo-insumo btn-pedir-cocina" onclick="abrirModalPedido()" style="display:none">+ Pedir a cocina</button>
+            <button id="btnPendientes" class="btn-secundario" onclick="abrirModalPendientes()">Pendientes de cocina</button>
+            <!-- Ocultos por ahora (sus ventanas y su código siguen): se sacan en otro paso -->
+            <button class="btn-secundario boton-oculto" onclick="abrirModalTanda()">+ Cargar un plato</button>
+            <button class="btn-nuevo-insumo boton-oculto" onclick="abrirModalCombo()">+ Cargar combo</button>
           </div>
         </div>
+
+        <!-- Filtros por estado: los arma heladera.js con la cantidad de cada uno -->
+        <div id="filtrosEstado" class="filtros-estado"></div>
 
         <table class="standard-table">
           <thead>
             <tr>
-              <th>Código</th>
               <th>Plato</th>
               <th>Plan</th>
-              <th>En heladera</th>
+              <th>En stock</th>
+              <th>Mínimo</th>
+              <th>Estado</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody id="heladeraBody">
             <tr>
-              <td colspan="5" class="loading-text">Cargando datos...</td>
+              <td colspan="6" class="loading-text">Cargando datos...</td>
             </tr>
           </tbody>
         </table>
@@ -85,6 +98,58 @@
   <footer>
     <p>&copy; 2024 Fast Good - Panel de Administración</p>
   </footer>
+
+  <!-- MODAL: Pedir a cocina (se elige para cuándo y cuántas viandas de cada plato) -->
+  <div id="modalPedido" class="modal">
+    <div class="modal-content modal-stock modal-pedido">
+      <span class="close" onclick="cerrarModalPedido()">&times;</span>
+      <h3>Pedir a cocina</h3>
+
+      <!-- Una línea: para cuándo, filtro y cargar rápido -->
+      <div class="pedido-controles">
+        <label class="control-pedido">Para cuándo
+          <input id="pFecha" type="date">
+        </label>
+        <label class="control-pedido">Mostrar
+          <select id="pPlan"></select>
+        </label>
+        <!-- Cargar rápido: actúa sobre los platos que se ven con el filtro elegido -->
+        <div class="control-pedido">
+          <span>Cargar rápido</span>
+          <div class="carga-rapida">
+            <input id="pRapidoCantidad" type="number" min="1" step="1" placeholder="Ej: 5">
+            <button type="button" class="btn-rapido" onclick="pedidoACadaUno()">A cada uno</button>
+            <button type="button" class="btn-rapido" onclick="pedidoRepartir()">Repartir</button>
+            <button type="button" class="btn-rapido btn-limpiar" onclick="pedidoLimpiar()">Limpiar</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="pPlatos" class="lista-pedido"></div>
+
+      <div id="pError" class="modal-error"></div>
+
+      <!-- Siempre visible: total y enviar -->
+      <div class="pedido-pie">
+        <div class="pedido-total">
+          <span id="pTotal" class="pedido-total-numero"></span>
+          <span id="pTotalPlatos" class="pedido-total-platos"></span>
+        </div>
+        <button id="pEnviar" class="btn-confirmar btn-enviar-cocina" onclick="enviarPedido()" disabled>Enviar a cocina</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Pendientes de cocina (lo pedido que todavía no se cocinó, agrupado por pedido) -->
+  <div id="modalPendientes" class="modal">
+    <div class="modal-content modal-stock modal-pendientes">
+      <span class="close" onclick="cerrarModalPendientes()">&times;</span>
+      <h3>Pendientes de cocina</h3>
+      <div id="listaPendientes" class="lista-pendientes">
+        <p class="mov-vacio">Cargando...</p>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL: Cargar combo (un plan entero, repartido entre sus platos) -->
   <div id="modalCombo" class="modal">

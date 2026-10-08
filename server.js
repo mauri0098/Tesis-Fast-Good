@@ -2095,7 +2095,7 @@ function leerMotivoVianda(valor, obligatorio) {
 app.get('/api/viandas-stock', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
   const { data, error } = await supabase
     .from('productos')
-    .select('id, nombre, codigo_plato, stock_heladera, id_plan, planes ( nombre, activo ), producto_insumo ( id_insumo )')
+    .select('id, nombre, codigo_plato, stock_heladera, stock_minimo, id_plan, planes ( nombre, activo ), producto_insumo ( id_insumo )')
     .eq('activo', true)
     .order('nombre', { ascending: true });
 
@@ -2113,6 +2113,7 @@ app.get('/api/viandas-stock', requireAuth, requireRol(...ROLES_HELADERA), async 
       nombre:         p.nombre,
       codigo_plato:   p.codigo_plato,
       stock_heladera: Number(p.stock_heladera || 0),
+      stock_minimo:   Number(p.stock_minimo || 0),
       id_plan:        p.id_plan,
       plan_nombre:    planNombre,
       plan_activo:    planActivo,
@@ -2270,6 +2271,119 @@ app.post('/api/viandas-stock/descarte', requireAuth, requireRol(...ROLES_HELADER
   } catch (e) {
     errorInterno(res, e);
   }
+});
+
+/* ------------------------------------------------------
+   PEDIDOS A COCINA (sql/Produccion.sql)
+   En la base se llaman órdenes de producción; en pantalla, "pedidos a cocina".
+   ------------------------------------------------------ */
+
+const ROLES_PIDEN_COCINA = [6, 5, 1]; // administradores y dueño. El cocinero no pide, cocina.
+
+// Fecha "AAAA-MM-DD" que exista de verdad (rechaza 2026-02-30). Devuelve el texto o null.
+// Que no sea anterior a hoy lo controla la base, con la hora de Argentina.
+function leerFechaPara(valor) {
+  if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return null;
+  const fecha = new Date(valor + 'T00:00:00Z');
+  if (Number.isNaN(fecha.getTime()) || fecha.toISOString().slice(0, 10) !== valor) return null;
+  return valor;
+}
+
+// Plato sin nadie asignado: ni cocinero propio, ni principal ni suplente en su plan.
+// `producto` trae id_cocinero y planes(id_cocinero, id_cocinero_suplente), igual que platoEsDelCocinero.
+function platoSinCocinero(producto) {
+  if (producto.id_cocinero) return false;
+  const plan = producto.planes;
+  return !plan || (!plan.id_cocinero && !plan.id_cocinero_suplente);
+}
+
+// POST /api/ordenes-produccion → crea un pedido a cocina (crear_orden_produccion).
+// Body: { fecha_para: 'AAAA-MM-DD', items: [{ id_producto, cantidad }] }. El usuario sale del token.
+app.post('/api/ordenes-produccion', requireAuth, requireRol(...ROLES_PIDEN_COCINA), async (req, res) => {
+  const fechaPara = leerFechaPara(req.body.fecha_para);
+  if (fechaPara === null) {
+    return res.status(400).json({ error: 'La fecha del pedido es inválida' });
+  }
+  const lectura = leerItemsViandas(req.body.items);
+  if (lectura.error) return res.status(400).json({ error: lectura.error });
+
+  try {
+    const { data, error } = await supabase.rpc('crear_orden_produccion', {
+      p_id_usuario: req.usuario.id,
+      p_fecha_para: fechaPara,
+      p_items:      lectura.items
+    });
+
+    if (error) return errorInterno(res, error);
+
+    // ok: false = no se guardó nada (fecha pasada, plato inactivo, etc.)
+    if (!data || !data.ok) {
+      let mensaje = 'No se pudo crear el pedido a cocina';
+      if (data && data.error) mensaje = data.error;
+      return res.status(400).json({ error: mensaje });
+    }
+
+    res.json({ mensaje: 'Pedido a cocina creado', id_orden: data.id_orden });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// GET /api/ordenes-produccion/pendientes → platos pedidos a cocina que todavía no están hechos.
+// Un cocinero (rol 2) ve los que le tocan según platoEsDelCocinero (cocinero del plato o, si no tiene,
+// principal o suplente del plan) y los que no tienen a nadie. El id_cocinero del detalle es solo para mostrar.
+app.get('/api/ordenes-produccion/pendientes', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
+  const { data, error } = await supabase
+    .from('orden_produccion_detalles')
+    .select(`
+      id, cantidad, id_cocinero,
+      ordenes_produccion ( id, fecha_para ),
+      productos ( nombre, id_cocinero, planes ( nombre, id_cocinero, id_cocinero_suplente ) ),
+      cocinero:usuarios!id_cocinero ( nombre, apellido )
+    `)
+    .eq('hecho', false);
+
+  if (error) return errorInterno(res, error);
+
+  // El filtro del cocinero se hace en JS, igual que en /api/cocina/tareas
+  let detalles = data || [];
+  if (Number(req.usuario.rol) === 2) {
+    detalles = detalles.filter(d =>
+      d.productos && (platoEsDelCocinero(d.productos, req.usuario.id) || platoSinCocinero(d.productos))
+    );
+  }
+
+  const resultado = detalles.map(d => {
+    let plato = null;
+    let plan = null;
+    if (d.productos) {
+      plato = d.productos.nombre;
+      if (d.productos.planes) plan = d.productos.planes.nombre;
+    }
+    let cocinero = null;
+    if (d.cocinero) cocinero = `${d.cocinero.nombre || ''} ${d.cocinero.apellido || ''}`.trim();
+
+    return {
+      id:          d.id,
+      id_cocinero: d.id_cocinero,
+      id_orden:    d.ordenes_produccion.id,
+      fecha_para:  d.ordenes_produccion.fecha_para,
+      plato,
+      plan,
+      cantidad:    d.cantidad,
+      cocinero
+    };
+  });
+
+  // Por fecha_para y después por número de pedido. Supabase no ordena la lista principal por
+  // columnas de una tabla unida, así que se ordena acá. "AAAA-MM-DD" se puede comparar como texto.
+  resultado.sort((a, b) => {
+    if (a.fecha_para !== b.fecha_para) return a.fecha_para.localeCompare(b.fecha_para);
+    if (a.id_orden !== b.id_orden) return a.id_orden - b.id_orden;
+    return (a.plato || '').localeCompare(b.plato || '', 'es');
+  });
+
+  res.json(resultado);
 });
 
 // GET /api/movimientos-viandas → últimos 50 movimientos de la heladera, del más nuevo al más viejo.
