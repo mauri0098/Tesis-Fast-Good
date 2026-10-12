@@ -35,6 +35,7 @@ var FG_ROLES = (function () {
     { ruta: 'pages/heladera.html',          menu: '🍳 Producción',           roles: [6, 5, 1, 2] },
     { ruta: 'pages/generarReceta.html',     menu: '📝 Generar Receta',       roles: [6, 5] },
     { ruta: 'pages/MovimientosStock.html',  menu: '📋 Movimientos de Stock', roles: [6, 5, 1] },
+    { ruta: 'pages/MovimientosStockNuevo.html', menu: '📦 Movimientos (nuevo)', roles: [6, 5, 1] },
     { ruta: 'pages/AsignarCocinero.html',   menu: '👨‍🍳 Asignar Cocineros',   roles: [6, 5] },
     { ruta: 'pages/Envios.html',            menu: '🚗 Envíos del Día',       roles: [6, 5, 1, 3] },
     { ruta: 'pages/gestionUsuarios.html',   menu: '👥 Gestión de Usuarios',  roles: [6, 5] }

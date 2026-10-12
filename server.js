@@ -1468,7 +1468,7 @@ app.get('/api/insumos', requireAuth, requireRol(6, 5, 1), async (req, res) => {
     .from('insumos')
     .select(`
       id, nombre, stock_actual, stock_minimo, unidad_medida, 
-      fecha_ingreso, fecha_caducidad, activo,
+      fecha_ingreso, fecha_caducidad, activo, dias_duracion,
       categorias_insumos ( nombre )
     `)
     .order('nombre', { ascending: true });
@@ -1776,7 +1776,10 @@ app.get('/api/movimientos-stock', requireAuth, requireRol(6, 5, 1), async (req, 
     .from('movimientos_stock')
     .select(`
       id, tipo, cantidad, unidad, motivo, fecha, id_movimiento_vianda,
+      id_compra, fecha_vencimiento,
       insumos ( id, nombre, unidad_medida ),
+      usuarios ( nombre, apellido ),
+      compras ( proveedor ),
       movimientos_viandas ( cantidad, motivo, productos ( nombre, planes ( nombre ) ), usuarios ( nombre, apellido ),
                             orden_produccion_detalles ( id_orden_produccion ) )
     `)
@@ -1933,6 +1936,112 @@ app.delete('/api/movimientos-stock/:id', requireAuth, requireRol(6, 5, 1), async
     if (errUpdate) return errorInterno(res, errUpdate);
 
     res.json({ mensaje: 'Movimiento eliminado y stock revertido' });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+/* ======================================================
+   API COMPRAS
+   Una compra = varios insumos que llegaron juntos.
+   Se guarda en la función registrar_compra (sql/compras_funciones.sql),
+   en una sola transacción: si algo falla, no se guarda nada.
+   ====================================================== */
+
+const ROLES_COMPRAS = [6, 5, 1]; // administradores y dueño
+
+// Pasa cada renglón a la unidad base del insumo (g, ml o u), que es lo que
+// espera registrar_compra. unidadesPorInsumo: { id_insumo: { nombre, unidad_medida } }.
+// Devuelve { items } si todo está bien, o { error } con un mensaje para el usuario.
+function convertirItemsCompra(items, unidadesPorInsumo) {
+  const itemsConvertidos = [];
+
+  for (const item of items) {
+    const insumo = unidadesPorInsumo[item.id_insumo];
+    if (!insumo) {
+      return { error: `El insumo ${item.id_insumo} no existe` };
+    }
+
+    // Misma conversión que un movimiento suelto (ej: 2 kg → 2000 g)
+    const conversion = convertirACantidadBase(item.cantidad, item.unidad, insumo.unidad_medida);
+    if (conversion.error) {
+      return { error: `No se puede cargar "${insumo.nombre}" en ${item.unidad}: ese insumo se mide en ${insumo.unidad_medida}` };
+    }
+
+    itemsConvertidos.push({
+      id_insumo:         Number(item.id_insumo),
+      cantidad:          conversion.cantidadBase,
+      fecha_vencimiento: item.fecha_vencimiento || null
+    });
+  }
+
+  return { items: itemsConvertidos };
+}
+
+// POST /api/compras → registra una compra con varios insumos (registrar_compra).
+// Body: { fecha?, proveedor?, items: [{ id_insumo, cantidad, unidad, fecha_vencimiento }] }.
+// El usuario sale del token.
+app.post('/api/compras', requireAuth, requireRol(...ROLES_COMPRAS), async (req, res) => {
+  const { fecha, proveedor, items } = req.body;
+
+  // La fecha es opcional, pero si viene tiene que ser AAAA-MM-DD (ej: 2026-10-12)
+  if (fecha && !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+    return res.status(400).json({ error: 'La fecha es inválida' });
+  }
+
+  // 1. Tiene que venir una lista con al menos un insumo
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Cargá al menos un insumo' });
+  }
+
+  // Cada renglón tiene que ser un objeto (ej: { id_insumo: 4, ... }), no null ni un texto
+  if (!items.every(item => item && typeof item === 'object' && !Array.isArray(item))) {
+    return res.status(400).json({ error: 'Hay un renglón inválido' });
+  }
+
+  // Cada id_insumo tiene que ser un número entero (ej: 4, no "abc" ni 4.5)
+  if (!items.every(item => Number.isInteger(Number(item.id_insumo)))) {
+    return res.status(400).json({ error: 'Hay un insumo inválido' });
+  }
+
+  try {
+    // 2. Traer la unidad de medida de todos los insumos de la lista, en una sola consulta
+    const ids = items.map(item => Number(item.id_insumo));
+    const { data: insumos, error: errInsumos } = await supabase
+      .from('insumos')
+      .select('id, nombre, unidad_medida')
+      .in('id', ids);
+
+    if (errInsumos) return errorInterno(res, errInsumos);
+
+    // Armar un "diccionario" por id para encontrar cada insumo rápido
+    const unidadesPorInsumo = {};
+    for (const insumo of insumos) {
+      unidadesPorInsumo[insumo.id] = insumo;
+    }
+
+    // 3. Convertir las cantidades a la unidad base de cada insumo
+    const conversion = convertirItemsCompra(items, unidadesPorInsumo);
+    if (conversion.error) return res.status(400).json({ error: conversion.error });
+
+    // 4. Guardar todo en la base (valida, crea la compra, los movimientos y suma el stock)
+    const { data, error } = await supabase.rpc('registrar_compra', {
+      p_id_usuario: req.usuario.id,
+      p_fecha:      fecha || null,
+      p_proveedor:  proveedor || null,
+      p_items:      conversion.items
+    });
+
+    if (error) return errorInterno(res, error);
+
+    // ok: false = no se guardó nada (cantidad en 0, insumo inactivo, etc.)
+    if (!data || !data.ok) {
+      let mensaje = 'No se pudo registrar la compra';
+      if (data && data.error) mensaje = data.error;
+      return res.status(400).json({ error: mensaje });
+    }
+
+    res.status(201).json({ ok: true, id_compra: data.id_compra });
   } catch (e) {
     errorInterno(res, e);
   }

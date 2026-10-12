@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Movimientos de Stock - Fast Good</title>
+  <!-- Evita el flash de contenido sin estilos (FOUC): el body se muestra cuando la página terminó de cargar -->
+  <style>
+    body { visibility: hidden; opacity: 0; transition: opacity 0.15s ease-in; }
+    body.cargada { visibility: visible; opacity: 1; }
+  </style>
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../src/css/global.css" />
+  <link rel="stylesheet" href="../src/css/movimientosStockNuevo.css" />
+</head>
+
+<body>
+  <!-- Arriba: no buscan nada de la página. guard.js revisa el login antes que nada -->
+  <script src="../src/js/roles.js"></script>
+  <script src="../src/js/guard.js"></script>
+  <script src="../src/js/api.js"></script>
+  <script src="../src/js/escape.js"></script>
+  <script src="../src/js/adminSidebar.js"></script>
+
+  <div class="admin-content">
+    <header>
+      <div class="container-centrado">
+        <div class="logo-titulo">
+          <img src="../src/assets/img/logo.webp" alt="Fast Good" class="logo" />
+          <h1>Movimientos de Stock</h1>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-container">
+      <!-- Botones: type (qué hace), id (para el JS), class (para el CSS) -->
+      <div class="acciones-bar">
+        <h2>Registro de Entradas y Salidas</h2>
+        <div class="acciones-btns">
+          <button type="button" id="btnRegistrarCompra" class="btn-compra">
+            + Registrar compra
+          </button>
+          <button type="button" id="btnRegistrarSalida" class="btn-salida">
+            − Registrar salida
+          </button>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div class="filtros-bar">
+        <input type="text" id="filtroInsumo" placeholder="Buscar insumo" />
+
+        <select id="filtroTipo">
+          <option value="">Todos los tipos</option>
+          <option value="entrada">Entradas (compras)</option>
+          <option value="produccion">Salidas por producción</option>
+          <option value="salida-otra">Otras salidas</option>
+        </select>
+
+        <input type="date" id="filtroDesde" title="Desde" />
+        <input type="date" id="filtroHasta" title="Hasta" />
+      </div>
+
+      <!-- Tabla: el JS llena el tbody -->
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha y Hora</th>
+              <th>Insumo</th>
+              <th>Tipo</th>
+              <th>Cantidad</th>
+              <th>Usuario</th>
+              <th>Proveedor</th>
+              <th>Motivo</th>
+              <th></th> <!-- botón Detalles de las compras -->
+            </tr>
+          </thead>
+          <tbody id="movimientosBody">
+            <tr class="empty-row">
+              <td colspan="8">Cargando...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <!-- cierra table-wrapper -->
+
+      <!-- Paginación: el JS pone los números de página -->
+      <div id="paginacion" class="paginacion"></div>
+    </div>
+    <!-- cierra page-container -->
+
+    <footer>
+      <p>&copy; 2025 Fast Good - Panel de Administración</p>
+    </footer>
+
+    <!-- MODAL COMPRA: arranca oculto (hidden), el JS lo muestra -->
+    <div id="modalCompra" class="modal-fondo" hidden>
+      <div class="modal-caja">
+        <h3>Registrar compra</h3>
+
+        <!-- Datos de la compra -->
+        <div class="compra-datos">
+          <label>
+            Fecha
+            <input type="date" id="compraFecha" />
+          </label>
+          <label>
+            Proveedor (opcional)
+            <input type="text" id="compraProveedor" placeholder="Ej: Verdulería Juan" />
+          </label>
+        </div>
+        <!-- cierra compra-datos -->
+
+        <!-- Filtros: categoría y solo los bajos -->
+        <div class="compra-filtros">
+          <label>
+            Categoría
+            <select id="compraCategoria">
+              <option value="">Todas</option>
+            </select>
+          </label>
+          <label>
+            <input type="checkbox" id="compraSoloBajos" />
+            Solo los bajos
+          </label>
+        </div>
+        <!-- cierra compra-filtros -->
+
+        <!-- Lista de insumos: el JS dibuja un renglón por insumo -->
+        <div class="compra-tabla">
+          <table>
+            <thead>
+              <tr>
+                <th>Insumo</th>
+                <th>Stock</th>
+                <th>Mínimo</th>
+                <th>Cantidad</th>
+                <th>Unidad</th>
+                <th>Vence</th>
+              </tr>
+            </thead>
+            <tbody id="comprasItemsBody">
+              <tr class="empty-row">
+                <td colspan="6">Cargando...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- cierra compra-tabla -->
+
+        <!-- Cuántos insumos tienen cantidad cargada -->
+        <p id="compraContador">0 insumos cargados</p>
+
+        <!-- Acá aparecen los errores (vacío al principio) -->
+        <p id="compraError" class="compra-error"></p>
+
+        <!-- Botones -->
+        <div class="modal-botones">
+          <button type="button" id="btnCancelarCompra" class="btn-cancelar">Cancelar</button>
+          <button type="button" id="btnGuardarCompra" class="btn-compra">Guardar</button>
+        </div>
+        <!-- cierra modal-botones -->
+      </div>
+      <!-- cierra modal-caja -->
+    </div>
+    <!-- cierra modalCompra -->
+
+    <!-- Abajo: buscan elementos de la página, así que van cuando ya está todo armado -->
+    <script src="../src/js/paginacion.js"></script>
+    <script src="../src/js/fechas.js"></script>
+    <script src="../src/js/movimientosStockNuevo.js"></script>
+  </div>
+  <!-- cierra admin-content -->
+  <script>
+    // Muestra el body apenas están el HTML y el CSS; a los 2 s se muestra igual, como respaldo
+    document.addEventListener('DOMContentLoaded', () => document.body.classList.add('cargada'));
+    setTimeout(() => document.body.classList.add('cargada'), 2000);
+  </script>
+</body>
+
+</html>

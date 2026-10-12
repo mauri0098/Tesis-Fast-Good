@@ -1,0 +1,580 @@
+/* ============================================================
+   movimientosStockNuevo.css — Pantalla "Movimientos (nuevo)"
+   Mismo aspecto que MovimientosStock.html (copiado de su <style>).
+   Lo general (fuente, encabezado y pie verdes, paginación) está en global.css.
+   ============================================================ */
+
+
+/* ── PÁGINA: contenido centrado, con ancho máximo ── */
+.page-container {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  width: 100%;
+}
+
+/* Sin esto, una tabla ancha estira toda la página en celular:
+   el scroll de costado tiene que quedar solo en la tabla */
+.admin-content {
+  min-width: 0;
+}
+
+
+/* ── ENCABEZADO: logo a la izquierda del título ── */
+.logo-titulo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.logo {
+  height: 40px;
+  border-radius: 4px;
+}
+
+
+/* ── BARRA DE ARRIBA: título a la izquierda, botones a la derecha ── */
+.acciones-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.acciones-bar h2 {
+  font-size: 1.4rem;
+  color: var(--color-primary);
+}
+
+.acciones-btns {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+
+/* ── BOTONES: "+ Cargar compra" (verde) y "− Registrar salida" (rojo) ── */
+.btn-compra {
+  padding: 0.55rem 1.2rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: #28a745;
+  color: white;
+  font-family: var(--font-main);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-compra:hover {
+  background: #218838;
+}
+
+.btn-salida {
+  padding: 0.55rem 1.2rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: #dc3545;
+  color: white;
+  font-family: var(--font-main);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-salida:hover {
+  background: #c82333;
+}
+
+
+/* ── FILTROS: buscador, tipo y fechas, en una fila ── */
+.filtros-bar {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.filtros-bar input,
+.filtros-bar select {
+  padding: 0.5rem 0.9rem;
+  border: 1.5px solid #ddd;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-main);
+  font-size: 0.88rem;
+  background: white;
+}
+
+/* Campo elegido: borde verde en vez del contorno azul del navegador */
+.filtros-bar input:focus,
+.filtros-bar select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+
+/* ── TABLA: caja blanca con sombra, encabezado verde con letras blancas ── */
+/* Si la tabla no entra, scroll de costado solo dentro de la caja */
+.table-wrapper {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+thead th {
+  background: var(--color-primary);
+  color: white;
+  padding: 0.85rem 1rem;
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+tbody td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.88rem;
+  vertical-align: middle;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Fila bajo el mouse: gris muy claro */
+tbody tr:hover {
+  background: #fafafa;
+}
+
+/* ── TABLA DE MOVIMIENTOS: ancho de las columnas ── */
+/* Ancho mínimo: en el celular aparece el scroll de costado (del .table-wrapper)
+   en vez de aplastarse */
+.table-wrapper table {
+  min-width: 900px;
+}
+
+/* Todas las celdas en una sola línea (fecha, "Compra #N", badge, cantidad...),
+   menos Motivo (columna 7). El renglón de detalle queda afuera: ocupa las 8 columnas */
+#movimientosBody tr:not(.fila-detalle-grupo) td:not(:nth-child(7)) {
+  white-space: nowrap;
+}
+
+/* Motivo usa todo el ancho que sobra; las demás quedan con el ancho justo */
+#movimientosBody td:nth-child(7) {
+  width: 100%;
+  min-width: 180px;
+}
+
+/* Renglón "Cargando..." o "No hay movimientos": centrado y gris */
+.empty-row td {
+  text-align: center;
+  padding: 3rem;
+  color: var(--color-muted);
+}
+
+
+/* ── CELULAR Y TABLET: menos margen, todo a lo ancho y uno debajo del otro ── */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 1rem 0.75rem 2.5rem;
+  }
+
+  .acciones-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .acciones-btns {
+    flex-direction: column;
+  }
+
+  .btn-compra,
+  .btn-salida {
+    width: 100%;
+  }
+
+  .filtros-bar {
+    flex-direction: column;
+  }
+
+  .filtros-bar input,
+  .filtros-bar select {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+
+/* ============================================================
+   MODAL "REGISTRAR COMPRA"
+   ============================================================ */
+
+/* ── FONDO: tapa toda la pantalla, oscuro y semitransparente, con la caja centrada ── */
+.modal-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* El modal arranca con el atributo hidden: sin esto, el display: flex
+   de arriba le gana y el modal se vería siempre */
+.modal-fondo[hidden] {
+  display: none;
+}
+
+
+/* ── CAJA: blanca, bordes redondeados. Si no entra en la pantalla, scroll adentro ── */
+.modal-caja {
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 1.5rem;
+  border-radius: var(--radius-md);
+  background: white;
+  box-shadow: var(--shadow-md);
+  font-family: var(--font-main);
+}
+
+.modal-caja h3 {
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+  font-size: 1.25rem;
+  color: var(--color-primary);
+}
+
+
+/* ── DATOS Y FILTROS: los campos uno al lado del otro ── */
+.compra-datos,
+.compra-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Cada campo: el texto arriba y el input abajo.
+   Fecha, Proveedor y Categoría con el mismo ancho, letra y separación: quedan parejos */
+.compra-datos label,
+.compra-filtros label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 220px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* El checkbox "Solo los bajos" va al lado de su texto, no arriba.
+   Misma altura que el select (2.5rem) y centrado: así queda a la altura del select de Categoría */
+.compra-filtros label:has(input[type="checkbox"]) {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  width: auto;
+  height: 2.5rem;
+  font-weight: 400; /* sin negrita: no es el título de un campo */
+  cursor: pointer;
+}
+
+/* Inputs y select: mismo estilo que los filtros de la pantalla.
+   Altura fija para que todos midan lo mismo (y el checkbox se alinee con ellos) */
+.compra-datos input,
+.compra-filtros select {
+  height: 2.5rem;
+  box-sizing: border-box;
+  padding: 0.5rem 0.9rem;
+  border: 1.5px solid #ddd;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-main);
+  font-size: 0.88rem;
+  background: white;
+}
+
+/* Campo elegido: borde verde */
+.compra-datos input:focus,
+.compra-filtros select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+
+/* ── TABLA DE INSUMOS: si son muchos, scroll solo acá, con el encabezado fijo ── */
+.compra-tabla {
+  max-height: 50vh;
+  overflow: auto;
+  border: 1px solid #eee;
+  border-radius: var(--radius-sm);
+}
+
+/* Encabezado pegado arriba mientras se scrollea (z-index: queda por encima de los inputs) */
+.compra-tabla thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* Celdas un poco más chicas que en la tabla principal */
+.compra-tabla tbody td {
+  padding: 0.5rem 0.75rem;
+}
+
+/* Renglón de un insumo con stock bajo: fondo rojo suave (también con el mouse encima) */
+.compra-tabla tbody tr.fila-baja {
+  background: #fdecea;
+}
+
+.compra-tabla tbody tr.fila-baja:hover {
+  background: #fbdcd8;
+}
+
+/* Inputs y select de cada renglón: chicos, que entren en la celda */
+.compra-tabla input,
+.compra-tabla select {
+  width: 100%;
+  min-width: 70px;
+  box-sizing: border-box;
+  padding: 0.3rem 0.5rem;
+  border: 1.5px solid #ddd;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-main);
+  font-size: 0.85rem;
+  background: white;
+}
+
+/* La fecha de vencimiento necesita un poco más de lugar */
+.compra-tabla input[type="date"] {
+  min-width: 130px;
+}
+
+.compra-tabla input:focus,
+.compra-tabla select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+
+/* ── CONTADOR: "N insumos cargados", chico y gris ── */
+#compraContador {
+  margin: 0.75rem 0 0;
+  font-size: 0.82rem;
+  color: var(--color-muted);
+}
+
+
+/* ── ERROR: texto rojo. Si está vacío no ocupa lugar ── */
+.compra-error {
+  margin: 0.75rem 0 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #dc3545;
+}
+
+.compra-error:empty {
+  display: none;
+}
+
+
+/* ── BOTONES: Cancelar y Guardar, a la derecha ── */
+/* Guardar ya tiene el estilo verde de .btn-compra */
+.modal-botones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+/* Cancelar: gris, mismo tamaño y letra que los otros botones */
+.btn-cancelar {
+  padding: 0.55rem 1.2rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: #6c757d;
+  color: white;
+  font-family: var(--font-main);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-cancelar:hover {
+  background: #5a6268;
+}
+
+
+/* ── MODAL EN CELULAR: casi todo el ancho y los campos uno abajo del otro ── */
+@media (max-width: 768px) {
+  .modal-fondo {
+    padding: 0.5rem;
+  }
+
+  .modal-caja {
+    max-height: 95vh;
+    padding: 1rem;
+  }
+
+  .compra-datos,
+  .compra-filtros {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Los campos a todo el ancho (arriba tienen 220px fijos) */
+  .compra-datos label,
+  .compra-filtros label {
+    width: auto;
+  }
+
+  .compra-datos input,
+  .compra-filtros select {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Los dos botones mitad y mitad (arriba, .btn-compra se pone al 100% en celular) */
+  .modal-botones button {
+    flex: 1;
+  }
+}
+
+
+/* ============================================================
+   TABLA DE MOVIMIENTOS: tipo, compras agrupadas y su detalle
+   (copiado del <style> de MovimientosStock.html)
+   ============================================================ */
+
+/* ── BORDE DE COLOR a la izquierda del renglón: verde entrada, rojo salida ── */
+tbody tr.fila-entrada {
+  border-left: 4px solid #28a745;
+}
+
+tbody tr.fila-salida {
+  border-left: 4px solid #dc3545;
+}
+
+
+/* ── BADGE DEL TIPO: "pastilla" de color con el texto ENTRADA / SALIDA ── */
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.7rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge-entrada {
+  background: #d4edda;
+  color: #155724;
+}
+
+.badge-salida {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+
+/* ── COMPRA AGRUPADA: flechita que gira al abrir el detalle ── */
+.flecha-grupo {
+  display: inline-block;
+  width: 0.9rem;
+  color: var(--color-muted);
+  transition: transform 0.2s ease;
+}
+
+.flecha-grupo.abierta {
+  transform: rotate(90deg);
+}
+
+
+/* ── BOTÓN "DETALLES": borde verde; relleno verde con el mouse o abierto ── */
+.btn-detalles {
+  padding: 0.25rem 0.75rem;
+  background: transparent;
+  color: #28a745;
+  border: 1px solid #28a745;
+  border-radius: 50px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-detalles:hover {
+  background: #28a745;
+  color: #fff;
+}
+
+
+/* ── DETALLE DE LA COMPRA: fondo gris muy claro a todo el ancho de la tabla ── */
+tbody tr.fila-detalle-grupo td {
+  background: #f6f7f9;
+  padding: 1rem 1.25rem 0.9rem;
+}
+
+tbody tr.fila-detalle-grupo:hover td {
+  background: #f6f7f9;
+}
+
+/* Tarjeta blanca con borde verde a la izquierda (como las de producción en la vieja) */
+.tarjeta-compra {
+  max-width: 600px;
+  background: #fff;
+  border: 1px solid #e3e6ea;
+  border-left: 3px solid #28a745;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+}
+
+/* Un insumo por renglón: nombre a la izquierda, cantidad y vencimiento a la derecha */
+.lista-compra {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lista-compra li {
+  display: flex;
+  gap: 1rem;
+  padding: 0.25rem 0.3rem;
+  font-size: 0.82rem;
+}
+
+.lista-compra li span:first-child {
+  flex: 1; /* el nombre ocupa todo el lugar que sobra */
+}
+
+/* Números del mismo ancho, así las cantidades quedan alineadas */
+.cantidad-insumo {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.vence-insumo {
+  min-width: 120px;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--color-muted);
+}
