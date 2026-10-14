@@ -72,8 +72,9 @@ function actualizarVistaCarrito() {
 
     carrito.forEach((item, indice) => {
         const elementoLista = document.createElement('li');
+        // Todo dato del carrito pasa por escHtml (escape.js): se muestra como texto, nunca como HTML
         elementoLista.innerHTML = `
-      ${item.nombre} x${item.cantidad} - $${item.subtotal}
+      ${escHtml(item.nombre)} x${escHtml(item.cantidad)} - $${escHtml(item.subtotal)}
       <button onclick="eliminarDelCarrito(${indice})">❌</button>
     `;
         listaCarrito.appendChild(elementoLista);
