@@ -189,26 +189,20 @@ function validarDatosObligatorios(datos) {
 }
 
 // ============================================================================
-// 6. CÁLCULO Y ARMADO DEL PEDIDO
+// 6. ARMADO DEL PEDIDO
 // ============================================================================
 
-function calcularTotalPedido(carrito) {
-  return carrito.reduce((acc, item) => acc + item.precio * item.cantidad, 0);
-}
-
+// De cada plato solo se manda qué es y cuántos: el precio lo pone el servidor desde la base
 function prepararItemsParaServidor(carrito) {
   return carrito.map(item => ({
-    producto_id:         item.producto_id,
-    cantidad:            item.cantidad,
-    precio:              item.precio,
-    observaciones_plato: item.observaciones || null
+    producto_id: item.producto_id,
+    cantidad:    item.cantidad
   }));
 }
 
-function armarObjetoPedido(datos, carrito, usuarioId) {
+// Sin total ni usuario: el servidor calcula el total y saca el usuario del token del login
+function armarObjetoPedido(datos, carrito) {
   return {
-    usuario_id:       usuarioId,
-    total:            calcularTotalPedido(carrito),
     observaciones:    datos.observaciones,
     items:            prepararItemsParaServidor(carrito),
     cliente_nombre:   `${datos.nombre} ${datos.apellido}`,
@@ -303,15 +297,13 @@ Espero tu respuesta para confirmar mi pedido`;
 // Retorna true en caso de éxito, false si falló validación o hubo error de red.
 // vincularFormulario() usa este valor para decidir si restaurar el botón.
 async function enviarFormulario() {
-  const usuarioId = localStorage.getItem('usuario_id');
-
   const carrito = obtenerCarritoDeStorage();
   const datos   = obtenerDatosFormulario();
 
   if (!validarCarritoNoVacio(carrito))    return false;
   if (!validarDatosObligatorios(datos))   return false;
 
-  const pedido = armarObjetoPedido(datos, carrito, usuarioId);
+  const pedido = armarObjetoPedido(datos, carrito);
 
   try {
     const respuestaServidor = await enviarPedidoAlServidor(pedido);
