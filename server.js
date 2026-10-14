@@ -92,6 +92,12 @@ const limitePedidos = limitador({
   minutos: 10, maximo: 5,
   mensaje: 'Hiciste demasiados pedidos seguidos, esperá unos minutos.'
 });
+// Catálogo de combos (público): 60 consultas por minuto por IP. Sobra para una persona que navega
+// la página; frena a quien la llama sin parar para saturar el servidor o copiar el catálogo.
+const limiteCatalogo = limitador({
+  minutos: 1, maximo: 60,
+  mensaje: 'Demasiadas consultas seguidas. Esperá un momento y volvé a intentar.'
+});
 
 /* ======================================================
    MIDDLEWARE DE AUTENTICACIÓN JWT
@@ -586,6 +592,78 @@ app.get('/api/v1/productos/:id', async (req, res) => {
     return errorInterno(res, error);
   }
   res.json(data);
+});
+
+// GET /api/v1/combos → combos activos con su plan, la categoría del plan y su menú (lo usa index-combos.html).
+// Es pública, como el catálogo: solo manda lo que la web necesita mostrar.
+// De cada plato del menú manda "disponibles": las viandas que hay en la heladera, con un tope igual a
+// la cantidad del combo (así no se muestra el stock real completo). Lo personalizado no tiene tope:
+// no sale de la heladera.
+app.get('/api/v1/combos', limiteCatalogo, async (req, res) => {
+  // 1. Combos activos con su plan (y la categoría del plan) y su menú, en una sola consulta
+  const { data, error } = await supabase
+    .from('combos')
+    .select(`
+      id,
+      nombre,
+      cantidad,
+      precio,
+      planes (
+        nombre,
+        activo,
+        categorias ( id, nombre )
+      ),
+      combo_productos (
+        activo,
+        productos ( id, nombre, descripcion, imagen, activo, stock_heladera )
+      )
+    `)
+    .eq('activo', true)
+    .order('nombre', { ascending: true });
+
+  if (error) return errorInterno(res, error);
+
+  const combos = [];
+
+  for (const combo of data || []) {
+    // 2. Un combo sin plan o de un plan inactivo no se muestra
+    if (!combo.planes || !combo.planes.activo) continue;
+
+    // 3. Menú: solo los renglones activos cuyo plato también está activo
+    const menu = [];
+    for (const renglon of combo.combo_productos || []) {
+      const plato = renglon.productos;
+      if (!renglon.activo || !plato || !plato.activo) continue;
+
+      // Viandas que se pueden elegir de la heladera: las que hay, sin pasar la cantidad del combo
+      const enHeladera = Number(plato.stock_heladera) || 0;
+      menu.push({
+        id:          plato.id,
+        nombre:      plato.nombre,
+        descripcion: plato.descripcion,
+        imagen:      plato.imagen,
+        disponibles: Math.min(enHeladera, combo.cantidad)
+      });
+    }
+
+    // 4. Un combo sin ningún plato para elegir no se muestra
+    if (menu.length === 0) continue;
+
+    // Los platos, por nombre (como en un menú)
+    menu.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'));
+
+    combos.push({
+      id:        combo.id,
+      nombre:    combo.nombre,
+      cantidad:  combo.cantidad,
+      precio:    Number(combo.precio),
+      plan:      combo.planes.nombre,
+      categoria: combo.planes.categorias, // { id, nombre }, o null si el plan no tiene categoría
+      menu
+    });
+  }
+
+  res.json(combos);
 });
 
 /* ======================================================

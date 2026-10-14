@@ -11,9 +11,14 @@
 - Explicá en español simple, para alguien que está aprendiendo. Nada de palabras raras sin explicar.
 
 ## Cómo escribir el código
-- Funciones CORTAS y SIMPLES, una cosa por función, con nombres en español que digan lo que hacen.
+- Funciones SIMPLES y claras, con nombres en español que digan lo que hacen.
+- Pocas funciones, cada una con un trabajo claro (ej: renderizarCarrito, agregarAlCarrito, guardarCarrito).
+  Nada de partir todo en funcioncitas de 3 líneas. Si una función se usa una sola vez y es corta, va adentro de la otra.
+- Cada archivo JS arranca con un comentario que lista sus funciones y qué hace cada una.
+- ANTES de escribir un archivo nuevo, mostrame la lista de funciones que va a tener (nombre + una línea).
+  Si son más de 6-8, explicame por qué.
 - Comentarios en español en cada parte.
-- Respetá mis funciones y mi estilo. Cambiá lo mínimo posible. Si algo hay que reescribir, preguntame antes.
+-- Respetá mis funciones y mi estilo. Cambiá lo mínimo posible. Si algo hay que reescribir, preguntame antes.
 - Nada de trucos difíciles de leer. Prefiero más líneas claras que pocas líneas complicadas.
 
 ## Seguridad y cuidado

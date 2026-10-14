@@ -28,6 +28,12 @@ ALTER TABLE public.productos          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.roles              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.usuarios           ENABLE ROW LEVEL SECURITY;
 
+-- Tablas de combos: se crearon a mano en Supabase (no tienen archivo propio en sql/).
+-- Ya tienen RLS activado (revisado con sql/combos_revisar.sql): volver a correrlo no cambia nada.
+ALTER TABLE public.combos             ENABLE ROW LEVEL SECURITY;  -- los combos ("Keto x10")
+ALTER TABLE public.combo_productos    ENABLE ROW LEVEL SECURITY;  -- el menú de cada combo
+ALTER TABLE public.pedido_combos      ENABLE ROW LEVEL SECURITY;  -- cada combo comprado dentro de un pedido
+
 -- ============================================================
 -- VERIFICACIÓN (después de ejecutar lo de arriba)
 -- ============================================================

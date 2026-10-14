@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fast Good | Viandas caseras congeladas</title>
+  <meta name="description" content="Viandas caseras congeladas de las Sierras Chicas, Córdoba. Elegí tu combo, armá tus platos y te lo llevamos.">
+  <meta name="theme-color" content="#f3f6f1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <!-- Íconos: WhatsApp (trazado oficial de Simple Icons), Instagram, reloj, ubicación y entregas; se reutilizan con <use> -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="icono-whatsapp" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
+    </symbol>
+    <symbol id="icono-instagram" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <rect x="3" y="3" width="18" height="18" rx="5"/>
+      <circle cx="12" cy="12" r="4"/>
+      <circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none"/>
+    </symbol>
+    <symbol id="icono-reloj" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M12 7v5l3 2"/>
+    </symbol>
+    <symbol id="icono-ubicacion" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+      <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/>
+      <circle cx="12" cy="9.5" r="2.5"/>
+    </symbol>
+    <symbol id="icono-entregas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+      <rect x="2" y="6" width="12" height="10" rx="1"/>
+      <path d="M14 9h4l3 3.5V16h-7z"/>
+      <circle cx="7" cy="17.5" r="1.8"/>
+      <circle cx="17" cy="17.5" r="1.8"/>
+    </symbol>
+    <symbol id="icono-izq" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></symbol>
+    <symbol id="icono-der" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></symbol>
+    <symbol id="icono-cerrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="icono-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="icono-mas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="icono-menos" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></symbol>
+    <symbol id="icono-bolsa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></symbol>
+  </svg>
+
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+
+  <!-- 1. Encabezado -->
+  <header class="encabezado">
+    <div class="contenedor encabezado__fila">
+      <a href="#inicio" class="logo" aria-label="Fast Good, volver al inicio">
+        <img class="logo__img" src="img/logo-fastgood.png" alt="" onerror="this.remove()"><span class="logo__vacio">Fast <span>Good</span></span>
+      </a>
+      <nav class="nav" aria-label="Principal">
+        <a href="#ofertas">Ofertas del día</a>
+        <a href="#categorias">Categorías</a>
+        <a href="#combos">Combos</a>
+        <a href="#donde-estamos">Contacto</a>
+      </nav>
+      <div class="encabezado__acciones">
+        <button class="btn btn--texto" type="button" data-accion="login">Iniciar sesión</button>
+        <button class="btn btn--pedido" type="button" data-accion="abrir-pedido" aria-haspopup="dialog">
+          <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-bolsa"></use></svg>Mi pedido <span class="contador" id="contador" aria-label="0 productos">0</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="contenido">
+    <!-- 2. Portada -->
+    <!-- Texto a la izquierda; foto en tarjeta a la derecha (debajo del texto en celular) -->
+    <section class="portada" id="inicio">
+      <div class="contenedor portada__grid">
+        <div class="portada__texto">
+          <h1>Fast <span class="portada__acento">Good</span></h1>
+          <p class="portada__bajada">Viandas caseras congeladas, hechas con ingredientes frescos.</p>
+          <p class="portada__lugar">
+            <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-ubicacion"></use></svg>
+            Sierras Chicas, Córdoba
+          </p>
+          <div class="portada__acciones">
+            <a class="btn btn--primario btn--grande" href="#categorias">Pedir ahora</a>
+            <p class="portada__dato" id="dato-combos"></p>
+          </div>
+          <!-- Reemplazar [número] por el número con código de país, sin espacios ni signos (ej. 549...), y [usuario] por la cuenta de Instagram -->
+          <ul class="portada__contacto">
+            <li>
+              <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-whatsapp"></use></svg>
+              <a href="https://wa.me/[número]" target="_blank" rel="noopener"><span class="solo-lector">WhatsApp: </span>[número de WhatsApp]</a>
+            </li>
+            <li>
+              <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-instagram"></use></svg>
+              <a href="https://instagram.com/[usuario]" target="_blank" rel="noopener"><span class="solo-lector">Instagram: </span>[@usuario]</a>
+            </li>
+            <li>
+              <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-entregas"></use></svg>
+              <span><span class="solo-lector">Entregas: </span>[días y zonas de entrega]</span>
+            </li>
+          </ul>
+        </div>
+        <div class="portada__foto">
+          <div class="portada__media">
+            <div class="foto portada__vacia" aria-hidden="true">foto de las viandas</div>
+            <img class="portada__img" src="img/viandaprincipal2-1600.jpg"
+              srcset="img/viandaprincipal2-900.jpg 900w, img/viandaprincipal2-1600.jpg 1600w, img/viandaprincipal2.jpg 3168w"
+              sizes="(min-width: 768px) 56vw, 100vw" width="3168" height="1344"
+              alt="Viandas caseras de Fast Good vistas desde arriba sobre una mesa de madera" fetchpriority="high" onerror="this.remove()">
+          </div>
+          <p class="portada__etiqueta">
+            <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-reloj"></use></svg>
+            Listas en 5 minutos
+          </p>
+        </div>
+      </div>
+      <div class="pasos-franja">
+        <ol class="contenedor pasos">
+          <li><span class="pasos__num" aria-hidden="true">1</span>Elegí tu combo</li>
+          <li><span class="pasos__num" aria-hidden="true">2</span>Armá tus platos</li>
+          <li><span class="pasos__num" aria-hidden="true">3</span>Te lo llevamos</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- 3. Ofertas del día -->
+    <section class="seccion seccion--ofertas" id="ofertas" aria-labelledby="t-ofertas">
+      <div class="contenedor">
+        <div class="ofertas__cab">
+          <h2 id="t-ofertas" class="titulo-seccion">Ofertas del <span class="clave">día</span></h2>
+          <div class="ofertas__flechas">
+            <button class="flecha" type="button" data-accion="ofertas-ant" aria-label="Ofertas anteriores" aria-controls="lista-ofertas"><svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-izq"></use></svg></button>
+            <button class="flecha" type="button" data-accion="ofertas-sig" aria-label="Ofertas siguientes" aria-controls="lista-ofertas"><svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-der"></use></svg></button>
+          </div>
+        </div>
+        <p class="bajada-seccion">Solo por hoy, con descuento.</p>
+        <div class="ofertas" id="lista-ofertas"></div>
+      </div>
+    </section>
+
+    <!-- 4. Categorías + Combos -->
+    <section class="seccion seccion--tinte" id="categorias" aria-labelledby="t-categorias">
+      <div class="contenedor">
+        <h2 id="t-categorias" class="titulo-seccion">Categorías</h2>
+        <div class="categorias" id="lista-categorias" role="group" aria-label="Elegí una categoría"></div>
+
+        <!-- Lo de la categoría elegida: combos, viandas individuales o pastelería -->
+        <div class="combos-zona" id="combos"></div>
+      </div>
+    </section>
+
+    <!-- 5. Dónde estamos: datos a la izquierda, mapa a la derecha (debajo en celular) -->
+    <section class="seccion" id="donde-estamos" aria-labelledby="t-donde">
+      <div class="contenedor">
+        <h2 id="t-donde" class="titulo-seccion">Dónde <span class="clave">estamos</span></h2>
+        <div class="donde">
+          <dl class="donde__datos">
+            <div class="donde__item">
+              <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-ubicacion"></use></svg>
+              <div><dt>Dirección</dt><dd id="dato-direccion"></dd></div>
+            </div>
+            <div class="donde__item">
+              <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-entregas"></use></svg>
+              <div><dt>Zona de entrega</dt><dd>[zonas de entrega]</dd></div>
+            </div>
+            <div class="donde__item">
+              <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-reloj"></use></svg>
+              <div><dt>Días y horarios</dt><dd>[días y horarios]</dd></div>
+            </div>
+            <div class="donde__item">
+              <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-whatsapp"></use></svg>
+              <div>
+                <dt>WhatsApp</dt>
+                <dd>[número de WhatsApp]</dd>
+                <!-- Reemplazar [número] por el número con código de país, sin espacios ni signos (ej. 549...) -->
+                <dd><a class="btn btn--secundario" href="https://wa.me/[número]" target="_blank" rel="noopener">Escribinos por WhatsApp</a></dd>
+              </div>
+            </div>
+            <div class="donde__item">
+              <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-instagram"></use></svg>
+              <div><dt>Instagram</dt><dd><a class="enlace-dato" href="https://instagram.com/[usuario]" target="_blank" rel="noopener">[@usuario]</a></dd></div>
+            </div>
+          </dl>
+          <div class="donde__mapa">
+            <!-- El mapa o el recuadro "mapa" se arma desde DIRECCION_MAPA, en app.js -->
+            <div class="mapa" id="mapa"></div>
+            <p class="donde__llegar" id="como-llegar"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Preguntas frecuentes (acordeón, se arma desde app.js) -->
+    <section class="seccion seccion--tinte" id="preguntas" aria-labelledby="t-preguntas">
+      <div class="contenedor">
+        <h2 id="t-preguntas" class="titulo-seccion">Preguntas <span class="clave">frecuentes</span></h2>
+        <div class="preguntas" id="lista-preguntas"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 10. Pie de página -->
+  <footer class="pie">
+    <div class="contenedor pie__grid">
+      <div class="pie__marca">
+        <span class="logo logo--pie"><img class="logo__img" src="img/logo-fastgood.png" alt="Fast Good" onerror="this.remove()"><span class="logo__vacio">Fast <span>Good</span></span></span>
+        <p>Viandas caseras congeladas, hechas con ingredientes frescos en las Sierras Chicas, Córdoba.</p>
+      </div>
+      <nav class="pie__col" aria-label="Pie de página">
+        <h2>Navegación</h2>
+        <a href="#ofertas">Ofertas del día</a>
+        <a href="#categorias">Categorías</a>
+        <a href="#combos">Combos</a>
+        <a href="#combos" data-accion="ver-plan" data-id="individuales">Viandas individuales</a>
+        <a href="#combos" data-accion="ver-plan" data-id="pasteleria">Pastelería saludable</a>
+        <a href="#donde-estamos">Dónde estamos</a>
+        <a href="#preguntas">Preguntas frecuentes</a>
+      </nav>
+      <div class="pie__col">
+        <h2>Contacto</h2>
+        <p>WhatsApp [número de WhatsApp]</p>
+        <p>Instagram [@usuario]</p>
+      </div>
+      <div class="pie__col">
+        <h2>Entregas</h2>
+        <p>Días: [días de entrega]</p>
+        <p>Zonas: [zonas de entrega]</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- 6. Ventana para armar un combo -->
+  <dialog class="hoja" id="modal-combo" aria-labelledby="mc-titulo">
+    <div class="hoja__cab">
+      <div>
+        <p class="hoja__sup" id="mc-cat"></p>
+        <h2 id="mc-titulo"></h2>
+      </div>
+      <button class="btn-cerrar" type="button" data-accion="cerrar" aria-label="Cerrar"><svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-cerrar"></use></svg></button>
+    </div>
+    <div class="progreso">
+      <div class="progreso__texto">
+        <strong id="mc-cuenta"></strong>
+        <span id="mc-falta"></span>
+      </div>
+      <div class="progreso__barra" id="mc-barra" role="progressbar" aria-valuemin="0">
+        <span id="mc-relleno"></span>
+      </div>
+    </div>
+    <ul class="platos hoja__cuerpo" id="mc-platos"></ul>
+    <div class="hoja__pie">
+      <button class="btn btn--primario btn--ancho" type="button" id="mc-agregar" data-accion="agregar-combo" disabled>Agregar al pedido</button>
+      <!-- Se muestra en lugar del botón cuando se intenta salir con platos elegidos -->
+      <div class="salir" id="mc-salir" role="group" aria-labelledby="mc-salir-texto" hidden>
+        <p id="mc-salir-texto"></p>
+        <div class="hoja__botones">
+          <button class="btn btn--secundario" type="button" data-accion="combo-salir">Salir</button>
+          <button class="btn btn--primario" type="button" data-accion="combo-seguir">Seguir armando</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 9. Mi pedido -->
+  <dialog class="hoja hoja--pedido" id="modal-pedido" aria-labelledby="mp-titulo">
+    <div class="hoja__cab">
+      <h2 id="mp-titulo">Mi pedido</h2>
+      <button class="btn-cerrar" type="button" data-accion="cerrar" aria-label="Cerrar"><svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-cerrar"></use></svg></button>
+    </div>
+    <div class="hoja__cuerpo" id="mp-cuerpo"></div>
+    <div class="hoja__pie" id="mp-pie">
+      <div class="total">
+        <span>Total</span>
+        <strong id="mp-total">$ 0</strong>
+      </div>
+      <div class="hoja__botones">
+        <button class="btn btn--secundario" type="button" data-accion="cerrar">Seguir eligiendo</button>
+        <button class="btn btn--primario" type="button" data-accion="finalizar">Finalizar pedido</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Finalizar pedido: formulario y confirmación -->
+  <dialog class="hoja hoja--completa" id="modal-checkout" aria-labelledby="ck-titulo">
+    <div class="hoja__cab">
+      <h2 id="ck-titulo">Finalizar pedido</h2>
+      <button class="btn-cerrar" type="button" data-accion="cerrar" aria-label="Cerrar"><svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-cerrar"></use></svg></button>
+    </div>
+
+    <div class="vista" id="ck-vista-form">
+      <form id="form-pedido" novalidate>
+        <div class="checkout__cuerpo">
+          <div class="checkout__grid">
+
+            <details class="resumen" id="ck-resumen">
+              <summary>
+                <span class="resumen__cab">
+                  <span>Resumen del pedido</span>
+                  <span class="resumen__cant" id="ck-resumen-cant"></span>
+                </span>
+                <span class="resumen__lado">
+                  <strong id="ck-resumen-total"></strong>
+                  <svg class="icono resumen__flecha" aria-hidden="true" focusable="false"><use href="#icono-der"></use></svg>
+                </span>
+              </summary>
+              <div class="resumen__contenido" id="ck-resumen-lista"></div>
+            </details>
+
+            <div class="campos">
+              <fieldset class="bloque">
+                <legend>Tus datos</legend>
+                <div class="campo">
+                  <label for="ck-nombre">Nombre y apellido</label>
+                  <input class="input" id="ck-nombre" name="nombre" type="text" autocomplete="name" aria-describedby="err-nombre">
+                  <p class="campo__error" id="err-nombre"></p>
+                </div>
+                <div class="campo">
+                  <label for="ck-whatsapp">WhatsApp</label>
+                  <input class="input" id="ck-whatsapp" name="whatsapp" type="tel" inputmode="tel" autocomplete="tel" aria-describedby="ayuda-whatsapp err-whatsapp">
+                  <p class="campo__ayuda" id="ayuda-whatsapp">Con código de área, sin el 0 ni el 15. Te escribimos para coordinar.</p>
+                  <p class="campo__error" id="err-whatsapp"></p>
+                </div>
+              </fieldset>
+
+              <fieldset class="bloque" id="bloque-entrega" aria-describedby="err-entrega">
+                <legend>Entrega</legend>
+                <div class="opciones opciones--2">
+                  <label class="opcion">
+                    <input class="opcion__input" type="radio" name="entrega" value="envio">
+                    <span class="opcion__caja">
+                      <span class="opcion__marca" aria-hidden="true"></span>
+                      <span class="opcion__cuerpo">
+                        <span class="opcion__titulo">Envío a domicilio</span>
+                        <span class="opcion__texto">Te lo llevamos el día que elijas.</span>
+                      </span>
+                    </span>
+                  </label>
+                  <label class="opcion">
+                    <input class="opcion__input" type="radio" name="entrega" value="retiro">
+                    <span class="opcion__caja">
+                      <span class="opcion__marca" aria-hidden="true"></span>
+                      <span class="opcion__cuerpo">
+                        <span class="opcion__titulo">Retiro en el local</span>
+                        <span class="opcion__texto">[dirección del local]</span>
+                      </span>
+                    </span>
+                  </label>
+                </div>
+                <p class="campo__error" id="err-entrega"></p>
+
+                <div class="subcampos" id="ck-envio" hidden>
+                  <div class="campo">
+                    <label for="ck-direccion">Dirección</label>
+                    <input class="input" id="ck-direccion" name="direccion" type="text" autocomplete="street-address" placeholder="Calle y número" aria-describedby="err-direccion">
+                    <p class="campo__error" id="err-direccion"></p>
+                  </div>
+                  <div class="campo">
+                    <label for="ck-localidad">Localidad</label>
+                    <input class="input" id="ck-localidad" name="localidad" type="text" autocomplete="address-level2" aria-describedby="ayuda-localidad err-localidad">
+                    <p class="campo__ayuda" id="ayuda-localidad">Zonas de entrega: [zonas de entrega]</p>
+                    <p class="campo__error" id="err-localidad"></p>
+                  </div>
+                  <div class="campo">
+                    <label for="ck-aclaracion">Aclaración <span class="opcional">(opcional)</span></label>
+                    <input class="input" id="ck-aclaracion" name="aclaracion" type="text" placeholder="Piso, timbre, referencia">
+                  </div>
+                </div>
+                <p class="nota" id="ck-retiro" hidden>Retirás en [dirección del local]. Horario: [horario de retiro].</p>
+              </fieldset>
+
+              <fieldset class="bloque" id="bloque-dia" aria-describedby="err-dia">
+                <legend>Día de entrega</legend>
+                <div class="dias">
+                  <label class="opcion-chip"><input class="opcion__input" type="radio" name="dia" value="[Martes]"><span class="chip"><span class="chip__marca" aria-hidden="true"><svg class="icono" focusable="false"><use href="#icono-check"></use></svg></span>[Martes]</span></label>
+                  <label class="opcion-chip"><input class="opcion__input" type="radio" name="dia" value="[Jueves]"><span class="chip"><span class="chip__marca" aria-hidden="true"><svg class="icono" focusable="false"><use href="#icono-check"></use></svg></span>[Jueves]</span></label>
+                  <label class="opcion-chip"><input class="opcion__input" type="radio" name="dia" value="[Sábado]"><span class="chip"><span class="chip__marca" aria-hidden="true"><svg class="icono" focusable="false"><use href="#icono-check"></use></svg></span>[Sábado]</span></label>
+                </div>
+                <p class="campo__error" id="err-dia"></p>
+              </fieldset>
+
+              <fieldset class="bloque" id="bloque-pago" aria-describedby="err-pago">
+                <legend>Forma de pago</legend>
+                <div class="opciones opciones--3">
+                  <label class="opcion">
+                    <input class="opcion__input" type="radio" name="pago" value="efectivo">
+                    <span class="opcion__caja">
+                      <span class="opcion__marca" aria-hidden="true"></span>
+                      <span class="opcion__cuerpo"><span class="opcion__titulo">Efectivo</span></span>
+                    </span>
+                  </label>
+                  <label class="opcion">
+                    <input class="opcion__input" type="radio" name="pago" value="transferencia">
+                    <span class="opcion__caja">
+                      <span class="opcion__marca" aria-hidden="true"></span>
+                      <span class="opcion__cuerpo">
+                        <span class="opcion__titulo">Transferencia</span>
+                        <span class="sello-desc">10% de descuento</span>
+                      </span>
+                    </span>
+                  </label>
+                  <label class="opcion">
+                    <input class="opcion__input" type="radio" name="pago" value="mercadopago">
+                    <span class="opcion__caja">
+                      <span class="opcion__marca" aria-hidden="true"></span>
+                      <span class="opcion__cuerpo"><span class="opcion__titulo">Mercado Pago</span></span>
+                    </span>
+                  </label>
+                </div>
+                <p class="campo__error" id="err-pago"></p>
+                <p class="nota" id="ck-transf" hidden>Datos para transferir: CBU [CBU], alias [alias]. El descuento ya está aplicado en el total.</p>
+              </fieldset>
+
+              <div class="campo">
+                <label for="ck-notas">Notas para la cocina <span class="opcional">(opcional)</span></label>
+                <textarea class="input" id="ck-notas" name="notas" rows="3" placeholder="Alergias, preferencias o lo que necesites avisarnos"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hoja__pie checkout__pie">
+          <div class="checkout__total">
+            <span>Total</span>
+            <span><s id="ck-total-antes" hidden></s> <strong id="ck-total"></strong></span>
+          </div>
+          <button class="btn btn--primario btn--grande" type="submit">Confirmar pedido</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="vista" id="ck-vista-ok" hidden>
+      <div class="checkout__cuerpo" id="ok-cuerpo"></div>
+      <div class="hoja__pie">
+        <button class="btn btn--primario btn--ancho btn--grande" type="button" data-accion="volver-inicio">Volver al inicio</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Oferta: individual o en un combo del plan -->
+  <dialog class="hoja hoja--chica" id="modal-oferta" aria-labelledby="mo-titulo">
+    <div class="hoja__cab">
+      <div>
+        <p class="hoja__sup" id="mo-plato"></p>
+        <h2 id="mo-titulo">¿Cómo lo querés?</h2>
+      </div>
+      <button class="btn-cerrar" type="button" data-accion="cerrar" aria-label="Cerrar"><svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-cerrar"></use></svg></button>
+    </div>
+    <div class="hoja__cuerpo eleccion-lista" id="mo-opciones"></div>
+  </dialog>
+
+  <!-- Iniciar sesión (solo la pantalla) -->
+  <dialog class="hoja hoja--chica" id="modal-login" aria-labelledby="lg-titulo">
+    <div class="hoja__cab">
+      <h2 id="lg-titulo">Iniciar sesión</h2>
+      <button class="btn-cerrar" type="button" data-accion="cerrar" aria-label="Cerrar"><svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-cerrar"></use></svg></button>
+    </div>
+    <form class="hoja__cuerpo login" id="form-login" novalidate>
+      <div class="campo">
+        <label for="lg-email">Email</label>
+        <input class="input" id="lg-email" name="email" type="email" inputmode="email" autocomplete="email">
+      </div>
+      <div class="campo">
+        <label for="lg-clave">Contraseña</label>
+        <input class="input" id="lg-clave" name="clave" type="password" autocomplete="current-password">
+        <button class="enlace" type="button" data-accion="login-pendiente">Olvidé mi contraseña</button>
+      </div>
+      <button class="btn btn--primario btn--ancho btn--grande" type="submit">Ingresar</button>
+      <p class="nota" id="lg-nota" role="status" hidden>El ingreso todavía no está conectado.</p>
+      <div class="login__alt">
+        <span>¿Todavía no tenés cuenta?</span>
+        <button class="btn btn--secundario btn--ancho" type="button" data-accion="login-pendiente">Crear cuenta</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- WhatsApp flotante, visible en toda la página -->
+  <a class="wa-flotante" href="https://wa.me/[número]" target="_blank" rel="noopener" aria-label="Escribinos por WhatsApp">
+    <svg class="icono-wa" aria-hidden="true" focusable="false"><use href="#icono-whatsapp"></use></svg>
+  </a>
+
+  <div class="aviso" id="aviso" role="status" aria-live="polite" popover="manual"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
