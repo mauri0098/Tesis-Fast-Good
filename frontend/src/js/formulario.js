@@ -5,7 +5,6 @@
 const WHATSAPP_NUMERO        = '5493512294243';
 const EMAIL_NEGOCIO          = 'tesisfastgood@gmail.com';
 const ALIAS_TRANSFERENCIA    = 'FAST.GOOD.VA cuenta a nombre de Fast and Good VA SRL';
-const GUEST_UUID             = 'd9b1ae00-fda5-4488-86b3-90d769b47a02';
 
 // ============================================================================
 // 1. INICIALIZACIÓN
@@ -142,18 +141,6 @@ function mostrarResumenCarrito() {
 function obtenerCarritoDeStorage() {
   const carritoJSON = localStorage.getItem('FG_CARRITO_ACTUAL') || '[]';
   return JSON.parse(carritoJSON);
-}
-
-function guardarComandaParaCocina(pedidoCreado, carrito) {
-  const comanda = {
-    id: pedidoCreado.id,
-    items: carrito.map(item => ({
-      nombre:      item.nombre,
-      producto_id: item.producto_id,
-      cantidad:    item.cantidad
-    }))
-  };
-  localStorage.setItem('pedidoFastGood', JSON.stringify(comanda));
 }
 
 function limpiarCarritoDeStorage() {
@@ -316,7 +303,7 @@ Espero tu respuesta para confirmar mi pedido`;
 // Retorna true en caso de éxito, false si falló validación o hubo error de red.
 // vincularFormulario() usa este valor para decidir si restaurar el botón.
 async function enviarFormulario() {
-  const usuarioId = localStorage.getItem('usuario_id') || GUEST_UUID;
+  const usuarioId = localStorage.getItem('usuario_id');
 
   const carrito = obtenerCarritoDeStorage();
   const datos   = obtenerDatosFormulario();
@@ -330,7 +317,6 @@ async function enviarFormulario() {
     const respuestaServidor = await enviarPedidoAlServidor(pedido);
     const pedidoId = respuestaServidor.pedido?.id || '—';
 
-    guardarComandaParaCocina(respuestaServidor.pedido, carrito);
     limpiarCarritoDeStorage();
     limpiarFormulario();
 

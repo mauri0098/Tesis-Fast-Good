@@ -97,28 +97,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // ── Recetas del localStorage (cargadas por generarReceta.js) ────────────
-  const recetas = JSON.parse(localStorage.getItem('FG_RECETAS') || '[]');
-
-  function buscarReceta(nombreProducto) {
-    const nombre = nombreProducto.toLowerCase();
-    return recetas.find(r =>
-      r.nombre.toLowerCase().includes(nombre) ||
-      nombre.includes(r.nombre.toLowerCase())
-    ) || null;
-  }
-
-  function renderReceta(nombreProducto) {
-    const receta = buscarReceta(nombreProducto);
-    if (!receta) {
-      return `<span class="sin-receta">Sin receta cargada</span>`;
-    }
-    const items = receta.receta
-      .map(i => `<span>${i.qty}${i.unit} ${i.insumo}</span>`)
-      .join('');
-    return `<div class="receta-text">${items}</div>`;
-  }
-
   // ── Helpers ──────────────────────────────────────────────────────────────
   function formatFecha(isoString) {
     if (!isoString) return '—';
