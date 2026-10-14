@@ -210,6 +210,43 @@
     <p class="pie__copia">&copy; 2025 Fast Good - Viandas Saludables</p>
   </footer>
 
+  <!-- 7. Ventana para armar un combo (la maneja armarCombo.js) -->
+  <dialog class="hoja" id="modal-combo" aria-labelledby="mc-titulo">
+    <div class="hoja__cab">
+      <div>
+        <p class="hoja__sup" id="mc-cat"></p>
+        <h2 id="mc-titulo"></h2>
+      </div>
+      <button class="btn-cerrar" type="button" data-accion="cerrar" aria-label="Cerrar">✕</button>
+    </div>
+
+    <!-- Progreso: "3 de 10", "Te faltan 7" y la barra -->
+    <div class="progreso">
+      <div class="progreso__texto">
+        <strong id="mc-cuenta"></strong>
+        <span id="mc-falta"></span>
+      </div>
+      <div class="progreso__barra" id="mc-barra" role="progressbar" aria-valuemin="0">
+        <span id="mc-relleno"></span>
+      </div>
+    </div>
+
+    <!-- Platos del menú del combo -->
+    <ul class="platos hoja__cuerpo" id="mc-platos"></ul>
+
+    <div class="hoja__pie">
+      <button class="btn btn--primario btn--ancho" type="button" id="mc-agregar" data-accion="agregar-combo" disabled>Agregar al pedido</button>
+      <!-- Se muestra en lugar del botón cuando se intenta salir con platos elegidos -->
+      <div class="salir" id="mc-salir" role="group" aria-labelledby="mc-salir-texto" hidden>
+        <p id="mc-salir-texto"></p>
+        <div class="hoja__botones">
+          <button class="btn btn--secundario" type="button" data-accion="combo-salir">Salir</button>
+          <button class="btn btn--primario" type="button" data-accion="combo-seguir">Seguir armando</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
   <!-- WhatsApp flotante, visible en toda la página -->
   <a class="wa-flotante" href="https://wa.me/5493512294243" target="_blank" rel="noopener" aria-label="Escribinos por WhatsApp">
     <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-whatsapp"></use></svg>
@@ -220,6 +257,7 @@
   <script src="./src/js/auth.js"></script>
   <script src="./src/js/escape.js"></script>
   <script src="./src/js/combosCatalogo.js"></script>
+  <script src="./src/js/armarCombo.js"></script>
   <script>
     // Botón de sesión del encabezado (auth.js): "Iniciar sesión" o el nombre del usuario
     actualizarBotonAuth();

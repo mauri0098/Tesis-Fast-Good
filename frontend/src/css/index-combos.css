@@ -369,6 +369,155 @@
     height: 1.8rem;
 }
 
+/* --- Ventanas (dialog): base común --- */
+.hoja {
+    width: min(560px, 94vw);
+    max-height: 90vh;
+    margin: auto;
+    padding: 0;                     /* sin relleno: así un clic en el fondo es "afuera" */
+    border: none;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    color: var(--color-text);
+}
+.hoja[open] {
+    display: flex;
+    flex-direction: column;
+}
+.hoja::backdrop {
+    background: var(--color-overlay);
+}
+.hoja__cab {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.2rem 1.4rem 0.6rem;
+}
+.hoja__sup {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--color-muted);
+}
+.hoja__cuerpo {
+    flex: 1;
+    overflow-y: auto;               /* solo la lista se desplaza; el encabezado y el pie quedan fijos */
+    padding: 0.5rem 1.4rem;
+}
+.hoja__pie {
+    padding: 1rem 1.4rem 1.2rem;
+    border-top: 1px solid #eee;
+}
+.hoja__botones {
+    display: flex;
+    gap: 0.8rem;
+    justify-content: flex-end;
+}
+.btn-cerrar {
+    border: none;
+    background: none;
+    font-size: 1.3rem;
+    cursor: pointer;
+    color: var(--color-muted);
+}
+.btn--secundario {
+    background: #eee;
+    color: var(--color-text);
+}
+.btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* --- Progreso "X de N" --- */
+.progreso {
+    padding: 0 1.4rem 0.8rem;
+}
+.progreso__texto {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.4rem;
+}
+.progreso__barra {
+    height: 8px;
+    border-radius: var(--radius-pill);
+    background: #e9ecef;
+    overflow: hidden;
+}
+.progreso__barra span {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--color-primary);
+    transition: width 0.25s ease;
+}
+
+/* --- Platos del menú dentro de la ventana --- */
+.platos {
+    list-style: none;
+}
+.plato {
+    display: grid;
+    grid-template-columns: 64px 1fr auto;
+    gap: 0.8rem;
+    align-items: center;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+.plato--elegido .plato__nombre {
+    color: var(--color-primary-dark);
+}
+.plato__img {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    background: #f1f1f1;
+}
+.plato__nombre {
+    font-weight: 600;
+}
+.plato__desc {
+    font-size: 0.85rem;
+    color: #666;
+}
+.plato__aviso {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #c0392b;
+}
+.plato__contador {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.plato__btn {
+    width: 2rem;
+    height: 2rem;
+    border: 2px solid var(--color-primary);
+    border-radius: 50%;
+    background: var(--color-white);
+    color: var(--color-primary-dark);
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+.plato__btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+.plato__cantidad {
+    min-width: 1.5rem;
+    text-align: center;
+    font-weight: 700;
+}
+.salir p {
+    margin-bottom: 0.8rem;
+}
+
 /* --- Celular --- */
 @media (max-width: 768px) {
     .nav {
