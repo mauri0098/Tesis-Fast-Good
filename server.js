@@ -3266,6 +3266,164 @@ app.put('/api/combos/:id/activo', requireAuth, requireRol(6, 5), async (req, res
   }
 });
 
+// ── MENÚ DE UN COMBO (tabla combo_productos) ─────────────────────────────
+// Un renglón del menú nunca se borra: "sacar" un plato es poner su renglón en activo = false,
+// y "agregarlo" de nuevo lo vuelve a activar. Los pedidos viejos no cambian (sus platos están
+// en pedido_detalles, no en el menú).
+
+// GET /api/combos/:id/menu → el combo, los platos de su menú y los platos que se pueden agregar.
+// menu: renglones activos. Si un plato se desactivó después (Generar Receta) aparece con
+// plato_activo: false, para poder sacarlo. disponibles: platos activos de CUALQUIER plan que no están en el menú.
+app.get('/api/combos/:id/menu', requireAuth, requireRol(6, 5), async (req, res) => {
+  const idCombo = Number(req.params.id);
+  if (!Number.isInteger(idCombo) || idCombo <= 0 || idCombo > ENTERO_MAXIMO_BASE) {
+    return res.status(400).json({ error: 'Combo inválido' });
+  }
+
+  try {
+    // 1. El combo
+    const { data: combo, error: errorCombo } = await supabase
+      .from('combos')
+      .select('id, nombre, cantidad')
+      .eq('id', idCombo)
+      .maybeSingle();
+    if (errorCombo) return errorInterno(res, errorCombo);
+    if (!combo) return res.status(404).json({ error: 'El combo no existe' });
+
+    // 2. Los renglones activos de su menú, con el plato y el plan del plato
+    const { data: renglones, error: errorMenu } = await supabase
+      .from('combo_productos')
+      .select('id_producto, productos ( id, nombre, codigo_plato, activo, planes ( nombre ) )')
+      .eq('id_combo', idCombo)
+      .eq('activo', true);
+    if (errorMenu) return errorInterno(res, errorMenu);
+
+    // 3. Todos los platos activos (para elegir cuáles agregar)
+    const { data: platos, error: errorPlatos } = await supabase
+      .from('productos')
+      .select('id, nombre, codigo_plato, planes ( nombre )')
+      .eq('activo', true)
+      .order('nombre', { ascending: true });
+    if (errorPlatos) return errorInterno(res, errorPlatos);
+
+    // 4. El menú, y de paso un objeto { idProducto: true } con los platos que ya están en él
+    const enElMenu = {};
+    const menu = [];
+    (renglones || []).forEach(renglon => {
+      // Un renglón sin plato (no debería pasar): return = saltear este y seguir con el siguiente
+      if (!renglon.productos) return;
+      enElMenu[renglon.id_producto] = true;
+
+      let plan = null;
+      if (renglon.productos.planes) plan = renglon.productos.planes.nombre;
+      menu.push({
+        id_producto:  renglon.id_producto,
+        nombre:       renglon.productos.nombre,
+        codigo:       renglon.productos.codigo_plato,
+        plan:         plan,
+        plato_activo: Boolean(renglon.productos.activo)
+      });
+    });
+    menu.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'));
+
+    // 5. Disponibles: los platos activos que todavía no están en el menú.
+    //    filter se queda con los que cumplen la condición; map arma cada uno con los datos que usa la pantalla.
+    //    Ejemplo: platos [fideos (5), arroz (9)] y enElMenu { 5: true } → [{ id: 9, nombre: 'arroz', ... }]
+    const disponibles = (platos || [])
+      .filter(plato => !enElMenu[plato.id])
+      .map(plato => {
+        let plan = null;
+        if (plato.planes) plan = plato.planes.nombre;
+        return { id: plato.id, nombre: plato.nombre, codigo: plato.codigo_plato, plan: plan };
+      });
+
+    res.json({ combo: combo, menu: menu, disponibles: disponibles });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// POST /api/combos/:id/menu → agrega un plato al menú (o lo vuelve a activar si ya había estado).
+// Body: { id_producto }. El plato tiene que existir y estar activo; puede ser de cualquier plan.
+app.post('/api/combos/:id/menu', requireAuth, requireRol(6, 5), async (req, res) => {
+  const idCombo = Number(req.params.id);
+  if (!Number.isInteger(idCombo) || idCombo <= 0 || idCombo > ENTERO_MAXIMO_BASE) {
+    return res.status(400).json({ error: 'Combo inválido' });
+  }
+  const idProducto = req.body ? req.body.id_producto : undefined;
+  if (typeof idProducto !== 'number' || !Number.isInteger(idProducto) || idProducto <= 0 || idProducto > ENTERO_MAXIMO_BASE) {
+    return res.status(400).json({ error: 'Elegí un plato' });
+  }
+
+  try {
+    // El combo tiene que existir
+    const { data: combo, error: errorCombo } = await supabase
+      .from('combos')
+      .select('id')
+      .eq('id', idCombo)
+      .maybeSingle();
+    if (errorCombo) return errorInterno(res, errorCombo);
+    if (!combo) return res.status(404).json({ error: 'El combo no existe' });
+
+    // El plato tiene que existir y estar activo
+    const { data: plato, error: errorPlato } = await supabase
+      .from('productos')
+      .select('id, nombre, activo')
+      .eq('id', idProducto)
+      .maybeSingle();
+    if (errorPlato) return errorInterno(res, errorPlato);
+    if (!plato || !plato.activo) {
+      return res.status(400).json({ error: 'El plato no existe o está desactivado' });
+    }
+
+    // Agregar o reactivar en UNA instrucción: upsert usa la regla de la tabla que no deja repetir
+    // (id_combo, id_producto). Si el renglón no existe lo crea; si existía (sacado), lo vuelve a activar.
+    const { error } = await supabase
+      .from('combo_productos')
+      .upsert(
+        { id_combo: idCombo, id_producto: idProducto, activo: true },
+        { onConflict: 'id_combo,id_producto' }
+      );
+    if (error) return errorInterno(res, error);
+
+    res.json({ mensaje: `"${plato.nombre}" quedó en el menú` });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// PUT /api/combos/:id/menu/:idProducto/quitar → saca un plato del menú: su renglón pasa a activo = false
+// (nunca se borra). El plato no cambia y los pedidos viejos tampoco.
+app.put('/api/combos/:id/menu/:idProducto/quitar', requireAuth, requireRol(6, 5), async (req, res) => {
+  const idCombo = Number(req.params.id);
+  const idProducto = Number(req.params.idProducto);
+  if (!Number.isInteger(idCombo) || idCombo <= 0 || idCombo > ENTERO_MAXIMO_BASE) {
+    return res.status(400).json({ error: 'Combo inválido' });
+  }
+  if (!Number.isInteger(idProducto) || idProducto <= 0 || idProducto > ENTERO_MAXIMO_BASE) {
+    return res.status(400).json({ error: 'Plato inválido' });
+  }
+
+  try {
+    // Solo el renglón activo de ese combo y ese plato (hay uno solo, por la regla de la tabla)
+    const { data, error } = await supabase
+      .from('combo_productos')
+      .update({ activo: false })
+      .eq('id_combo', idCombo)
+      .eq('id_producto', idProducto)
+      .eq('activo', true)
+      .select('id')
+      .maybeSingle();
+
+    if (error) return errorInterno(res, error);
+    if (!data) return res.status(404).json({ error: 'Ese plato no está en el menú del combo' });
+
+    res.json({ mensaje: 'Plato sacado del menú' });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
 /* ======================================================
    API USUARIOS (gestión interna de personal)
    ====================================================== */
