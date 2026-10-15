@@ -518,6 +518,64 @@
     margin-bottom: 0.8rem;
 }
 
+/* --- Personalizar un plato --- */
+.plato__extra {
+    grid-column: 1 / -1;            /* ocupa todo el ancho, debajo de la fila del plato */
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+.enlace-personalizar {
+    align-self: flex-start;
+    border: none;
+    background: none;
+    color: var(--color-primary-dark);
+    font-weight: 600;
+    cursor: pointer;
+}
+.enlace-personalizar:disabled {
+    color: var(--color-muted);
+    cursor: not-allowed;
+}
+.personalizado {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: var(--radius-sm);
+    background: #fff8e6;
+}
+.personalizado__texto {
+    font-size: 0.9rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;        /* un texto largo sin espacios no rompe la ventana */
+}
+.personalizar {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.personalizar__input {
+    flex: 1;
+    min-width: 160px;
+    padding: 0.5rem 0.8rem;
+    border: 1px solid #ccc;
+    border-radius: var(--radius-sm);
+    font-size: 0.95rem;
+}
+.personalizar .btn {
+    padding: 0.45rem 1rem;
+    font-size: 0.9rem;
+}
+.aviso-personalizado {
+    margin-top: 0.8rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: var(--radius-sm);
+    background: #fff3cd;
+    font-size: 0.9rem;
+}
+
 /* --- Celular --- */
 @media (max-width: 768px) {
     .nav {
