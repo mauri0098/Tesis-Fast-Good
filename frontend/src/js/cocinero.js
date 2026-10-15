@@ -23,10 +23,22 @@ function construirResumen(tareas) {
   // Clave compuesta con separador improbable en datos reales.
   const grupos = {};
   tareas.forEach(pedido => {
-    const obs = _normObs(pedido.observaciones);
+    const obsPedido = _normObs(pedido.observaciones);
     (pedido.pedido_detalles || []).forEach(det => {
       const nombre = det?.productos?.nombre;
       if (!nombre || nombre === '—') return;
+
+      // Plato personalizado (de un combo): su texto va primero, y si el pedido además tiene
+      // observaciones se suman. Ej: "sin sal" + "sin cebolla" → "sin sal · sin cebolla".
+      // Así el resumen separa "fideos" de "fideos ⚠ sin sal".
+      let obs = obsPedido;
+      if (det.personalizado && det.observaciones_plato && det.observaciones_plato.trim() !== '') {
+        obs = det.observaciones_plato.trim();
+        if (obsPedido !== _OBS_STD) {
+          obs = obs + ' · ' + obsPedido;
+        }
+      }
+
       const clave = `${nombre}|||${obs}`;
       if (!grupos[clave]) grupos[clave] = { nombre, obs, cantidad: 0 };
       grupos[clave].cantidad += (det.cantidad || 0);
@@ -98,13 +110,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
-  function formatFecha(isoString) {
-    if (!isoString) return '—';
-    return new Date(isoString).toLocaleDateString('es-AR', {
-      day: '2-digit', month: '2-digit', year: 'numeric'
-    });
-  }
-
   function setVacio(msg) {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${msg}</td></tr>`;
     contadorBadge.textContent = '0';
@@ -141,41 +146,49 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   contadorBadge.textContent = enPrep.length;
 
-  // ── 2. Renderizar filas ───────────────────────────────────────────────────
+  // ── 2. Renderizar filas: una por pedido ───────────────────────────────────
+  // Nº Pedido · Entrega · Cliente · Platos (botón Detalles) · Observaciones · Acción (Listo).
+  // Cada fila lleva data-pedido-id: así confirmarListo y quitarPedidoDeLaTabla siguen apagando
+  // el botón y sacando el pedido, igual que antes.
   tbody.innerHTML = '';
 
   enPrep.forEach(pedido => {
-    const detalles = pedido.pedido_detalles || [];
-    const fecha    = formatFecha(pedido.fecha_pedido);
+    const idPedido = Number(pedido.id);
 
-    const filas = detalles.length > 0 ? detalles : [null];
+    // Fecha de entrega: llega como "AAAA-MM-DD". Se lee con fechas.js (parseFechaLocal): con
+    // new Date() se tomaría en hora UTC y en Argentina mostraría el día anterior.
+    let fechaEntrega = '—';
+    if (pedido.fecha_entrega) {
+      fechaEntrega = fechaDDMMAAAA(parseFechaLocal(pedido.fecha_entrega));
+    }
 
-    filas.forEach(det => {
-      const codigo   = det?.productos?.codigo_plato || '—';
-      const nombre   = det?.productos?.nombre || '—';
-      const cantidad = det ? `x${det.cantidad}` : '';
+    // Botón Detalles: con ⚠ si algún plato del pedido es personalizado, para que el cocinero lo abra.
+    // some responde true si AL MENOS UNO cumple: [{ personalizado: false }, { personalizado: true }] → true
+    const tienePersonalizado = (pedido.pedido_detalles || []).some(det => det.personalizado);
+    let textoDetalles = 'Detalles';
+    if (tienePersonalizado) {
+      textoDetalles = 'Detalles ⚠';
+    }
 
-      const tr = document.createElement('tr');
-      tr.dataset.pedidoId = pedido.id;
-      tr.innerHTML = `
-        <td><strong>#${pedido.id}</strong></td>
-        <td>${fecha}</td>
-        <td><strong>${codigo}</strong></td>
-        <td>
-          <span class="plato-nombre">${escHtml(nombre)}</span>
-          <br><span class="plato-cant">${cantidad}</span>
-        </td>
-        <td>${escHtml(pedido.observaciones || 'Sin observaciones')}</td>
-        <td>
-          ${soloLectura
-            ? '<span class="solo-lectura">Solo lectura</span>'
-            : `<button class="btn-listo" onclick="marcarListo(${pedido.id}, this)">
-            ✓ Listo para entregar
-          </button>`}
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
+    // Botón "✓ Listo" del pedido (marca listos TODOS los platos de este cocinero en el pedido,
+    // como siempre). La administración solo mira.
+    let accion = `<button class="btn-listo" onclick="marcarListo(${idPedido}, this)">✓ Listo para entregar</button>`;
+    if (soloLectura) {
+      accion = '<span class="solo-lectura">Solo lectura</span>';
+    }
+
+    // El cliente y las observaciones los escribe el cliente desde la web: escHtml
+    const tr = document.createElement('tr');
+    tr.dataset.pedidoId = pedido.id;
+    tr.innerHTML = `
+      <td><strong>#${idPedido}</strong></td>
+      <td>${escHtml(fechaEntrega)}</td>
+      <td>${escHtml(pedido.cliente_nombre || 'Sin nombre')}</td>
+      <td><button class="btn-detalles" onclick="abrirDetallesPedido(${idPedido})">${textoDetalles}</button></td>
+      <td>${escHtml(pedido.observaciones || 'Sin observaciones')}</td>
+      <td>${accion}</td>
+    `;
+    tbody.appendChild(tr);
   });
 
   // ── 3. Sincronizar estado y pintar panel de resumen ───────────────────────
@@ -206,6 +219,51 @@ window.cerrarModalListo = function (e) {
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') window.cerrarModalListo();
+});
+
+// ── Ventana "Platos del pedido" (botón Detalles) ─────────────────────────────
+// Muestra los platos que ya tiene la pantalla en memoria (_tareasActivas): los mismos que ve
+// cada cocinero (los suyos sin terminar) o, para la administración, todos. No pide nada al servidor.
+window.abrirDetallesPedido = function (pedidoId) {
+  // find devuelve el pedido con ese número, o undefined si ya no está (por ejemplo, ya se marcó listo)
+  const pedido = _tareasActivas.find(p => Number(p.id) === Number(pedidoId));
+  if (!pedido) return;
+
+  // Una fila por plato: código, plato con su ⚠ personalizado y cantidad.
+  // Todo lo que viene de la base pasa por escHtml (el texto personalizado lo escribe el cliente).
+  let html = '';
+  (pedido.pedido_detalles || []).forEach(det => {
+    const codigo = det?.productos?.codigo_plato || '—';
+    const nombre = det?.productos?.nombre || '—';
+
+    let avisoPersonalizado = '';
+    if (det.personalizado && det.observaciones_plato) {
+      avisoPersonalizado = `<br><span class="plato-especial">⚠ ${escHtml(det.observaciones_plato)}</span>`;
+    }
+
+    html += `
+      <tr>
+        <td><strong>${escHtml(codigo)}</strong></td>
+        <td>${escHtml(nombre)}${avisoPersonalizado}</td>
+        <td>x${escHtml(det.cantidad)}</td>
+      </tr>`;
+  });
+
+  document.getElementById('modalPlatosTitulo').textContent = `Platos del pedido #${Number(pedido.id)}`;
+  document.getElementById('modalPlatosBody').innerHTML = html;
+  document.getElementById('modalPlatos').style.display = 'block';
+};
+
+// Cierra la ventana de platos. Si viene de un clic, solo cuando el clic fue en el fondo oscuro
+// (igual que cerrarModalListo); con la ✕, "Cerrar" o Escape se llama sin evento y cierra siempre.
+window.cerrarDetallesPedido = function (e) {
+  const modal = document.getElementById('modalPlatos');
+  if (e && e.target !== modal) return;
+  modal.style.display = 'none';
+};
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') window.cerrarDetallesPedido();
 });
 
 window.confirmarListo = async function () {

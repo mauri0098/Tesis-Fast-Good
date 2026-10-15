@@ -51,10 +51,11 @@
         <table id="tablaPedidos" class="standard-table">
           <thead>
             <tr>
-              <th>N° Pedido</th>
-              <th>Fecha</th>
-              <th>Código</th>
-              <th>Plato</th>
+              <!-- Una fila por pedido. Los platos se ven con el botón "Detalles" (ventana modalPlatos) -->
+              <th>Nº Pedido</th>
+              <th>Entrega</th>
+              <th>Cliente</th>
+              <th>Platos</th>
               <th>Observaciones</th>
               <th>Acción</th>
             </tr>
@@ -108,6 +109,29 @@
     <div class="modal-listo-acciones">
       <button class="btn-cancelar-listo" onclick="cerrarModalListo()">Cancelar</button>
       <button id="modalListoConfirmar" class="btn-listo" onclick="confirmarListo()">✓ Sí, están listos</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PLATOS DEL PEDIDO (lo abre el botón "Detalles"; lo llena abrirDetallesPedido en cocinero.js) -->
+<div id="modalPlatos" class="modal" onclick="cerrarDetallesPedido(event)">
+  <div class="modal-content modal-platos">
+    <div class="modal-platos-cab">
+      <h3 id="modalPlatosTitulo">Platos del pedido</h3>
+      <button class="modal-platos-cerrar" onclick="cerrarDetallesPedido()" aria-label="Cerrar">✕</button>
+    </div>
+    <table class="tabla-platos">
+      <thead>
+        <tr>
+          <th>Código</th>
+          <th>Plato</th>
+          <th>Cantidad</th>
+        </tr>
+      </thead>
+      <tbody id="modalPlatosBody"></tbody>
+    </table>
+    <div class="modal-platos-pie">
+      <button class="btn-cancelar-listo" onclick="cerrarDetallesPedido()">Cerrar</button>
     </div>
   </div>
 </div>

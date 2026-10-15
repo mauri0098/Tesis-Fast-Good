@@ -64,11 +64,11 @@ body {
    TABLA
    ========================================= */
 .standard-table {
-  width: 100%;
+  width: 100%;                /* ocupa todo el ancho de la tarjeta */
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 880px;
-  table-layout: fixed;
+  min-width: 480px;           /* en pantallas muy angostas aparece la barra horizontal */
+  table-layout: fixed;        /* los anchos salen de los títulos: los platos quedan alineados debajo */
 }
 
 .standard-table thead th {
@@ -86,24 +86,15 @@ body {
 .standard-table thead th:first-child { border-top-left-radius: var(--radius); }
 .standard-table thead th:last-child  { border-top-right-radius: var(--radius); }
 
-/* Anchos fijos por columna — total: 880px */
-.standard-table thead th:nth-child(1),
-.standard-table tbody td:nth-child(1) { width: 90px; }   /* N° Pedido */
-
-.standard-table thead th:nth-child(2),
-.standard-table tbody td:nth-child(2) { width: 100px; }  /* Fecha */
-
-.standard-table thead th:nth-child(3),
-.standard-table tbody td:nth-child(3) { width: 210px; }  /* Plato */
-
-.standard-table thead th:nth-child(4),
-.standard-table tbody td:nth-child(4) { width: 160px; }  /* Cocineros */
-
-.standard-table thead th:nth-child(5),
-.standard-table tbody td:nth-child(5) { width: 180px; }  /* Observaciones */
-
-.standard-table thead th:nth-child(6),
-.standard-table tbody td:nth-child(6) { width: 140px; }  /* Acción */
+/* Anchos de columna: una fila por pedido.
+   Con table-layout: fixed, los anchos los fijan los títulos y todas las filas los siguen.
+   Cliente y Observaciones se reparten el espacio que sobra. */
+.standard-table thead th:nth-child(1) { width: 90px; }   /* Nº Pedido */
+.standard-table thead th:nth-child(2) { width: 110px; }  /* Entrega */
+.standard-table thead th:nth-child(3) { width: auto; }   /* Cliente */
+.standard-table thead th:nth-child(4) { width: 130px; }  /* Platos (botón Detalles) */
+.standard-table thead th:nth-child(5) { width: auto; }   /* Observaciones */
+.standard-table thead th:nth-child(6) { width: 180px; }  /* Acción (Listo) */
 
 .standard-table tbody td {
   padding: 0.9rem 1rem;
@@ -430,6 +421,77 @@ ul.platos-list li {
   font-weight: 700;
   color: #92400e;
   line-height: 1.3;
+}
+
+/* Botón "Detalles" de cada pedido (mismo color naranja que en Consultar Pedidos) */
+.btn-detalles {
+  padding: 0.35rem 0.9rem;
+  border: none;
+  border-radius: 50px;
+  background: var(--color-secondary, #ff9800);
+  color: #fff;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.btn-detalles:hover { background: #e08700; }
+
+/* Ventana "Platos del pedido" */
+.modal-platos { max-width: 560px; padding: 1.8rem; }
+.modal-platos-cab {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.modal-platos-cab h3 { font-size: 1.25rem; }
+.modal-platos-cerrar {
+  border: none;
+  background: none;
+  font-size: 1.3rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.tabla-platos {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin-bottom: 1.2rem;
+}
+.tabla-platos th {
+  padding: 0.6rem;
+  background: #e8f5e9;
+  color: #4CAF50;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  text-align: left;
+}
+.tabla-platos td {
+  padding: 0.6rem;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.tabla-platos th:nth-child(1) { width: 90px; }    /* Código */
+.tabla-platos th:nth-child(3) { width: 90px; }    /* Cantidad */
+.tabla-platos th:nth-child(3),
+.tabla-platos td:nth-child(3) { text-align: center; }
+.modal-platos-pie { display: flex; justify-content: flex-end; }
+
+/* Texto de un plato personalizado en la tabla (ej: "⚠ sin sal"), mismo color que los especiales del resumen */
+.plato-especial {
+  display: inline-block;
+  margin-top: 0.2rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  background: #fffbeb;
+  border: 1px solid #fbbf24;
+  color: #92400e;
+  font-size: 0.8rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;   /* un texto largo sin espacios no rompe la tabla */
 }
 
 .resumen-card-obs-icon {

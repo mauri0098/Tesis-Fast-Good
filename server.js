@@ -723,6 +723,8 @@ app.get('/api/cocina/tareas', requireAuth, requireRol(2, 6, 5, 1), async (req, r
     .select(`
       id,
       fecha_pedido,
+      fecha_entrega,
+      cliente_nombre,
       observaciones,
       id_estado,
       pedido_detalles (
@@ -730,6 +732,8 @@ app.get('/api/cocina/tareas', requireAuth, requireRol(2, 6, 5, 1), async (req, r
         cantidad,
         precio_unitario,
         listo,
+        personalizado,
+        observaciones_plato,
         productos ( nombre, codigo_plato )
       )
     `)
