@@ -611,6 +611,135 @@
     font-size: 1.2rem;
 }
 
+/* --- Finalizar pedido (formulario) --- */
+.hoja--completa {
+    width: min(640px, 96vw);
+}
+/* Cada vista y el formulario ocupan el alto de la ventana: solo el cuerpo se desplaza */
+.vista,
+.vista form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+.vista[hidden] {
+    display: none;                  /* sin esto, el display:flex de arriba le ganaría a "hidden" */
+}
+.resumen {
+    margin-bottom: 1rem;
+    padding: 0.7rem 0.9rem;
+    border-radius: var(--radius-sm);
+    background: #f4f8f4;
+}
+.resumen summary {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.resumen__cant {
+    font-weight: 400;
+    color: var(--color-muted);
+}
+.resumen__combo {
+    margin-top: 0.6rem;
+}
+.resumen__platos {
+    font-size: 0.85rem;
+    color: #555;
+    overflow-wrap: anywhere;
+}
+.bloque {
+    margin-bottom: 1rem;
+    padding: 0;
+    border: none;
+}
+.bloque legend {
+    margin-bottom: 0.4rem;
+    font-weight: 700;
+}
+.campo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 0.7rem;
+}
+.campo[hidden] {
+    display: none;                  /* sin esto, el display:flex de arriba le ganaría a "hidden" (barrio con retiro) */
+}
+.campo label,
+.campo legend {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+fieldset.campo {
+    padding: 0;
+    border: none;
+}
+.input {
+    padding: 0.6rem 0.8rem;
+    border: 1px solid #ccc;
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-family: var(--font-main);
+}
+.campo__ayuda {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+}
+.campo__error {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #c0392b;
+}
+.campo__error:empty {
+    display: none;                  /* sin error no ocupa lugar */
+}
+.opcional {
+    font-weight: 400;
+    color: var(--color-muted);
+}
+.opciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 0.4rem;
+}
+.opcion {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 0.9rem;
+    border: 2px solid #e0e0e0;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+.opcion:has(input:checked) {
+    border-color: var(--color-primary);
+    background: #f4f8f4;
+}
+.nota {
+    padding: 0.5rem 0.8rem;
+    border-radius: var(--radius-sm);
+    background: #fff3cd;
+    font-size: 0.9rem;
+}
+.aviso-prueba {
+    margin-bottom: 0.6rem;
+    font-weight: 600;
+    color: #b7791f;
+}
+.pedido-prueba {
+    padding: 0.8rem;
+    border-radius: var(--radius-sm);
+    background: #f4f4f4;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
 /* --- Celular --- */
 @media (max-width: 768px) {
     .nav {
