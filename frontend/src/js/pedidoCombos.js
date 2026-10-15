@@ -1,3 +1,4 @@
+
 // ====================================================================
 // PEDIDOCOMBOS.JS — Ventana "Finalizar pedido" de index-combos.html
 //
@@ -7,15 +8,28 @@
 //   cargarBarrios     → pide la lista de barrios al servidor (una sola vez) y llena el select
 //   validarFormulario → controla cada campo, escribe los errores debajo y devuelve los datos limpios (o null)
 //   armarPedido       → junta el carrito y los datos del formulario en el pedido que se manda al servidor
-//   confirmarPedido   → lo que pasa al tocar "Confirmar pedido": valida, arma y (por ahora) muestra el pedido
+//   confirmarPedido   → lo que pasa al tocar "Confirmar pedido": valida, arma, manda, y si salió bien
+//                       vacía el carrito y muestra la confirmación (si no, muestra el error)
+//   enviarPedido      → manda el pedido a POST /api/pedidos-combos y traduce la respuesta a
+//                       { ok: true, respuesta } o { ok: false, error: "mensaje para el cliente" }
+//   mostrarConfirmacion  → dibuja "¡Recibimos tu pedido #N!" con lo que devolvió el servidor y el botón de WhatsApp
+//   armarMensajeWhatsApp → arma el mensaje (mismo formato que el formulario viejo) y devuelve el enlace de WhatsApp
 //
-// MODO PRUEBA: todavía NO se manda nada al servidor; se muestra lo que se mandaría.
 // Los campos son los mismos que el formulario viejo (pages/formulario.html + formulario.js)
 // y el pedido se arma igual que ahí (cliente_nombre = "Nombre Apellido", etc.).
 // Los controles de acá son una AYUDA: el servidor vuelve a controlar todo.
 // El pedido NO lleva precios, total ni usuario: el servidor los saca de la base y del token.
-// Necesita antes: escape.js (escHtml), fechas.js (días hábiles) y carritoCombos.js (carritoCombos).
+// Necesita antes: escape.js (escHtml), fechas.js (días hábiles), api.js (apiFetch)
+// y carritoCombos.js (carritoCombos, guardarCarrito, renderizarCarrito).
 // ====================================================================
+
+// Datos del negocio para el mensaje de WhatsApp (los mismos que usa el formulario viejo)
+const WHATSAPP_NUMERO     = '5493512294243';
+const EMAIL_NEGOCIO       = 'tesisfastgood@gmail.com';
+const ALIAS_TRANSFERENCIA = 'FAST.GOOD.VA cuenta a nombre de Fast and Good VA SRL';
+
+// Mensaje cuando el pedido no se pudo enviar por un problema del servidor o de internet
+const MENSAJE_ERROR_ENVIO = 'No pudimos enviar tu pedido. Probá de nuevo en unos minutos.';
 
 // Largos máximos (los mismos que controla el servidor y que acepta la base).
 // nombreCompleto = Nombre + espacio + Apellido, que es lo que se guarda en cliente_nombre.
@@ -297,26 +311,205 @@ function armarPedido(datos) {
 }
 
 // ── Al tocar "Confirmar pedido" ───────────────────────────────────────────
-function confirmarPedido(evento) {
+async function confirmarPedido(evento) {
   // El formulario no recarga la página
   evento.preventDefault();
+
+  // Se borra el error de un envío anterior (validarFormulario también lo borra con los demás)
+  const errorEnvio = document.getElementById('err-envio');
+  errorEnvio.textContent = '';
 
   const datos = validarFormulario();
   if (!datos) return;
 
   const pedido = armarPedido(datos);
 
-  // MODO PRUEBA: todavía no se manda al servidor (se conecta en el paso 13).
-  // Se muestra lo que se mandaría. textContent lo muestra como texto, nunca como HTML.
-  console.log('Pedido que se mandaría al servidor:', pedido);
-  document.getElementById('ok-cuerpo').innerHTML =
-    '<p class="aviso-prueba">Modo prueba: todavía no se envía. Esto es lo que se mandaría al servidor:</p>' +
-    '<pre class="pedido-prueba" id="ok-pedido-prueba"></pre>';
-  document.getElementById('ok-pedido-prueba').textContent = JSON.stringify(pedido, null, 2);
+  // El botón se apaga mientras se envía: así un doble clic no crea dos pedidos
+  const boton = document.getElementById('ck-confirmar');
+  boton.disabled = true;
+  boton.textContent = 'Enviando pedido...';
+
+  const resultado = await enviarPedido(pedido);
+
+  boton.disabled = false;
+  boton.textContent = 'Confirmar pedido';
+
+  // No salió: se muestra el mensaje y el carrito y el formulario quedan como estaban.
+  // textContent lo muestra como texto, nunca como HTML.
+  if (!resultado.ok) {
+    errorEnvio.textContent = resultado.error;
+    return;
+  }
+
+  // Salió bien: se vacía el carrito (también lo guardado en el navegador y el número del ícono)
+  // con las funciones de carritoCombos.js, y se limpia el formulario
+  carritoCombos = [];
+  guardarCarrito();
+  renderizarCarrito();
+  document.getElementById('form-pedido').reset();
+
+  mostrarConfirmacion(resultado.respuesta, datos);
+}
+
+// ── Manda el pedido al servidor y traduce la respuesta ────────────────────
+async function enviarPedido(pedido) {
+  try {
+    // apiFetch (api.js) agrega el token si el cliente inició sesión: el servidor saca de ahí
+    // a nombre de quién va el pedido. El navegador nunca manda el id del usuario.
+    const respuesta = await apiFetch('/api/pedidos-combos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(pedido)
+    });
+    const cuerpo = await respuesta.json();
+
+    // 200: pedido creado
+    if (respuesta.ok) {
+      return { ok: true, respuesta: cuerpo };
+    }
+
+    // 400 (algún dato mal, un combo que ya no está) o 429 (demasiados pedidos seguidos):
+    // el servidor manda un mensaje pensado para el cliente
+    if ((respuesta.status === 400 || respuesta.status === 429) && cuerpo.error) {
+      return { ok: false, error: cuerpo.error };
+    }
+
+    // Cualquier otro error (500): mensaje simple; el detalle queda en la consola
+    console.error('Error al crear el pedido:', respuesta.status, cuerpo);
+    return { ok: false, error: MENSAJE_ERROR_ENVIO };
+  } catch (error) {
+    // Sin internet o el servidor no contestó
+    console.error('No se pudo enviar el pedido:', error);
+    return { ok: false, error: MENSAJE_ERROR_ENVIO };
+  }
+}
+
+// ── Dibuja la confirmación con lo que devolvió el servidor ────────────────
+function mostrarConfirmacion(respuesta, datos) {
+  // Combos con sus platos: nombres y precios que guardó el servidor (los de la base)
+  let combosHtml = '';
+  respuesta.combos.forEach(combo => {
+    const precio = Number(combo.precio).toLocaleString('es-AR');
+
+    // map arma una lista nueva con un <li> por plato y join la une en un solo texto.
+    // Ejemplo: entra [{ cantidad: 8, nombre: 'fideos' }, { cantidad: 2, nombre: 'fideos', personalizado: 'sin sal' }]
+    //          sale  '<li>8 × fideos</li><li>2 × fideos (sin sal)</li>'
+    const platosHtml = combo.platos.map(plato => {
+      let texto = escHtml(plato.cantidad) + ' × ' + escHtml(plato.nombre);
+      if (plato.personalizado) {
+        texto = texto + ' (' + escHtml(plato.personalizado) + ')';
+      }
+      return '<li>' + texto + '</li>';
+    }).join('');
+
+    combosHtml += `
+      <div class="confirmacion__combo">
+        <p><strong>${escHtml(combo.nombre)}</strong> · $ ${escHtml(precio)}</p>
+        <ul>${platosHtml}</ul>
+      </div>`;
+  });
+
+  // Entrega, fecha, total y (si es transferencia) el alias
+  let textoEntrega = 'Retiro en el local';
+  if (datos.tipoEntrega === ENTREGA_ENVIO) {
+    textoEntrega = 'Envío a domicilio: ' + datos.direccion;
+  }
+  const fechaEntrega = fechaDDMMAAAA(parseFechaLocal(datos.fecha));
+  const total = Number(respuesta.total).toLocaleString('es-AR');
+  let notaTransferencia = '';
+  if (datos.metodoPago === 'Transferencia') {
+    notaTransferencia = `<p class="nota">Alias: ${escHtml(ALIAS_TRANSFERENCIA)}</p>`;
+  }
+
+  document.getElementById('ok-cuerpo').innerHTML = `
+    <div class="confirmacion">
+      <p class="confirmacion__titulo">¡Recibimos tu pedido <strong>#${escHtml(respuesta.id_pedido)}</strong>!</p>
+      <p>Para terminar, mandanos el resumen por WhatsApp y te confirmamos.</p>
+      ${combosHtml}
+      <p class="confirmacion__total">Total: <strong>$ ${escHtml(total)}</strong></p>
+      <p>Fecha de entrega: <strong>${escHtml(fechaEntrega)}</strong></p>
+      <p>${escHtml(textoEntrega)}</p>
+      <p>Forma de pago: ${escHtml(datos.metodoPago)}</p>
+      ${notaTransferencia}
+      <a class="btn btn--whatsapp btn--ancho" id="ok-whatsapp" target="_blank" rel="noopener">Enviar por WhatsApp</a>
+    </div>`;
+
+  // El enlace se pone aparte (no dentro del HTML de arriba): así ningún texto del mensaje puede romperlo
+  document.getElementById('ok-whatsapp').href = armarMensajeWhatsApp(respuesta, datos);
 
   // Se pasa a la vista de confirmación
   document.getElementById('ck-vista-form').hidden = true;
   document.getElementById('ck-vista-ok').hidden = false;
+}
+
+// ── Arma el mensaje de WhatsApp (mismo formato que redirigirAWhatsApp del formulario viejo) ──
+function armarMensajeWhatsApp(respuesta, datos) {
+  // Fecha y hora de ahora, igual que el viejo (ej: "15/10/26, 06:30 p. m.hs")
+  const fechaFormateada = new Date().toLocaleString('es-AR', {
+    day: '2-digit', month: '2-digit', year: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: true
+  }) + 'hs';
+
+  const totalFormateado = Number(respuesta.total).toLocaleString('es-AR');
+
+  // Cada combo con su precio y debajo sus platos. Ejemplo:
+  //   1x PRUEBA Mantenimiento x10: $137.000
+  //      - 8 fideos
+  //      - 2 fideos (sin sal)
+  let lineasCombos = '';
+  respuesta.combos.forEach(combo => {
+    // map arma una línea por plato y join las une con saltos de línea.
+    // Ejemplo: [{ cantidad: 8, nombre: 'fideos' }] → '   - 8 fideos'
+    const lineasPlatos = combo.platos.map(plato => {
+      let linea = '   - ' + plato.cantidad + ' ' + plato.nombre;
+      if (plato.personalizado) {
+        linea = linea + ' (' + plato.personalizado + ')';
+      }
+      return linea;
+    }).join('\n');
+
+    lineasCombos += '1x ' + combo.nombre + ': $' + Number(combo.precio).toLocaleString('es-AR') + '\n' + lineasPlatos + '\n';
+  });
+
+  // Igual que el viejo: el alias solo con transferencia, y la dirección solo con delivery
+  let lineaAlias = '\n';
+  if (datos.metodoPago === 'Transferencia') {
+    lineaAlias = '► ALIAS: ' + ALIAS_TRANSFERENCIA + '\n\n';
+  }
+  let lineaEntrega = 'Entrega: Retiro en local';
+  if (datos.tipoEntrega === ENTREGA_ENVIO) {
+    lineaEntrega = 'Entrega: Delivery\nDirección: ' + datos.direccion;
+  }
+
+  // Nuevo (el viejo no la tiene): la fecha de entrega elegida
+  const fechaEntrega = fechaDDMMAAAA(parseFechaLocal(datos.fecha));
+
+  const mensaje =
+`¡Hola! Te paso el resumen de mi pedido
+
+Pedido: #${respuesta.id_pedido}
+Tienda: fastandgood
+Fecha: ${fechaFormateada}
+Nombre: ${datos.nombre} ${datos.apellido}
+Teléfono: ${datos.telefono}
+
+Forma de pago: ${datos.metodoPago}
+Total: $${totalFormateado}
+${lineaAlias}${lineaEntrega}
+Fecha de entrega: ${fechaEntrega}
+
+mail: ${EMAIL_NEGOCIO}
+
+Mi pedido es
+
+${lineasCombos}
+TOTAL: $${totalFormateado}
+
+Espero tu respuesta para confirmar mi pedido`;
+
+  // encodeURIComponent convierte el texto para que viaje dentro del enlace sin romperlo
+  // (ej: un "&" o un "#" en un nombre)
+  return 'https://wa.me/' + WHATSAPP_NUMERO + '?text=' + encodeURIComponent(mensaje);
 }
 
 // ── Al cargar la página: quién escucha qué ────────────────────────────────

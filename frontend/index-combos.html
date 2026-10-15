@@ -376,7 +376,9 @@
             <span>Total</span>
             <strong id="ck-total"></strong>
           </div>
-          <button class="btn btn--primario btn--ancho" type="submit">Confirmar pedido</button>
+          <!-- Error al enviar (dato mal, demasiados pedidos, sin internet): lo escribe pedidoCombos.js -->
+          <p class="campo__error" id="err-envio" role="alert"></p>
+          <button class="btn btn--primario btn--ancho" type="submit" id="ck-confirmar">Confirmar pedido</button>
         </div>
       </form>
     </div>
@@ -399,6 +401,7 @@
   <script src="./src/js/roles.js"></script>
   <script src="./src/js/auth.js"></script>
   <script src="./src/js/escape.js"></script>
+  <script src="./src/js/api.js"></script>
   <script src="./src/js/fechas.js"></script>
   <script src="./src/js/combosCatalogo.js"></script>
   <script src="./src/js/carritoCombos.js"></script>

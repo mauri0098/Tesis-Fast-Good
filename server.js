@@ -785,7 +785,9 @@ const LARGO_MAXIMO_PEDIDO = [
   ['cliente_telefono',  'El teléfono',       30],
   ['observaciones',     'Las observaciones', 500]
 ];
-const ID_CONSUMIDOR_FINAL = 'd9b1ae00-fda5-4488-86b3-90d769b47a02'; // usuario "Consumidor Final" de los pedidos sin login
+// Usuario "Consumidor Final" de los pedidos sin login (rol 4, nadie puede iniciar sesión con él).
+// Lo crea sql/usuario_consumidor_final.sql. Antes acá estaba el id de un usuario admin.
+const ID_CONSUMIDOR_FINAL = 'b344f2e8-cd3c-42af-953c-7d97cada6c63';
 
 // POST /api/pedidos → crea un pedido. Es público (lo usa el formulario sin login).
 // El navegador solo dice qué productos y cuántos: los precios y el total los calcula el servidor
@@ -937,6 +939,210 @@ app.post('/api/pedidos', limitePedidos, async (req, res) => {
       subtotal:        r.cantidad * r.precio_unitario
     }))
   });
+});
+
+// Reglas del pedido de COMBOS (POST /api/pedidos-combos)
+const MAXIMO_COMBOS_POR_PEDIDO       = 10;  // la base controla lo mismo (crear_pedido_combos)
+const LARGO_MAXIMO_EMAIL             = 100; // la columna pedidos.cliente_email no acepta más
+const DIAS_HABILES_ENTREGA           = 2;   // 48 hs hábiles, como el pedido viejo
+const DIAS_HABILES_CON_PERSONALIZADO = 3;   // un plato personalizado se cocina aparte: 1 día hábil más
+
+// POST /api/pedidos-combos → crea un pedido de COMBOS (lo usa index-combos.html). Es público.
+// El navegador solo dice qué combos y qué platos eligió. Acá se controlan los datos del cliente con las
+// mismas reglas que POST /api/pedidos. El contenido de cada combo (activo, platos del menú, suma justa,
+// texto personalizado), el precio y el total los controla y calcula la base: crear_pedido_combos
+// (sql/pedido_combos_funciones.sql), que guarda todo junto o nada.
+// SIN HELADERA por ahora: no se descuenta stock_heladera (se conecta al final).
+app.post('/api/pedidos-combos', limitePedidos, async (req, res) => {
+  const {
+    combos,
+    cliente_nombre,
+    cliente_direccion,
+    cliente_telefono,
+    cliente_email,
+    fecha_entrega,
+    metodo_pago,
+    observaciones,
+    barrio_id,
+    tipo_entrega
+  } = req.body;
+
+  // 1. Combos: una lista de 1 a 10. Acá solo se mira la FORMA (lo justo para saber si hay platos
+  //    personalizados, que cambian la fecha mínima). El contenido lo controla la base.
+  if (!Array.isArray(combos) || combos.length < 1 || combos.length > MAXIMO_COMBOS_POR_PEDIDO) {
+    return res.status(400).json({ error: `El pedido tiene que tener entre 1 y ${MAXIMO_COMBOS_POR_PEDIDO} combos` });
+  }
+
+  // some responde true si AL MENOS UNO de la lista cumple la condición.
+  // Ejemplo: [{ platos: [...] }, { platos: 'hola' }] → true (el segundo no tiene una lista de platos)
+  const hayComboMalArmado = combos.some(combo =>
+    !combo || typeof combo !== 'object' || !Array.isArray(combo.platos)
+  );
+  if (hayComboMalArmado) {
+    return res.status(400).json({ error: 'Hay un combo con datos inválidos' });
+  }
+
+  // flatMap junta en una sola lista los platos de todos los combos.
+  // Ejemplo: [{ platos: [fideos, berenjenas] }, { platos: [arroz] }] → [fideos, berenjenas, arroz]
+  const platos = combos.flatMap(combo => combo.platos);
+
+  // Cada plato tiene que ser un objeto, y "personalizado" un texto o vacío (null o sin el dato).
+  // Ejemplo: [{ personalizado: null }, { personalizado: 5 }] → true (el segundo está mal)
+  const hayPlatoMalArmado = platos.some(plato =>
+    !plato || typeof plato !== 'object' ||
+    (plato.personalizado != null && typeof plato.personalizado !== 'string')
+  );
+  if (hayPlatoMalArmado) {
+    return res.status(400).json({ error: 'Hay un plato con datos inválidos' });
+  }
+
+  // ¿Algún plato personalizado (con texto escrito)? Ejemplo: [{ personalizado: null }, { personalizado: 'sin sal' }] → true
+  const hayPersonalizado = platos.some(plato =>
+    typeof plato.personalizado === 'string' && plato.personalizado.trim() !== ''
+  );
+
+  // 2. Método de pago y tipo de entrega: las mismas listas cerradas que POST /api/pedidos
+  if (!METODOS_PAGO.includes(metodo_pago)) {
+    return res.status(400).json({ error: 'Método de pago inválido' });
+  }
+  if (tipo_entrega != null && !TIPOS_ENTREGA.includes(tipo_entrega)) {
+    return res.status(400).json({ error: 'Tipo de entrega inválido' });
+  }
+
+  // 3. Datos del cliente.
+  //    a) Los mismos largos máximos que POST /api/pedidos. Cada renglón de LARGO_MAXIMO_PEDIDO es
+  //       [campo, nombre para el mensaje, largo máximo], ej: ['cliente_nombre', 'El nombre', 100].
+  //       find devuelve el PRIMER renglón que no se cumple (o undefined si están todos bien).
+  const largoNoCumplido = LARGO_MAXIMO_PEDIDO.find(renglon => {
+    const valor = req.body[renglon[0]];
+    const maximo = renglon[2];
+    return valor != null && (typeof valor !== 'string' || valor.length > maximo);
+  });
+  if (largoNoCumplido) {
+    return res.status(400).json({ error: `${largoNoCumplido[1]} admite hasta ${largoNoCumplido[2]} caracteres` });
+  }
+
+  //    b) Nuevo (la ruta vieja solo lo controla en el navegador): nombre, dirección y teléfono obligatorios
+  if (typeof cliente_nombre !== 'string' || cliente_nombre.trim() === '') {
+    return res.status(400).json({ error: 'El nombre es obligatorio' });
+  }
+  if (typeof cliente_direccion !== 'string' || cliente_direccion.trim() === '') {
+    return res.status(400).json({ error: 'La dirección es obligatoria' });
+  }
+  if (typeof cliente_telefono !== 'string' || cliente_telefono.trim() === '') {
+    return res.status(400).json({ error: 'El teléfono es obligatorio' });
+  }
+
+  //    c) Nuevo: el email es opcional, pero si viene, hasta 100 caracteres
+  //       (en la ruta vieja, uno más largo termina en un error 500 de la base)
+  if (cliente_email != null && (typeof cliente_email !== 'string' || cliente_email.length > LARGO_MAXIMO_EMAIL)) {
+    return res.status(400).json({ error: `El email admite hasta ${LARGO_MAXIMO_EMAIL} caracteres` });
+  }
+
+  // 4. Fecha de entrega: obligatoria, que exista de verdad (leerFechaPara rechaza, por ejemplo, 2026-02-30),
+  //    día hábil y al menos 2 días hábiles después de hoy en Argentina (3 si hay algún personalizado)
+  if (!leerFechaPara(fecha_entrega)) {
+    return res.status(400).json({ error: 'La fecha de entrega es obligatoria (formato AAAA-MM-DD)' });
+  }
+  if (!fechas.esDiaHabil(fechas.parseFechaLocal(fecha_entrega))) {
+    return res.status(400).json({ error: 'La fecha de entrega tiene que ser un día hábil (de lunes a viernes, sin feriados)' });
+  }
+
+  let diasHabiles = DIAS_HABILES_ENTREGA;
+  let aclaracionFecha = '(48 hs hábiles)';
+  if (hayPersonalizado) {
+    diasHabiles = DIAS_HABILES_CON_PERSONALIZADO;
+    aclaracionFecha = '(48 hs hábiles, más 1 día por los platos personalizados)';
+  }
+  const primeraFecha = fechas.fechaLocalISO(fechas.sumarDiasHabiles(hoyArgentina(), diasHabiles));
+  // "AAAA-MM-DD" se puede comparar como texto
+  if (fecha_entrega < primeraFecha) {
+    const primeraFechaTexto = fechas.fechaDDMMAAAA(fechas.parseFechaLocal(primeraFecha));
+    return res.status(400).json({ error: `La primera fecha de entrega disponible es el ${primeraFechaTexto} ${aclaracionFecha}` });
+  }
+
+  // 5. Barrio: opcional. Si viene, tiene que ser un número entero que exista en la tabla barrios
+  //    (en la ruta vieja, uno inventado termina en un error 500 de la base)
+  let barrioId = null;
+  if (barrio_id != null && barrio_id !== '') {
+    barrioId = Number(barrio_id);
+    if (!Number.isInteger(barrioId) || barrioId <= 0 || barrioId > ENTERO_MAXIMO_BASE) {
+      return res.status(400).json({ error: 'Barrio inválido' });
+    }
+    const { data: barrio, error: errorBarrio } = await supabase
+      .from('barrios')
+      .select('id')
+      .eq('id', barrioId)
+      .maybeSingle();
+    if (errorBarrio) return errorInterno(res, errorBarrio);
+    if (!barrio) {
+      return res.status(400).json({ error: 'El barrio elegido no existe' });
+    }
+  }
+
+  // 6. Usuario: sale del token si el cliente inició sesión; si no, "Consumidor Final". Nunca del body.
+  const idUsuario = leerToken(req)?.id || ID_CONSUMIDOR_FINAL;
+
+  // Lo opcional que no vino se manda como null: a la base hay que pasarle TODOS los datos
+  // (si faltara uno, no encontraría la función)
+  let email = null;
+  if (cliente_email != null) email = cliente_email;
+  let notas = null;
+  if (observaciones != null) notas = observaciones;
+  let tipoEntrega = null;
+  if (tipo_entrega != null) tipoEntrega = tipo_entrega;
+
+  // A la base van solo los datos de cada combo y de cada plato: si el navegador mandó
+  // otra cosa (por ejemplo un precio), ni siquiera llega.
+  // map arma una lista nueva transformando cada elemento.
+  // Ejemplo: entra [{ id_combo: 1, precio: 1, platos: [{ producto_id: 5, cantidad: 10, nombre: 'x' }] }]
+  //          sale  [{ id_combo: 1, platos: [{ producto_id: 5, cantidad: 10, personalizado: null }] }]
+  const combosParaLaBase = combos.map(combo => {
+    const platosDelCombo = combo.platos.map(plato => {
+      let personalizado = null;
+      if (plato.personalizado != null) personalizado = plato.personalizado;
+      return { producto_id: plato.producto_id, cantidad: plato.cantidad, personalizado: personalizado };
+    });
+    return { id_combo: combo.id_combo, platos: platosDelCombo };
+  });
+
+  // 7. Guardar: la función de la base controla el contenido de los combos, calcula el total
+  //    con los precios de la base y guarda pedidos + pedido_combos + pedido_detalles (todo o nada)
+  try {
+    const { data, error } = await supabase.rpc('crear_pedido_combos', {
+      p_id_usuario:        idUsuario,
+      p_cliente_nombre:    cliente_nombre,
+      p_cliente_direccion: cliente_direccion,
+      p_cliente_telefono:  cliente_telefono,
+      p_cliente_email:     email,
+      p_fecha_entrega:     fecha_entrega,
+      p_metodo_pago:       metodo_pago,
+      p_tipo_entrega:      tipoEntrega,
+      p_barrio_id:         barrioId,
+      p_observaciones:     notas,
+      p_combos:            combosParaLaBase
+    });
+
+    // Error de la base (no debería pasar): al cliente, un mensaje genérico; el detalle, al log
+    if (error) return errorInterno(res, error);
+
+    // ok: false = la base encontró algo mal en los combos y NO guardó nada (ej: "«Keto x10» tiene 9 viandas…")
+    if (!data || !data.ok) {
+      let mensaje = 'No se pudo crear el pedido';
+      if (data && data.error) mensaje = data.error;
+      return res.status(400).json({ error: mensaje });
+    }
+
+    // 8. Listo: número de pedido, total y combos con los nombres y precios de la base (para el WhatsApp)
+    res.json({
+      mensaje:   'Pedido creado correctamente',
+      id_pedido: data.id_pedido,
+      total:     data.total,
+      combos:    data.combos
+    });
+  } catch (e) {
+    errorInterno(res, e);
+  }
 });
 
 // GET /api/pedidos?desde=YYYY-MM-DD&hasta=YYYY-MM-DD → pedidos, opcionalmente filtrados por fecha_pedido.

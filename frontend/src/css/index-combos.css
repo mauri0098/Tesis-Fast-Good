@@ -726,18 +726,37 @@ fieldset.campo {
     background: #fff3cd;
     font-size: 0.9rem;
 }
-.aviso-prueba {
-    margin-bottom: 0.6rem;
-    font-weight: 600;
-    color: #b7791f;
+/* --- Confirmación del pedido --- */
+.confirmacion {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
-.pedido-prueba {
-    padding: 0.8rem;
+.confirmacion__titulo {
+    font-size: 1.3rem;
+    color: var(--color-primary-dark);
+}
+.confirmacion__combo {
+    padding: 0.6rem 0.8rem;
     border-radius: var(--radius-sm);
-    background: #f4f4f4;
-    font-size: 0.8rem;
-    white-space: pre-wrap;
+    background: #f4f8f4;
+}
+.confirmacion__combo ul {
+    padding-left: 1.2rem;
+    font-size: 0.9rem;
+    color: #555;
     overflow-wrap: anywhere;
+}
+.confirmacion__total {
+    font-size: 1.15rem;
+}
+.btn--whatsapp {
+    margin-top: 0.5rem;
+    background: #25d366;
+    color: var(--color-white);
+}
+#err-envio {
+    margin-bottom: 0.6rem;
 }
 
 /* --- Celular --- */

@@ -85,7 +85,7 @@ select orden,                                          -- número de prueba
        prueba,                                         -- qué se prueba
        esperado,                                       -- el error que tiene que aparecer
        crear_pedido_combos(                            -- se llama a la función con:
-         'd9b1ae00-fda5-4488-86b3-90d769b47a02'::uuid, -- usuario "Consumidor Final" (el mismo que usa server.js)
+         'b344f2e8-cd3c-42af-953c-7d97cada6c63'::uuid, -- usuario "Consumidor Final" (el mismo que usa server.js)
          'PRUEBA – NO PREPARAR',                       -- nombre del cliente
          'Prueba',                                     -- dirección
          '0',                                          -- teléfono
@@ -111,7 +111,7 @@ select orden,                                          -- número de prueba
 -- Si preferís no crear pedidos ahora, lo probamos de punta a punta en el paso 13.
 -- -----------------------------------------------------
 -- select crear_pedido_combos(
---   'd9b1ae00-fda5-4488-86b3-90d769b47a02'::uuid,
+--   'b344f2e8-cd3c-42af-953c-7d97cada6c63'::uuid,
 --   'PRUEBA – NO PREPARAR', 'Prueba', '0', '', current_date + 7, 'Efectivo', 'Retiro en local', null, '',
 --   jsonb_build_array(jsonb_build_object('id_combo', 1, 'platos', jsonb_build_array(
 --     jsonb_build_object('producto_id', (select cp.id_producto from combo_productos cp join productos p on p.id = cp.id_producto
