@@ -14,18 +14,28 @@
 --
 -- Qué controla la base: combo activo (y su plan activo, como el catálogo), plato en el
 -- menú de ESE combo y activo, cantidades enteras > 0, suma justa = cantidad del combo,
--- texto personalizado no vacío y hasta 150 caracteres, entre 1 y 10 combos.
+-- texto personalizado no vacío y hasta 150 caracteres, entre 1 y 10 combos,
+-- y que alcancen las viandas de la heladera.
 -- Qué NO controla (lo controla el servidor, paso 12): los datos del cliente
 -- (largos, método de pago, tipo de entrega, fecha hábil y feriados de fechas.js).
 --
--- SIN HELADERA por ahora: no toca stock_heladera ni movimientos_viandas y deja
--- cantidad_de_heladera en 0. "listo" queda en false: todo el pedido le aparece a cocina, como hoy.
+-- CON HELADERA (paso H6, ver docs/HELADERA-AVANCE.md):
+--   - Los platos NORMALES salen de la heladera: se controla que alcancen (sumando todos los
+--     combos del pedido), se restan de productos.stock_heladera y se anota un renglón "venta" (−)
+--     en el cuaderno (movimientos_viandas) con el número de pedido. Nacen con
+--     cantidad_de_heladera = cantidad y listo = true: la cocina no los ve.
+--   - Los PERSONALIZADOS no salen de la heladera (los cocina la cocina): cantidad_de_heladera = 0
+--     y listo = false. Se pueden pedir aunque no haya viandas.
+--   - Si no alcanza: { "ok": false, "error": "No quedan suficientes viandas de «fideos»: pediste 16 y quedan 12" }
+--     y no se guarda nada.
+--   - Antes de guardar pone CANDADO a todos los platos del pedido (normales y personalizados),
+--     en orden de número: dos clientes no se llevan la misma vianda, y no se traba con una anulación.
 --
 -- Devuelve: { "ok": true, "id_pedido": 215, "total": 137000,
 --             "combos": [ { id_combo, nombre, precio, cantidad,
 --                           platos: [ { id_producto, nombre, cantidad, personalizado } ] } ] }
 --
--- Cómo usarlo: Supabase → SQL Editor → pegá este archivo → "Run".
+-- Cómo usarlo: Supabase → SQL Editor → pegá este archivo (de "begin;" a "commit;") → "Run".
 -- Se puede correr más de una vez: "create or replace" pisa la versión anterior.
 -- =====================================================
 
@@ -68,6 +78,11 @@ declare
   v_id_pedido        integer;                          -- id del pedido nuevo
   v_id_pedido_combo  integer;                          -- id de la fila nueva de pedido_combos
   v_precio_unitario  numeric;                          -- precio del combo dividido su cantidad
+  v_ventas           jsonb   := '[]'::jsonb;           -- lo que sale de la heladera: [{ id_producto, cantidad }], un renglón por plato
+  v_venta_json       jsonb;                            -- un renglón de v_ventas
+  v_stock            record;                           -- un plato leído de la base al controlar la heladera (nombre y viandas libres)
+  v_de_heladera      integer;                          -- viandas de un renglón que salen de la heladera (0 si es personalizado)
+  v_listo            boolean;                          -- si un renglón nace listo (sí, si sale de la heladera)
 begin
 
   -- ===================================================
@@ -218,13 +233,60 @@ begin
     );
   end loop;                                            -- fin de los combos del pedido
 
+  -- 11. LISTA DE VENTAS: por plato, las viandas NORMALES (no personalizadas) sumando TODOS los
+  --     combos del pedido. Los personalizados no salen de la heladera: no cuentan.
+  --     Ej: combos [8 fideos + 2 fideos "sin sal"] y [10 fideos] → [{ "id_producto": 7, "cantidad": 18 }]
+  --     (jsonb_array_elements abre una lista en filas, una por elemento: acá se abren los combos y,
+  --      de cada combo, sus platos. "group by" junta las filas del mismo plato y "sum" las suma.)
+  select coalesce(jsonb_agg(jsonb_build_object(        -- arma la lista...
+           'id_producto', t.id_producto,               -- ...con cada plato...
+           'cantidad',    t.cantidad)                  -- ...y cuántas viandas salen de la heladera...
+           order by t.id_producto),                    -- ...ordenada por número de plato...
+         '[]'::jsonb)                                  -- ...(lista vacía si todos son personalizados)
+    into v_ventas                                      -- y la guarda en v_ventas
+    from (select (pla.value->>'id_producto')::integer            as id_producto,  -- el plato
+                 sum((pla.value->>'cantidad')::integer)::integer as cantidad      -- sus viandas normales, sumando todos los combos
+            from jsonb_array_elements(v_combos_listos) com,      -- cada combo ya controlado...
+                 jsonb_array_elements(com.value->'platos') pla   -- ...y cada plato de ese combo
+           where pla.value->>'personalizado' is null             -- solo los platos normales
+           group by (pla.value->>'id_producto')::integer) t;     -- un renglón por plato
+
+  -- 12. CANDADO a TODOS los platos del pedido (normales y personalizados), en orden de número.
+  --     "for update" = hasta que termine la función, nadie más puede cambiar esos platos.
+  --     Si dos clientes compran las últimas viandas a la vez, el segundo espera acá y después
+  --     ve cuántas quedaron. Los personalizados también llevan candado (aunque no salen de la
+  --     heladera) para tomar los candados siempre en el mismo orden que anular_pedido_con_devolucion:
+  --     así las dos funciones nunca se quedan esperándose una a la otra.
+  perform 1                                            -- no hace falta traer nada, solo poner los candados
+     from productos                                    -- de la tabla de platos
+    where id in (select (pla.value->>'id_producto')::integer     -- los platos...
+                   from jsonb_array_elements(v_combos_listos) com,      -- ...de cada combo...
+                        jsonb_array_elements(com.value->'platos') pla)  -- ...del pedido
+    order by id                                        -- siempre en el mismo orden
+      for update;                                      -- con candado
+
+  -- 13. ¿Alcanzan las viandas de la heladera? Plato por plato, en orden de número.
+  --     Si a uno no le alcanza, se corta con un mensaje claro: todavía no se guardó nada.
+  for v_venta_json in select value from jsonb_array_elements(v_ventas) loop  -- cada plato que sale de la heladera
+    select nombre, stock_heladera                      -- su nombre y cuántas viandas libres tiene
+      into v_stock                                     -- se guardan en v_stock
+      from productos                                   -- de la tabla de platos
+     where id = (v_venta_json->>'id_producto')::integer;  -- este plato (ya tiene candado)
+    if v_stock.stock_heladera < (v_venta_json->>'cantidad')::integer then  -- si hay menos de las que se piden...
+      return jsonb_build_object('ok', false, 'error',  -- ...se corta con este mensaje:
+        'No quedan suficientes viandas de «' || v_stock.nombre  -- de qué plato,
+        || '»: pediste ' || (v_venta_json->>'cantidad')         -- cuántas se pidieron
+        || ' y quedan ' || v_stock.stock_heladera);             -- y cuántas hay (ej: "pediste 16 y quedan 12")
+    end if;                                            -- fin de "no alcanza"
+  end loop;                                            -- fin del control 13
+
   -- ===================================================
   -- PARTE 2: GUARDAR (todo pasó los controles)
   -- Desde acá, si algo falla, Postgres deshace todo lo que se escribió.
-  -- Se usan SOLO los datos ya controlados (v_combos_listos), no lo que llegó.
+  -- Se usan SOLO los datos ya controlados (v_combos_listos y v_ventas), no lo que llegó.
   -- ===================================================
 
-  -- 11. La cabecera del pedido (igual que el pedido viejo: estado 1 "Registrado", sin pagar)
+  -- 14. La cabecera del pedido (igual que el pedido viejo: estado 1 "Registrado", sin pagar)
   insert into pedidos (                                -- tabla de pedidos, columnas:
     id_usuario, id_estado, total,                      -- usuario, estado y total
     cliente_nombre, cliente_direccion, cliente_telefono, cliente_email,  -- datos del cliente
@@ -240,7 +302,7 @@ begin
   )
   returning id into v_id_pedido;                       -- se guarda el id del pedido nuevo
 
-  -- 12. Cada combo (pedido_combos) y sus platos (pedido_detalles)
+  -- 15. Cada combo (pedido_combos) y sus platos (pedido_detalles)
   for v_combo_listo in select value from jsonb_array_elements(v_combos_listos) loop
 
     -- El combo comprado, con el precio que se cobró (por si después el combo cambia de precio)
@@ -256,9 +318,19 @@ begin
 
     -- Un renglón de pedido_detalles por cada plato del combo
     for v_plato_json in select value from jsonb_array_elements(v_combo_listo->'platos') loop
+      -- ¿Sale de la heladera? Un plato normal sí (todas sus viandas) y nace listo: la cocina no lo ve.
+      -- Un personalizado no (lo cocina la cocina): 0 de heladera y no listo.
+      if v_plato_json->>'personalizado' is null then   -- si es un plato normal...
+        v_de_heladera := (v_plato_json->>'cantidad')::integer;  -- ...todas sus viandas salen de la heladera
+        v_listo := true;                               -- ...y ya está listo
+      else                                             -- si es personalizado...
+        v_de_heladera := 0;                            -- ...no sale de la heladera
+        v_listo := false;                              -- ...y lo tiene que hacer la cocina
+      end if;                                          -- fin de "¿sale de la heladera?"
+
       insert into pedido_detalles (                    -- tabla de platos del pedido, columnas:
         id_pedido, id_pedido_combo, id_producto, cantidad, precio_unitario,  -- a qué pedido y combo, qué plato, cuántos y a qué precio
-        personalizado, observaciones_plato, cantidad_de_heladera             -- si es personalizado, su texto y viandas de heladera
+        personalizado, observaciones_plato, cantidad_de_heladera, listo      -- si es personalizado, su texto, viandas de heladera y si está listo
       ) values (                                       -- valores, en el mismo orden:
         v_id_pedido,                                   -- el pedido nuevo
         v_id_pedido_combo,                             -- el combo al que pertenece
@@ -267,12 +339,31 @@ begin
         v_precio_unitario,                             -- precio de cada vianda
         (v_plato_json->>'personalizado') is not null,  -- personalizado = sí si trae texto
         v_plato_json->>'personalizado',                -- el texto ("sin sal"), o null
-        0                                              -- SIN HELADERA por ahora: se conecta al final
+        v_de_heladera,                                 -- viandas que salen de la heladera (ej: 8, o 0 si es personalizado)
+        v_listo                                        -- sí, si sale de la heladera
       );
     end loop;                                          -- fin de los platos de este combo
   end loop;                                            -- fin de los combos
 
-  -- 13. Todo guardado: se devuelve el pedido con los nombres y precios de la BASE
+  -- 16. VENTAS: por cada plato de la lista del paso 11, se resta de la heladera y se anota un
+  --     renglón "venta" en el cuaderno, con cantidad NEGATIVA (salen viandas).
+  --     Un solo renglón por plato aunque esté en varios combos (ej: fideos −18, no −8 y −10).
+  --     Si no hay platos normales, la lista está vacía y no se hace nada.
+  for v_venta_json in select value from jsonb_array_elements(v_ventas) loop  -- cada plato que sale de la heladera
+    insert into movimientos_viandas (id_producto, id_usuario, id_pedido, tipo, cantidad, motivo)  -- tabla del cuaderno, columnas:
+    values ((v_venta_json->>'id_producto')::integer,   -- el plato
+            p_id_usuario,                              -- el usuario del pedido (el cliente, o "Consumidor Final")
+            v_id_pedido,                               -- el pedido nuevo (así anular sabe qué devolver)
+            'venta',                                   -- el tipo
+            -((v_venta_json->>'cantidad')::integer),   -- cuántas salen, en negativo (ej: −18)
+            'Pedido #' || v_id_pedido);                -- ej: "Pedido #250"
+
+    update productos                                   -- tabla de platos
+       set stock_heladera = stock_heladera - (v_venta_json->>'cantidad')::integer  -- ej: 71 − 18 = 53
+     where id = (v_venta_json->>'id_producto')::integer;  -- solo este plato
+  end loop;                                            -- fin de las ventas
+
+  -- 17. Todo guardado: se devuelve el pedido con los nombres y precios de la BASE
   --     (los usa el mensaje de WhatsApp)
   return jsonb_build_object(                           -- respuesta:
     'ok',        true,                                 -- salió bien

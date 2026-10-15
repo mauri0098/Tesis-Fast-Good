@@ -963,7 +963,9 @@ const DIAS_HABILES_CON_PERSONALIZADO = 3;   // un plato personalizado se cocina 
 // mismas reglas que POST /api/pedidos. El contenido de cada combo (activo, platos del menú, suma justa,
 // texto personalizado), el precio y el total los controla y calcula la base: crear_pedido_combos
 // (sql/pedido_combos_funciones.sql), que guarda todo junto o nada.
-// SIN HELADERA por ahora: no se descuenta stock_heladera (se conecta al final).
+// CON HELADERA (paso H6): la función también controla que alcancen las viandas de los platos normales,
+// las resta de la heladera y anota la venta en el cuaderno. Si no alcanzan, no guarda nada y su mensaje
+// ("No quedan suficientes viandas de «fideos»: pediste 16 y quedan 12") vuelve acá como un 400.
 app.post('/api/pedidos-combos', limitePedidos, async (req, res) => {
   const {
     combos,
@@ -1137,7 +1139,8 @@ app.post('/api/pedidos-combos', limitePedidos, async (req, res) => {
     // Error de la base (no debería pasar): al cliente, un mensaje genérico; el detalle, al log
     if (error) return errorInterno(res, error);
 
-    // ok: false = la base encontró algo mal en los combos y NO guardó nada (ej: "«Keto x10» tiene 9 viandas…")
+    // ok: false = la base encontró algo mal en los combos, o no alcanzan las viandas, y NO guardó nada
+    // (ej: "«Keto x10» tiene 9 viandas…" o "No quedan suficientes viandas de «fideos»…")
     if (!data || !data.ok) {
       let mensaje = 'No se pudo crear el pedido';
       if (data && data.error) mensaje = data.error;
@@ -1442,6 +1445,7 @@ app.get('/api/pedidos/:id/verificar-stock', requireAuth, requireRol(6, 5, 1), as
 
 // PUT /api/pedidos/:pedidoId/estado → cambia el estado de un pedido (grilla de Consultar Pedidos y Envíos).
 // Body: { estado_id } de 1 a 4. El 5 (cancelar) va por POST /anular. Un pedido anulado no cambia más de estado.
+// De 1 a 2, si no tiene nada para cocinar (todo sale de la heladera), queda en 3: la respuesta trae el estado guardado.
 app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => {
   const pedidoId = Number(req.params.pedidoId);
   const nuevoEstado = Number(req.body?.estado_id);
@@ -1486,7 +1490,32 @@ app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), as
       return res.status(409).json({ error: 'Un pedido anulado no cambia de estado' });
     }
 
-    const resultado = await cambiarEstadoPedido(pedidoId, nuevoEstado);
+    // Nada para cocinar → 3 (paso H5 de la heladera): al pasar de 1 a 2, si TODOS sus platos salen
+    // de la heladera (ninguno va a la cocina), el pedido pasa directo a 3 "Listo para Entregar".
+    // Si quedara en 2, la cocina no lo vería nunca (nace con todo listo) y Envíos solo muestra 3 y 4.
+    let estadoFinal = nuevoEstado;
+    if (pedidoActual.id_estado === 1 && nuevoEstado === 2) {
+      const { data: detalles, error: errDetalles } = await supabase
+        .from('pedido_detalles')
+        .select('cantidad, cantidad_de_heladera')
+        .eq('id_pedido', pedidoId);
+
+      if (errDetalles) return errorInterno(res, errDetalles);
+
+      // Cuántas viandas tiene que cocinar la cocina: cantidad − cantidad_de_heladera (vacío cuenta como 0),
+      // la misma cuenta que calcularConsumoPedido. Ej: 8 fideos de heladera + 2 "sin sal" → 0 + 2 = 2.
+      let viandasACocinar = 0;
+      (detalles || []).forEach(detalle => {
+        const aCocinar = Number(detalle.cantidad) - Number(detalle.cantidad_de_heladera ?? 0);
+        if (aCocinar > 0) viandasACocinar = viandasACocinar + aCocinar;
+      });
+
+      // Salta solo si tiene platos y la cocina no tiene nada que hacer (un pedido sin platos no salta)
+      const tienePlatos = Array.isArray(detalles) && detalles.length > 0;
+      if (tienePlatos && viandasACocinar === 0) estadoFinal = 3;
+    }
+
+    const resultado = await cambiarEstadoPedido(pedidoId, estadoFinal);
     if (resultado.error) return res.status(resultado.status).json({ error: resultado.error });
 
     res.json({ mensaje: 'Estado actualizado', pedido: resultado.pedido });

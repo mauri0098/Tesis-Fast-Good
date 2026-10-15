@@ -222,9 +222,20 @@ async function cambiarEstadoPedido(pedido, selectEstado, nuevoId, anteriorId) {
       return false;
     }
 
-    selectEstado.dataset.estadoActual = nuevoId;
-    pedido.id_estado = nuevoId; // así la fila sale bien si se vuelve a dibujar al cambiar de página
-    aplicarColorEstado(selectEstado, nuevoId);
+    // El estado que quedó guardado. Casi siempre es el elegido, pero si el pedido pasa de 1 a 2 y
+    // no tiene nada para cocinar (todo sale de la heladera), el servidor lo deja directo en 3.
+    let estadoGuardado = nuevoId;
+    if (data.pedido && data.pedido.id_estado) estadoGuardado = data.pedido.id_estado;
+
+    selectEstado.value = estadoGuardado;
+    selectEstado.dataset.estadoActual = estadoGuardado;
+    pedido.id_estado = estadoGuardado; // así la fila sale bien si se vuelve a dibujar al cambiar de página
+    aplicarColorEstado(selectEstado, estadoGuardado);
+
+    if (estadoGuardado !== nuevoId) {
+      const idFormatted = '#' + String(pedido.id).padStart(3, '0');
+      mostrarExito(`Pedido ${idFormatted}: todo sale de la heladera, pasó directo a Listo para Entregar.`);
+    }
     return true;
   } catch (err) {
     alert('No se pudo actualizar el estado. Intentá de nuevo.');
