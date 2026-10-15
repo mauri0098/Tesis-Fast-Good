@@ -339,19 +339,69 @@ function abrirModalDetalles(pedidoId) {
 
   if (detalles.length === 0) {
     tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#999;padding:1rem;">Sin detalles</td></tr>';
-  } else {
-    detalles.forEach(d => {
-      const tr = document.createElement('tr');
-      const precio = d.precio_unitario != null ? formatPrecio(d.precio_unitario) : '-';
-      tr.innerHTML = `
-        <td class="col-cant">${d.cantidad}</td>
-        <td>${escHtml(d.productos?.nombre || 'Producto')}</td>
-        <td class="col-precio">${precio}</td>
-      `;
-      tbody.appendChild(tr);
-    });
+    document.getElementById('modalDetalles').classList.add('visible');
+    return;
   }
 
+  // 1. Se separan los platos: los de un combo van a { id_pedido_combo: [platos] };
+  //    los que no tienen combo (pedidos viejos, de platos sueltos) van a platosSueltos.
+  const platosPorCombo = {};
+  const platosSueltos = [];
+  detalles.forEach(d => {
+    if (d.id_pedido_combo == null) {
+      platosSueltos.push(d);
+      return;   // return = saltear el resto y seguir con el siguiente plato
+    }
+    if (!platosPorCombo[d.id_pedido_combo]) platosPorCombo[d.id_pedido_combo] = [];
+    platosPorCombo[d.id_pedido_combo].push(d);
+  });
+
+  let html = '';
+
+  // 2. Cada combo comprado: un renglón con su nombre y el precio que se cobró, y debajo sus platos
+  //    SIN precio (el que se cobra es el del combo). Ordenados como se guardaron (por id).
+  const combosDelPedido = (pedido.pedido_combos || []).slice().sort((a, b) => a.id - b.id);
+  combosDelPedido.forEach(pc => {
+    let nombreCombo = 'Combo';
+    if (pc.combos && pc.combos.nombre) nombreCombo = pc.combos.nombre;
+
+    html += `
+      <tr class="fila-combo">
+        <td colspan="2">${escHtml(nombreCombo)}</td>
+        <td class="col-precio">${formatPrecio(pc.precio)}</td>
+      </tr>`;
+
+    // map arma un renglón por plato y join los une en un solo texto.
+    // Ejemplo: [{ cantidad: 8, nombre: 'fideos' }] → '<tr class="fila-plato-combo">…8…fideos…</tr>'
+    const platosDelCombo = platosPorCombo[pc.id] || [];
+    html += platosDelCombo.map(d => {
+      // Nombre del plato, con su ⚠ y el texto si es personalizado. El texto lo escribe el cliente: escHtml.
+      let nombrePlato = escHtml(d.productos?.nombre || 'Producto');
+      if (d.personalizado && d.observaciones_plato) {
+        nombrePlato = nombrePlato + ` <span class="plato-personalizado">⚠ ${escHtml(d.observaciones_plato)}</span>`;
+      }
+      return `
+      <tr class="fila-plato-combo">
+        <td class="col-cant">${escHtml(d.cantidad)}</td>
+        <td>${nombrePlato}</td>
+        <td class="col-precio"></td>
+      </tr>`;
+    }).join('');
+  });
+
+  // 3. Platos sueltos (pedidos viejos): igual que antes, con su precio unitario
+  platosSueltos.forEach(d => {
+    let precio = '-';
+    if (d.precio_unitario != null) precio = formatPrecio(d.precio_unitario);
+    html += `
+      <tr>
+        <td class="col-cant">${escHtml(d.cantidad)}</td>
+        <td>${escHtml(d.productos?.nombre || 'Producto')}</td>
+        <td class="col-precio">${precio}</td>
+      </tr>`;
+  });
+
+  tbody.innerHTML = html;
   document.getElementById('modalDetalles').classList.add('visible');
 }
 

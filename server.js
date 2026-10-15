@@ -1188,7 +1188,15 @@ app.get('/api/pedidos', requireAuth, requireRol(6, 5, 1), async (req, res) => {
       pedido_detalles (
         cantidad,
         precio_unitario,
+        id_pedido_combo,
+        personalizado,
+        observaciones_plato,
         productos ( nombre, codigo_plato )
+      ),
+      pedido_combos (
+        id,
+        precio,
+        combos ( nombre )
       )
     `)
     .order('fecha_pedido', { ascending: false });
@@ -3022,6 +3030,237 @@ app.post('/api/productos/con-receta', requireAuth, requireRol(6, 5), async (req,
     }
 
     res.json({ mensaje: 'Producto y receta creados correctamente', producto });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+/* ======================================================
+   API COMBOS (pantalla "Combos" del panel: pages/combos.html)
+   Mismos roles que Generar Receta (6, 5). Los combos nunca se borran: se desactivan.
+   Cada ruta escribe en UNA sola tabla con UNA sola instrucción: no hace falta una función de la base.
+   ====================================================== */
+
+const LARGO_MAXIMO_NOMBRE_COMBO = 100;
+const MAXIMO_VIANDAS_POR_COMBO  = 100;
+// pedidos.total admite hasta 99.999.999,99 y un pedido puede tener MAXIMO_COMBOS_POR_PEDIDO (10) combos:
+// con este tope, ningún pedido puede pasarse del máximo de la base.
+const PRECIO_MAXIMO_COMBO = 9999999;
+
+// Lee y controla los datos de un combo que llegan del panel (crear y editar).
+// Devuelve { datos: { nombre, id_plan, cantidad, precio } } si está todo bien,
+// { error: 'mensaje' } si algún dato está mal (→ 400), o { errorDeBase } si falló la base (→ 500).
+async function leerDatosCombo(body) {
+  const { nombre, id_plan, cantidad, precio } = body || {};
+
+  // Nombre: texto, sin espacios de más, no vacío y no muy largo
+  if (typeof nombre !== 'string' || nombre.trim() === '') {
+    return { error: 'El nombre es obligatorio' };
+  }
+  if (nombre.trim().length > LARGO_MAXIMO_NOMBRE_COMBO) {
+    return { error: `El nombre admite hasta ${LARGO_MAXIMO_NOMBRE_COMBO} caracteres` };
+  }
+
+  // Plan: un número entero mayor a 0 (que exista y esté activo se mira al final, en la base)
+  if (typeof id_plan !== 'number' || !Number.isInteger(id_plan) || id_plan <= 0 || id_plan > ENTERO_MAXIMO_BASE) {
+    return { error: 'Elegí un plan' };
+  }
+
+  // Cantidad de viandas: entero entre 1 y 100
+  if (typeof cantidad !== 'number' || !Number.isInteger(cantidad) || cantidad < 1 || cantidad > MAXIMO_VIANDAS_POR_COMBO) {
+    return { error: `La cantidad de viandas tiene que ser un número entero entre 1 y ${MAXIMO_VIANDAS_POR_COMBO}` };
+  }
+
+  // Precio: número entre 0 y el máximo (ver PRECIO_MAXIMO_COMBO). Se guarda redondeado a centavos.
+  if (typeof precio !== 'number' || !Number.isFinite(precio) || precio < 0 || precio > PRECIO_MAXIMO_COMBO) {
+    return { error: `El precio tiene que ser un número entre 0 y ${PRECIO_MAXIMO_COMBO.toLocaleString('es-AR')}` };
+  }
+  const precioEnCentavos = Math.round(precio * 100) / 100;
+
+  // El plan tiene que existir y estar activo (un combo de un plan inactivo no se muestra en la web)
+  const { data: plan, error: errorPlan } = await supabase
+    .from('planes')
+    .select('id, activo')
+    .eq('id', id_plan)
+    .maybeSingle();
+  if (errorPlan) return { errorDeBase: errorPlan };
+  if (!plan || !plan.activo) {
+    return { error: 'El plan elegido no existe o está desactivado' };
+  }
+
+  return { datos: { nombre: nombre.trim(), id_plan: id_plan, cantidad: cantidad, precio: precioEnCentavos } };
+}
+
+// GET /api/combos → todos los combos (activos e inactivos) para la tabla del panel.
+// platos_en_menu: renglones activos del menú con el plato activo (lo mismo que ve el cliente).
+// veces_vendido: cuántas veces se compró (filas de pedido_combos); el panel lo usa para bloquear la cantidad.
+app.get('/api/combos', requireAuth, requireRol(6, 5), async (req, res) => {
+  const { data, error } = await supabase
+    .from('combos')
+    .select(`
+      id,
+      nombre,
+      id_plan,
+      cantidad,
+      precio,
+      activo,
+      planes ( nombre, activo ),
+      combo_productos ( activo, productos ( activo ) ),
+      pedido_combos ( count )
+    `)
+    .order('nombre', { ascending: true });
+
+  if (error) return errorInterno(res, error);
+
+  const combos = (data || []).map(combo => {
+    // Menú que ve el cliente: renglón activo con el plato activo
+    const platosEnMenu = (combo.combo_productos || []).filter(renglon =>
+      renglon.activo && renglon.productos && renglon.productos.activo
+    ).length;
+
+    // La cuenta llega como una lista con un solo elemento. Ejemplo: pedido_combos: [{ count: 3 }] → 3
+    let vecesVendido = 0;
+    if (combo.pedido_combos && combo.pedido_combos[0]) {
+      vecesVendido = Number(combo.pedido_combos[0].count) || 0;
+    }
+
+    let plan = null;
+    let planActivo = false;
+    if (combo.planes) {
+      plan = combo.planes.nombre;
+      planActivo = Boolean(combo.planes.activo);
+    }
+
+    return {
+      id:             combo.id,
+      nombre:         combo.nombre,
+      id_plan:        combo.id_plan,
+      plan:           plan,
+      plan_activo:    planActivo,
+      cantidad:       combo.cantidad,
+      precio:         Number(combo.precio),
+      activo:         combo.activo,
+      platos_en_menu: platosEnMenu,
+      veces_vendido:  vecesVendido
+    };
+  });
+
+  res.json(combos);
+});
+
+// POST /api/combos → crea un combo (activo). Body: { nombre, id_plan, cantidad, precio }.
+// El menú se arma después, con las rutas del menú.
+app.post('/api/combos', requireAuth, requireRol(6, 5), async (req, res) => {
+  try {
+    const lectura = await leerDatosCombo(req.body);
+    if (lectura.errorDeBase) return errorInterno(res, lectura.errorDeBase);
+    if (lectura.error) return res.status(400).json({ error: lectura.error });
+
+    const { data, error } = await supabase
+      .from('combos')
+      .insert({
+        nombre:   lectura.datos.nombre,
+        id_plan:  lectura.datos.id_plan,
+        cantidad: lectura.datos.cantidad,
+        precio:   lectura.datos.precio,
+        activo:   true
+      })
+      .select('id, nombre, id_plan, cantidad, precio, activo')
+      .single();
+
+    if (error) return errorInterno(res, error);
+    res.json({ mensaje: 'Combo creado', combo: data });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// PUT /api/combos/:id → edita nombre, plan, cantidad y precio. Body: { nombre, id_plan, cantidad, precio }.
+// La CANTIDAD no se puede cambiar si el combo ya se vendió: los pedidos viejos dicen "x10" con 10 platos.
+// En ese caso se crea un combo nuevo con la cantidad nueva y se desactiva este.
+// El precio sí se puede cambiar: cada pedido guarda el precio que se cobró (pedido_combos.precio).
+app.put('/api/combos/:id', requireAuth, requireRol(6, 5), async (req, res) => {
+  const idCombo = Number(req.params.id);
+  if (!Number.isInteger(idCombo) || idCombo <= 0 || idCombo > ENTERO_MAXIMO_BASE) {
+    return res.status(400).json({ error: 'Combo inválido' });
+  }
+
+  try {
+    const lectura = await leerDatosCombo(req.body);
+    if (lectura.errorDeBase) return errorInterno(res, lectura.errorDeBase);
+    if (lectura.error) return res.status(400).json({ error: lectura.error });
+
+    // El combo tiene que existir
+    const { data: actual, error: errorActual } = await supabase
+      .from('combos')
+      .select('id, cantidad')
+      .eq('id', idCombo)
+      .maybeSingle();
+    if (errorActual) return errorInterno(res, errorActual);
+    if (!actual) return res.status(404).json({ error: 'El combo no existe' });
+
+    // Si cambia la cantidad, el combo no tiene que haberse vendido nunca.
+    // { count: 'exact', head: true } pide solo la cuenta de filas, sin traerlas.
+    if (lectura.datos.cantidad !== actual.cantidad) {
+      const { count, error: errorVentas } = await supabase
+        .from('pedido_combos')
+        .select('id', { count: 'exact', head: true })
+        .eq('id_combo', idCombo);
+      if (errorVentas) return errorInterno(res, errorVentas);
+      if (count > 0) {
+        return res.status(400).json({
+          error: `Este combo ya se vendió (${count} veces): no se puede cambiar la cantidad. ` +
+                 'Creá un combo nuevo con la cantidad nueva y desactivá este.'
+        });
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('combos')
+      .update({
+        nombre:   lectura.datos.nombre,
+        id_plan:  lectura.datos.id_plan,
+        cantidad: lectura.datos.cantidad,
+        precio:   lectura.datos.precio
+      })
+      .eq('id', idCombo)
+      .select('id, nombre, id_plan, cantidad, precio, activo')
+      .maybeSingle();
+
+    if (error) return errorInterno(res, error);
+    if (!data) return res.status(404).json({ error: 'El combo no existe' });
+    res.json({ mensaje: 'Combo actualizado', combo: data });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// PUT /api/combos/:id/activo → activa o desactiva un combo (nunca se borra). Body: { activo: true | false }.
+// Un combo desactivado deja de aparecer en la web; sus pedidos viejos no cambian.
+app.put('/api/combos/:id/activo', requireAuth, requireRol(6, 5), async (req, res) => {
+  const idCombo = Number(req.params.id);
+  if (!Number.isInteger(idCombo) || idCombo <= 0 || idCombo > ENTERO_MAXIMO_BASE) {
+    return res.status(400).json({ error: 'Combo inválido' });
+  }
+  const activo = req.body ? req.body.activo : undefined;
+  if (typeof activo !== 'boolean') {
+    return res.status(400).json({ error: 'El estado tiene que ser activo (true) o inactivo (false)' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('combos')
+      .update({ activo: activo })
+      .eq('id', idCombo)
+      .select('id, nombre, id_plan, cantidad, precio, activo')
+      .maybeSingle();
+
+    if (error) return errorInterno(res, error);
+    if (!data) return res.status(404).json({ error: 'El combo no existe' });
+
+    let mensaje = 'Combo desactivado';
+    if (activo) mensaje = 'Combo activado';
+    res.json({ mensaje: mensaje, combo: data });
   } catch (e) {
     errorInterno(res, e);
   }

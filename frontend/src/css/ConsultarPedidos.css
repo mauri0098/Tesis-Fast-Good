@@ -335,3 +335,30 @@ ul.ingredientes-list {
     min-width: 1000px;
   }
 }
+/* =========================================
+   VENTANA "DETALLES": platos agrupados por combo
+   (las reglas son más específicas que las de .modal-tabla del <style> de ConsultarPedidos.html)
+   ========================================= */
+/* Renglón del combo: nombre y precio cobrado */
+.modal-tabla tr.fila-combo td {
+  background: #f1f8f2;
+  border-top: 2px solid #b7dfc0;
+  font-weight: 700;
+}
+/* Platos del combo: un poco hacia adentro, para que se vea que son del combo de arriba */
+.modal-tabla tr.fila-plato-combo td:nth-child(2) {
+  padding-left: 1.6rem;
+}
+/* Texto de un plato personalizado (ej: "⚠ sin sal"), mismo color ámbar que en cocina */
+.plato-personalizado {
+  display: inline-block;
+  margin-left: 0.3rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 4px;
+  background: #fffbeb;
+  border: 1px solid #fbbf24;
+  color: #92400e;
+  font-size: 0.8rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
