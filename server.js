@@ -149,24 +149,28 @@ function errorInterno(res, err) {
    LÓGICA DE STOCK POR RECETA
    - verificarStockPedido: al pasar a "En Preparación" (2). Solo lee, no descuenta.
    - descontarStockPedido: al pasar a "Listo para Entregar" (3) o "Entregado" (4). Descuenta.
-   Las dos retornan null si todo OK, o un string con el error.
+   Solo cuentan lo que cocina la cocina: cantidad − cantidad_de_heladera. Las viandas de la
+   heladera ya gastaron sus insumos cuando se produjeron: así no se descuentan dos veces.
+   Las dos devuelven null si todo OK, o { status, error }:
+     409 = falta un insumo (el mensaje dice cuál) · 500 = falló algo interno (el detalle va al log).
    ====================================================== */
 
-// Calcula el consumo de insumos del pedido (receta × cantidad) y lo compara con el stock actual.
-// Solo lee. Devuelve { error } si falla o no alcanza, o { consumo, stockMap, nombreMap } si alcanza
-// (consumo vacío si el pedido no tiene detalles o sus platos no tienen receta).
+// Calcula el consumo de insumos de lo que cocina la cocina (receta × (cantidad − cantidad_de_heladera))
+// y lo compara con el stock actual. Solo lee. Devuelve { status, error } si falla (500) o no alcanza (409),
+// o { consumo, stockMap, nombreMap } si alcanza (consumo vacío si el pedido no tiene detalles,
+// sus platos no tienen receta o todo sale de la heladera).
 async function calcularConsumoPedido(pedidoId) {
   const sinConsumo = { consumo: {}, stockMap: {}, nombreMap: {} };
 
-  // 1. Productos y cantidades del pedido
+  // 1. Productos y cantidades del pedido (y cuántas de esas viandas salieron de la heladera)
   const { data: detalles, error: errDetalles } = await supabase
     .from('pedido_detalles')
-    .select('id_producto, cantidad')
+    .select('id_producto, cantidad, cantidad_de_heladera')
     .eq('id_pedido', pedidoId);
 
   if (errDetalles) {
     console.error('ERROR REAL DEL SERVIDOR [pedido_detalles]:', errDetalles);
-    return { error: `Error al leer detalles del pedido: ${errDetalles.message}` };
+    return { status: 500, error: MENSAJE_ERROR_INTERNO };
   }
   if (!detalles || detalles.length === 0) return sinConsumo;
 
@@ -179,20 +183,24 @@ async function calcularConsumoPedido(pedidoId) {
 
   if (errRecetas) {
     console.error('ERROR REAL DEL SERVIDOR [producto_insumo]:', errRecetas);
-    return { error: `Error al leer recetas: ${errRecetas.message}` };
+    return { status: 500, error: MENSAJE_ERROR_INTERNO };
   }
   if (!recetas || recetas.length === 0) return sinConsumo;
 
-  // 3. Consumo total por insumo (cantidad_receta × platos_pedidos)
+  // 3. Consumo total por insumo (cantidad_receta × viandas que cocina la cocina)
   const consumo = {}; // { id_insumo: totalNecesario }
   for (const detalle of detalles) {
+    // Lo que cocina la cocina: el total menos lo que salió de la heladera (vacío cuenta como 0).
+    // Ej: 10 fideos con 9 de heladera → la cocina cocina 1.
+    const cantidadACocinar = Number(detalle.cantidad) - Number(detalle.cantidad_de_heladera ?? 0);
+    if (cantidadACocinar <= 0) continue; // todo sale de la heladera: se saltea este plato y sigue con el siguiente
+
     const insumosDelProducto = recetas.filter(
       r => String(r.id_producto) === String(detalle.id_producto)
     );
     for (const r of insumosDelProducto) {
-      console.log('[DEBUG RECETA]', r); // ← muestra los nombres reales de columnas en la terminal
       const cantidadReceta = Number(r.cantidad || r.cantidad_insumo || r.cantidad_necesaria || 0);
-      const totalNecesario = cantidadReceta * Number(detalle.cantidad);
+      const totalNecesario = cantidadReceta * cantidadACocinar;
       consumo[r.id_insumo] = (consumo[r.id_insumo] || 0) + totalNecesario;
     }
   }
@@ -208,7 +216,7 @@ async function calcularConsumoPedido(pedidoId) {
 
   if (errInsumos) {
     console.error('ERROR REAL DEL SERVIDOR [insumos select]:', errInsumos);
-    return { error: `Error al leer stock: ${errInsumos.message}` };
+    return { status: 500, error: MENSAJE_ERROR_INTERNO };
   }
 
   // Mapa de stock con clave y valor forzados a Number para eliminar ambigüedad de tipos
@@ -226,27 +234,29 @@ async function calcularConsumoPedido(pedidoId) {
     const stockActualNum     = stockMap[idNum] ?? 0;
     const cantidadRequerida  = Number(totalRaw);
 
-    console.log(`[STOCK DEBUG] insumo ${idNum} | stock: ${stockActualNum} | requerido: ${cantidadRequerida}`);
-
     if (stockActualNum < cantidadRequerida) {
-      return { error: `Stock insuficiente de "${nombreMap[idNum]}": se necesitan ${cantidadRequerida}, hay ${stockActualNum} disponibles` };
+      return { status: 409, error: `Stock insuficiente de "${nombreMap[idNum]}": se necesitan ${cantidadRequerida}, hay ${stockActualNum} disponibles` };
     }
   }
 
   return { consumo, stockMap, nombreMap };
 }
 
-// Al pasar a "En Preparación": ¿alcanza el stock para todo el pedido? Solo lee, no descuenta.
+// Al pasar a "En Preparación": ¿alcanzan los insumos de lo que cocina la cocina? Solo lee, no descuenta.
+// Devuelve null si alcanza, o { status, error } (409 falta un insumo, 500 falló algo interno).
 async function verificarStockPedido(pedidoId) {
   try {
-    const { error } = await calcularConsumoPedido(pedidoId);
-    return error || null;
+    const { status, error } = await calcularConsumoPedido(pedidoId);
+    if (error) return { status, error };
+    return null;
   } catch (error) {
     console.error('ERROR REAL DEL SERVIDOR en verificarStockPedido:', error);
-    return `Error inesperado al verificar stock: ${error.message}`;
+    return { status: 500, error: MENSAJE_ERROR_INTERNO };
   }
 }
 
+// Al pasar a "Listo para Entregar" o "Entregado": descuenta los insumos de lo que cocina la cocina,
+// una sola vez por pedido. Devuelve null si salió bien, o { status, error } (409 / 500).
 async function descontarStockPedido(pedidoId) {
   try {
     const motivoBase = `pedido #${String(pedidoId).padStart(3, '0')}`;
@@ -260,7 +270,7 @@ async function descontarStockPedido(pedidoId) {
 
     if (errCheck) {
       console.error('ERROR REAL DEL SERVIDOR [movimientos_stock check]:', errCheck);
-      return `Error al verificar movimientos previos: ${errCheck.message}`;
+      return { status: 500, error: MENSAJE_ERROR_INTERNO };
     }
     if (movPrevio && movPrevio.length > 0) {
       console.log(`[STOCK] Pedido #${pedidoId} ya fue procesado — omitiendo descuento.`);
@@ -269,7 +279,7 @@ async function descontarStockPedido(pedidoId) {
 
     // 1–5. Consumo del pedido y pre-flight check (compartido con verificarStockPedido)
     const calculo = await calcularConsumoPedido(pedidoId);
-    if (calculo.error) return calculo.error;
+    if (calculo.error) return { status: calculo.status, error: calculo.error };
 
     const { consumo, stockMap, nombreMap } = calculo;
     if (Object.keys(consumo).length === 0) return null;
@@ -289,8 +299,8 @@ async function descontarStockPedido(pedidoId) {
         .eq('id', idNum);
 
       if (errUpdate) {
-        console.error('ERROR REAL DEL SERVIDOR [insumos update]:', errUpdate);
-        return `Error al descontar stock de "${nombreMap[idNum]}": ${errUpdate.message}`;
+        console.error('ERROR REAL DEL SERVIDOR [insumos update]:', nombreMap[idNum], errUpdate);
+        return { status: 500, error: MENSAJE_ERROR_INTERNO };
       }
 
       movimientosAInsertar.push({
@@ -309,7 +319,7 @@ async function descontarStockPedido(pedidoId) {
 
     if (errMov) {
       console.error('ERROR REAL DEL SERVIDOR [movimientos_stock insert]:', errMov);
-      return `Error al registrar movimientos de stock: ${errMov.message}`;
+      return { status: 500, error: MENSAJE_ERROR_INTERNO };
     }
 
     console.log(`[STOCK] Descuento registrado para ${motivoBase} (${movimientosAInsertar.length} insumos)`);
@@ -317,7 +327,7 @@ async function descontarStockPedido(pedidoId) {
 
   } catch (error) {
     console.error('ERROR REAL DEL SERVIDOR en descontarStockPedido:', error);
-    return `Error inesperado al procesar stock: ${error.message}`;
+    return { status: 500, error: MENSAJE_ERROR_INTERNO };
   }
 }
 
@@ -338,9 +348,6 @@ app.post('/api/login', limiteLogin, async (req, res) => {
 
   // Aceptar 'contraseña', 'contrasena' o 'password'
   const passwordPlano = req.body.contraseña || req.body.contrasena || req.body.password;
-
-  console.log('=== LOGIN INTENTADO ===');
-  console.log('Identificador recibido:', identificador);
 
   // Validar que se envíen usuario y contraseña
   if (!identificador || !passwordPlano) {
@@ -392,7 +399,7 @@ app.post('/api/login', limiteLogin, async (req, res) => {
     }
 
     if (!usuario) {
-      console.log('Usuario no encontrado:', identificador);
+      console.log('Login fallido'); // sin datos: el log no guarda emails ni dice si el usuario existe
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
@@ -406,7 +413,7 @@ app.post('/api/login', limiteLogin, async (req, res) => {
     // Validar contraseña con bcrypt
     const contrasenaValida = await bcrypt.compare(passwordPlano, hashDb);
     if (!contrasenaValida) {
-      console.log('Contraseña inválida para:', identificador);
+      console.log('Login fallido'); // mismo texto que arriba: no se distingue "no existe" de "contraseña mal"
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
@@ -1363,18 +1370,18 @@ app.put('/api/pedidos/:id/pago', requireAuth, requireRol(6, 5, 1), async (req, r
 
 // Cambia el estado de un pedido. La usan PUT /estado (admin) y PUT /listo-cocinero (cocina).
 // Al pasar a 2 verifica que alcance el stock, sin descontar: si no alcanza, no se cambia nada y
-// devuelve status 409. Al pasar a 3 o 4 descuenta el stock (idempotente, ver descontarStockPedido),
-// con el mismo 409 si falla. Al pasar a 3 marca todos los platos como listos.
+// devuelve status 409 (500 si falló algo interno). Al pasar a 3 o 4 descuenta el stock (idempotente,
+// ver descontarStockPedido), con el mismo 409 o 500 si falla. Al pasar a 3 marca todos los platos como listos.
 // Devuelve { status, pedido } o { status, error }.
 async function cambiarEstadoPedido(pedidoId, nuevoEstado) {
   if (nuevoEstado === 2) {
     const errorStock = await verificarStockPedido(pedidoId);
-    if (errorStock) return { status: 409, error: errorStock };
+    if (errorStock) return errorStock; // ya viene armado: { status: 409 o 500, error }
   }
 
   if ([3, 4].includes(nuevoEstado)) {
     const errorStock = await descontarStockPedido(pedidoId);
-    if (errorStock) return { status: 409, error: errorStock };
+    if (errorStock) return errorStock; // ya viene armado: { status: 409 o 500, error }
   }
 
   const { data, error } = await supabase
@@ -1401,6 +1408,7 @@ async function cambiarEstadoPedido(pedidoId, nuevoEstado) {
 
 // GET /api/pedidos/:id/verificar-stock → ¿alcanza el stock para preparar el pedido? Solo lee.
 // La usa la grilla antes de abrir "Confirmar Pago", para no pedir la confirmación si igual no puede pasar a 2.
+// Responde { ok: true }, { ok: false, error } si falta un insumo, o 500 si falló algo interno.
 app.get('/api/pedidos/:id/verificar-stock', requireAuth, requireRol(6, 5, 1), async (req, res) => {
   const id = parseInt(req.params.id);
   if (!Number.isInteger(id)) {
@@ -1417,7 +1425,11 @@ app.get('/api/pedidos/:id/verificar-stock', requireAuth, requireRol(6, 5, 1), as
   if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
 
   const errorStock = await verificarStockPedido(id);
-  res.json(errorStock ? { ok: false, error: errorStock } : { ok: true });
+  if (!errorStock) return res.json({ ok: true });                      // alcanza
+  if (errorStock.status === 500) {                                      // falló algo interno (el detalle ya está en el log)
+    return res.status(500).json({ error: errorStock.error });
+  }
+  res.json({ ok: false, error: errorStock.error });                     // falta un insumo: la grilla muestra el aviso
 });
 
 app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => {
@@ -2455,7 +2467,7 @@ app.get('/api/viandas-stock', requireAuth, requireRol(...ROLES_HELADERA), async 
   res.json(resultado);
 });
 
-// POST /api/viandas-stock/descarte → descarta viandas de la heladera (registrar_descarte_vianda).
+// POST /api/viandas-stock/descarte → descarta viandas de la heladera (descartar_viandas, en sql/heladera.sql).
 // Body: { id_producto, cantidad, motivo }. No toca insumos. El usuario sale del token.
 app.post('/api/viandas-stock/descarte', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
   const idProducto = Number(req.body.id_producto);
@@ -2470,7 +2482,7 @@ app.post('/api/viandas-stock/descarte', requireAuth, requireRol(...ROLES_HELADER
   if (lecturaMotivo.error) return res.status(400).json({ error: lecturaMotivo.error });
 
   try {
-    const { data, error } = await supabase.rpc('registrar_descarte_vianda', {
+    const { data, error } = await supabase.rpc('descartar_viandas', {
       p_id_producto: idProducto,
       p_cantidad:    cantidad,
       p_id_usuario:  req.usuario.id,
