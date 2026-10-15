@@ -309,3 +309,216 @@ select pro.stock_heladera                as heladera_fideos,   -- cuántas hay a
                    join productos pr on pr.id = cp.id_producto  -- con su plato
                   where cp.id_combo = 1                -- del combo de prueba
                     and pr.nombre = 'fideos');         -- que se llama "fideos"
+
+
+-- =====================================================
+-- BLOQUE 3 — DEVOLVER (paso H4). Correr DESPUÉS del bloque 3 de sql/heladera.sql.
+-- =====================================================
+
+-- -----------------------------------------------------
+-- 3A. CASOS QUE FALLAN (no guardan nada)
+-- Sale una tabla de 4 filas: en la columna "coincide" tiene que decir "sí" en todas.
+-- Ninguna puede anular un pedido de verdad: usan un pedido que no existe (−1), uno vacío
+-- o uno que YA está anulado. La 1 corta antes de mirar el pedido (porque no hay usuario).
+-- (Si no hubiera ningún pedido anulado, la 4 diría "NO" con "El pedido no existe":
+-- tampoco guarda nada, pero avisame.)
+-- -----------------------------------------------------
+with datos as (                                        -- datos REALES que usan las pruebas
+  select (select id                                    -- un pedido...
+            from pedidos                               -- ...de la tabla de pedidos...
+           where id_estado = 5                         -- ...que YA está anulado (así la prueba no puede anular uno abierto)
+           order by id                                 -- el de número más bajo
+           limit 1)                       as pedido_anulado,  -- se llama pedido_anulado
+         'd9b1ae00-fda5-4488-86b3-90d769b47a02'::uuid as usuario  -- tu usuario admin
+),                                                     -- fin de "datos"
+casos (orden, prueba, esperado, id_pedido, id_usuario) as (  -- cada prueba: número, qué prueba, error esperado y lo que se manda
+  select 1, 'Sin usuario',                             -- usuario vacío (null)
+         'Falta el usuario que anula el pedido',       -- error esperado
+         pedido_anulado, null::uuid                    -- lo que se manda: pedido y usuario
+    from datos                                         -- (de "datos" salen pedido_anulado y usuario)
+  union all                                            -- junta con la prueba siguiente
+  select 2, 'Pedido que no existe',                    -- pedido −1 (los números de pedido son siempre positivos)
+         'El pedido no existe',                        -- error esperado
+         -1, usuario                                   -- lo que se manda
+    from datos                                         -- (de "datos")
+  union all                                            -- junta con la prueba siguiente
+  select 3, 'Sin pedido (vacío)',                      -- pedido vacío (null)
+         'El pedido no existe',                        -- error esperado
+         null::integer, usuario                        -- lo que se manda
+    from datos                                         -- (de "datos")
+  union all                                            -- junta con la prueba siguiente
+  select 4, 'Pedido ya anulado',                       -- anular dos veces
+         'El pedido ya está anulado',                  -- error esperado
+         pedido_anulado, usuario                       -- lo que se manda
+    from datos                                         -- (de "datos")
+)                                                      -- fin de "casos"
+select orden,                                          -- número de prueba
+       prueba,                                         -- qué se prueba
+       esperado,                                       -- el error que tiene que aparecer
+       resultado,                                      -- lo que devolvió la función
+       case when resultado ->> 'error' = esperado      -- ¿el error que devolvió es el esperado?
+            then 'sí' else 'NO' end as coincide        -- tiene que decir "sí" en todas
+  from (select casos.*,                                -- cada prueba...
+               anular_pedido_con_devolucion(id_pedido, id_usuario) as resultado  -- ...con lo que devolvió la función
+          from casos) pruebas                          -- (las pruebas ya corridas)
+ order by orden;                                       -- en orden
+
+
+-- -----------------------------------------------------
+-- 3B. CASO DE MENTIRA: vende fideos, anula y DESHACE todo
+-- VENDER todavía no existe (es el paso H6), así que la prueba hace a mano lo que va a hacer H6:
+-- crea un pedido de prueba con crear_pedido_combos (la función de siempre), le anota la venta
+-- en el cuaderno y la resta de la heladera. Después prueba 4 cosas:
+--   1) anular en 3 (Listo para Entregar) → vuelven las 10 (ej: 61 → 71) y el pedido queda en 5
+--   2) anular otra vez → "El pedido ya está anulado"
+--   3) sacarlo de 5 a mano (como podría hacer el servidor viejo) y anular de nuevo → vuelven 0
+--   4) otro pedido igual, pero ENTREGADO (4) → al anular vuelven 0 (la heladera queda en 61)
+-- Tiene que salir un ERROR en rojo que empieza con "FIN DE LA PRUEBA (no quedó nada guardado)".
+-- Ese error es A PROPÓSITO: Postgres deshace todo (los 2 pedidos, las ventas, las devoluciones).
+-- Los estados 3 y 4 se escriben directo en la tabla, adentro de este bloque: no pasan por el
+-- servidor ni descuentan insumos, y se deshacen con el resto.
+-- Lo único que no vuelve atrás son los números: se saltean 2 números de pedido (y algunos del cuaderno).
+-- Lo comprobás con 3C.
+-- -----------------------------------------------------
+do $$                                                  -- bloque de prueba: corre todo junto, como una función que no se guarda
+declare                                                -- variables del bloque:
+  v_admin     uuid := 'd9b1ae00-fda5-4488-86b3-90d769b47a02'::uuid;  -- tu usuario admin (el que anula)
+  v_cliente   uuid := 'b344f2e8-cd3c-42af-953c-7d97cada6c63'::uuid;  -- "Consumidor Final" (el que compra, como en la web)
+  v_fideos    integer;                                 -- número del plato "fideos"
+  v_cantidad  integer;                                 -- viandas del combo de prueba (ej: 10)
+  v_combos    jsonb;                                   -- el combo de prueba lleno de fideos, como lo manda el servidor
+  v_pedido    jsonb;                                   -- lo que devuelve crear_pedido_combos
+  v_id_1      integer;                                 -- número del pedido de prueba 1 (el que se anula en 3)
+  v_id_2      integer;                                 -- número del pedido de prueba 2 (el entregado)
+  v_antes     integer;                                 -- heladera de fideos al empezar (ej: 71)
+  v_con_venta integer;                                 -- heladera después de la venta de mentira (ej: 61)
+  v_r1        jsonb;                                   -- resultado de 1) anular en 3
+  v_r2        jsonb;                                   -- resultado de 2) anular otra vez
+  v_r3        jsonb;                                   -- resultado de 3) anular después de sacarlo de 5
+  v_r4        jsonb;                                   -- resultado de 4) anular el entregado
+  v_h1        integer;                                 -- heladera después de 1)
+  v_h3        integer;                                 -- heladera después de 3)
+  v_h4        integer;                                 -- heladera después de 4)
+  v_renglon   text;                                    -- el renglón "devolucion" que anotó 1)
+  v_estado_1  integer;                                 -- estado del pedido 1 después de 1)
+  v_estado_2  integer;                                 -- estado del pedido 2 después de 4)
+begin                                                  -- empieza el bloque
+  select cp.id_producto                                -- busca el número de "fideos"...
+    into v_fideos                                      -- ...y lo guarda en v_fideos
+    from combo_productos cp                            -- en el menú de los combos
+    join productos p on p.id = cp.id_producto          -- con su plato
+   where cp.id_combo = 1                               -- del combo de prueba
+     and p.nombre = 'fideos';                          -- que se llama "fideos"
+
+  select cantidad into v_cantidad                      -- cuántas viandas tiene el combo de prueba...
+    from combos where id = 1;                          -- ...el combo 1 (ej: 10)
+
+  v_combos := jsonb_build_array(jsonb_build_object(    -- lo que se compra: el combo 1...
+    'id_combo', 1,                                     -- (su número)
+    'platos', jsonb_build_array(jsonb_build_object(    -- ...con un solo plato:
+      'producto_id', v_fideos,                         -- fideos
+      'cantidad',    v_cantidad))));                   -- todas las viandas del combo (ej: 10)
+
+  select stock_heladera into v_antes                   -- cuántas hay ANTES...
+    from productos where id = v_fideos;                -- ...de fideos
+
+  -- PEDIDO 1: crearlo, venderle los fideos de mentira y pasarlo a 3
+  v_pedido := crear_pedido_combos(v_cliente, 'PRUEBA – NO PREPARAR', 'Prueba', '0', '', current_date + 7,  -- el pedido (queda en 1)...
+                                  'Efectivo', 'Retiro en local', null, 'PRUEBA H4 – se deshace sola', v_combos);  -- ...(mismos datos que en las pruebas de combos)
+  if not coalesce((v_pedido ->> 'ok')::boolean, false) then  -- si no se pudo crear...
+    raise exception 'FIN DE LA PRUEBA: no se pudo crear el pedido de prueba 1 → %', v_pedido;  -- ...frena y muestra por qué
+  end if;                                              -- fin de "no se pudo"
+  v_id_1 := (v_pedido ->> 'id_pedido')::integer;       -- el número del pedido nuevo
+
+  insert into movimientos_viandas (id_producto, id_usuario, id_pedido, tipo, cantidad, motivo)  -- VENTA DE MENTIRA (lo que va a hacer H6):
+  values (v_fideos, v_cliente, v_id_1, 'venta', -v_cantidad, 'Pedido #' || v_id_1);  -- ej: fideos −10, "Pedido #250"
+  update productos                                     -- sale de la heladera...
+     set stock_heladera = stock_heladera - v_cantidad  -- ...ej: 71 − 10 = 61...
+   where id = v_fideos                                 -- ...de fideos
+  returning stock_heladera into v_con_venta;           -- ...y se guarda cuántas quedaron
+
+  update pedidos set id_estado = 3 where id = v_id_1;  -- el pedido pasa a 3 (directo en la tabla: es de mentira)
+
+  -- 1) ANULAR EN 3 (la función NUEVA): tienen que volver todas
+  v_r1 := anular_pedido_con_devolucion(v_id_1, v_admin);  -- anula
+  select stock_heladera into v_h1                      -- heladera después (ej: 71)...
+    from productos where id = v_fideos;                -- ...de fideos
+  select id_estado into v_estado_1                     -- estado después (tiene que ser 5)...
+    from pedidos where id = v_id_1;                    -- ...del pedido 1
+  select format('tipo %s · cantidad %s · motivo "%s"', tipo, cantidad, motivo)  -- arma el texto del renglón...
+    into v_renglon                                     -- ...y lo guarda en v_renglon
+    from movimientos_viandas                           -- del cuaderno
+   where id_pedido = v_id_1                            -- de este pedido
+     and tipo = 'devolucion';                          -- la devolución que acaba de anotar
+
+  -- 2) ANULAR OTRA VEZ: tiene que decir "ya está anulado"
+  v_r2 := anular_pedido_con_devolucion(v_id_1, v_admin);  -- anula de nuevo
+
+  -- 3) SACARLO DE 5 A MANO y anular de nuevo: no tiene que volver nada (−10 + 10 = 0)
+  update pedidos set id_estado = 2 where id = v_id_1;  -- lo "revive" (directo en la tabla)
+  v_r3 := anular_pedido_con_devolucion(v_id_1, v_admin);  -- anula otra vez
+  select stock_heladera into v_h3                      -- heladera después (tiene que seguir en 71)...
+    from productos where id = v_fideos;                -- ...de fideos
+
+  -- PEDIDO 2: crearlo, venderle los fideos de mentira y pasarlo a 4 (entregado)
+  v_pedido := crear_pedido_combos(v_cliente, 'PRUEBA – NO PREPARAR', 'Prueba', '0', '', current_date + 7,  -- otro pedido igual...
+                                  'Efectivo', 'Retiro en local', null, 'PRUEBA H4 – se deshace sola', v_combos);  -- ...(queda en 1)
+  if not coalesce((v_pedido ->> 'ok')::boolean, false) then  -- si no se pudo crear...
+    raise exception 'FIN DE LA PRUEBA: no se pudo crear el pedido de prueba 2 → %', v_pedido;  -- ...frena y muestra por qué
+  end if;                                              -- fin de "no se pudo"
+  v_id_2 := (v_pedido ->> 'id_pedido')::integer;       -- el número del pedido nuevo
+
+  insert into movimientos_viandas (id_producto, id_usuario, id_pedido, tipo, cantidad, motivo)  -- VENTA DE MENTIRA:
+  values (v_fideos, v_cliente, v_id_2, 'venta', -v_cantidad, 'Pedido #' || v_id_2);  -- ej: fideos −10
+  update productos                                     -- sale de la heladera...
+     set stock_heladera = stock_heladera - v_cantidad  -- ...ej: 71 − 10 = 61...
+   where id = v_fideos;                                -- ...de fideos
+
+  update pedidos set id_estado = 4 where id = v_id_2;  -- el pedido pasa a 4, entregado (directo en la tabla)
+
+  -- 4) ANULAR EL ENTREGADO: no vuelve nada (la heladera sigue en 61)
+  v_r4 := anular_pedido_con_devolucion(v_id_2, v_admin);  -- anula
+  select stock_heladera into v_h4                      -- heladera después (ej: 61)...
+    from productos where id = v_fideos;                -- ...de fideos
+  select id_estado into v_estado_2                     -- estado después (tiene que ser 5)...
+    from pedidos where id = v_id_2;                    -- ...del pedido 2
+
+  raise exception 'FIN DE LA PRUEBA (no quedó nada guardado) → heladera antes: % · con la venta: % · 1) pedido #% anulado en 3: % → heladera % · estado % · renglón: % · 2) otra vez: % · 3) sacado de 5 y anulado: % → heladera % · 4) pedido #% entregado y anulado: % → heladera % · estado %',  -- frena A PROPÓSITO...
+    v_antes, v_con_venta,                              -- ...mostrando: la heladera al empezar y con la venta,
+    v_id_1, v_r1, v_h1, v_estado_1, v_renglon,         -- 1) pedido, resultado, heladera, estado y renglón,
+    v_r2,                                              -- 2) resultado de anular otra vez,
+    v_r3, v_h3,                                        -- 3) resultado y heladera,
+    v_id_2, v_r4, v_h4, v_estado_2;                    -- 4) pedido, resultado, heladera y estado. Postgres deshace todo el bloque
+end;                                                   -- fin del bloque
+$$;                                                    -- fin del bloque de prueba
+
+
+-- -----------------------------------------------------
+-- 3C. COMPROBAR que la prueba 3B no dejó nada (solo lee)
+-- "heladera_fideos" tiene que ser la de "antes" en 3B (ej: 71). Las otras tres columnas tienen que dar 0:
+--   - pedidos_de_prueba: no quedó ningún pedido de 3B;
+--   - ventas_y_devoluciones: el cuaderno no tiene ventas ni devoluciones (las de verdad llegan con H6);
+--   - pedidos_sin_estado: no hay pedidos sin estado (si hubiera, el control nuevo de server.js
+--     no los dejaría cambiar de estado: avisame).
+-- La última columna no comprueba nada: es el número de un pedido que YA está anulado, para usarlo
+-- en la prueba de la consola ("mover un anulado"). Así esa prueba nunca toca un pedido abierto.
+-- -----------------------------------------------------
+select pro.stock_heladera                as heladera_fideos,     -- cuántas hay ahora (igual que "antes" en 3B)
+       (select count(*)                                -- cuántos pedidos...
+          from pedidos                                 -- ...de la tabla de pedidos...
+         where observaciones = 'PRUEBA H4 – se deshace sola') as pedidos_de_prueba,  -- ...son de 3B (tiene que dar 0)
+       (select count(*)                                -- cuántos renglones...
+          from movimientos_viandas                     -- ...del cuaderno...
+         where tipo in ('venta', 'devolucion')) as ventas_y_devoluciones,  -- ...son ventas o devoluciones (tiene que dar 0)
+       (select count(*)                                -- cuántos pedidos...
+          from pedidos                                 -- ...de la tabla de pedidos...
+         where id_estado is null)        as pedidos_sin_estado,  -- ...no tienen estado (tiene que dar 0)
+       (select min(id)                                 -- el número más bajo...
+          from pedidos                                 -- ...de la tabla de pedidos...
+         where id_estado = 5)            as pedido_anulado_para_la_consola  -- ...de los que ya están anulados
+  from productos pro                                   -- de la tabla de platos
+ where pro.id = (select cp.id_producto                 -- solo fideos:
+                   from combo_productos cp             -- buscado en el menú de los combos
+                   join productos pr on pr.id = cp.id_producto  -- con su plato
+                  where cp.id_combo = 1                -- del combo de prueba
+                    and pr.nombre = 'fideos');         -- que se llama "fideos"

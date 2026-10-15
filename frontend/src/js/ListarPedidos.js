@@ -162,6 +162,9 @@ function crearFilaPedido(pedido) {
 
   aplicarColorEstado(selectEstado, estadoActualId);
 
+  // Un pedido anulado no cambia más de estado: el select queda bloqueado (el servidor también lo frena)
+  if (estadoActualId === ESTADO_CANCELADO) selectEstado.disabled = true;
+
   selectEstado.addEventListener('change', async () => {
     const nuevoId = parseInt(selectEstado.value);
     const anteriorId = parseInt(selectEstado.dataset.estadoActual);
@@ -770,7 +773,8 @@ function mostrarAlerta(titulo, mensaje) {
 // ─────────────────────────────────────────────────────────────
 
 // ── ANULAR PEDIDO (con PIN) ───────────────────────────────────
-// El pedido no se borra: el servidor valida el PIN y lo pasa a estado 5 (Cancelado).
+// El pedido no se borra: el servidor valida el PIN, lo pasa a estado 5 (Cancelado) y, si estaba
+// en 1, 2 o 3, devuelve a la heladera las viandas que había sacado.
 let pedidoAnularId = null;
 
 function abrirModalAnular(pedidoId) {
@@ -845,7 +849,7 @@ async function confirmarAnulacion() {
     cerrarModalAnular();
     mostrarExito(`Pedido ${idFormatted} anulado correctamente.`);
     // Actualizar en memoria y redibujar respetando el filtro y la página actual
-    pedido.id_estado = data.pedido.id_estado;
+    pedido.id_estado = ESTADO_CANCELADO; // el servidor ya lo pasó a 5 (la respuesta no trae el pedido)
     renderizarPedidos(filtrarPedidos(), paginacionPedidos.paginaActual());
   } catch (err) {
     mostrarErrorAnular('No se pudo conectar con el servidor.');

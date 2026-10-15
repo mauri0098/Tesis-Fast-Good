@@ -1372,6 +1372,7 @@ app.put('/api/pedidos/:id/pago', requireAuth, requireRol(6, 5, 1), async (req, r
 // Al pasar a 2 verifica que alcance el stock, sin descontar: si no alcanza, no se cambia nada y
 // devuelve status 409 (500 si falló algo interno). Al pasar a 3 o 4 descuenta el stock (idempotente,
 // ver descontarStockPedido), con el mismo 409 o 500 si falla. Al pasar a 3 marca todos los platos como listos.
+// Un pedido anulado (5) no cambia más de estado: si justo lo anularon, devuelve 409 y no toca nada más.
 // Devuelve { status, pedido } o { status, error }.
 async function cambiarEstadoPedido(pedidoId, nuevoEstado) {
   if (nuevoEstado === 2) {
@@ -1384,14 +1385,21 @@ async function cambiarEstadoPedido(pedidoId, nuevoEstado) {
     if (errorStock) return errorStock; // ya viene armado: { status: 409 o 500, error }
   }
 
+  // Cambia el estado SOLO si el pedido no está anulado (.neq = "distinto de"). Las rutas ya lo
+  // controlan antes; esto es por si alguien lo anula justo en el medio: así no "revive".
+  // maybeSingle: si no cambió ninguna fila, data viene vacío (con .single() sería un error 500).
   const { data, error } = await supabase
     .from('pedidos')
     .update({ id_estado: nuevoEstado })
     .eq('id', pedidoId)
+    .neq('id_estado', 5)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) return { status: 500, error: mensajeInterno(error) };
+
+  // No cambió ninguna fila: el pedido está anulado. Se corta acá, antes de marcar los platos listos.
+  if (!data) return { status: 409, error: 'Un pedido anulado no cambia de estado' };
 
   if (nuevoEstado === 3) {
     const { error: errListo } = await supabase
@@ -1432,14 +1440,26 @@ app.get('/api/pedidos/:id/verificar-stock', requireAuth, requireRol(6, 5, 1), as
   res.json({ ok: false, error: errorStock.error });                     // falta un insumo: la grilla muestra el aviso
 });
 
+// PUT /api/pedidos/:pedidoId/estado → cambia el estado de un pedido (grilla de Consultar Pedidos y Envíos).
+// Body: { estado_id } de 1 a 4. El 5 (cancelar) va por POST /anular. Un pedido anulado no cambia más de estado.
 app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => {
-  const { pedidoId } = req.params;
-  const { estado_id } = req.body;
-  const nuevoEstado = parseInt(estado_id);
+  const pedidoId = Number(req.params.pedidoId);
+  const nuevoEstado = Number(req.body?.estado_id);
+
+  // El número de pedido: entero, mayor a 0 y que entre en la base
+  if (!Number.isInteger(pedidoId) || pedidoId <= 0 || pedidoId > ENTERO_MAXIMO_BASE) {
+    return res.status(400).json({ error: 'ID de pedido inválido' });
+  }
 
   // Cancelar (5) solo se puede por POST /anular, que pide el PIN
   if (nuevoEstado === 5) {
     return res.status(403).json({ error: 'Para cancelar un pedido usá "Anular", que pide el PIN de autorización' });
+  }
+
+  // El estado nuevo tiene que ser 1, 2, 3 o 4 (includes = "está en la lista". Ej: [1, 2, 3, 4].includes(7) → false)
+  const estadoValido = [1, 2, 3, 4].includes(nuevoEstado);
+  if (!estadoValido) {
+    return res.status(400).json({ error: 'Estado inválido' });
   }
 
   // El repartidor (rol 3) solo puede marcar un pedido como Entregado (4)
@@ -1448,16 +1468,22 @@ app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), as
   }
 
   try {
-    // Verificar que el pedido existe
+    // Verificar que el pedido existe (maybeSingle: si no existe, data viene vacío; con .single() sería un 500)
     const { data: pedidoActual, error: errLectura } = await supabase
       .from('pedidos')
       .select('id, id_estado')
       .eq('id', pedidoId)
-      .single();
+      .maybeSingle();
 
     if (errLectura) return errorInterno(res, errLectura);
     if (!pedidoActual) {
       return res.status(404).json({ error: 'Pedido no encontrado' });
+    }
+
+    // Un pedido anulado (5) no cambia más de estado: sus viandas ya volvieron a la heladera.
+    // Se corta ANTES de cambiarEstadoPedido, para no revisar ni descontar insumos de un anulado.
+    if (pedidoActual.id_estado === 5) {
+      return res.status(409).json({ error: 'Un pedido anulado no cambia de estado' });
     }
 
     const resultado = await cambiarEstadoPedido(pedidoId, nuevoEstado);
@@ -1549,13 +1575,16 @@ app.put('/api/pedidos/:id/listo-cocinero', requireAuth, requireRol(2, 6, 5, 1), 
   }
 });
 
-// Anular pedido: no se borra, se pasa a estado 5 (Cancelado).
+// Anular pedido: no se borra, se pasa a estado 5 (Cancelado) con anular_pedido_con_devolucion (sql/heladera.sql).
+// Si estaba en 1, 2 o 3, vuelven a la heladera las viandas que había sacado; en 4 (entregado) no vuelve nada.
 // Requiere el PIN de autorización configurado en .env (ADMIN_PIN); se valida acá, nunca en el front.
+// El usuario que anula sale del token.
 app.post('/api/pedidos/:id/anular', limiteAnular, requireAuth, requireRol(6, 5, 1), async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = Number(req.params.id);
   const pin = String(req.body?.pin ?? '');
 
-  if (!Number.isInteger(id)) {
+  // El número de pedido: entero, mayor a 0 y que entre en la base
+  if (!Number.isInteger(id) || id <= 0 || id > ENTERO_MAXIMO_BASE) {
     return res.status(400).json({ error: 'ID de pedido inválido' });
   }
 
@@ -1572,31 +1601,30 @@ app.post('/api/pedidos/:id/anular', limiteAnular, requireAuth, requireRol(6, 5, 
     return res.status(403).json({ error: 'PIN incorrecto' });
   }
 
-  const { data: pedido, error: errLectura } = await supabase
-    .from('pedidos')
-    .select('id, id_estado')
-    .eq('id', id)
-    .maybeSingle();
+  try {
+    const { data, error } = await supabase.rpc('anular_pedido_con_devolucion', {
+      p_id_pedido:  id,
+      p_id_usuario: req.usuario.id
+    });
 
-  if (errLectura) return errorInterno(res, errLectura);
-  if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
-  if (pedido.id_estado === 5) {
-    return res.status(409).json({ error: 'El pedido ya está anulado' });
+    if (error) return errorInterno(res, error);
+
+    // ok: false = no se hizo nada (no existe o ya estaba anulado)
+    if (!data || !data.ok) {
+      let mensaje = 'No se pudo anular el pedido';
+      if (data && data.error) mensaje = data.error;
+      return res.status(409).json({ error: mensaje });
+    }
+
+    // El mensaje dice cuántas viandas volvieron (0 si estaba entregado o no había sacado de la heladera)
+    let mensaje = 'Pedido anulado correctamente';
+    if (data.viandas_devueltas === 1) mensaje = 'Pedido anulado. Volvió 1 vianda a la heladera.';
+    if (data.viandas_devueltas > 1) mensaje = `Pedido anulado. Volvieron ${data.viandas_devueltas} viandas a la heladera.`;
+
+    res.json({ mensaje, viandas_devueltas: data.viandas_devueltas });
+  } catch (e) {
+    errorInterno(res, e);
   }
-
-  const { data, error } = await supabase
-    .from('pedidos')
-    .update({ id_estado: 5 })
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('[ANULAR pedido] error:', error);
-    return errorInterno(res, error);
-  }
-
-  res.json({ mensaje: 'Pedido anulado correctamente', pedido: data });
 });
 
 /* ======================================================

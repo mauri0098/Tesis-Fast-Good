@@ -2,7 +2,7 @@
 -- HELADERA — LAS 4 ACCIONES (una función de la base por acción)
 --   Bloque 1: DESCARTAR → descartar_viandas             (paso H2)  ← ya está
 --   Bloque 2: PRODUCIR  → producir_viandas              (paso H3)  ← ya está
---   Bloque 3: DEVOLVER  → anular_pedido_con_devolucion  (paso H4, se agrega después)
+--   Bloque 3: DEVOLVER  → anular_pedido_con_devolucion  (paso H4)  ← ya está
 --   VENDER no está acá: va adentro de crear_pedido_combos (sql/pedido_combos_funciones.sql, paso H6).
 --   Al final se agrega el bloque de marcas "NO USAR" (paso H7).
 --
@@ -319,5 +319,139 @@ grant execute on function producir_viandas(integer, uuid)   -- da el permiso de 
 commit;                                                -- cierra el bloque y confirma todo
 
 -- Si al tocar "Hecho" aparece "Could not find the function producir_viandas", Supabase todavía
+-- no la "vio": corré solo esta línea (le avisa que recargue la lista de funciones).
+-- notify pgrst, 'reload schema';
+
+
+-- =====================================================
+-- BLOQUE 3 — DEVOLVER: anular_pedido_con_devolucion (paso H4)
+-- Se anula un pedido (el PIN lo controla el servidor ANTES de llamarla):
+--   - si está en 1, 2 o 3, vuelven a la heladera las viandas que sacó (renglón "devolucion"),
+--   - si está en 4 (entregado), no vuelve nada: las viandas se fueron con el cliente,
+--   - el pedido pasa a 5 (Cancelado). Un pedido en 5 no se puede anular otra vez.
+-- Lo que vuelve sale del CUADERNO de ese pedido: sus ventas (negativas) + sus devoluciones (positivas).
+-- Así nunca vuelve más de lo que se llevó, aunque alguien lo saque de 5 y lo vuelva a anular.
+-- NO toca insumos (lo cocinado no se "descocina") ni pedido_detalles.
+-- Los personalizados no tienen renglón "venta" (no salen de la heladera): no vuelven.
+-- Los pedidos de la web vieja, y los de combos de antes de H6, no tienen ventas: se anulan sin
+-- devolver nada, igual que hoy.
+-- Reemplaza al "leer y actualizar" que hacía la ruta POST /api/pedidos/:id/anular.
+--
+-- Devuelve: { "ok": true, "viandas_devueltas": 10 }
+--        o: { "ok": false, "error": "mensaje claro" }   (no se guardó nada)
+-- =====================================================
+
+begin;                                                 -- abre el bloque: todo lo de abajo se aplica junto o no se aplica nada
+
+create or replace function anular_pedido_con_devolucion(  -- crea la función (o la reemplaza si ya existe)
+  p_id_pedido  integer,                                -- el pedido que se anula
+  p_id_usuario uuid                                    -- quién anula: lo pone el SERVIDOR (sale del token)
+)                                                      -- fin de lo que recibe
+returns jsonb                                          -- devuelve un JSON: { ok, ... }
+language plpgsql                                       -- está escrita en plpgsql (SQL con if, for y variables)
+set search_path = public                               -- busca las tablas SIEMPRE en public (seguridad)
+as $$                                                  -- desde acá hasta el cierre de abajo es el código de la función
+declare                                                -- variables de la función:
+  v_pedido record;                                     -- el pedido leído de la base (número y estado)
+  v_plato  record;                                     -- un plato a devolver: su número y cuántas viandas vuelven
+  v_total  integer := 0;                               -- cuántas viandas volvieron en total (arranca en 0)
+begin                                                  -- empieza el código
+
+  -- ===================================================
+  -- PARTE 1: CONTROLES Y CANDADOS (no escribe nada)
+  -- ===================================================
+
+  -- 1. El usuario tiene que venir (lo pone el servidor)
+  if p_id_usuario is null then                         -- si no vino...
+    return jsonb_build_object('ok', false, 'error', 'Falta el usuario que anula el pedido');  -- ...se corta acá
+  end if;                                              -- fin del control 1
+
+  -- 2. CANDADO al pedido. Si dos personas lo anulan a la vez, la segunda espera acá y después
+  --    lo encuentra en 5. Mientras se anula, nadie más le puede cambiar el estado.
+  select id, id_estado                                 -- número y estado del pedido
+    into v_pedido                                      -- se guardan en v_pedido
+    from pedidos                                       -- de la tabla de pedidos
+   where id = p_id_pedido                              -- el pedido que se anula
+     for update;                                       -- con candado
+
+  if not found then                                    -- si no existe...
+    return jsonb_build_object('ok', false, 'error', 'El pedido no existe');  -- ...se corta acá
+  end if;                                              -- fin de "no existe"
+  if v_pedido.id_estado = 5 then                       -- si ya está anulado...
+    return jsonb_build_object('ok', false, 'error', 'El pedido ya está anulado');  -- ...se corta acá (no devuelve dos veces)
+  end if;                                              -- fin del control 2
+
+  -- 3. Solo en 1, 2 o 3 vuelven viandas. CANDADO a los platos que tienen algo para devolver,
+  --    ordenados por número: el mismo orden que las otras funciones, así ninguna se traba con otra.
+  if v_pedido.id_estado in (1, 2, 3) then              -- si todavía no se entregó...
+    perform 1                                          -- no hace falta traer nada, solo poner los candados
+       from productos                                  -- de la tabla de platos
+      where id in (select mov.id_producto              -- los platos...
+                     from movimientos_viandas mov      -- ...del cuaderno...
+                    where mov.id_pedido = p_id_pedido  -- ...de este pedido...
+                      and mov.tipo in ('venta', 'devolucion')  -- ...contando sus ventas y devoluciones...
+                    group by mov.id_producto           -- ...plato por plato...
+                   having sum(mov.cantidad) < 0)       -- ...a los que les falta devolver algo (ej: −10 + 0 = −10)
+      order by id                                      -- siempre en el mismo orden
+        for update;                                    -- con candado
+  end if;                                              -- fin del control 3
+
+  -- ===================================================
+  -- PARTE 2: GUARDAR
+  -- Si algo falla desde acá, Postgres deshace todo lo que hizo la función.
+  -- ===================================================
+
+  -- 4. Devolver, plato por plato (solo en 1, 2 o 3; en 4 se saltea: no vuelve nada)
+  if v_pedido.id_estado in (1, 2, 3) then              -- si todavía no se entregó...
+    for v_plato in                                     -- recorre los platos a devolver, uno por vuelta:
+      select mov.id_producto,                          -- el plato
+             -sum(mov.cantidad) as cantidad            -- cuántas vuelven: las ventas son negativas, ej: −(−10 + 0) = 10
+        from movimientos_viandas mov                   -- del cuaderno
+       where mov.id_pedido = p_id_pedido               -- de este pedido
+         and mov.tipo in ('venta', 'devolucion')       -- sus ventas y devoluciones
+       group by mov.id_producto                        -- plato por plato
+      having sum(mov.cantidad) < 0                     -- solo los que tienen algo para devolver
+       order by mov.id_producto                        -- en el mismo orden que los candados
+    loop                                               -- empieza la vuelta
+      -- 4a. El renglón del cuaderno: "devolucion", con cantidad POSITIVA (vuelven viandas)
+      insert into movimientos_viandas (id_producto, id_usuario, id_pedido, tipo, cantidad, motivo)  -- tabla del cuaderno, columnas:
+      values (v_plato.id_producto,                     -- el plato
+              p_id_usuario,                            -- quién anuló
+              p_id_pedido,                             -- de qué pedido (así la próxima cuenta ya lo resta)
+              'devolucion',                            -- el tipo
+              v_plato.cantidad,                        -- cuántas vuelven (ej: +10)
+              'Anulación del pedido #' || p_id_pedido);  -- ej: "Anulación del pedido #250"
+
+      -- 4b. Sumar las viandas a la heladera
+      update productos                                 -- tabla de platos
+         set stock_heladera = stock_heladera + v_plato.cantidad  -- ej: 61 + 10 = 71
+       where id = v_plato.id_producto;                 -- solo este plato
+
+      v_total := v_total + v_plato.cantidad;           -- se suma al total de viandas que volvieron
+    end loop;                                          -- fin de los platos
+  end if;                                              -- fin del paso 4
+
+  -- 5. El pedido pasa a 5 (Cancelado)
+  update pedidos                                       -- tabla de pedidos
+     set id_estado = 5                                 -- Cancelado
+   where id = p_id_pedido;                             -- solo este pedido
+
+  -- 6. Listo: cuántas viandas volvieron (0 si estaba en 4 o si no había sacado de la heladera)
+  return jsonb_build_object(                           -- respuesta:
+    'ok',                true,                         -- salió bien
+    'viandas_devueltas', v_total                       -- viandas que volvieron a la heladera
+  );                                                   -- fin de la respuesta
+end;                                                   -- fin del código de la función
+$$;                                                    -- fin de la función
+
+-- PERMISOS: igual que en los bloques 1 y 2, solo la ejecuta el servidor (service_role)
+revoke execute on function anular_pedido_con_devolucion(integer, uuid)  -- saca el permiso de ejecutarla...
+  from public, anon, authenticated;                    -- ...a todos los de afuera
+grant execute on function anular_pedido_con_devolucion(integer, uuid)   -- da el permiso de ejecutarla...
+  to service_role;                                     -- ...solo al servidor
+
+commit;                                                -- cierra el bloque y confirma todo
+
+-- Si al anular aparece "Could not find the function anular_pedido_con_devolucion", Supabase todavía
 -- no la "vio": corré solo esta línea (le avisa que recargue la lista de funciones).
 -- notify pgrst, 'reload schema';
