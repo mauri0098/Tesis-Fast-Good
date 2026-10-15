@@ -72,7 +72,7 @@
         <!-- Botón de sesión: lo arma actualizarBotonAuth() de auth.js -->
         <div id="auth-btn-container" style="position:relative;"></div>
 
-        <!-- Mi pedido: se conecta en el paso del carrito -->
+        <!-- Mi pedido: abre la ventana del carrito (carritoCombos.js) -->
         <button class="btn-pedido" type="button" id="btn-mi-pedido">
           <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-bolsa"></use></svg>
           Mi pedido <span class="contador" id="contador">0</span>
@@ -247,6 +247,25 @@
     </div>
   </dialog>
 
+  <!-- 8. Mi pedido (la maneja carritoCombos.js) -->
+  <dialog class="hoja hoja--pedido" id="modal-pedido" aria-labelledby="mp-titulo">
+    <div class="hoja__cab">
+      <h2 id="mp-titulo">Mi pedido</h2>
+      <button class="btn-cerrar" type="button" data-accion="cerrar" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="hoja__cuerpo" id="mp-cuerpo"></div>
+    <div class="hoja__pie" id="mp-pie">
+      <div class="total">
+        <span>Total</span>
+        <strong id="mp-total">$ 0</strong>
+      </div>
+      <div class="hoja__botones">
+        <button class="btn btn--secundario" type="button" data-accion="cerrar">Seguir eligiendo</button>
+        <button class="btn btn--primario" type="button" id="mp-finalizar" data-accion="finalizar" disabled>Finalizar pedido</button>
+      </div>
+    </div>
+  </dialog>
+
   <!-- WhatsApp flotante, visible en toda la página -->
   <a class="wa-flotante" href="https://wa.me/5493512294243" target="_blank" rel="noopener" aria-label="Escribinos por WhatsApp">
     <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-whatsapp"></use></svg>
@@ -257,6 +276,7 @@
   <script src="./src/js/auth.js"></script>
   <script src="./src/js/escape.js"></script>
   <script src="./src/js/combosCatalogo.js"></script>
+  <script src="./src/js/carritoCombos.js"></script>
   <script src="./src/js/armarCombo.js"></script>
   <script>
     // Botón de sesión del encabezado (auth.js): "Iniciar sesión" o el nombre del usuario

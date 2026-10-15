@@ -2,7 +2,8 @@
 // ARMARCOMBO.JS — Ventana "X de N" para armar un combo (index-combos.html)
 //
 // Funciones:
-//   abrirModalCombo              → abre la ventana con el menú de un combo, con todo en 0
+//   abrirModalCombo              → abre la ventana con el menú de un combo, con todo en 0, y calcula
+//                                  el tope de cada plato (descontando lo que ya está en el carrito)
 //   renderizarMenuCombo          → dibuja los platos con sus botones − / +, los personalizados,
 //                                  el "X de N", la barra y si se puede agregar al pedido
 //   cambiarCantidadPlato         → suma o resta 1 vianda de heladera de un plato, respetando los límites
@@ -37,6 +38,10 @@ let totalElegido = 0;
 // Largo máximo del texto personalizado (el servidor lo vuelve a controlar)
 const LARGO_MAXIMO_PERSONALIZADO = 150;
 
+// Máximo de viandas de heladera que se pueden elegir de cada plato en este combo: { idPlato: tope }
+// (lo disponible menos lo que ya está en el carrito; se calcula al abrir la ventana)
+let topePorPlato = {};
+
 // ── Abre la ventana con el menú de un combo ───────────────────────────────
 function abrirModalCombo(idCombo) {
   // El id sale de un botón de la página: se busca en lo que mandó el servidor
@@ -49,6 +54,29 @@ function abrirModalCombo(idCombo) {
   personalizados = [];
   platoPersonalizando = null;
   totalElegido = 0;
+
+  // Tope de cada plato. Si quedan MENOS viandas que las del combo, el número que mandó el servidor
+  // es exacto: se le restan las de heladera que ya están en el carrito (las personalizadas no cuentan,
+  // no salen de la heladera). Si quedan muchas, el servidor manda el número con tope y no se resta:
+  // si al final no alcanzaran, el servidor lo frena al crear el pedido.
+  topePorPlato = {};
+  for (const plato of combo.menu) {
+    let tope = plato.disponibles;
+
+    if (plato.disponibles < combo.cantidad && typeof carritoCombos !== 'undefined') {
+      let enCarrito = 0;
+      for (const comboDelCarrito of carritoCombos) {
+        for (const platoDelCarrito of comboDelCarrito.platos) {
+          if (platoDelCarrito.producto_id === plato.id && !platoDelCarrito.personalizado) {
+            enCarrito = enCarrito + platoDelCarrito.cantidad;
+          }
+        }
+      }
+      tope = Math.max(0, plato.disponibles - enCarrito);
+    }
+
+    topePorPlato[plato.id] = tope;
+  }
 
   // Encabezado (textContent muestra el texto tal cual, no hace falta escHtml)
   document.getElementById('mc-cat').textContent = combo.categoria.nombre + ' · ' + combo.plan;
@@ -73,15 +101,16 @@ function renderizarMenuCombo() {
     const cantidad = cantidadesElegidas[plato.id] || 0;
 
     // Se puede sumar si el combo no está completo y quedan viandas de ese plato
-    const puedeSumar = !completo && cantidad < plato.disponibles;
+    const tope = topePorPlato[plato.id];
+    const puedeSumar = !completo && cantidad < tope;
     const puedeRestar = cantidad > 0;
 
     // Aviso de stock: solo si hay menos viandas que las del combo
     let avisoStock = '';
-    if (plato.disponibles === 0) {
+    if (tope === 0) {
       avisoStock = '<span class="plato__aviso">Sin stock · podés pedirlo personalizado</span>';
-    } else if (plato.disponibles < cantidadDelCombo) {
-      avisoStock = `<span class="plato__aviso">Quedan ${escHtml(plato.disponibles)}</span>`;
+    } else if (tope < cantidadDelCombo) {
+      avisoStock = `<span class="plato__aviso">Quedan ${escHtml(tope)}</span>`;
     }
 
     // Descripción solo si tiene
@@ -193,7 +222,7 @@ function cambiarCantidadPlato(idPlato, cambio) {
 
   // Límites: no menos de 0, no más de lo que hay en la heladera, no más que el combo
   if (nuevaCantidad < 0) return;
-  if (nuevaCantidad > plato.disponibles) return;
+  if (nuevaCantidad > topePorPlato[idPlato]) return;
   if (totalElegido + cambio > comboEnArmado.cantidad) return;
 
   cantidadesElegidas[idPlato] = nuevaCantidad;

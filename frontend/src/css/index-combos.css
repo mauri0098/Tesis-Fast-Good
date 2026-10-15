@@ -576,6 +576,41 @@
     font-size: 0.9rem;
 }
 
+/* --- Mi pedido (carrito) --- */
+.carrito__combo {
+    padding: 0.9rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+.carrito__cab {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 0.8rem;
+    align-items: center;
+}
+.carrito__cab h3 {
+    font-size: 1.05rem;
+}
+.carrito__precio {
+    font-weight: 700;
+}
+.carrito__platos {
+    margin-top: 0.3rem;
+    padding-left: 1.2rem;
+    font-size: 0.9rem;
+    color: #555;
+}
+.carrito__personalizado {
+    font-weight: 600;
+    color: #b7791f;
+    overflow-wrap: anywhere;
+}
+.total {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.8rem;
+    font-size: 1.2rem;
+}
+
 /* --- Celular --- */
 @media (max-width: 768px) {
     .nav {
