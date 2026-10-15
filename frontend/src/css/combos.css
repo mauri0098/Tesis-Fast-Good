@@ -1,0 +1,159 @@
+/* ===================================================
+   COMBOS.CSS — Pantalla "Combos" del panel (pages/combos.html)
+   La tabla, las ventanas y los botones salen de global.css y stock.css (como Insumos).
+   Acá va solo lo propio de esta pantalla.
+   =================================================== */
+
+/* Anchos de las columnas: Nombre se queda con lo que sobra */
+.tabla-combos th:nth-child(2) { width: 15%; }   /* Plan */
+.tabla-combos th:nth-child(3) { width: 80px; }  /* Viandas */
+.tabla-combos th:nth-child(4) { width: 110px; } /* Precio */
+.tabla-combos th:nth-child(5) { width: 100px; } /* Menú */
+.tabla-combos th:nth-child(6) { width: 18%; }   /* Estado */
+.tabla-combos th:nth-child(7) { width: 250px; } /* Acciones: Editar · Menú · Activar/Desactivar */
+
+/* Etiqueta de estado: Activo (verde) / Inactivo (gris) */
+.estado-combo {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.estado-combo--activo   { background: #d4edda; color: #155724; }
+.estado-combo--inactivo { background: #e2e3e5; color: #6c757d; }
+
+/* "no se ve en la web (sin platos)": debajo de la etiqueta, en ámbar */
+.no-se-ve {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #b45309;
+}
+
+/* Botón Activar (el de Desactivar es .btn-borrar, rojo, de stock.css) */
+.btn-activar {
+  padding: 0.3rem 0.7rem;
+  background-color: #1565C0;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.btn-activar:hover { background-color: #0D47A1; }
+
+/* Línea de avisos arriba de la tabla (vacía no ocupa lugar) */
+.aviso-combos {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.aviso-combos--exito { color: #155724; }
+.aviso-combos--error { color: #721c24; }
+
+/* Notas de la ventana: plan desactivado y cantidad bloqueada */
+.nota-combo {
+  margin-bottom: 0.8rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius);
+  background: #fff3cd;
+  color: #856404;
+  font-size: 0.82rem;
+}
+.nota-combo[hidden] {
+  display: none;
+}
+
+/* La cantidad bloqueada se ve gris */
+.modal-grid input:disabled {
+  background: #e9ecef;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Botón "Menú" de cada combo (naranja, como "Detalles" en Consultar Pedidos) */
+.btn-menu {
+  padding: 0.3rem 0.7rem;
+  background-color: #ff9800;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.btn-menu:hover { background-color: #e08700; }
+
+/* =========================================
+   VENTANA "MENÚ" DE UN COMBO
+   ========================================= */
+.modal-menu {
+  max-width: 680px;
+}
+.modal-menu .aviso-combos {
+  margin-bottom: 0.6rem;
+}
+.tabla-menu {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin-bottom: 1rem;
+}
+.tabla-menu th {
+  padding: 0.55rem 0.6rem;
+  background: #e8f5e9;
+  color: #4CAF50;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  text-align: left;
+}
+.tabla-menu td {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.tabla-menu th:nth-child(1) { width: 80px; }   /* Código */
+.tabla-menu th:nth-child(3) { width: 30%; }    /* Plan */
+.tabla-menu th:nth-child(4) { width: 80px; }   /* Sacar */
+
+/* Plato que se desactivó después (en Generar Receta) */
+.plato-desactivado {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #b45309;
+}
+
+/* Fila para agregar un plato: etiqueta, lista y botón */
+.fila-agregar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.8rem;
+}
+.fila-agregar label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.fila-agregar select {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.85rem;
+}
+.fila-agregar button:disabled,
+.tabla-menu button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
