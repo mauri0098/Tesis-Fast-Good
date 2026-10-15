@@ -18,8 +18,19 @@
 - ANTES de escribir un archivo nuevo, mostrame la lista de funciones que va a tener (nombre + una línea).
   Si son más de 6-8, explicame por qué.
 - Comentarios en español en cada parte.
--- Respetá mis funciones y mi estilo. Cambiá lo mínimo posible. Si algo hay que reescribir, preguntame antes.
+- Respetá mis funciones y mi estilo. Cambiá lo mínimo posible. Si algo hay que reescribir, preguntame antes.
 - Nada de trucos difíciles de leer. Prefiero más líneas claras que pocas líneas complicadas.
+
+## Cómo recorrer listas y armar HTML (para que yo lo entienda)
+- Para recorrer listas usá forEach (es el que mejor entiendo). No uses for...of ni for con contador.
+  Adentro del forEach, "return" = saltear ese y seguir con el siguiente: poné un comentario que lo diga.
+- Para buscar UN solo elemento en una lista usá find. Para filtrar varios, filter.
+- Nada de forEach adentro de otro forEach si se puede evitar. Si hay que cruzar dos listas,
+  primero armá un objeto { id: valor } con una de ellas y después recorré la otra.
+- Nada de "? :" adentro de los template strings (`...`). Calculá eso antes en una variable con if/else.
+  Ej: let claseElegido = ''; if (cantidad > 0) claseElegido = ' plato--elegido';
+- Cuando uses algo que no sea básico (flatMap, some, reduce, etc.), poné un comentario con un ejemplo
+  de qué entra y qué sale.
 
 ## Seguridad y cuidado
 - NUNCA hagas commit ni push. Los hago yo.
@@ -38,7 +49,6 @@
 - Personalizado (ej: "sin sal"): se escribe en la web, mismo precio, NO sale de la heladera, va a cocina, +1 día hábil.
 - Cancelar un pedido devuelve las viandas a la heladera.
 - Las cosas se DESACTIVAN, no se borran.
-
 
 ## Seguridad (siempre, aunque el código sea simple)
 - NUNCA confiar en lo que manda el navegador. El servidor revisa todo de nuevo:

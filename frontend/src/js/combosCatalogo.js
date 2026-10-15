@@ -42,11 +42,11 @@ async function cargarCombos() {
 
   // Un combo cuyo plan no tiene categoría va a una categoría "Otros combos" (id 0),
   // así el resto del código siempre encuentra combo.categoria.id y combo.categoria.nombre
-  for (const combo of combosDisponibles) {
+  combosDisponibles.forEach(combo => {
     if (!combo.categoria) {
       combo.categoria = { id: 0, nombre: 'Otros combos' };
     }
-  }
+  });
 
   // Arranca mostrando la categoría del primer combo
   categoriaElegida = combosDisponibles[0].categoria.id;
@@ -60,23 +60,31 @@ function renderizarCategorias() {
 
   // Una categoría por cada combo, sin repetir, en el orden en que vienen los combos
   const categorias = [];
-  for (const combo of combosDisponibles) {
+  combosDisponibles.forEach(combo => {
+    // some responde true si AL MENOS UNO de la lista cumple la condición.
+    // Ejemplo: categorias = [{ id: 1 }, { id: 4 }] y combo.categoria.id = 4 → true (ya está, no se agrega)
+    //          categorias = [{ id: 1 }]            y combo.categoria.id = 4 → false (se agrega)
     const yaEsta = categorias.some(categoria => categoria.id === combo.categoria.id);
     if (!yaEsta) {
       categorias.push(combo.categoria);
     }
-  }
+  });
 
   // Un botón por categoría; la elegida lleva la clase "activa"
   let html = '';
-  for (const categoria of categorias) {
+  categorias.forEach(categoria => {
     const esLaElegida = categoria.id === categoriaElegida;
+
+    // La categoría elegida se resalta con la clase "activa"
+    let claseActiva = '';
+    if (esLaElegida) claseActiva = ' categoria-btn--activa';
+
     html += `
-      <button type="button" class="categoria-btn${esLaElegida ? ' categoria-btn--activa' : ''}"
+      <button type="button" class="categoria-btn${claseActiva}"
               data-id-categoria="${escHtml(categoria.id)}" aria-pressed="${esLaElegida}">
         ${escHtml(categoria.nombre)}
       </button>`;
-  }
+  });
   contenedor.innerHTML = html;
 
   // Al tocar una categoría: pasa a ser la elegida y se vuelve a dibujar todo
@@ -96,7 +104,7 @@ function renderizarCombos() {
 
   let html = '<div class="combos-grilla">';
 
-  for (const combo of combosDeLaCategoria) {
+  combosDeLaCategoria.forEach(combo => {
     // Imagen: la del primer plato del menú que tenga una; si ninguno tiene, la imagen por defecto
     const platoConImagen = combo.menu.find(plato => plato.imagen);
     let imagen = IMAGEN_POR_DEFECTO;
@@ -104,7 +112,9 @@ function renderizarCombos() {
       imagen = platoConImagen.imagen;
     }
 
-    // Nombres de los platos del menú, escapados, separados por " · "
+    // Nombres de los platos del menú, escapados, separados por " · ".
+    // map arma una lista nueva con el nombre de cada plato y join la une en un solo texto.
+    // Ejemplo: entra [{ nombre: 'fideos' }, { nombre: 'canelones' }]  →  sale 'fideos · canelones'
     const nombresPlatos = combo.menu.map(plato => escHtml(plato.nombre)).join(' · ');
 
     // Precio con separador de miles (ej: 137.000). Es solo para mostrar: el servidor lo vuelve a calcular.
@@ -126,7 +136,7 @@ function renderizarCombos() {
           </button>
         </div>
       </article>`;
-  }
+  });
 
   html += '</div>';
   zonaCombos.innerHTML = html;

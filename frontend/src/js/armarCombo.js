@@ -55,28 +55,38 @@ function abrirModalCombo(idCombo) {
   platoPersonalizando = null;
   totalElegido = 0;
 
-  // Tope de cada plato. Si quedan MENOS viandas que las del combo, el número que mandó el servidor
-  // es exacto: se le restan las de heladera que ya están en el carrito (las personalizadas no cuentan,
-  // no salen de la heladera). Si quedan muchas, el servidor manda el número con tope y no se resta:
-  // si al final no alcanzaran, el servidor lo frena al crear el pedido.
-  topePorPlato = {};
-  for (const plato of combo.menu) {
-    let tope = plato.disponibles;
+  // 1. Todos los platos de todos los combos del carrito, en UNA sola lista.
+  //    flatMap recorre los combos y junta sus listas de platos en una sola.
+  //    Ejemplo: entra [ { platos: [fideos x3, berenjenas x7] }, { platos: [fideos x2 "sin sal", arroz x8] } ]
+  //             sale  [ fideos x3, berenjenas x7, fideos x2 "sin sal", arroz x8 ]
+  let platosDelCarrito = [];
+  if (typeof carritoCombos !== 'undefined') {
+    platosDelCarrito = carritoCombos.flatMap(comboDelCarrito => comboDelCarrito.platos);
+  }
 
-    if (plato.disponibles < combo.cantidad && typeof carritoCombos !== 'undefined') {
-      let enCarrito = 0;
-      for (const comboDelCarrito of carritoCombos) {
-        for (const platoDelCarrito of comboDelCarrito.platos) {
-          if (platoDelCarrito.producto_id === plato.id && !platoDelCarrito.personalizado) {
-            enCarrito = enCarrito + platoDelCarrito.cantidad;
-          }
-        }
-      }
+  // 2. Cuántas viandas DE HELADERA de cada plato ya hay en el carrito: { idPlato: cantidad }
+  //    Ejemplo con la lista de arriba (fideos = 5, berenjenas = 3, arroz = 9): { 5: 3, 3: 7, 9: 8 }
+  //    (los fideos "sin sal" no cuentan)
+  const enCarritoPorPlato = {};
+  platosDelCarrito.forEach(platoDelCarrito => {
+    // Los personalizados no salen de la heladera: return = saltear este y seguir con el siguiente
+    if (platoDelCarrito.personalizado) return;
+    const yaContadas = enCarritoPorPlato[platoDelCarrito.producto_id] || 0;
+    enCarritoPorPlato[platoDelCarrito.producto_id] = yaContadas + platoDelCarrito.cantidad;
+  });
+
+  // 3. Tope de cada plato del menú. Si quedan MENOS viandas que las del combo, el número que mandó
+  //    el servidor es exacto y se le resta lo que ya está en el carrito. Si quedan muchas, el servidor
+  //    lo manda con tope y no se resta: si al final no alcanzaran, el servidor lo frena al crear el pedido.
+  topePorPlato = {};
+  combo.menu.forEach(plato => {
+    let tope = plato.disponibles;
+    if (plato.disponibles < combo.cantidad) {
+      const enCarrito = enCarritoPorPlato[plato.id] || 0;
       tope = Math.max(0, plato.disponibles - enCarrito);
     }
-
     topePorPlato[plato.id] = tope;
-  }
+  });
 
   // Encabezado (textContent muestra el texto tal cual, no hace falta escHtml)
   document.getElementById('mc-cat').textContent = combo.categoria.nombre + ' · ' + combo.plan;
@@ -96,14 +106,28 @@ function renderizarMenuCombo() {
   const cantidadDelCombo = comboEnArmado.cantidad;
   const completo = totalElegido === cantidadDelCombo;
 
+  // Con el combo completo se apagan los botones que suman (+ personalizado, Agregar, Personalizar)
+  let apagadoSiCompleto = '';
+  if (completo) apagadoSiCompleto = 'disabled';
+
   let html = '';
-  for (const plato of comboEnArmado.menu) {
+  comboEnArmado.menu.forEach(plato => {
     const cantidad = cantidadesElegidas[plato.id] || 0;
 
     // Se puede sumar si el combo no está completo y quedan viandas de ese plato
     const tope = topePorPlato[plato.id];
     const puedeSumar = !completo && cantidad < tope;
     const puedeRestar = cantidad > 0;
+
+    // Clase del plato: resaltado si ya tiene viandas elegidas
+    let claseElegido = '';
+    if (cantidad > 0) claseElegido = ' plato--elegido';
+
+    // Botones − y +: se apagan cuando no se pueden usar
+    let apagadoRestar = '';
+    if (!puedeRestar) apagadoRestar = 'disabled';
+    let apagadoSumar = '';
+    if (!puedeSumar) apagadoSumar = 'disabled';
 
     // Aviso de stock: solo si hay menos viandas que las del combo
     let avisoStock = '';
@@ -123,7 +147,7 @@ function renderizarMenuCombo() {
     const imagen = plato.imagen || IMAGEN_POR_DEFECTO;
 
     html += `
-      <li class="plato${cantidad > 0 ? ' plato--elegido' : ''}">
+      <li class="plato${claseElegido}">
         <img class="plato__img" src="${escHtml(imagen)}" alt="" loading="lazy"
              onerror="this.onerror = null; this.src = '${IMAGEN_POR_DEFECTO}';">
         <div class="plato__info">
@@ -133,15 +157,16 @@ function renderizarMenuCombo() {
         </div>
         <div class="plato__contador">
           <button type="button" class="plato__btn" data-accion="restar" data-id-plato="${escHtml(plato.id)}"
-                  aria-label="Sacar una de ${escHtml(plato.nombre)}" ${puedeRestar ? '' : 'disabled'}>−</button>
+                  aria-label="Sacar una de ${escHtml(plato.nombre)}" ${apagadoRestar}>−</button>
           <span class="plato__cantidad">${cantidad}</span>
           <button type="button" class="plato__btn" data-accion="sumar" data-id-plato="${escHtml(plato.id)}"
-                  aria-label="Sumar una de ${escHtml(plato.nombre)}" ${puedeSumar ? '' : 'disabled'}>+</button>
+                  aria-label="Sumar una de ${escHtml(plato.nombre)}" ${apagadoSumar}>+</button>
         </div>
         <div class="plato__extra">`;
 
     // Renglones personalizados de este plato. El índice es su posición en "personalizados".
     personalizados.forEach((renglon, indice) => {
+      // Si el renglón es de otro plato: return = saltear este y seguir con el siguiente
       if (renglon.idPlato !== plato.id) return;
       html += `
           <div class="personalizado">
@@ -151,7 +176,7 @@ function renderizarMenuCombo() {
                       aria-label="Sacar una personalizada">−</button>
               <span class="plato__cantidad">${renglon.cantidad}</span>
               <button type="button" class="plato__btn" data-accion="personalizado-sumar" data-indice="${indice}"
-                      aria-label="Sumar una personalizada" ${completo ? 'disabled' : ''}>+</button>
+                      aria-label="Sumar una personalizada" ${apagadoSiCompleto}>+</button>
             </div>
           </div>`;
     });
@@ -164,19 +189,19 @@ function renderizarMenuCombo() {
                    maxlength="${LARGO_MAXIMO_PERSONALIZADO}" placeholder="Ej: sin sal"
                    aria-label="Cómo querés ${escHtml(plato.nombre)}">
             <button type="button" class="btn btn--primario" data-accion="personalizado-agregar"
-                    data-id-plato="${escHtml(plato.id)}" ${completo ? 'disabled' : ''}>Agregar</button>
+                    data-id-plato="${escHtml(plato.id)}" ${apagadoSiCompleto}>Agregar</button>
             <button type="button" class="btn btn--secundario" data-accion="personalizado-cancelar">Cancelar</button>
           </div>`;
     } else {
       html += `
           <button type="button" class="enlace-personalizar" data-accion="personalizado-abrir"
-                  data-id-plato="${escHtml(plato.id)}" ${completo ? 'disabled' : ''}>✎ Personalizar</button>`;
+                  data-id-plato="${escHtml(plato.id)}" ${apagadoSiCompleto}>✎ Personalizar</button>`;
     }
 
     html += `
         </div>
       </li>`;
-  }
+  });
 
   // Aviso de entrega: solo si hay algún plato personalizado
   if (personalizados.length > 0) {
@@ -288,17 +313,17 @@ function confirmarCombo() {
 
   // Los platos con al menos una vianda (los que quedaron en 0 no van)
   const platos = [];
-  for (const plato of comboEnArmado.menu) {
+  comboEnArmado.menu.forEach(plato => {
     const cantidad = cantidadesElegidas[plato.id] || 0;
     if (cantidad > 0) {
       platos.push({ producto_id: plato.id, nombre: plato.nombre, cantidad: cantidad, personalizado: null });
     }
-  }
+  });
 
   // Los personalizados van como platos aparte, con su texto
-  for (const renglon of personalizados) {
+  personalizados.forEach(renglon => {
     platos.push({ producto_id: renglon.idPlato, nombre: renglon.nombre, cantidad: renglon.cantidad, personalizado: renglon.texto });
-  }
+  });
 
   // El precio es solo para mostrar: el servidor lo vuelve a sacar de la base
   const comboArmado = {

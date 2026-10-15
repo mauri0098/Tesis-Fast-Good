@@ -37,17 +37,22 @@ function cargarCarrito() {
 
   // Solo se quedan los combos con la forma esperada (cualquiera puede editar localStorage)
   carritoCombos = [];
-  for (const combo of guardado) {
+  guardado.forEach(combo => {
+    // Sin id de combo entero o sin lista de platos: return = saltear este y seguir con el siguiente
     const formaDeCombo = combo && Number.isInteger(combo.id_combo) && Array.isArray(combo.platos);
-    if (!formaDeCombo) continue;
+    if (!formaDeCombo) return;
 
+    // every responde true solo si TODOS los de la lista cumplen la condición.
+    // Ejemplo: [{ producto_id: 5, cantidad: 3 }, { producto_id: 3, cantidad: 7 }]  → true
+    //          [{ producto_id: 5, cantidad: 3 }, { producto_id: 3, cantidad: -2 }] → false
     const platosBien = combo.platos.every(plato =>
       plato && Number.isInteger(plato.producto_id) && Number.isInteger(plato.cantidad) && plato.cantidad > 0
     );
-    if (!platosBien) continue;
+    // Algún plato roto: return = saltear este combo y seguir con el siguiente
+    if (!platosBien) return;
 
     carritoCombos.push(combo);
-  }
+  });
 
   renderizarCarrito();
 }
@@ -93,13 +98,13 @@ function renderizarCarrito() {
 
     // Los platos del combo; los personalizados con ⚠ y su texto
     let platosHtml = '';
-    for (const plato of combo.platos) {
+    combo.platos.forEach(plato => {
       let textoPersonalizado = '';
       if (plato.personalizado) {
         textoPersonalizado = ` <span class="carrito__personalizado">⚠ ${escHtml(plato.personalizado)}</span>`;
       }
       platosHtml += `<li>${escHtml(plato.cantidad)} × ${escHtml(plato.nombre)}${textoPersonalizado}</li>`;
-    }
+    });
 
     html += `
       <article class="carrito__combo">
