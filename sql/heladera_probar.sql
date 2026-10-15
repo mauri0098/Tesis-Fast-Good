@@ -146,3 +146,166 @@ select p.nombre,                                       -- el plato
                  join productos pr on pr.id = cp.id_producto  -- con su plato
                 where cp.id_combo = 1                  -- del combo de prueba
                   and pr.nombre = 'fideos');           -- que se llama "fideos"
+
+
+-- =====================================================
+-- BLOQUE 2 — PRODUCIR (paso H3). Correr DESPUÉS del bloque 2 de sql/heladera.sql.
+-- =====================================================
+
+-- -----------------------------------------------------
+-- 2A. CASOS QUE FALLAN (no guardan nada)
+-- Sale una tabla de 4 filas: en la columna "coincide" tiene que decir "sí" en todas.
+-- (La 4 usa un plato de pedido a cocina que YA está hecho. Si no hubiera ninguno, la 4 diría
+-- "NO" con "El plato del pedido no existe": tampoco guarda nada, pero avisame.)
+-- -----------------------------------------------------
+with datos as (                                        -- datos REALES que usan las pruebas
+  select (select id                                    -- un renglón de pedido a cocina...
+            from orden_produccion_detalles             -- ...de la tabla de platos de los pedidos a cocina...
+           where hecho                                 -- ...que YA está hecho (así la prueba no puede marcar uno pendiente)
+           order by id                                 -- el de número más bajo
+           limit 1)                       as renglon_hecho,  -- se llama renglon_hecho
+         'd9b1ae00-fda5-4488-86b3-90d769b47a02'::uuid as usuario  -- tu usuario admin
+),                                                     -- fin de "datos"
+casos (orden, prueba, esperado, id_detalle, id_usuario) as (  -- cada prueba: número, qué prueba, error esperado y lo que se manda
+  select 1, 'Sin usuario',                             -- usuario vacío (null)
+         'Falta el usuario que marca el plato',        -- error esperado
+         renglon_hecho, null::uuid                     -- lo que se manda: renglón y usuario
+    from datos                                         -- (de "datos" salen renglon_hecho y usuario)
+  union all                                            -- junta con la prueba siguiente
+  select 2, 'Renglón que no existe',                   -- renglón 999999
+         'El plato del pedido no existe',              -- error esperado
+         999999, usuario                               -- lo que se manda
+    from datos                                         -- (de "datos")
+  union all                                            -- junta con la prueba siguiente
+  select 3, 'Sin renglón (vacío)',                     -- renglón vacío (null)
+         'El plato del pedido no existe',              -- error esperado
+         null::integer, usuario                        -- lo que se manda
+    from datos                                         -- (de "datos")
+  union all                                            -- junta con la prueba siguiente
+  select 4, 'Renglón ya hecho',                        -- tocar "Hecho" dos veces
+         'Este plato ya estaba marcado como hecho',    -- error esperado
+         renglon_hecho, usuario                        -- lo que se manda
+    from datos                                         -- (de "datos")
+)                                                      -- fin de "casos"
+select orden,                                          -- número de prueba
+       prueba,                                         -- qué se prueba
+       esperado,                                       -- el error que tiene que aparecer
+       resultado,                                      -- lo que devolvió la función
+       case when resultado ->> 'error' = esperado      -- ¿el error que devolvió es el esperado?
+            then 'sí' else 'NO' end as coincide        -- tiene que decir "sí" en todas
+  from (select casos.*,                                -- cada prueba...
+               producir_viandas(id_detalle, id_usuario) as resultado  -- ...con lo que devolvió la función
+          from casos) pruebas                          -- (las pruebas ya corridas)
+ order by orden;                                       -- en orden
+
+
+-- -----------------------------------------------------
+-- 2B. CASO DE MENTIRA: pide a cocina 2 fideos, toca "Hecho" y DESHACE todo
+-- Tiene que salir un ERROR en rojo que empieza con "FIN DE LA PRUEBA (no quedó nada guardado)".
+-- En el mensaje: heladera antes 71 · después 73 · el renglón "produccion 2" · cuánto bajó cada
+-- insumo (la receta de fideos × 2) · el pedido a cocina quedó hecho · y el resultado de la función.
+-- Ese error es A PROPÓSITO: Postgres deshace todo (el pedido a cocina, las viandas y los insumos).
+-- Lo único que no vuelve atrás es el número del pedido a cocina: el próximo de verdad se lo saltea.
+-- Lo comprobás con 2C.
+-- -----------------------------------------------------
+do $$                                                  -- bloque de prueba: corre todo junto, como una función que no se guarda
+declare                                                -- variables del bloque:
+  v_usuario       uuid := 'd9b1ae00-fda5-4488-86b3-90d769b47a02'::uuid;  -- tu usuario admin
+  v_fideos        integer;                             -- número del plato "fideos"
+  v_antes         integer;                             -- viandas de fideos ANTES
+  v_insumos_antes jsonb;                               -- stock de cada insumo de la receta ANTES. Ej: { "10": 5000, "11": 2000 }
+  v_orden         jsonb;                               -- lo que devuelve crear_orden_produccion
+  v_id_detalle    integer;                             -- el renglón del pedido a cocina recién creado
+  v_resultado     jsonb;                               -- lo que devuelve producir_viandas
+  v_despues       integer;                             -- viandas de fideos DESPUÉS
+  v_renglon       text;                                -- el renglón "produccion" del cuaderno
+  v_insumos       text;                                -- cuánto bajó cada insumo
+  v_pedido        text;                                -- cómo quedó el renglón del pedido a cocina
+begin                                                  -- empieza el bloque
+  select cp.id_producto                                -- busca el número de "fideos"...
+    into v_fideos                                      -- ...y lo guarda en v_fideos
+    from combo_productos cp                            -- en el menú de los combos
+    join productos p on p.id = cp.id_producto          -- con su plato
+   where cp.id_combo = 1                               -- del combo de prueba
+     and p.nombre = 'fideos';                          -- que se llama "fideos"
+
+  select stock_heladera into v_antes                   -- cuántas hay ANTES...
+    from productos where id = v_fideos;                -- ...de fideos
+
+  select jsonb_object_agg(ins.id, ins.stock_actual)    -- foto del stock de cada insumo de la receta, ANTES...
+    into v_insumos_antes                               -- ...guardada en v_insumos_antes
+    from insumos ins                                   -- de la tabla de insumos
+   where ins.id in (select id_insumo                   -- solo los insumos...
+                      from producto_insumo             -- ...de la receta...
+                     where id_producto = v_fideos);    -- ...de fideos
+
+  v_orden := crear_orden_produccion(                   -- 1. "Pedir a cocina" (la función de siempre):
+    v_usuario,                                         -- quién pide
+    current_date,                                      -- para hoy
+    jsonb_build_array(jsonb_build_object('id_producto', v_fideos, 'cantidad', 2)));  -- 2 fideos
+
+  if not coalesce((v_orden ->> 'ok')::boolean, false) then  -- si no se pudo crear el pedido a cocina...
+    raise exception 'FIN DE LA PRUEBA: no se pudo crear el pedido a cocina → %', v_orden;  -- ...frena y muestra por qué
+  end if;                                              -- fin de "no se pudo"
+
+  select id                                            -- el renglón de fideos...
+    into v_id_detalle                                  -- ...guardado en v_id_detalle
+    from orden_produccion_detalles                     -- de la tabla de platos de los pedidos a cocina
+   where id_orden_produccion = (v_orden ->> 'id_orden')::integer;  -- del pedido a cocina recién creado
+
+  v_resultado := producir_viandas(v_id_detalle, v_usuario);  -- 2. tocar "Hecho" (la función NUEVA)
+
+  select stock_heladera into v_despues                 -- cuántas hay DESPUÉS...
+    from productos where id = v_fideos;                -- ...de fideos
+
+  select format('tipo %s · cantidad %s · motivo "%s"', tipo, cantidad, motivo)  -- arma el texto del renglón del cuaderno...
+    into v_renglon                                     -- ...y lo guarda en v_renglon
+    from movimientos_viandas                           -- del cuaderno
+   where id = (v_resultado ->> 'id_movimiento')::integer;  -- el renglón que acaba de anotar
+
+  select string_agg(format('%s %s → %s (bajó %s %s)',  -- por cada insumo: "harina 5000 → 4800 (bajó 200 g)"...
+                           ins.nombre,                 -- el nombre
+                           v_insumos_antes ->> ins.id::text,  -- cuánto había ANTES (de la foto)
+                           ins.stock_actual,           -- cuánto hay AHORA
+                           sal.cantidad,               -- cuánto salió
+                           sal.unidad),                -- en qué unidad
+                    ' · ' order by ins.id)             -- ...todos juntos, separados por " · "
+    into v_insumos                                     -- y se guarda en v_insumos
+    from movimientos_stock sal                         -- las salidas de insumos...
+    join insumos ins on ins.id = sal.id_insumo         -- ...con su insumo...
+   where sal.id_movimiento_vianda = (v_resultado ->> 'id_movimiento')::integer;  -- ...atadas a esta producción
+
+  select format('pedido a cocina #%s · hecho: %s · renglón del cuaderno: %s',  -- arma el texto del renglón del pedido a cocina...
+                id_orden_produccion,                   -- ...con su número...
+                case when hecho then 'sí' else 'no' end,  -- ...si está hecho (escrito "sí" / "no")...
+                id_movimiento_vianda)                  -- ...y el renglón del cuaderno que generó
+    into v_pedido                                      -- ...y lo guarda en v_pedido
+    from orden_produccion_detalles                     -- de la tabla de platos de los pedidos a cocina
+   where id = v_id_detalle;                            -- el renglón de la prueba
+
+  raise exception 'FIN DE LA PRUEBA (no quedó nada guardado) → heladera antes: % · después: % · renglón: % · insumos: % · % · resultado: %',  -- frena A PROPÓSITO...
+    v_antes, v_despues, v_renglon, v_insumos, v_pedido, v_resultado;  -- ...mostrando lo que pasó; Postgres deshace todo el bloque
+end;                                                   -- fin del bloque
+$$;                                                    -- fin del bloque de prueba
+
+
+-- -----------------------------------------------------
+-- 2C. COMPROBAR que la prueba 2B no dejó nada (solo lee)
+-- "heladera_fideos" tiene que ser la de "antes" en 2B (ej: 71), "insumos_de_fideos" tienen que tener
+-- los números de "antes" de 2B, y "ultimo_pedido_a_cocina" tiene que ser MENOR que el número de 2B
+-- (ese pedido a cocina se deshizo).
+-- -----------------------------------------------------
+select pro.stock_heladera                as heladera_fideos,   -- cuántas hay ahora (igual que "antes" en 2B)
+       (select max(id)                                 -- el número más alto...
+          from ordenes_produccion)       as ultimo_pedido_a_cocina,  -- ...de los pedidos a cocina que quedaron
+       (select string_agg(ins.nombre || ' ' || ins.stock_actual || ' ' || coalesce(ins.unidad_medida, ''), ' · ' order by ins.id)  -- cada insumo: "harina 5000 g"
+          from insumos ins                             -- de la tabla de insumos
+         where ins.id in (select id_insumo             -- solo los insumos...
+                            from producto_insumo       -- ...de la receta...
+                           where id_producto = pro.id)) as insumos_de_fideos  -- ...de fideos
+  from productos pro                                   -- de la tabla de platos
+ where pro.id = (select cp.id_producto                 -- solo fideos:
+                   from combo_productos cp             -- buscado en el menú de los combos
+                   join productos pr on pr.id = cp.id_producto  -- con su plato
+                  where cp.id_combo = 1                -- del combo de prueba
+                    and pr.nombre = 'fideos');         -- que se llama "fideos"

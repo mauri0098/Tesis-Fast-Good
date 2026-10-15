@@ -1,7 +1,7 @@
 -- =====================================================
 -- HELADERA — LAS 4 ACCIONES (una función de la base por acción)
 --   Bloque 1: DESCARTAR → descartar_viandas             (paso H2)  ← ya está
---   Bloque 2: PRODUCIR  → producir_viandas              (paso H3, se agrega después)
+--   Bloque 2: PRODUCIR  → producir_viandas              (paso H3)  ← ya está
 --   Bloque 3: DEVOLVER  → anular_pedido_con_devolucion  (paso H4, se agrega después)
 --   VENDER no está acá: va adentro de crear_pedido_combos (sql/pedido_combos_funciones.sql, paso H6).
 --   Al final se agrega el bloque de marcas "NO USAR" (paso H7).
@@ -131,5 +131,193 @@ grant execute on function descartar_viandas(integer, integer, uuid, text)   -- d
 commit;                                                -- cierra el bloque y confirma todo
 
 -- Si al descartar aparece "Could not find the function descartar_viandas", Supabase todavía
+-- no la "vio": corré solo esta línea (le avisa que recargue la lista de funciones).
+-- notify pgrst, 'reload schema';
+
+
+-- =====================================================
+-- BLOQUE 2 — PRODUCIR: producir_viandas (paso H3)
+-- La cocina terminó un plato de un pedido a cocina y toca "Hecho":
+--   - entran N viandas a la heladera (renglón "produccion" en el cuaderno),
+--   - se descuentan los insumos de la receta × N: es la ÚNICA vez que esas viandas gastan insumos,
+--   - el renglón del pedido a cocina queda hecho.
+-- NO frena si falta un insumo: las viandas ya están cocinadas. El insumo queda en negativo
+-- (la señal de que falta cargar una compra) y se avisa. Sin receta, entran igual y se avisa.
+-- Reemplaza a marcar_detalle_hecho + aplicar_produccion_viandas (dos funciones → una), con los
+-- mismos textos y los mismos enlaces, así "Hecho hoy" y Movimientos de Stock se ven igual que antes.
+-- No mira id_pedido_detalle: nadie la usa (lo mostró el paso H0).
+--
+-- Devuelve: { "ok": true, "id_movimiento": 140, "stock_heladera": 73,
+--             "avisos": [ { "tipo": "insumo_corto", "nombre": "harina", "falta": 50, ... } ] }
+--        o: { "ok": false, "error": "mensaje claro" }   (no se guardó nada)
+-- =====================================================
+
+begin;                                                 -- abre el bloque: todo lo de abajo se aplica junto o no se aplica nada
+
+create or replace function producir_viandas(           -- crea la función (o la reemplaza si ya existe)
+  p_id_detalle integer,                                -- el renglón del pedido a cocina que se terminó
+  p_id_usuario uuid                                    -- quién toca "Hecho": lo pone el SERVIDOR (sale del token)
+)                                                      -- fin de lo que recibe
+returns jsonb                                          -- devuelve un JSON: { ok, ... }
+language plpgsql                                       -- está escrita en plpgsql (SQL con if, for y variables)
+set search_path = public                               -- busca las tablas SIEMPRE en public (seguridad)
+as $$                                                  -- desde acá hasta el cierre de abajo es el código de la función
+declare                                                -- variables de la función:
+  v_detalle        record;                             -- el renglón del pedido a cocina (pedido, plato, cantidad, si está hecho)
+  v_plato          text;                               -- el nombre del plato
+  v_cant_receta    integer;                            -- cuántos insumos tiene la receta del plato
+  v_insumo         record;                             -- un insumo de la receta: cuánto hay y cuánto hace falta
+  v_avisos         jsonb := '[]'::jsonb;               -- avisos para la pantalla (lista vacía al empezar)
+  v_id_movimiento  integer;                            -- número del renglón nuevo del cuaderno
+  v_stock_heladera integer;                            -- cuántas viandas hay después de producir
+begin                                                  -- empieza el código
+
+  -- ===================================================
+  -- PARTE 1: CONTROLES Y CANDADOS (no escribe nada)
+  -- ===================================================
+
+  -- 1. El usuario tiene que venir (lo pone el servidor)
+  if p_id_usuario is null then                         -- si no vino...
+    return jsonb_build_object('ok', false, 'error', 'Falta el usuario que marca el plato');  -- ...se corta acá
+  end if;                                              -- fin del control 1
+
+  -- 2. CANDADO al renglón del pedido a cocina. Si dos personas tocan "Hecho" a la vez,
+  --    la segunda espera acá y después lo encuentra ya hecho.
+  select id, id_orden_produccion, id_producto, cantidad, hecho  -- número, pedido a cocina, plato, viandas y si está hecho
+    into v_detalle                                     -- se guardan en v_detalle
+    from orden_produccion_detalles                     -- de la tabla de platos de los pedidos a cocina
+   where id = p_id_detalle                             -- el renglón pedido
+     for update;                                       -- con candado
+
+  if not found then                                    -- si no existe...
+    return jsonb_build_object('ok', false, 'error', 'El plato del pedido no existe');  -- ...se corta acá
+  end if;                                              -- fin de "no existe"
+  if v_detalle.hecho then                              -- si ya estaba hecho...
+    return jsonb_build_object('ok', false, 'error', 'Este plato ya estaba marcado como hecho');  -- ...se corta acá (no se suma dos veces)
+  end if;                                              -- fin del control 2
+
+  -- 3. CANDADO al plato (siempre primero el plato y después los insumos, como en todas las funciones).
+  --    No se exige que esté activo: se puede marcar aunque lo hayan desactivado después de pedirlo.
+  select nombre                                        -- el nombre del plato
+    into v_plato                                       -- se guarda en v_plato
+    from productos                                     -- de la tabla de platos
+   where id = v_detalle.id_producto                    -- el plato del renglón
+     for update;                                       -- con candado
+
+  if not found then                                    -- si el plato no existe (no debería pasar)...
+    return jsonb_build_object('ok', false, 'error', 'El plato no existe');  -- ...se corta acá
+  end if;                                              -- fin del control 3
+
+  -- 4. CANDADO a los insumos de la receta, ordenados por número: si dos producciones
+  --    comparten un insumo, una espera a la otra en vez de trabarse las dos.
+  perform 1                                            -- no hace falta traer nada, solo poner los candados
+     from insumos                                      -- de la tabla de insumos
+    where id in (select id_insumo                      -- los insumos...
+                   from producto_insumo                -- ...de la receta...
+                  where id_producto = v_detalle.id_producto)  -- ...de este plato
+    order by id                                        -- siempre en el mismo orden
+      for update;                                      -- con candado
+
+  -- 5. ¿Tiene receta? Si no tiene, NO frena: las viandas entran igual (sin gastar insumos) y se avisa.
+  select count(*)                                      -- cuenta los insumos...
+    into v_cant_receta                                 -- ...y lo guarda en v_cant_receta
+    from producto_insumo                               -- ...de la tabla de recetas...
+   where id_producto = v_detalle.id_producto;          -- ...de este plato
+  if v_cant_receta = 0 then                            -- si no tiene receta...
+    v_avisos := v_avisos || jsonb_build_object(        -- ...se agrega un aviso:
+      'tipo',    'sin_receta',                         -- de este tipo
+      'mensaje', 'El plato no tiene receta: entraron las viandas sin descontar insumos');  -- con este texto (el mismo de antes)
+  end if;                                              -- fin del control 5
+
+  -- ===================================================
+  -- PARTE 2: GUARDAR
+  -- Si algo falla desde acá, Postgres deshace todo lo que hizo la función.
+  -- ===================================================
+
+  -- 6. El renglón del cuaderno: "produccion", con cantidad POSITIVA (entran viandas)
+  insert into movimientos_viandas (id_producto, id_usuario, tipo, cantidad, motivo)  -- tabla del cuaderno, columnas:
+  values (v_detalle.id_producto,                       -- el plato
+          p_id_usuario,                                -- quién tocó "Hecho"
+          'produccion',                                -- el tipo
+          v_detalle.cantidad,                          -- cuántas entran (ej: +2)
+          'Pedido a cocina #' || v_detalle.id_orden_produccion)  -- ej: "Pedido a cocina #9" (el mismo texto de antes)
+  returning id into v_id_movimiento;                   -- se guarda el número del renglón nuevo
+
+  -- 7. Los insumos: por cada uno de la receta se resta receta × viandas y se anota su salida
+  for v_insumo in                                      -- recorre los insumos de la receta, uno por vuelta:
+    select ins.id,                                     -- número del insumo
+           ins.nombre,                                 -- su nombre (para el aviso)
+           ins.unidad_medida,                          -- su unidad (g, ml, u)
+           coalesce(ins.stock_actual, 0) as disponible,  -- cuánto hay (vacío = 0)
+           sum(coalesce(rec.cantidad_necesaria, 0)) * v_detalle.cantidad as necesario  -- cuánto hace falta: receta × viandas
+      from producto_insumo rec                         -- la receta...
+      join insumos ins on ins.id = rec.id_insumo       -- ...con cada insumo
+     where rec.id_producto = v_detalle.id_producto     -- solo la receta de este plato
+     group by ins.id, ins.nombre, ins.unidad_medida, ins.stock_actual  -- si un insumo está dos veces en la receta, se suma
+     order by ins.id                                   -- siempre en el mismo orden
+  loop                                                 -- empieza la vuelta
+    if v_insumo.necesario <= 0 then                    -- un insumo con 0 en la receta...
+      continue;                                        -- ...no genera movimiento: saltea este y sigue con el siguiente
+    end if;                                            -- fin de "0 en la receta"
+
+    if v_insumo.disponible < v_insumo.necesario then   -- si no alcanza, se descuenta IGUAL (queda en negativo) y se avisa:
+      v_avisos := v_avisos || jsonb_build_object(      -- se agrega un aviso
+        'tipo',       'insumo_corto',                  -- de este tipo (la pantalla lo muestra como "Faltaron 2 kg de Pollo")
+        'id_insumo',  v_insumo.id,                     -- qué insumo
+        'nombre',     v_insumo.nombre,                 -- su nombre
+        'unidad',     v_insumo.unidad_medida,          -- su unidad
+        'necesario',  v_insumo.necesario,              -- cuánto hacía falta
+        'disponible', v_insumo.disponible,             -- cuánto había
+        'falta',      v_insumo.necesario - v_insumo.disponible);  -- cuánto faltó
+    end if;                                            -- fin de "no alcanza"
+
+    update insumos                                     -- tabla de insumos
+       set stock_actual = coalesce(stock_actual, 0) - v_insumo.necesario  -- ej: harina 5000 − 200 = 4800
+     where id = v_insumo.id;                           -- solo este insumo
+
+    insert into movimientos_stock (id_insumo, tipo, cantidad, unidad, motivo, fecha, id_usuario, id_movimiento_vianda)  -- libreta de insumos, columnas:
+    values (v_insumo.id,                               -- qué insumo
+            'salida',                                  -- salió
+            v_insumo.necesario,                        -- cuánto (ej: 200)
+            v_insumo.unidad_medida,                    -- en qué unidad (ej: g)
+            'Producción pedido a cocina #' || v_detalle.id_orden_produccion  -- por qué: "Producción pedido a cocina #9: 2 fideos"...
+              || ': ' || v_detalle.cantidad || ' ' || v_plato,               -- ...(el mismo texto de antes)
+            now(),                                     -- cuándo
+            p_id_usuario,                              -- quién
+            v_id_movimiento);                          -- atada al renglón del paso 6: así se sabe qué gastó esta producción
+  end loop;                                            -- fin de los insumos
+
+  -- 8. Sumar las viandas a la heladera
+  update productos                                     -- tabla de platos
+     set stock_heladera = stock_heladera + v_detalle.cantidad  -- ej: 71 + 2 = 73
+   where id = v_detalle.id_producto                    -- solo este plato
+  returning stock_heladera into v_stock_heladera;      -- se guarda cuántas hay ahora
+
+  -- 9. El renglón del pedido a cocina queda hecho, con la hora y el renglón del cuaderno que generó
+  update orden_produccion_detalles                     -- tabla de platos de los pedidos a cocina
+     set hecho                = true,                  -- hecho
+         fecha_hecho          = now(),                 -- ahora
+         id_movimiento_vianda = v_id_movimiento        -- el renglón "produccion" (lo usan "Hecho hoy" y Movimientos de Stock)
+   where id = p_id_detalle;                            -- solo este renglón
+
+  -- 10. Listo: lo mismo que devolvía marcar_detalle_hecho
+  return jsonb_build_object(                           -- respuesta:
+    'ok',             true,                            -- salió bien
+    'id_movimiento',  v_id_movimiento,                 -- número del renglón del cuaderno
+    'stock_heladera', v_stock_heladera,                -- viandas que hay ahora
+    'avisos',         v_avisos                         -- avisos (lista vacía si no faltó nada)
+  );                                                   -- fin de la respuesta
+end;                                                   -- fin del código de la función
+$$;                                                    -- fin de la función
+
+-- PERMISOS: igual que en el bloque 1, solo la ejecuta el servidor (service_role)
+revoke execute on function producir_viandas(integer, uuid)  -- saca el permiso de ejecutarla...
+  from public, anon, authenticated;                    -- ...a todos los de afuera
+grant execute on function producir_viandas(integer, uuid)   -- da el permiso de ejecutarla...
+  to service_role;                                     -- ...solo al servidor
+
+commit;                                                -- cierra el bloque y confirma todo
+
+-- Si al tocar "Hecho" aparece "Could not find the function producir_viandas", Supabase todavía
 -- no la "vio": corré solo esta línea (le avisa que recargue la lista de funciones).
 -- notify pgrst, 'reload schema';

@@ -2358,7 +2358,7 @@ app.post('/api/compras', requireAuth, requireRol(...ROLES_COMPRAS), async (req, 
 /* ======================================================
    API STOCK DE VIANDAS (PRODUCCIÓN)
    Viandas ya cocinadas guardadas en stock (productos.stock_heladera).
-   El descarte (sql/stock_viandas_funciones.sql) y los pedidos a cocina
+   El descarte y el "Hecho" (sql/heladera.sql) y los pedidos a cocina
    (sql/Produccion.sql) se hacen en funciones de la base, en una sola transacción.
    ====================================================== */
 
@@ -2620,7 +2620,7 @@ app.get('/api/ordenes-produccion/pendientes', requireAuth, requireRol(...ROLES_H
   res.json(resultado);
 });
 
-// POST /api/ordenes-produccion/detalles/:id/hecho → la cocina terminó un plato del pedido (marcar_detalle_hecho).
+// POST /api/ordenes-produccion/detalles/:id/hecho → la cocina terminó un plato del pedido (producir_viandas, en sql/heladera.sql).
 // Entran las viandas al stock y se descuentan los insumos. Si algo no alcanza se carga igual
 // y vuelve en "avisos". El usuario sale del token. Un cocinero solo marca lo que le corresponde.
 app.post('/api/ordenes-produccion/detalles/:id/hecho', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
@@ -2645,7 +2645,7 @@ app.post('/api/ordenes-produccion/detalles/:id/hecho', requireAuth, requireRol(.
       }
     }
 
-    const { data, error } = await supabase.rpc('marcar_detalle_hecho', {
+    const { data, error } = await supabase.rpc('producir_viandas', {
       p_id_detalle: idDetalle,
       p_id_usuario: req.usuario.id
     });
