@@ -428,7 +428,7 @@ async function cargarMovimientos(agregar) {
 // cargarHechosHoy → pide y dibuja "Hecho hoy" (debajo de la tabla)
 // ENTRADA: nada
 // SALIDA:  nada (un renglón por plato que la cocina marcó hecho hoy, del más nuevo al más viejo)
-// Ej: GET /api/ordenes-produccion/hechos-hoy → "14:32 · 2 · fideos · Mantenimiento · Ana López"
+// Ej: GET /api/ordenes-produccion/hechos-hoy → "09:03 · 20 · Plato de prueba (MANTENIMIENTO) · Marta Garcia"
 // ─────────────────────────────────────────────────────────────────────────────
 async function cargarHechosHoy() {
   const lista = document.getElementById('listaHechoHoy');                            // la lista
@@ -446,7 +446,7 @@ async function cargarHechosHoy() {
     hechos.forEach(hecho => {                                                        // por cada plato hecho...
       const cuando = fechaYHoraCortas(hecho.fecha_hecho);                            // ...cuándo se marcó (o null)
       const hora = cuando ? cuando.hora : '-';                                       // ...la hora, como "14:32" (sin fecha: "-")
-      const plan = hecho.plan ? ' <span class="hh-plan">· ' + escHtml(hecho.plan) + '</span>' : '';  // ...el plan, si tiene
+      const plan = hecho.plan ? ' <span class="hh-plan">(' + escHtml(hecho.plan) + ')</span>' : '';  // ...el plan entre paréntesis, si tiene. Ej: " (MANTENIMIENTO)"
       const quien = hecho.marcado_por || '';                                         // ...quién lo marcó, si se sabe
       html += `
         <li>

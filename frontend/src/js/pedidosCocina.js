@@ -39,7 +39,7 @@ function conPlural(cantidad, singular, plural) {
 //          vez, opciones { conBotonHecho, recargar }. En las recargas no hace falta pasarlas.
 // SALIDA:  la lista de pendientes (o null si no se pudo cargar). En pantalla: "3 platos pendientes · 25 viandas"
 //          y una tarjeta por cocinero ("Sin cocinero asignado" al final), cada plato con su "Hecho" si se pidió.
-// Ej: "Ana López · 1 plato · 2 viandas" / "2  fideos Mantenimiento" / "para el 16/10 hoy · pedido #9" [Hecho]
+// Ej: "Marta Garcia · 1 plato · 20 viandas" / "20  berenjenas rellenas (MANTENIMIENTO)" / "para el 16/10 hoy · pedido #10" [Hecho]
 // El servidor manda todo ordenado por fecha y número de pedido: la primera tarjeta es la más urgente.
 // ─────────────────────────────────────────────────────────────────────────────
 async function cargarPendientes(idContenedor, opciones) {
@@ -106,14 +106,16 @@ async function cargarPendientes(idContenedor, opciones) {
     // c. Lo que va en el renglón, calculado antes (nada de "? :" adentro del HTML)
     const fecha = parseFechaLocal(detalle.fecha_para);            // '2026-10-08' → fecha
     const diaMes = String(fecha.getDate()).padStart(2, '0') + '/' + String(fecha.getMonth() + 1).padStart(2, '0');  // "08/10"
-    const plan = detalle.plan ? '<span class="pend-plan">' + escHtml(detalle.plan) + '</span>' : '';
+    // El plan va entre paréntesis después del plato, en gris: así se lee primero QUÉ plato es.
+    // Ej: plato 'berenjenas rellenas' y plan 'MANTENIMIENTO' → "berenjenas rellenas (MANTENIMIENTO)"
+    const plan = detalle.plan ? ' <span class="pend-plan">(' + escHtml(detalle.plan) + ')</span>' : '';
     const boton = config.conBotonHecho ? '<button type="button" class="btn-hecho" data-id="' + Number(detalle.id) + '">Hecho</button>' : '';
 
     tarjeta.filas += `
       <li class="${clase}">
         <span class="pend-cantidad">${Number(detalle.cantidad)}</span>
         <div class="pend-info">
-          <div class="pend-plato">${escHtml(detalle.plato)} ${plan}</div>
+          <div class="pend-plato">${escHtml(detalle.plato)}${plan}</div>
           <div class="pend-detalle">
             para el ${escHtml(diaMes)}${marca}
             <span class="pend-numero">· pedido #${Number(detalle.id_orden)}</span>

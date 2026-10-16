@@ -3,9 +3,10 @@
 > Rama `mejoras-fastgood` · 15/10/2026 (actualizado el 16/10/2026).
 > **H1 a H6: probados** (H4, H5 y H6 desde la web). Desde el 15/10 la heladera está conectada a la web nueva.
 > **H7** (marcas "NO USAR" / "USAR"): bloque 4 corrido y la 4A dio 12 filas en "sí". La prueba completa en la web se salteó (decisión tuya).
-> **H8** (pantallas, Parte 1): paradas 1, 2 y 3 (3A, 3B y 3C) **escritas**. Falta correr el SQL nuevo, el test y probar en la web.
+> **H8** (pantallas, Parte 1): paradas 1, 2 y 3 (3A, 3B y 3C) **escritas**. El 16/10: SQL corrido y **test HELADERA 40/40**
+> por las rutas, contra la base real (pedidos de prueba #11 y #12, anulados; la heladera quedó igual). Falta mirar las pantallas.
 > **H9** (Parte 2: el estilo nuevo del CLAUDE.md en todo lo de H8, en las rutas y en las funciones de la base, **sin cambiar
-> lo que hacen**): escrito y comparado (lo viejo contra lo nuevo, miles de casos, ver la sección 9). Falta correr el SQL.
+> lo que hacen**): escrito, comparado (lo viejo contra lo nuevo, miles de casos, ver la sección 9) y con el SQL corrido.
 > **Este informe se actualiza con cada cambio nuevo** (código, SQL, pantallas), con el mismo formato (regla del 15/10).
 > Los ejemplos usan tus datos: **fideos con 71 viandas**, el combo de prueba "PRUEBA Mantenimiento x10" y la
 > receta de fideos que mostró la prueba de H3: **300 g de harina integral y 2 huevos por vianda**.
@@ -1877,7 +1878,7 @@ Todo lo demás de H9 responde exactamente lo mismo que antes.
 | `sql/heladera_revisar.sql` | todo (solo lee) | Las funciones instaladas con su comentario y si la heladera cuadra con el cuaderno (H0 y H7) |
 | `sql/insumos_pedido_probar.sql` | A, B, C | `descontar_insumos_pedido` (H8, 3B): A = 3 casos que fallan (sin usuario, no existe, anulado); B = de mentira: descuenta 600 g de harina y 4 huevos, la segunda vez "ya descontado", un renglón viejo con el motivo exacto también cuenta como descontado, y un anulado no descuenta; C = que B no dejó nada |
 | `sql/heladera_probar.sql` 3A–3C y `sql/pedido_combos_probar.sql` 6A–6C | (otra vez, después de H9) | Que `anular_pedido_con_devolucion` y `crear_pedido_combos`, ordenadas en H9, siguen dando lo mismo |
-| `tests/test_e2e.js heladera` | sección HELADERA (por las rutas, contra la base real) | Vender (la heladera baja, las reservadas suben), no alcanza (mensaje y no crea nada), todo de heladera salta a 3, con personalizado queda en 2, filtros de "Últimos movimientos", Movimientos de Stock todo junto, el mínimo (400 con datos malos, 403 al cocinero), anular devuelve, un anulado no cambia ni se cobra (409), y `descontar_insumos_pedido` en sus casos que no descuentan. Al final anula sus pedidos y comprueba la heladera |
+| `tests/test_e2e.js heladera` | sección HELADERA (por las rutas, contra la base real) | Vender (la heladera baja, las reservadas suben), no alcanza (mensaje y no crea nada), todo de heladera salta a 3, con personalizado queda en 2, filtros de "Últimos movimientos", Movimientos de Stock todo junto, el mínimo (400 con datos malos, 403 al cocinero), anular devuelve, un anulado no cambia ni se cobra (409), y `descontar_insumos_pedido` en sus casos que no descuentan. Al final anula sus pedidos y comprueba la heladera. **16/10: 40/40** ✅ (berenjenas rellenas 21 → 11 → 3 → 21; pedidos #11 y #12 anulados) |
 | (en la computadora, sin la base) | comparaciones de H9 | Lo viejo contra lo nuevo con datos de mentira: ver 9.2 |
 | (en la web) | Paradas 1, 2 y 3 de H8 | Las listas de 8.1.7 y 8.2.4, y la de HELADERA-AVANCE |
 
@@ -1921,3 +1922,52 @@ Esto es código (no la base): se reescribió adentro de los mismos archivos. No 
 | 11 funciones de `pedidosCocina.js` | `pedidosCocina.js` | 3 (8.3) |
 | 14 funciones de la tabla de `movimientosStockNuevo.js` (`agruparCompras`, `dibujarCompra`, `coincideTipo`…) | `movimientosStockNuevo.js` | 5 (8.5). El modal de compra quedó igual |
 | `GET /api/movimientos-stock` | `server.js` | **Sigue**: la usa la página vieja ("Movimientos (viejo)"). La nueva usa `GET /api/movimientos` |
+
+---
+
+## 12. Ajustes después de probar a mano (16/10)
+
+Después de probar todo a mano salieron 8 cosas para cambiar. Se investigaron primero (causa, archivos, SQL y prueba) y se
+hacen **de a una, con freno después de cada una**, en este orden: 8 (cocina) → 2 (orden) → 6 (filtro de fecha) →
+7 (filtros en Combos) → 5 (menos columnas) → 3 (repetidos) → 4 (hora real de las compras) → 1 (registrar salidas).
+
+### 12.1 Cocina: el plato primero, el plan entre paréntesis (punto 8)
+
+**Qué se encontró.** El pedido a cocina **ya se guarda por plato**: `crear_orden_produccion` (`sql/Produccion.sql`) guarda un
+renglón de `orden_produccion_detalles` por plato, con su cantidad y su cocinero (el del plato o, si no tiene, el del plan).
+El pedido a cocina #10 de Marta es "20 × Plato de prueba (MANTENIMIENTO)". Y también **se mostraba por plato**, pero con el
+plan pegado al nombre, igual de fuerte: "20 Plato de prueba MANTENIMIENTO". Como el plato se llama "Plato de prueba", la única
+palabra concreta parecía el plan.
+
+| Dónde | ANTES | AHORA |
+|---|---|---|
+| Para stock (Tareas de Cocina) y Pendientes de cocina (Producción) | `20  berenjenas rellenas MANTENIMIENTO` | `20  berenjenas rellenas (MANTENIMIENTO)` |
+| Hecho hoy (Producción) | `09:03 · 20 · Plato de prueba · MANTENIMIENTO · Marta Garcia` | `09:03 · 20 · Plato de prueba (MANTENIMIENTO) · Marta Garcia` |
+
+**ANTES** (`cargarPendientes`, en `pedidosCocina.js`):
+```js
+const plan = detalle.plan ? '<span class="pend-plan">' + escHtml(detalle.plan) + '</span>' : '';
+...
+<div class="pend-plato">${escHtml(detalle.plato)} ${plan}</div>
+```
+**AHORA:**
+```js
+// El plan va entre paréntesis después del plato, en gris: así se lee primero QUÉ plato es.
+// Ej: plato 'berenjenas rellenas' y plan 'MANTENIMIENTO' → "berenjenas rellenas (MANTENIMIENTO)"
+const plan = detalle.plan ? ' <span class="pend-plan">(' + escHtml(detalle.plan) + ')</span>' : '';
+...
+<div class="pend-plato">${escHtml(detalle.plato)}${plan}</div>
+```
+Y en `cargarHechosHoy` (`heladera.js`): `' <span class="hh-plan">· ' + plan` pasó a `' <span class="hh-plan">(' + plan + ')'`.
+El CSS no cambió: el plato ya estaba en negrita y el plan en gris.
+
+| Función | Qué hace | ENTRADA | SALIDA | Cambió |
+|---|---|---|---|---|
+| `cargarPendientes` (pedidosCocina.js) | Pide los pedidos a cocina sin hacer y los dibuja, una tarjeta por cocinero | dónde dibujar y, la primera vez, `{ conBotonHecho, recargar }` | la lista (o null); en pantalla, los renglones | Solo el texto del plan |
+| `cargarHechosHoy` (heladera.js) | Pide y dibuja "Hecho hoy" | nada | nada (la lista en pantalla) | Solo el texto del plan |
+
+**Seguridad.** Igual que antes: el plato y el plan vienen de la base y pasan por `escHtml` (un nombre con `<script>` se ve como
+texto). **Sin SQL. Sin cambios en el servidor.**
+
+**Se conecta con:** Tareas de Cocina ("Para stock", `cocinero.html`) y Producción ("Pendientes de cocina" y "Hecho hoy",
+`heladera.html`), con las rutas `GET /api/ordenes-produccion/pendientes` y `…/hechos-hoy`, que no cambiaron.

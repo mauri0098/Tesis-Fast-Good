@@ -58,8 +58,8 @@ Se crean funciones NUEVAS (no se cambian las viejas) porque Render (rama Rodrigu
 | H5 | Nada para cocinar → 3 al pasar de 1 a 2 (server.js + ListarPedidos.js) | ✅ probado en la web: 10 fideos → bajó 10; de 1 a 2 saltó solo a "Listo para Entregar"; anulado → volvieron 10 |
 | H6 | VENDER adentro de `crear_pedido_combos` (EL INTERRUPTOR). Candado a todos los platos del pedido, ordenados por id_producto | ✅ probado en la web: 8 fideos + 2 "sin sal" → bajó 8 (los "sin sal" no); anulado → volvieron 8. Dos ventanas con canelones: la segunda dio "No quedan suficientes viandas… quedan 6" y no creó el pedido. Todo volvió a los números del principio. Commit hecho |
 | H7 | Prueba completa real + marcas NO USAR + actualizar `informe_heladera.md` | ✅ Bloque 4 corrido: la 4A dio 12 filas en "sí". La prueba completa en la web se salteó (decisión del usuario). ⚠ En git el último commit es `db441dc` "funcionan los combos" (H5 + H6): los archivos de H7 siguen sin commitear |
-| **H8** | **Pantallas: `heladera.js`, `pedidosCocina.js`, `ListarPedidos.js` y sus rutas reescritos con mis reglas + reservadas, filtros de movimientos, mínimo editable, "Volvieron N viandas", recargar combos y Pago bloqueado en anulados** (el Word pasó a H10) | ✍ **Paradas 1, 2 y 3 (3A, 3B, 3C) escritas** (ver "H8 paradas 2 y 3 + H9"). Falta: correr el SQL de 3B, reiniciar, correr el test HELADERA y mirar las pantallas |
-| **H9** | **REFACTOR PARA ENTENDER (Parte 2): las 4 funciones de `heladera.sql`, `crear_pedido_combos` y las rutas de `server.js` que las llaman**, con las reglas de CLAUDE.md y ENTRADA/SALIDA arriba de cada función, sin cambiar lo que hacen (mismas entradas, salidas y mensajes) | ✍ **Escrito** con el estilo nuevo (también las pantallas de H8) y **comparado** lo viejo con lo nuevo (sección 9.2 del INFORME): todo igual. Falta correr el SQL (heladera.sql 1–3 y pedido_combos_funciones.sql) |
+| **H8** | **Pantallas: `heladera.js`, `pedidosCocina.js`, `ListarPedidos.js` y sus rutas reescritos con mis reglas + reservadas, filtros de movimientos, mínimo editable, "Volvieron N viandas", recargar combos y Pago bloqueado en anulados** (el Word pasó a H10) | ✍ **Paradas 1, 2 y 3 (3A, 3B, 3C) escritas.** 16/10: SQL corrido (los 6 bloques: Success), compra de 60 huevos cargada, **test HELADERA 40/40** (pedidos de prueba #11 y #12 creados y anulados; la heladera quedó igual). Falta: mirar las pantallas (lista en "Después del SQL") |
+| **H9** | **REFACTOR PARA ENTENDER (Parte 2): las 4 funciones de `heladera.sql`, `crear_pedido_combos` y las rutas de `server.js` que las llaman**, con las reglas de CLAUDE.md y ENTRADA/SALIDA arriba de cada función, sin cambiar lo que hacen (mismas entradas, salidas y mensajes) | ✍ **Escrito** con el estilo nuevo (también las pantallas de H8) y **comparado** lo viejo con lo nuevo (sección 9.2 del INFORME): todo igual. 16/10: SQL corrido; el test HELADERA pasó por las rutas nuevas (40/40) |
 | H10 | RECORRIDO COMPLETO: un Word de punta a punta con fideos (producir → vender → cocina con personalizado → pasar a 3 → entregar/anular → descartar), con pantalla, ruta, función, tablas y números en cada paso, y el DER actualizado | |
 
 **Orden para probar H4 → H6 (acordado el 15/10):** ✅ hecho (H4 probado → servidor con H5 → #5 y #6 anulados → SQL de H6 → pruebas en la web).
@@ -194,21 +194,31 @@ Pruebas en SQL (opcionales, se deshacen solas; seleccionar cada parte con el mou
 | `sql/heladera_probar.sql` | 3A · 3B · 3C | 318–364 · 367–493 · 496–524 | Como en H4 (anular, después de H9) |
 | `sql/pedido_combos_probar.sql` | 6A · 6B · 6C | 139–211 · 214–340 · 343–360 | Como en H6 (vender, después de H9) |
 
+### Resultado del test HELADERA (16/10, 08:46): 40 pasaron, 0 fallaron, 0 avisos
+Combo «PRUEBA Mantenimiento x10» y berenjenas rellenas (21 libres al empezar). Pedido **#11** (10 berenjenas) → libres
+21→11, reservadas 0→10; "no alcanza" con 10 canelones (quedaban 6): 400 con el mensaje y ningún pedido nuevo; pedido
+**#12** (8 berenjenas + 2 "sin sal (PRUEBA)") → libres 11→3, reservadas 10→18; #11 de 1 a 2 saltó a 3 (0 insumos
+descontados); #12 de 1 a 2 quedó en 2 (alcanzaron los insumos, con la compra de huevos); filtros y Movimientos de Stock
+con las ventas y la devolución; mínimo 400/403; anular #11 → volvieron 10 y #12 → volvieron 8; un anulado → 409 en estado,
+pagado, pago, transferencia y anular otra vez; `descontar_insumos_pedido` sin usuario / no existe / anulado → sus mensajes.
+Al final: berenjenas 21 libres y 0 reservadas, canelones 6 y 0 (igual que al empezar). Los dos pedidos se llaman
+"PRUEBA – NO PREPARAR", con entrega el 22/10/2026, y quedaron Cancelados.
+
 ### Después del SQL
-1. Reiniciar el servidor (siempre DESPUÉS del SQL).
+1. Reiniciar el servidor (siempre DESPUÉS del SQL). (16/10: ya estaba prendido desde las 08:40 con el código nuevo.)
 2. `node tests/test_e2e.js heladera` (con el servidor prendido). Crea pedidos "PRUEBA – NO PREPARAR" y los anula; no marca
    Hecho, no descarta, no carga compras, no pasa a 3 o 4 nada con personalizados; guarda la heladera de los platos que usa y
    al final comprueba que quedó igual (si no, en rojo). Manda 3 pedidos por la web: para correrlo otra vez, esperar 10
    minutos o reiniciar el servidor. Correrlo cuando tu prima no esté cargando.
 3. Mirar las pantallas (lista corta):
 
-| Pantalla | Qué mirar |
+| Pantalla | Qué mirar (con los datos del test del 16/10) |
 |---|---|
-| Consultar Pedidos | Un anulado: select apagado, "Pago" gris (no abre) y "Anulado" gris. Anular uno de prueba → "Volvieron N viandas a la heladera". Escape cierra la ventana abierta |
-| Producción | Igual que en la parada 1 (8 columnas, mínimo, filtros, "Ver más", Descartar → Cancelar) |
-| Tareas de Cocina | Los pendientes se ven igual (no tocar "Hecho" sin comida real) |
-| Web nueva | Si pedís más de lo que queda: el mensaje y el menú se recarga en la misma categoría |
-| 📋 Movimientos de Stock | Abre la página nueva: últimos 30 días, 9 columnas, "Ver" / "Ocultar", filtros Todo / Insumos / Viandas y Entradas / Salidas, buscador. La venta y la devolución del test aparecen. "Movimientos (viejo)" sigue andando |
+| Consultar Pedidos | "Ver todos" (o Desde y Hasta = 22/10): #11 y #12 "PRUEBA – NO PREPARAR", Cancelado (select rojo claro y apagado), "Pago" gris que no abre, "Anulado" gris. Detalles de #12: «PRUEBA Mantenimiento x10» con 8 berenjenas rellenas y 2 con "⚠ sin sal (PRUEBA)". Escape cierra la ventana. En "Producción de hoy" no aparecen (son del 22/10 y están anulados) |
+| Producción | Berenjenas rellenas: 21 libres · 0 reservadas · 21 en heladera; canelones 6 · 0 · 6. Últimos movimientos: Ventas "−10 · Pedido #11" y "−8 · Pedido #12"; Devoluciones "+10 · Anulación del pedido #11" y "+8 · … #12". El resto, como en la parada 1 |
+| Tareas de Cocina | #12 no aparece (está anulado). Lo demás, igual (no tocar "Hecho" sin comida real) |
+| Web nueva | «PRUEBA Mantenimiento x10»: berenjenas rellenas deja elegir hasta 10 y canelones hasta 6 |
+| 📋 Movimientos de Stock (menú) | Abre la página nueva con los últimos 30 días y 9 columnas: la compra de huevos (con "+ Registrar compra": Compra #N · ▲ · 1 insumo · Ver → Huevo 60 u con su vencimiento; si se cargó en la página vieja, sale como Ajuste ▲ con su motivo), las ventas de #11 y #12 (Venta · Pedido #011 / #012 · ▼ · 10 y 8 viandas) y sus devoluciones (Pedido #011 anulado · ▲). Filtros: Insumos → la compra; Viandas + Salidas → las 2 ventas; Viandas + Entradas → las 2 devoluciones; buscar "huevo" o "berenjenas". "Ver" / "Ocultar" con la flechita. "Movimientos (viejo)" sigue andando |
 
 ## Cómo se prueba cada paso SQL
 1. Correr el bloque del paso en `sql/heladera.sql` (de `begin;` a `commit;`).
@@ -236,15 +246,22 @@ Nota: cada caso de mentira gasta números de id que no vuelven (H2: renglón 17 
 - ✍ (H8, parada 3A, B7) Si la web nueva recibe "No quedan suficientes viandas…", vuelve a pedir los combos.
 - **Vencimiento de las viandas** (columna nueva): hoy solo tienen vencimiento los insumos de las compras (`movimientos_stock.fecha_vencimiento`). Anotado para más adelante: **NO hacerlo ahora**.
 - Movimientos de Stock: en la página nueva, "− Registrar salida" todavía no hace nada (no tiene función). En la vieja, `POST /api/movimientos-stock` no guarda quién lo cargó ni es todo o nada, y `DELETE /api/movimientos-stock/:id` borra renglones (contra "se desactiva, no se borra"). `GET /api/movimientos-stock` trae como mucho 1000 renglones.
+- **Pedir a cocina + Producción: poder CANCELAR un pedido a cocina pendiente** (anotado el 16/10), sin tocar la heladera ni los
+  insumos (un pendiente todavía no produjo nada). Sirve para limpiar los **9 renglones pendientes para el 08/10** (de los pedidos
+  a cocina #1, #3, #5, #6, #7 y #8: 8 de juan cocinero alvarez y 1 de Marta Garcia, todos "atrasado"), que **eran pruebas: no
+  tocarlos hasta tener esto**.
+  Idea a revisar cuando se haga (no está decidido): como las cosas se desactivan y no se borran, marcar el renglón como
+  cancelado (columna nueva en `orden_produccion_detalles`, solo agregar), con quién y por qué, en una función de la base;
+  que `GET /api/ordenes-produccion/pendientes` no lo muestre y que "Hecho" no lo acepte; botón "Cancelar" en "Pendientes de
+  cocina" solo para los roles 6, 5 y 1 (el cocinero no cancela).
 - **Consultar Pedidos trae como mucho 1000 pedidos** (límite de Supabase por consulta): `GET /api/pedidos` los ordena del más nuevo al más viejo, así que cuando haya más, los más viejos no se ven (salvo filtrando por fechas). Hace falta paginación más adelante (que el servidor mande de a una página). Lo mismo, mucho más lejos, para las reservadas de Producción: se suman como mucho 1000 renglones de pedidos sin entregar.
 
 ## Próximo prompt para Claude Code (🔴 MODO POTENTE, Effort Max)
-Cuando el SQL de la tabla "El SQL, todo junto y en orden" esté corrido (los 6 bloques; las pruebas SQL son opcionales), mandar:
+El SQL está corrido y el test dio 40/40 (16/10). Después de mirar las pantallas (lista de "Después del SQL", punto 3), mandar:
 ```
-SQL corrido: [los 6 bloques; y si corriste las pruebas, qué dieron: insumos A/B/C, heladera 3A/3B/3C, combos 6A/6B/6C].
-Reiniciá el servidor y corré node tests/test_e2e.js heladera. Pasame el resultado y la lista corta de qué mirar en cada
-pantalla. Si algo falla, decime qué y por qué, sin arreglar nada sin mi OK. Actualizá docs/HELADERA-AVANCE.md y el
-INFORME con los resultados. No hagas commit.
+Miré las pantallas de H8 + H9: [qué se vio bien y qué no, pantalla por pantalla].
+Si algo falló, decime qué y por qué, y el plan para arreglarlo, sin tocar nada sin mi OK. Si está todo bien, cerrá H8 y
+H9 en docs/HELADERA-AVANCE.md y en el INFORME, decime qué commiteo (archivos) y cuál es el paso que sigue. No hagas commit.
 ```
 Si el chat se corta antes de correr el SQL, mandar este:
 ```
@@ -252,6 +269,25 @@ Estamos en H8 (paradas 1, 2 y 3) + H9: ya está todo escrito y comparado (ver do
 + H9", y las secciones 8.2 a 9 de docs/INFORME-CAMBIOS-HELADERA.md). No lo vuelvas a escribir. Revisá los cambios
 buscando errores y decime qué encontraste sin arreglar nada sin mi OK. No corras nada contra la base. No hagas commit.
 ```
+
+## Ajustes después de probar a mano (16/10) — de a uno, con freno
+Detalle de cada uno en la sección 12 de `INFORME-CAMBIOS-HELADERA.md`. Decisiones del usuario (16/10): motivo de las salidas
+con lista fija (Vencido / Roto / Se perdió / Otro, con detalle obligatorio si es Otro); compras viejas: mostrar la hora de carga
+sin tocar datos (con `sql/revisar_compras.sql`, que corre el usuario); el filtro de fecha arranca en "Últimos 7 días"; "keto": olvidarlo.
+
+| # | Punto | Qué se hace | SQL | Estado |
+|---|---|---|---|---|
+| 1 | 8. Cocina | El plato primero y el plan entre paréntesis: "20 berenjenas rellenas (MANTENIMIENTO)" (Para stock, Pendientes de cocina, Hecho hoy). Se guardaba y se mostraba ya por plato | No | ✍ escrito, falta mirar (Ctrl+F5) |
+| 2 | 2. Orden | Desempate de movimientos con la misma hora: el más nuevo primero | No | ⏭ |
+| 3 | 6. Filtro de fecha | Un desplegable: Hoy / Últimos 7 días / Este mes / Elegir fechas | No | ⏭ |
+| 4 | 7. Combos | Filtros por plan y por nombre en la lista de combos y en el Menú | No | ⏭ |
+| 5 | 5. Columnas | De 9 a 5 (+ Ver): Fecha y hora · Movimiento · Qué · Quién · Nota | No | ⏭ |
+| 6 | 3. Repetidos | Se arregla con el 5, el 4 y el 1 (y sacar "Movimientos (viejo)" del menú) | No | ⏭ |
+| 7 | 4. Hora real | `registrar_compra` guarda la hora real; las viejas se muestran con `compras.created_at` | Sí | ⏭ |
+| 8 | 1. Salidas | Función nueva `registrar_salida_insumo`, ruta y ventana "− Registrar salida" | Sí | ⏭ |
+
+Para mirar el 1 (punto 8): Ctrl+F5 en Tareas de Cocina ("Para stock") y en Producción ("Pendientes de cocina" y "Hecho hoy").
+Después mandar: "Miré el punto 8: [cómo se ve]. Seguí con el punto 2."
 
 ## Cómo trabajamos (recordatorio)
 - Claude Code escribe el código; el chat arma prompts, revisa planes y reportes, explica el código y dice cómo probar y cuándo commitear.
