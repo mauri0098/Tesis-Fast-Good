@@ -1,3 +1,30 @@
+// ============================================================================
+// movimientosStockNuevo.js — Pantalla Movimientos de Stock (pages/MovimientosStockNuevo.html)
+//
+// Funciones del MODAL DE COMPRA ("+ Registrar compra"; no cambiaron):
+//   traerInsumos           → pide los insumos (GET /api/insumos)
+//   opcionesUnidad         → las <option> de unidad según la unidad del insumo (kg / g, lts / ml, u)
+//   mostrarCantidad        → una cantidad en la unidad grande: 16600 ml → "16,6 lts"
+//   estaBajo               → ¿el insumo tiene menos stock que el mínimo?
+//   calcularVencimiento    → fecha de compra + días de duración
+//   renderizarInsumosModal → un renglón por insumo en la tabla del modal
+//   recalcularVencimientos → recalcula los vencimientos al cambiar la fecha de compra
+//   filtrarRenglonesCompra → muestra u oculta renglones por categoría y "Solo los bajos"
+//   llenarCategorias       → llena el select de categorías
+//   juntarItemsCompra      → los renglones con cantidad escrita
+//   guardarCompra          → manda la compra (POST /api/compras)
+//
+// Funciones de la TABLA DE MOVIMIENTOS (paso H8, parada 3C: insumos y viandas, todo junto):
+//   traerMovimientos      → pide TODOS los movimientos entre las fechas (GET /api/movimientos)
+//   filtrarMovimientos    → Todo / Insumos / Viandas, Entradas / Salidas y el buscador; después dibuja
+//   renderizarMovimientos → la tabla, de a 15 por página
+//   crearRenglon          → la fila de un movimiento y su Detalle (Ver / Ocultar)
+//   htmlDetalle           → lo de adentro del Detalle, según el origen (compra, producción, venta…)
+//
+// Necesita antes: api.js (apiFetch), escape.js (escHtml), paginacion.js (crearPaginacion) y fechas.js.
+// Todo texto que viene de la base pasa por escHtml antes de ir al innerHTML.
+// ============================================================================
+
 // ---------- MODAL DE COMPRA ----------
 
 // 1. Buscar los elementos del HTML por su id y guardarlos en constantes
@@ -272,319 +299,322 @@ async function guardarCompra() {                    // ← NUEVO: async
 }
 
 
-// ---------- TABLA DE MOVIMIENTOS ----------
+// ---------- TABLA DE MOVIMIENTOS (paso H8, parada 3C: insumos y viandas, todo junto) ----------
 
 // Filtros de arriba de la tabla
-const filtroInsumo = document.getElementById("filtroInsumo"); // buscador de insumo
-const filtroTipo = document.getElementById("filtroTipo");     // select de tipo
+const filtroInsumo = document.getElementById("filtroInsumo"); // buscador de insumo o plato
+const filtroQue = document.getElementById("filtroQue");       // Todo / Insumos / Viandas
+const filtroTipo = document.getElementById("filtroTipo");     // Entradas y salidas / Entradas / Salidas
 const filtroDesde = document.getElementById("filtroDesde");   // fecha desde
 const filtroHasta = document.getElementById("filtroHasta");   // fecha hasta
 
-// Cuando cambia cualquier filtro, se vuelve a dibujar la tabla (sin pedir nada a la base)
+// El buscador y los dos select vuelven a dibujar la tabla sin pedir nada al servidor
 filtroInsumo.addEventListener("input", filtrarMovimientos);
+filtroQue.addEventListener("change", filtrarMovimientos);
 filtroTipo.addEventListener("change", filtrarMovimientos);
-filtroDesde.addEventListener("change", filtrarMovimientos);
-filtroHasta.addEventListener("change", filtrarMovimientos);
 
-// Lista de movimientos: se pide a la base y los filtros trabajan sobre ella
+// Las fechas sí piden de nuevo: el servidor trae solo lo de esos días
+[filtroDesde, filtroHasta].forEach((campo) => {
+  campo.addEventListener("change", async () => {
+    listaMovimientos = await traerMovimientos();   // lo de las fechas nuevas
+    filtrarMovimientos();                          // y se dibuja con los otros filtros
+  });
+});
+
+// Lista de movimientos: se pide al servidor y los filtros trabajan sobre ella
 let listaMovimientos = [];
+let errorMovimientos = "";   // el problema de la última vez que se pidieron ("" = ninguno)
 
-// Trae los movimientos de la base (vienen del más nuevo al más viejo)
+// Cómo se escribe cada origen en la columna "Origen"
+const ORIGENES = {
+  compra:     "Compra",
+  produccion: "Producción",
+  venta:      "Venta",
+  devolucion: "Devolución",
+  descarte:   "Descarte",
+  cocina:     "Cocina de un pedido",
+  ajuste:     "Ajuste",
+};
+
+// Los orígenes con un motivo fijo en la columna "Motivo" (los demás muestran el que se escribió)
+const MOTIVO_FIJO = {
+  produccion: "Producción de viandas",
+};
+
+// El título de cada parte del Detalle según el origen (si no está acá: "Platos" e "Insumos")
+const TITULO_VIANDAS = {
+  produccion: "Viandas que entraron a la heladera",
+  venta:      "Platos que salieron de la heladera",
+  devolucion: "Platos que volvieron a la heladera",
+  descarte:   "Platos descartados",
+};
+const TITULO_INSUMOS = {
+  compra:     "Insumos comprados",
+  produccion: "Insumos que se usaron",
+  cocina:     "Insumos que gastaron los personalizados",
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// traerMovimientos → pide al servidor TODOS los movimientos entre las fechas de arriba
+// ENTRADA: nada (lee "Desde" y "Hasta"; vacías = sin límite)
+// SALIDA:  la lista de movimientos, cada uno con sus "partes" para los filtros ([] si falló:
+//          el problema queda en errorMovimientos y la tabla lo muestra)
+// Ej: Desde 16/09 y Hasta 16/10 → GET /api/movimientos?desde=2026-09-16&hasta=2026-10-16 →
+//     [{ origen: 'produccion', tipo: 'entrada', numero: 9, viandas: [fideos 2], insumos: [harina, huevo], … }, …]
+//     y ese "Hecho" queda con partes: [{ que: 'viandas', tipo: 'entrada' }, { que: 'insumos', tipo: 'salida' }]
+// La usan la carga de la página, el cambio de fechas y guardarCompra (para que aparezca la compra nueva).
+// ─────────────────────────────────────────────────────────────────────────────
 async function traerMovimientos() {
+  // 1. Mientras se pide, la tabla dice "Cargando..."
+  document.getElementById("movimientosBody").innerHTML = '<tr class="empty-row"><td colspan="9">Cargando...</td></tr>';
+  errorMovimientos = "";                                         // todavía no hay problema
+
+  // 2. Las fechas van en la dirección. Ej: "desde=2026-09-16&hasta=2026-10-16"
+  const parametros = new URLSearchParams();                      // URLSearchParams arma los datos de la dirección
+  if (filtroDesde.value) parametros.set("desde", filtroDesde.value);
+  if (filtroHasta.value) parametros.set("hasta", filtroHasta.value);
+
   try {
-    const res = await apiFetch("/api/movimientos-stock");
-    if (!res.ok) throw new Error("El servidor respondió " + res.status);
-    const movimientos = await res.json();
-    console.log("Movimientos traídos:", movimientos);
+    const res = await apiFetch("/api/movimientos?" + parametros.toString());
+    const movimientos = await res.json().catch(() => ({}));      // si no es JSON, un objeto vacío
+    // 400 = fechas mal o demasiados movimientos: el servidor manda un mensaje para mostrar
+    if (!res.ok) {
+      errorMovimientos = movimientos.error || "No se pudieron cargar los movimientos";
+      return [];
+    }
+
+    // 3. Las partes de cada movimiento, para los filtros: { que, tipo, nombres }.
+    //    En una producción las viandas ENTRAN a la heladera y los insumos SALEN (se usaron);
+    //    en todo lo demás, las dos partes van para el mismo lado que el movimiento.
+    //    nombres = los platos (o los insumos) en minúsculas, separados por un salto de línea (para el buscador).
+    //    map arma una lista con el nombre de cada uno y join los une. Ej: [{ plato: 'Fideos' }, { plato: 'Tarta' }] → 'fideos\ntarta'
+    movimientos.forEach((mov) => {
+      const tipoInsumos = mov.origen === "produccion" ? "salida" : mov.tipo;
+      const platos = mov.viandas.map((vianda) => vianda.plato).join("\n").toLowerCase();
+      const insumos = mov.insumos.map((insumo) => insumo.nombre).join("\n").toLowerCase();
+      mov.partes = [];
+      if (mov.viandas.length > 0) mov.partes.push({ que: "viandas", tipo: mov.tipo, nombres: platos });
+      if (mov.insumos.length > 0) mov.partes.push({ que: "insumos", tipo: tipoInsumos, nombres: insumos });
+    });
     return movimientos;
   } catch (error) {
-    console.error("Error al traer los movimientos:", error);
+    console.error("Error al traer los movimientos:", error);     // el detalle, a la consola
+    errorMovimientos = "No se pudo conectar con el servidor";    // y un mensaje simple en la tabla
     return [];
   }
 }
 
-// Dibuja los movimientos en la tabla principal, de a 15 por página (paginacion.js).
-// Se pagina DESPUÉS de filtrar y de agrupar: una compra cuenta como un solo renglón.
-// crearPaginacion arranca siempre en la página 1
+
+// ─────────────────────────────────────────────────────────────────────────────
+// filtrarMovimientos → aplica los filtros de arriba a listaMovimientos y dibuja la tabla
+// ENTRADA: nada (lee el buscador, "Todo / Insumos / Viandas" y "Entradas / Salidas")
+// SALIDA:  nada (dibuja los que pasan). Un movimiento se ve si ALGUNA de sus partes coincide con las tres cosas.
+// Ej: el "Hecho" de 2 fideos (viandas que entran, insumos que salen) aparece con "Viandas + Entradas"
+//     y con "Insumos + Salidas", pero no con "Insumos + Entradas". Buscar "harina" lo muestra por su insumo.
+// ─────────────────────────────────────────────────────────────────────────────
+function filtrarMovimientos() {
+  const texto = filtroInsumo.value.trim().toLowerCase();   // lo escrito, sin espacios en los bordes y en minúsculas
+  const que = filtroQue.value || "todo";                   // "todo", "insumos" o "viandas" (sin elegir: todo)
+  const tipo = filtroTipo.value;                           // "" (las dos), "entrada" o "salida"
+
+  // filter arma una lista nueva con los que cumplen; some responde true si AL MENOS UNA parte cumple.
+  // Ej: partes [viandas entrada, insumos salida] con "Insumos" + "Salidas" → la segunda cumple → true
+  const visibles = listaMovimientos.filter((mov) => {
+    return mov.partes.some((parte) => {
+      const coincideQue = que === "todo" || parte.que === que;          // la parte es de lo elegido
+      const coincideTipo = tipo === "" || parte.tipo === tipo;          // y va para el lado elegido
+      const coincideTexto = texto === "" || parte.nombres.includes(texto);  // y tiene lo buscado
+      return coincideQue && coincideTipo && coincideTexto;
+    });
+  });
+
+  renderizarMovimientos(visibles);
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// renderizarMovimientos → dibuja la tabla, de a 15 movimientos por página (paginacion.js)
+// ENTRADA: movimientos (los que pasaron los filtros, del más nuevo al más viejo)
+// SALIDA:  nada (la tabla y los números de página; arranca siempre en la página 1)
+// Ej: 40 movimientos → 3 páginas (15 + 15 + 10). Sin ninguno: "No hay movimientos", o el problema en rojo.
+// ─────────────────────────────────────────────────────────────────────────────
 function renderizarMovimientos(movimientos) {
-  // Los movimientos de una misma compra vienen juntos en un solo objeto (esCompra)
-  // Primero se ordenan (más nuevo arriba), después se agrupan
-  const renglones = agruparCompras(ordenarMovimientos(movimientos));
+  // Sin movimientos: el problema de la última carga (en rojo) o "No hay movimientos"
+  const filaVacia = errorMovimientos
+    ? '<tr class="empty-row"><td colspan="9" style="color:red;">' + escHtml(errorMovimientos) + "</td></tr>"
+    : '<tr class="empty-row"><td colspan="9">No hay movimientos</td></tr>';
 
   crearPaginacion({
-    datos: renglones,
+    datos: movimientos,
     porPagina: 15,                                                     // igual que las otras pantallas
     contenedorTabla: document.getElementById("movimientosBody"),       // el tbody
     contenedorPaginacion: document.getElementById("paginacion"),       // los botones de página
-    funcionRenderFila: crearRenglon,                                   // arma cada renglón
-    filaVacia: `<tr class="empty-row"><td colspan="8">No hay movimientos</td></tr>`, // sin movimientos
+    funcionRenderFila: crearRenglon,                                   // arma cada movimiento (abajo)
+    filaVacia: filaVacia,
   });
 }
 
-// crearPaginacion necesita que le DEVUELVAN el renglón para pegarlo en la tabla.
-// Un DocumentFragment es como un tbody vacío en memoria: se dibuja ahí adentro y se devuelve.
-// Así una compra entra entera (su renglón + el detalle) y no se parte entre páginas
-function crearRenglon(renglon) {
-  const fragmento = document.createDocumentFragment();
 
-  if (renglon.esCompra) {                  // ¿es una compra agrupada?
-    dibujarCompra(renglon, fragmento);     // ...la dibuja su propia función
-  } else {
-    dibujarMovimiento(renglon, fragmento); // si no, un movimiento suelto
+// ─────────────────────────────────────────────────────────────────────────────
+// crearRenglon → arma un movimiento para la tabla: su renglón y, debajo, su Detalle (arranca cerrado)
+// ENTRADA: mov (uno de listaMovimientos)
+// SALIDA:  un DocumentFragment con los dos renglones (crearPaginacion lo pega en la tabla).
+//          Un DocumentFragment es como un tbody vacío en memoria: así el movimiento entra entero en su página.
+// Columnas: Fecha y hora · Origen · Referencia · Tipo · Resumen · Usuario · Proveedor · Motivo · Detalle
+// Ej: el "Hecho" de 2 fideos → "15/10/2026 14:32 · Producción · Pedido a cocina #9 · ▲ Entrada ·
+//     2 viandas · 2 insumos · Ana López · — · Producción de viandas · [Ver]"
+// ─────────────────────────────────────────────────────────────────────────────
+function crearRenglon(mov) {
+  // 1. Lo que va en cada celda, calculado antes (nada de "? :" adentro del HTML)
+  const fecha = mov.fecha ? fechaHoraDDMMAAAA(fechaDeTimestamp(mov.fecha)) : "-";   // de la base (UTC) a la hora de la computadora
+  const origen = ORIGENES[mov.origen] || "Ajuste";                 // ej: "Producción"
+  const numeroPedido = "#" + String(mov.numero).padStart(3, "0");  // ej: "#005" (solo lo usan los pedidos)
+
+  // La referencia, según sea el origen (descarte y ajuste no tienen)
+  let referencia = "—";
+  switch (mov.origen) {
+    case "compra":                                                 // según sea una compra: su número
+      referencia = "Compra #" + mov.numero;
+      break;
+    case "produccion":                                             // según sea un "Hecho": su pedido a cocina
+      referencia = mov.numero ? "Pedido a cocina #" + mov.numero : "Tanda vieja";  // las tandas de antes no tienen
+      break;
+    case "venta":                                                  // según sea una venta: el pedido
+      referencia = "Pedido " + numeroPedido;
+      break;
+    case "devolucion":                                             // según sea una anulación: el pedido anulado
+      referencia = "Pedido " + numeroPedido + " anulado";
+      break;
+    case "cocina":                                                 // según sea lo que gastó la cocina: el pedido
+      referencia = "Pedido " + numeroPedido;
+      break;
   }
 
-  return fragmento;
-}
+  // El tipo: pastilla verde ▲ o roja ▼, y el borde del renglón del mismo color
+  const esEntrada = mov.tipo === "entrada";
+  const textoTipo = esEntrada ? "▲ Entrada" : "▼ Salida";
+  const claseTipo = esEntrada ? "badge-entrada" : "badge-salida";
 
-// Dibuja un movimiento suelto (sin compra) en "destino" (el tbody o un fragmento)
-function dibujarMovimiento(mov, destino) {
-  const tr = document.createElement("tr");   // crear un renglón nuevo
-
-  // Fecha de la base (en UTC) → "12/10/2026 12:00" en hora de Argentina (fechas.js)
-  let fecha = "-";
-  if (mov.fecha) fecha = fechaHoraDDMMAAAA(fechaDeTimestamp(mov.fecha));
-
-  // Datos del insumo (puede faltar si el insumo se borró)
-  let nombreInsumo = "-";
-  let unidadInsumo = "";
-  if (mov.insumos) {
-    nombreInsumo = mov.insumos.nombre;
-    unidadInsumo = mov.insumos.unidad_medida;
-  }
-
-  // Tipo: badge con flecha + clases del CSS (color del badge y borde del renglón)
-  let tipo = "▼ SALIDA";
-  let claseTipo = "badge-salida";
-  tr.className = "fila-salida";
-  if (mov.tipo === "entrada") {
-    tipo = "▲ ENTRADA";
-    claseTipo = "badge-entrada";
-    tr.className = "fila-entrada";
-  }
-
-  // Cantidad en kg / lts. Si el movimiento no guardó unidad, uso la del insumo
-  const cantidad = mostrarCantidad(mov.cantidad, mov.unidad || unidadInsumo);
-
-  // Proveedor: solo lo tienen las compras
-  let proveedor = "-";
-  if (mov.compras && mov.compras.proveedor) proveedor = mov.compras.proveedor;
-
-  // Las 8 celdas (la última vacía: el botón Detalles es solo de las compras).
-  // Los textos que vienen de la base pasan por escHtml
-  tr.innerHTML = `
-    <td>${fecha}</td>
-    <td>${escHtml(nombreInsumo)}</td>
-    <td><span class="badge ${claseTipo}">${tipo}</span></td>
-    <td>${escHtml(cantidad)}</td>
-    <td>${escHtml(nombreUsuario(mov))}</td>
-    <td>${escHtml(proveedor)}</td>
-    <td>${escHtml(mov.motivo || "-")}</td>
-    <td></td>
-  `;
-
-  destino.appendChild(tr);   // pegar el renglón
-}
-
-// "Nombre Apellido" de quien registró el movimiento, o "-" si no se guardó
-function nombreUsuario(mov) {
-  if (!mov.usuarios) return "-";
-  return `${mov.usuarios.nombre || ""} ${mov.usuarios.apellido || ""}`.trim() || "-";
-}
-
-// Devuelve una COPIA ordenada: fecha más nueva primero y, si empatan
-// (ej: compras del mismo día, todas a las 12:00), id más alto primero.
-// Se ordena una copia para no desordenar listaMovimientos
-function ordenarMovimientos(movimientos) {
-  return [...movimientos].sort((a, b) => {
-    let fechaA = 0;
-    let fechaB = 0;
-    if (a.fecha) fechaA = fechaDeTimestamp(a.fecha).getTime(); // fecha → milisegundos, para restar
-    if (b.fecha) fechaB = fechaDeTimestamp(b.fecha).getTime();
-
-    if (fechaA !== fechaB) return fechaB - fechaA; // distinta fecha: la más nueva primero
-    return b.id - a.id;                            // misma fecha: el id más alto primero
+  // El resumen: cuántas viandas y cuántos insumos. Ej: "2 viandas · 2 insumos"
+  let totalViandas = 0;                                            // las viandas, sumadas
+  mov.viandas.forEach((vianda) => {
+    totalViandas = totalViandas + vianda.cantidad;
   });
-}
+  const textoViandas = totalViandas === 1 ? "1 vianda" : totalViandas + " viandas";
+  const textoInsumos = mov.insumos.length === 1 ? "1 insumo" : mov.insumos.length + " insumos";
+  const partesResumen = [];
+  if (mov.viandas.length > 0) partesResumen.push(textoViandas);
+  if (mov.insumos.length > 0) partesResumen.push(textoInsumos);
+  const resumen = partesResumen.join(" · ");                       // join las une con " · "
 
-// Junta los movimientos con el mismo id_compra en UN objeto:
-// { esCompra: true, id_compra, fecha, usuario, proveedor, items: [movimientos] }.
-// La compra queda donde aparece su primer movimiento (así se respeta el orden por fecha).
-// Los movimientos sin id_compra quedan como están.
-function agruparCompras(movimientos) {
-  const renglones = [];      // lo que se va a dibujar, en orden
-  const comprasPorId = {};   // "diccionario" para encontrar cada compra rápido
+  const proveedor = mov.proveedor || "—";                          // solo las compras tienen
+  const motivo = MOTIVO_FIJO[mov.origen] || mov.motivo || "—";     // el fijo, el escrito o "—"
 
-  movimientos.forEach((mov) => {
-    if (!mov.id_compra) {        // no es de una compra → va suelto
-      renglones.push(mov);
-      return;
-    }
-
-    let compra = comprasPorId[mov.id_compra];
-    if (!compra) {               // primer movimiento de esta compra: armo el grupo
-      let proveedor = "-";
-      if (mov.compras && mov.compras.proveedor) proveedor = mov.compras.proveedor;
-
-      compra = {
-        esCompra: true,
-        id_compra: mov.id_compra,
-        fecha: mov.fecha,
-        usuario: nombreUsuario(mov),
-        proveedor: proveedor,
-        items: [],
-      };
-      comprasPorId[mov.id_compra] = compra;
-      renglones.push(compra);
-    }
-
-    compra.items.push(mov);      // el movimiento pasa a ser un insumo de la compra
-  });
-
-  return renglones;
-}
-
-// Dibuja una compra: el renglón con el resumen y, debajo, el detalle (arranca oculto).
-// "tbody" es dónde se dibuja: la tabla o el fragmento de crearRenglon
-function dibujarCompra(compra, tbody) {
-  // 1. Renglón principal
+  // 2. El renglón (lo que viene de la base pasa por escHtml)
   const tr = document.createElement("tr");
-  tr.className = "fila-entrada";
-
-  let fecha = "-";
-  if (compra.fecha) fecha = fechaHoraDDMMAAAA(fechaDeTimestamp(compra.fecha));
-
-  // "1 insumo" o "3 insumos"
-  let cuantos = compra.items.length + " insumos";
-  if (compra.items.length === 1) cuantos = "1 insumo";
-
+  tr.className = esEntrada ? "fila-entrada" : "fila-salida";
   tr.innerHTML = `
-    <td>${fecha}</td>
-    <td><span class="flecha-grupo">▸</span> <strong>Compra #${escHtml(String(compra.id_compra))}</strong></td>
-    <td><span class="badge badge-entrada">▲ ENTRADA</span></td>
-    <td>${cuantos}</td>
-    <td>${escHtml(compra.usuario)}</td>
-    <td>${escHtml(compra.proveedor)}</td>
-    <td>-</td>
-    <td><button type="button" class="btn-detalles">Detalles</button></td>
+    <td>${escHtml(fecha)}</td>
+    <td>${escHtml(origen)}</td>
+    <td><span class="flecha-grupo">▸</span> <strong>${escHtml(referencia)}</strong></td>
+    <td><span class="badge ${claseTipo}">${textoTipo}</span></td>
+    <td>${escHtml(resumen)}</td>
+    <td>${escHtml(mov.usuario)}</td>
+    <td>${escHtml(proveedor)}</td>
+    <td>${escHtml(motivo)}</td>
+    <td><button type="button" class="btn-detalles">Ver</button></td>
   `;
 
-  // 2. Renglón de detalle: una fila por insumo comprado
+  // 3. El Detalle, en el renglón de abajo, a todo el ancho (arranca cerrado)
   const trDetalle = document.createElement("tr");
   trDetalle.className = "fila-detalle-grupo";
-  trDetalle.hidden = true;   // arranca cerrado
-  trDetalle.innerHTML = `
-    <td colspan="8">
-      <div class="tarjeta-compra">
-        <ul class="lista-compra">${compra.items.map(htmlItemCompra).join("")}</ul>
-      </div>
-    </td>
-  `;
+  trDetalle.hidden = true;
+  trDetalle.innerHTML = '<td colspan="9">' + htmlDetalle(mov) + "</td>";
 
-  // 3. El botón abre y cierra el detalle
+  // 4. "Ver" abre el Detalle y "Ocultar" lo cierra (la flechita gira)
   const boton = tr.querySelector(".btn-detalles");
   const flecha = tr.querySelector(".flecha-grupo");
   boton.addEventListener("click", () => {
-    trDetalle.hidden = !trDetalle.hidden;   // si estaba oculto se muestra, y al revés
+    trDetalle.hidden = !trDetalle.hidden;          // si estaba cerrado se abre, y al revés
     const abierto = !trDetalle.hidden;
-    boton.textContent = abierto ? "Ocultar" : "Detalles";
-    flecha.classList.toggle("abierta", abierto); // la flechita gira
+    boton.textContent = abierto ? "Ocultar" : "Ver";
+    flecha.classList.toggle("abierta", abierto);   // toggle(clase, sí/no): la pone si está abierto, la saca si no
   });
 
-  tbody.appendChild(tr);
-  tbody.appendChild(trDetalle);
+  // 5. Los dos renglones juntos
+  const fragmento = document.createDocumentFragment();
+  fragmento.appendChild(tr);
+  fragmento.appendChild(trDetalle);
+  return fragmento;
 }
 
-// Un insumo del detalle de la compra: nombre · cantidad · vencimiento
-function htmlItemCompra(mov) {
-  let nombre = "-";
-  let unidadInsumo = "";
-  if (mov.insumos) {
-    nombre = mov.insumos.nombre;
-    unidadInsumo = mov.insumos.unidad_medida;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// htmlDetalle → lo de adentro del Detalle de un movimiento, según su origen
+// ENTRADA: mov (uno de listaMovimientos)
+// SALIDA:  el HTML de la tarjeta (todo lo de la base pasa por escHtml):
+//          compra → insumos con cantidad y vencimiento · producción → quién pidió y quién marcó Hecho,
+//          las viandas que entraron y los insumos que se usaron · venta → el cliente y los platos que salieron ·
+//          devolución → los platos que volvieron · descarte y ajuste → el motivo y qué · cocina → los insumos
+// Ej: el "Hecho" de 2 fideos → "Lo pidió: Mauri Rodriguez" / "Marcó Hecho: Ana López" /
+//     "Viandas que entraron a la heladera: fideos · 2 viandas" / "Insumos que se usaron: Harina integral · 600 g, Huevo · 4 u"
+// ─────────────────────────────────────────────────────────────────────────────
+function htmlDetalle(mov) {
+  // 1. Las personas y el porqué, según sea el origen
+  let datos = "";
+  switch (mov.origen) {
+    case "produccion":                                             // según sea un "Hecho": quién lo pidió y quién lo marcó
+      datos = '<p class="detalle-linea"><strong>Lo pidió:</strong> ' + escHtml(mov.pidio || "—") + "</p>" +
+              '<p class="detalle-linea"><strong>Marcó Hecho:</strong> ' + escHtml(mov.usuario) + "</p>";
+      break;
+    case "venta":                                                  // según sea una venta: el cliente
+      datos = '<p class="detalle-linea"><strong>Cliente:</strong> ' + escHtml(mov.cliente || "—") + "</p>";
+      break;
+    case "descarte":                                               // según sea un descarte: por qué
+      datos = '<p class="detalle-linea"><strong>Motivo:</strong> ' + escHtml(mov.motivo || "—") + "</p>";
+      break;
+    case "ajuste":                                                 // según sea un ajuste: por qué
+      datos = '<p class="detalle-linea"><strong>Motivo:</strong> ' + escHtml(mov.motivo || "—") + "</p>";
+      break;
   }
 
-  const cantidad = mostrarCantidad(mov.cantidad, mov.unidad || unidadInsumo);
+  // 2. Los platos: "fideos · 2 viandas"
+  //    map arma una lista nueva con un <li> por plato y join la une. Ej: [{ plato: 'fideos', cantidad: 2 }] → '<li>…fideos…2 viandas…</li>'
+  const lineasViandas = mov.viandas.map((vianda) => {
+    const cantidad = vianda.cantidad === 1 ? "1 vianda" : vianda.cantidad + " viandas";
+    return "<li><span>" + escHtml(vianda.plato) + '</span><span class="cantidad-insumo">' + escHtml(cantidad) + "</span></li>";
+  }).join("");
 
-  // Vencimiento 'AAAA-MM-DD' → "31/12/2026" (fechas.js), o "-" si no tiene
-  let vence = "-";
-  if (mov.fecha_vencimiento) vence = fechaDDMMAAAA(parseFechaLocal(mov.fecha_vencimiento));
+  // 3. Los insumos: "Harina integral · 600 g" (las compras, también "Vence: 31/12/2026")
+  const conVencimiento = mov.origen === "compra";
+  const lineasInsumos = mov.insumos.map((insumo) => {
+    const cantidad = mostrarCantidad(insumo.cantidad, insumo.unidad);                          // ej: 16600 ml → "16,6 lts"
+    const vence = insumo.vence ? fechaDDMMAAAA(parseFechaLocal(insumo.vence)) : "-";           // 'AAAA-MM-DD' → "31/12/2026"
+    const textoVence = conVencimiento ? '<span class="vence-insumo">Vence: ' + escHtml(vence) + "</span>" : "";
+    return "<li><span>" + escHtml(insumo.nombre) + '</span><span class="cantidad-insumo">' + escHtml(cantidad) + "</span>" + textoVence + "</li>";
+  }).join("");
 
-  return `
-    <li>
-      <span>${escHtml(nombre)}</span>
-      <span class="cantidad-insumo">${escHtml(cantidad)}</span>
-      <span class="vence-insumo">Vence: ${vence}</span>
-    </li>`;
+  // 4. Cada parte con su título (solo las que tiene)
+  const tituloViandas = TITULO_VIANDAS[mov.origen] || "Platos";
+  const tituloInsumos = TITULO_INSUMOS[mov.origen] || "Insumos";
+  const parteViandas = lineasViandas ? '<p class="detalle-titulo">' + tituloViandas + '</p><ul class="lista-compra">' + lineasViandas + "</ul>" : "";
+  const parteInsumos = lineasInsumos ? '<p class="detalle-titulo">' + tituloInsumos + '</p><ul class="lista-compra">' + lineasInsumos + "</ul>" : "";
+
+  return '<div class="tarjeta-compra">' + datos + parteViandas + parteInsumos + "</div>";
 }
 
 
-// ---------- FILTROS ----------
-
-// ¿El movimiento es del tipo elegido en el select? ("" = Todos)
-function coincideTipo(mov, tipo) {
-  if (tipo === "entrada") return mov.tipo === "entrada";
-  if (tipo === "produccion") return mov.tipo === "salida" && Boolean(mov.id_movimiento_vianda);
-  if (tipo === "salida-otra") return mov.tipo === "salida" && !mov.id_movimiento_vianda;
-  return true;
-}
-
-// Fecha de la base → día 'AAAA-MM-DD' en hora de ARGENTINA, aunque la compu tenga otra zona.
-// Así un movimiento de las 23:00 no cae en el día siguiente.
-// "en-CA" es el formato de Canadá, que escribe justo 'AAAA-MM-DD'
-function diaArgentina(texto) {
-  return fechaDeTimestamp(texto).toLocaleDateString("en-CA", {
-    timeZone: "America/Argentina/Buenos_Aires",
-  });
-}
-
-// ¿La fecha del movimiento está entre Desde y Hasta? (vacías = sin límite, los dos días incluidos)
-// Se compara el día 'AAAA-MM-DD' como texto: '2026-10-05' < '2026-10-12'.
-// Si Desde es mayor que Hasta, ninguno pasa → "No hay movimientos"
-function coincideFecha(mov, desde, hasta) {
-  if (!mov.fecha) return !desde && !hasta;
-  const dia = diaArgentina(mov.fecha);
-  if (desde && dia < desde) return false;
-  if (hasta && dia > hasta) return false;
-  return true;
-}
-
-// ¿El nombre del insumo contiene lo que se escribió en el buscador?
-function coincideInsumo(mov, texto) {
-  if (!texto) return true;
-  let nombre = "";
-  if (mov.insumos) nombre = mov.insumos.nombre.toLowerCase();
-  return nombre.includes(texto);
-}
-
-// Filtra listaMovimientos con los filtros de arriba y redibuja la tabla
-function filtrarMovimientos() {
-  const texto = filtroInsumo.value.trim().toLowerCase();
-  const tipo = filtroTipo.value;
-  const desde = filtroDesde.value;
-  const hasta = filtroHasta.value;
-
-  // Compras que tienen ALGÚN insumo que coincide con el buscador:
-  // de esas se muestran todos sus insumos, así el detalle no queda incompleto
-  const comprasQueCoinciden = new Set();
-  listaMovimientos.forEach((mov) => {
-    if (mov.id_compra && coincideInsumo(mov, texto)) comprasQueCoinciden.add(mov.id_compra);
-  });
-
-  const filtrados = listaMovimientos.filter((mov) => {
-    const insumoOk = coincideInsumo(mov, texto) || comprasQueCoinciden.has(mov.id_compra);
-    return insumoOk && coincideTipo(mov, tipo) && coincideFecha(mov, desde, hasta);
-  });
-
-  renderizarMovimientos(filtrados);
-}
-
-
-// Al cargar la página: traer los insumos, llenar el select de categorías y dibujar los movimientos
+// Al cargar la página: las fechas en los últimos 30 días, los insumos (para el modal de compra)
+// y los movimientos
 document.addEventListener("DOMContentLoaded", async () => {
+  const hoy = new Date();                                                              // hoy, en la computadora
+  const hace30Dias = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 30); // hace 30 días
+  filtroDesde.value = fechaLocalISO(hace30Dias);                                       // 'AAAA-MM-DD' (fechas.js)
+  filtroHasta.value = fechaLocalISO(hoy);
+
   listaInsumos = await traerInsumos();
   llenarCategorias(listaInsumos);
   listaMovimientos = await traerMovimientos();
   filtrarMovimientos();
 });
-
-

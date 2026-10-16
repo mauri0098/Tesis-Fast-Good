@@ -48,39 +48,46 @@
         </div>
       </div>
 
-      <!-- Filtros -->
+      <!-- Filtros: el buscador, qué se ve (todo / insumos / viandas), entradas o salidas, y las fechas
+           (arrancan en los últimos 30 días; al cambiarlas se piden de nuevo al servidor) -->
       <div class="filtros-bar">
-        <input type="text" id="filtroInsumo" placeholder="Buscar insumo" />
+        <input type="text" id="filtroInsumo" placeholder="Buscar insumo o plato" />
 
-        <select id="filtroTipo">
-          <option value="">Todos los tipos</option>
-          <option value="entrada">Entradas (compras)</option>
-          <option value="produccion">Salidas por producción</option>
-          <option value="salida-otra">Otras salidas</option>
+        <select id="filtroQue" title="Qué se ve">
+          <option value="todo">Todo</option>
+          <option value="insumos">Insumos</option>
+          <option value="viandas">Viandas</option>
+        </select>
+
+        <select id="filtroTipo" title="Entradas o salidas">
+          <option value="">Entradas y salidas</option>
+          <option value="entrada">Entradas</option>
+          <option value="salida">Salidas</option>
         </select>
 
         <input type="date" id="filtroDesde" title="Desde" />
         <input type="date" id="filtroHasta" title="Hasta" />
       </div>
 
-      <!-- Tabla: el JS llena el tbody -->
+      <!-- Tabla: el JS llena el tbody. Una fila por movimiento (insumos y viandas, todo junto) -->
       <div class="table-wrapper">
         <table>
           <thead>
             <tr>
               <th>Fecha y Hora</th>
-              <th>Insumo</th>
+              <th>Origen</th>
+              <th>Referencia</th>
               <th>Tipo</th>
-              <th>Cantidad</th>
+              <th>Resumen</th>
               <th>Usuario</th>
               <th>Proveedor</th>
               <th>Motivo</th>
-              <th></th> <!-- botón Detalles de las compras -->
+              <th>Detalle</th> <!-- botón Ver / Ocultar -->
             </tr>
           </thead>
           <tbody id="movimientosBody">
             <tr class="empty-row">
-              <td colspan="8">Cargando...</td>
+              <td colspan="9">Cargando...</td>
             </tr>
           </tbody>
         </table>

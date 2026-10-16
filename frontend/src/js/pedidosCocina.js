@@ -1,277 +1,241 @@
 // ============================================================================
-// pedidosCocina.js — Pendientes de cocina (pedidos a cocina), compartido por
-// Producción (heladera.html) y Tareas de Cocina (cocinero.html).
-// Dibuja la lista agrupada por cocinero, con un botón "Hecho" por plato, y marca
-// los platos hechos (POST /api/ordenes-produccion/detalles/:id/hecho).
-// Necesita antes: api.js (apiFetch), escape.js (escHtml) y fechas.js.
+// pedidosCocina.js — Pendientes de cocina (pedidos a cocina). Lo comparten Producción (heladera.html)
+// y Tareas de Cocina (cocinero.html, la parte "Para stock").
+//
+// Funciones:
+//   conPlural        → "1 plato" / "3 platos" (también la usan heladera.js y pedirCocina.js)
+//   cargarPendientes → pide los pendientes (GET /api/ordenes-produccion/pendientes) y los dibuja: una tarjeta por
+//                      cocinero, con un botón "Hecho" por plato si la pantalla lo pide. Devuelve la lista (o null)
+//   marcarHecho      → el botón "Hecho": pregunta, marca el plato (POST /api/ordenes-produccion/detalles/:id/hecho),
+//                      muestra el resultado arriba de la lista y recarga lo que pida la pantalla
+//
+// Necesita antes: api.js (apiFetch), escape.js (escHtml) y fechas.js (fechaLocalISO, parseFechaLocal).
 // Lo que viene de la base pasa por escHtml (o se pone con textContent).
 // ============================================================================
 
-let marcandoHecho = false; // true mientras se marca un plato: el refresco automático espera
+let marcandoHecho = false;   // true mientras se marca un plato: la recarga automática espera (la mira cocinero.html)
 
-// Por cada lista dibujada (clave: id del contenedor):
-//   { conBotonHecho, recargar, porId }
-//   recargar: función de la pantalla que se llama después de marcar (recarga lo suyo)
-//   porId: los renglones por id, para armar la confirmación
+// Por cada lista dibujada (clave: el id del contenedor): { conBotonHecho, recargar, porId }
+//   conBotonHecho: si cada plato lleva el botón "Hecho"
+//   recargar:      la función de la pantalla que se llama después de marcar (recarga lo suyo)
+//   porId:         los platos por número, para la pregunta "¿Marcar 2 fideos como hecho?"
 const listasPendientes = {};
 
-// "1 plato" / "3 platos"
+
+// ─────────────────────────────────────────────────────────────────────────────
+// conPlural → un número con su palabra en singular o en plural
+// ENTRADA: cantidad, la palabra en singular y en plural
+// SALIDA:  el texto. Ej: (1, 'plato', 'platos') → "1 plato" · (3, 'plato', 'platos') → "3 platos"
+// ─────────────────────────────────────────────────────────────────────────────
 function conPlural(cantidad, singular, plural) {
-  if (cantidad === 1) return cantidad + ' ' + singular;
-  return cantidad + ' ' + plural;
+  const palabra = cantidad === 1 ? singular : plural;           // uno: singular; cero o varios: plural
+  return cantidad + ' ' + palabra;
 }
 
-// "2026-10-08" → "08/10"
-function diaMes(texto) {
-  const fecha = parseFechaLocal(texto);
-  const dd = String(fecha.getDate()).padStart(2, '0');
-  const mm = String(fecha.getMonth() + 1).padStart(2, '0');
-  return `${dd}/${mm}`;
-}
 
-// Urgencia de una fecha "AAAA-MM-DD" comparada con hoy (fecha de la computadora):
-// 'atrasado' si ya pasó, 'hoy' si es hoy, '' si es más adelante
-function urgenciaFecha(fechaPara) {
-  const hoy = fechaLocalISO(new Date());
-  if (fechaPara < hoy) return 'atrasado';
-  if (fechaPara === hoy) return 'hoy';
-  return '';
-}
-
-// Arma (la primera vez) las dos partes del contenedor: el cuadro del resultado y la lista.
-// Los clics en "Hecho" se escuchan sobre la lista entera, una sola vez.
-function partesDeLista(idContenedor) {
-  const contenedor = document.getElementById(idContenedor);
-  let lista = contenedor.querySelector('.pend-contenido');
-
-  if (!lista) {
-    contenedor.innerHTML = '<div class="aviso-hecho" hidden></div><div class="pend-contenido"></div>';
-    lista = contenedor.querySelector('.pend-contenido');
-    lista.addEventListener('click', (e) => {
-      const boton = e.target.closest('.btn-hecho');
-      if (boton) marcarDetalleHecho(idContenedor, Number(boton.dataset.id), boton);
-    });
-  }
-
-  return { aviso: contenedor.querySelector('.aviso-hecho'), lista };
-}
-
-// Pide los pendientes y los dibuja en el contenedor.
-// opciones (la primera vez): { conBotonHecho, recargar }. En las recargas no hace falta pasarlas.
-// Devuelve la lista de pendientes, o null si no se pudo cargar.
+// ─────────────────────────────────────────────────────────────────────────────
+// cargarPendientes → pide los platos pedidos a cocina que no están hechos y los dibuja en un contenedor
+// ENTRADA: idContenedor ('listaPendientes' en Producción, 'listaParaStock' en Tareas de Cocina) y, la primera
+//          vez, opciones { conBotonHecho, recargar }. En las recargas no hace falta pasarlas.
+// SALIDA:  la lista de pendientes (o null si no se pudo cargar). En pantalla: "3 platos pendientes · 25 viandas"
+//          y una tarjeta por cocinero ("Sin cocinero asignado" al final), cada plato con su "Hecho" si se pidió.
+// Ej: "Ana López · 1 plato · 2 viandas" / "2  fideos Mantenimiento" / "para el 16/10 hoy · pedido #9" [Hecho]
+// El servidor manda todo ordenado por fecha y número de pedido: la primera tarjeta es la más urgente.
+// ─────────────────────────────────────────────────────────────────────────────
 async function cargarPendientes(idContenedor, opciones) {
-  if (opciones) listasPendientes[idContenedor] = { ...opciones, porId: {} };
-
-  try {
-    const res = await apiFetch('/api/ordenes-produccion/pendientes');
-    if (!res.ok) throw new Error();
-    const pendientes = await res.json();
-    renderizarPendientes(idContenedor, pendientes);
-    return pendientes;
-  } catch {
-    partesDeLista(idContenedor).lista.innerHTML =
-      '<p class="pend-vacio pend-error">Error al cargar los pendientes de cocina</p>';
-    return null;
-  }
-}
-
-function renderizarPendientes(idContenedor, pendientes) {
-  const { lista } = partesDeLista(idContenedor);
+  // 1. La configuración de esta lista (la primera vez vienen las opciones)
+  if (opciones) listasPendientes[idContenedor] = { conBotonHecho: opciones.conBotonHecho, recargar: opciones.recargar, porId: {} };
   const config = listasPendientes[idContenedor];
 
-  config.porId = {};
-  pendientes.forEach(d => { config.porId[d.id] = d; });
+  // 2. La primera vez se arman las dos partes del contenedor: el cuadro del resultado de "Hecho" y la lista.
+  //    Los clics en "Hecho" se escuchan sobre la lista entera, una sola vez (así sirven para los platos nuevos).
+  const contenedor = document.getElementById(idContenedor);
+  const yaArmado = Boolean(contenedor.querySelector('.pend-contenido'));  // ¿ya se armó antes?
+  if (!yaArmado) contenedor.innerHTML = '<div class="aviso-hecho" hidden></div><div class="pend-contenido"></div>';
+  const lista = contenedor.querySelector('.pend-contenido');      // la lista de tarjetas
+  if (!yaArmado) lista.addEventListener('click', evento => marcarHecho(idContenedor, evento));  // un clic en la lista
 
-  if (pendientes.length === 0) {
-    lista.innerHTML = '<p class="pend-vacio">No hay nada pendiente en cocina.</p>';
-    return;
+  // 3. Se piden los pendientes
+  let pendientes = null;
+  try {
+    const respuesta = await apiFetch('/api/ordenes-produccion/pendientes');
+    if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);  // si el servidor dio error, va al catch
+    pendientes = await respuesta.json();
+  } catch (error) {                                               // si no se pudo...
+    console.error('No se pudieron cargar los pendientes de cocina:', error);  // ...el detalle a la consola
+    lista.innerHTML = '<p class="pend-vacio pend-error">Error al cargar los pendientes de cocina</p>';
+    return null;
   }
 
-  // Una tarjeta por cocinero (agrupado por id). El servidor manda todo ordenado por fecha y
-  // número de pedido, así que las tarjetas quedan en orden de urgencia (la primera es la que
-  // tiene lo más urgente) y adentro de cada una también. Sin cocinero: tarjeta aparte, al final.
-  const tarjetas = [];
-  const tarjetaPorId = {};
-  const sinCocinero = { nombre: 'Sin cocinero asignado', sinAsignar: true, platos: [] };
-  let totalViandas = 0;
-
-  pendientes.forEach(d => {
-    totalViandas += Number(d.cantidad);
-
-    if (!d.id_cocinero) {
-      sinCocinero.platos.push(d);
-      return;
-    }
-
-    let tarjeta = tarjetaPorId[d.id_cocinero];
-    if (!tarjeta) {
-      let nombre = 'Cocinero';
-      if (d.cocinero) nombre = d.cocinero;
-      tarjeta = { nombre, sinAsignar: false, platos: [] };
-      tarjetaPorId[d.id_cocinero] = tarjeta;
-      tarjetas.push(tarjeta);
-    }
-    tarjeta.platos.push(d);
+  // 4. Se guardan por número (para la pregunta de "Hecho")
+  config.porId = {};
+  pendientes.forEach(detalle => {
+    config.porId[detalle.id] = detalle;
   });
+  if (pendientes.length === 0) {
+    lista.innerHTML = '<p class="pend-vacio">No hay nada pendiente en cocina.</p>';
+    return pendientes;
+  }
 
-  if (sinCocinero.platos.length > 0) tarjetas.push(sinCocinero);
+  // 5. Una tarjeta por cocinero. Cada plato se dibuja de una vez en el html de su tarjeta
+  //    (así no hace falta un forEach adentro de otro). Los que no tienen cocinero van a una tarjeta aparte.
+  const hoy = fechaLocalISO(new Date());                          // hoy, 'AAAA-MM-DD' (fechas.js)
+  const tarjetas = [];                                            // las tarjetas, en orden de urgencia
+  const tarjetaPorId = {};                                        // { id_cocinero: tarjeta }
+  const sinCocinero = { nombre: 'Sin cocinero asignado', sinAsignar: true, filas: '', platos: 0, viandas: 0 };
+  let totalViandas = 0;                                           // las viandas de todos los platos
+  pendientes.forEach(detalle => {                                 // por cada plato pendiente...
+    totalViandas = totalViandas + Number(detalle.cantidad);
 
-  const resumen = `
-    <p class="pend-resumen">
-      ${conPlural(pendientes.length, 'plato pendiente', 'platos pendientes')} · ${conPlural(totalViandas, 'vianda', 'viandas')}
-    </p>
-  `;
-  lista.innerHTML = resumen + tarjetas.map(t => crearTarjetaCocinero(t, config.conBotonHecho)).join('');
-}
-
-// Tarjeta de un cocinero: nombre grande, "3 platos · 25 viandas" y un renglón por plato.
-// conBoton: cada renglón lleva el botón "Hecho".
-function crearTarjetaCocinero(tarjeta, conBoton) {
-  let viandas = 0;
-  tarjeta.platos.forEach(d => { viandas += Number(d.cantidad); });
-
-  const filas = tarjeta.platos.map(d => {
-    const urgencia = urgenciaFecha(d.fecha_para);
-    let clase = '';
-    let marca = '';
-    if (urgencia) {
-      clase = 'pend-' + urgencia;
-      marca = `<span class="marca-urgencia">${urgencia}</span>`;
+    // a. Su tarjeta: la de su cocinero (se crea la primera vez que aparece) o la de "sin cocinero"
+    const idCocinero = detalle.id_cocinero;                       // de quién es (null = de nadie)
+    const tarjetaNueva = Boolean(idCocinero) && !tarjetaPorId[idCocinero];  // ¿primera vez de este cocinero?
+    if (tarjetaNueva) {
+      tarjetaPorId[idCocinero] = { nombre: detalle.cocinero || 'Cocinero', sinAsignar: false, filas: '', platos: 0, viandas: 0 };
+      tarjetas.push(tarjetaPorId[idCocinero]);
     }
+    const tarjeta = idCocinero ? tarjetaPorId[idCocinero] : sinCocinero;
 
-    let plan = '';
-    if (d.plan) plan = `<span class="pend-plan">${escHtml(d.plan)}</span>`;
+    // b. La urgencia: 'atrasado' si el día ya pasó, 'hoy' si es hoy ('AAAA-MM-DD' se compara como texto)
+    let urgencia = '';                                            // más adelante: sin marca
+    if (detalle.fecha_para === hoy) urgencia = 'hoy';
+    if (detalle.fecha_para < hoy) urgencia = 'atrasado';
+    const clase = urgencia ? 'pend-' + urgencia : '';
+    const marca = urgencia ? '<span class="marca-urgencia">' + urgencia + '</span>' : '';
 
-    let boton = '';
-    if (conBoton) boton = `<button type="button" class="btn-hecho" data-id="${Number(d.id)}">Hecho</button>`;
+    // c. Lo que va en el renglón, calculado antes (nada de "? :" adentro del HTML)
+    const fecha = parseFechaLocal(detalle.fecha_para);            // '2026-10-08' → fecha
+    const diaMes = String(fecha.getDate()).padStart(2, '0') + '/' + String(fecha.getMonth() + 1).padStart(2, '0');  // "08/10"
+    const plan = detalle.plan ? '<span class="pend-plan">' + escHtml(detalle.plan) + '</span>' : '';
+    const boton = config.conBotonHecho ? '<button type="button" class="btn-hecho" data-id="' + Number(detalle.id) + '">Hecho</button>' : '';
 
-    return `
+    tarjeta.filas += `
       <li class="${clase}">
-        <span class="pend-cantidad">${Number(d.cantidad)}</span>
+        <span class="pend-cantidad">${Number(detalle.cantidad)}</span>
         <div class="pend-info">
-          <div class="pend-plato">${escHtml(d.plato)} ${plan}</div>
+          <div class="pend-plato">${escHtml(detalle.plato)} ${plan}</div>
           <div class="pend-detalle">
-            para el ${escHtml(diaMes(d.fecha_para))}${marca}
-            <span class="pend-numero">· pedido #${Number(d.id_orden)}</span>
+            para el ${escHtml(diaMes)}${marca}
+            <span class="pend-numero">· pedido #${Number(detalle.id_orden)}</span>
           </div>
         </div>
         ${boton}
-      </li>
-    `;
-  }).join('');
+      </li>`;
+    tarjeta.platos = tarjeta.platos + 1;                          // un plato más en la tarjeta
+    tarjeta.viandas = tarjeta.viandas + Number(detalle.cantidad); // y sus viandas
+  });
+  if (sinCocinero.platos > 0) tarjetas.push(sinCocinero);         // "sin cocinero" va al final
 
-  let claseTarjeta = 'tarjeta-cocinero';
-  if (tarjeta.sinAsignar) claseTarjeta += ' sin-asignar';
-
-  return `
-    <div class="${claseTarjeta}">
-      <div class="tarjeta-cabecera">
-        <h4 class="tarjeta-nombre">${escHtml(tarjeta.nombre)}</h4>
-        <span class="tarjeta-resumen">${conPlural(tarjeta.platos.length, 'plato', 'platos')} · ${conPlural(viandas, 'vianda', 'viandas')}</span>
-      </div>
-      <ul class="pend-platos">${filas}</ul>
-    </div>
-  `;
+  // 6. El resumen y las tarjetas
+  let html = `
+    <p class="pend-resumen">
+      ${conPlural(pendientes.length, 'plato pendiente', 'platos pendientes')} · ${conPlural(totalViandas, 'vianda', 'viandas')}
+    </p>`;
+  tarjetas.forEach(tarjeta => {                                   // por cada tarjeta...
+    const claseTarjeta = tarjeta.sinAsignar ? 'tarjeta-cocinero sin-asignar' : 'tarjeta-cocinero';
+    html += `
+      <div class="${claseTarjeta}">
+        <div class="tarjeta-cabecera">
+          <h4 class="tarjeta-nombre">${escHtml(tarjeta.nombre)}</h4>
+          <span class="tarjeta-resumen">${conPlural(tarjeta.platos, 'plato', 'platos')} · ${conPlural(tarjeta.viandas, 'vianda', 'viandas')}</span>
+        </div>
+        <ul class="pend-platos">${tarjeta.filas}</ul>
+      </div>`;
+  });
+  lista.innerHTML = html;
+  return pendientes;                                              // la lista (heladera.js pone cuántos hay en su botón)
 }
 
-// Botón "Hecho": confirma, marca el plato y recarga. El resultado queda en el cuadro de arriba.
-// El marcado y la recarga van en try separados: si el plato se marcó bien y después falla
-// la recarga, el cuadro sigue diciendo "hecho" (lo marcado no se deshace por eso).
-async function marcarDetalleHecho(idContenedor, idDetalle, boton) {
+
+// ─────────────────────────────────────────────────────────────────────────────
+// marcarHecho → un clic en la lista de pendientes: si fue en un botón "Hecho", marca ese plato
+// ENTRADA: idContenedor (de qué lista) y evento (el clic; el botón tocado se busca con closest)
+// SALIDA:  nada. Pregunta "¿Marcar 2 fideos como hecho?"; si dice que sí, lo marca y deja el resultado en el
+//          cuadro de arriba de la lista: verde "✓ 2 fideos: hecho.", amarillo con avisos ("Faltaron 39 u de Huevo"),
+//          gris si la base no lo aceptó (ej: "Este plato ya estaba marcado como hecho") o rojo si falló.
+//          Después recarga (lo que ya está hecho desaparece).
+// Lo hace el servidor con producir_viandas: heladera +2, insumos − receta × 2 y renglón "produccion".
+// ─────────────────────────────────────────────────────────────────────────────
+async function marcarHecho(idContenedor, evento) {
+  // 1. Qué plato: el del botón "Hecho" tocado (closest = el botón donde se hizo clic, o null si se tocó otra cosa)
+  const boton = evento.target.closest('.btn-hecho');
+  if (!boton) return;                                             // se tocó otra parte de la lista
   const config = listasPendientes[idContenedor];
-  const detalle = config.porId[idDetalle];
-  if (!detalle || marcandoHecho) return;
+  const detalle = config.porId[Number(boton.dataset.id)];         // el plato tocado
+  if (!detalle || marcandoHecho) return;                          // si no está, o ya se está marcando otro, nada
 
-  const texto = Number(detalle.cantidad) + ' ' + detalle.plato;
-  if (!confirm('¿Marcar ' + texto + ' como hecho?')) return;
+  // 2. Se pregunta
+  const texto = Number(detalle.cantidad) + ' ' + detalle.plato;   // ej: "2 fideos"
+  if (!confirm('¿Marcar ' + texto + ' como hecho?')) return;      // si dice que no, nada
 
-  marcandoHecho = true;
-  boton.disabled = true;
-
+  marcandoHecho = true;                                           // la recarga automática espera
+  boton.disabled = true;                                          // un doble clic no marca dos veces
   try {
-    // 1. Marcar
+    // 3. Se marca. El resultado queda en { tipo, mensaje, detalles } para mostrarlo en el paso 4.
+    //    tipo: 'ok' (verde), 'aviso' (amarillo), 'info' (gris) o 'error' (rojo)
+    let resultado = { tipo: 'error', mensaje: 'No se pudo conectar con el servidor.', detalles: [] };
     try {
-      const res = await apiFetch(`/api/ordenes-produccion/detalles/${idDetalle}/hecho`, { method: 'POST' });
-      const data = await res.json().catch(() => ({}));
+      const respuesta = await apiFetch(`/api/ordenes-produccion/detalles/${detalle.id}/hecho`, { method: 'POST' });
+      const datos = await respuesta.json().catch(() => ({}));     // la respuesta (si no es JSON, un objeto vacío)
 
-      if (res.ok) {
-        const avisos = textosAvisos(data.avisos);
-        let tipo = 'ok';
-        if (avisos.length > 0) tipo = 'aviso';
-        mostrarResultadoHecho(idContenedor, tipo, '✓ ' + texto + ': hecho.', avisos);
-      } else if (res.status === 409) {
-        mostrarResultadoHecho(idContenedor, 'info', 'Ya estaba marcado.', []);
-      } else {
-        mostrarResultadoHecho(idContenedor, 'error', data.error || 'No se pudo marcar el plato como hecho.', []);
-      }
-    } catch {
-      // No llegó la respuesta: no se sabe si se marcó. Se avisa y se recarga para ver cómo quedó.
-      mostrarResultadoHecho(idContenedor, 'error', 'No se pudo conectar con el servidor.', []);
+      // Los avisos, en frases: "Faltaron 2 kg de Pollo" o el texto del aviso (ej: el de "sin receta")
+      const avisos = Array.isArray(datos.avisos) ? datos.avisos : [];
+      const frases = [];
+      avisos.forEach(aviso => {                                   // por cada aviso...
+        const unidad = aviso.unidad ? ' ' + aviso.unidad : '';    // ...su unidad, si tiene
+        const falta = Number(aviso.falta).toLocaleString('es-AR', { maximumFractionDigits: 2 });  // ej: 1.250,5
+        frases.push(aviso.tipo === 'insumo_corto' ? 'Faltaron ' + falta + unidad + ' de ' + aviso.nombre : aviso.mensaje || 'Aviso sin detalle');
+      });
+
+      // Qué pasó, según sea la respuesta: se marcó (ok), la base no lo aceptó (409) u otro error
+      const RESULTADOS = {
+        ok:        { tipo: frases.length > 0 ? 'aviso' : 'ok', mensaje: '✓ ' + texto + ': hecho.', detalles: frases },
+        rechazado: { tipo: 'info',  mensaje: datos.error || 'Ya estaba marcado.', detalles: [] },    // el motivo de verdad
+        error:     { tipo: 'error', mensaje: datos.error || 'No se pudo marcar el plato como hecho.', detalles: [] }
+      };
+      let clave = 'error';
+      if (respuesta.status === 409) clave = 'rechazado';
+      if (respuesta.ok) clave = 'ok';
+      resultado = RESULTADOS[clave];
+    } catch (error) {
+      // No llegó la respuesta: no se sabe si se marcó. Se avisa (el resultado de arriba) y se recarga para ver cómo quedó.
+      console.error('No se pudo marcar el plato como hecho:', error);
       boton.disabled = false;
     }
 
-    // 2. Recargar (en todos los casos: desaparece lo que ya está hecho).
-    //    Si falla, el cuadro queda como está; la lista muestra su propio error.
+    // 4. El resultado, en el cuadro de arriba de la lista. Todo con textContent: nada se interpreta como HTML.
+    const cuadro = document.getElementById(idContenedor).querySelector('.aviso-hecho');
+    cuadro.className = 'aviso-hecho aviso-hecho--' + resultado.tipo;  // su color
+    cuadro.innerHTML = '';                                        // se borra el anterior
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'aviso-hecho-cuerpo';
+    const linea = document.createElement('div');
+    linea.textContent = resultado.mensaje;                        // la frase principal
+    cuerpo.appendChild(linea);
+    const listaAvisos = document.createElement('ul');             // los avisos, uno por renglón
+    resultado.detalles.forEach(frase => {
+      const renglon = document.createElement('li');
+      renglon.textContent = frase;
+      listaAvisos.appendChild(renglon);
+    });
+    if (resultado.detalles.length > 0) cuerpo.appendChild(listaAvisos);  // solo si hay avisos
+    const cerrar = document.createElement('button');              // la × para cerrarlo
+    cerrar.type = 'button';
+    cerrar.className = 'aviso-hecho-cerrar';
+    cerrar.setAttribute('aria-label', 'Cerrar');
+    cerrar.textContent = '×';
+    cerrar.addEventListener('click', () => { cuadro.hidden = true; });
+    cuadro.appendChild(cuerpo);
+    cuadro.appendChild(cerrar);
+    cuadro.hidden = false;                                        // se muestra (queda hasta cerrarlo o marcar otro)
+
+    // 5. Se recarga, en todos los casos (lo hecho desaparece). Si falla, cada lista muestra su propio error.
     try {
       await config.recargar();
-    } catch {
-      // Nada que mostrar acá: cada lista avisa su error al no poder cargarse
+    } catch (error) {
+      console.error('No se pudo recargar después de "Hecho":', error);
     }
-  } finally {
-    marcandoHecho = false;
+  } finally {                                                     // pase lo que pase...
+    marcandoHecho = false;                                        // ...la recarga automática vuelve a andar
   }
-}
-
-// Número con hasta 2 decimales, formato argentino (ej: 1.250,5)
-function numeroCorto(n) {
-  return Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 });
-}
-
-// Avisos del servidor en frases: "Faltaron 2 kg de Pollo" o el mensaje de "sin receta"
-function textosAvisos(avisos) {
-  if (!Array.isArray(avisos)) return [];
-  return avisos.map(a => {
-    if (a.tipo === 'insumo_corto') {
-      let unidad = '';
-      if (a.unidad) unidad = ' ' + a.unidad;
-      return 'Faltaron ' + numeroCorto(a.falta) + unidad + ' de ' + a.nombre;
-    }
-    return a.mensaje || 'Aviso sin detalle';
-  });
-}
-
-// Cuadro con el resultado del último "Hecho", arriba de la lista. Queda hasta cerrarlo o marcar otro.
-// tipo: 'ok' (verde), 'aviso' (amarillo: se hizo, con avisos), 'info' (gris) o 'error' (rojo).
-// Todo con textContent: lo que viene de la base no se interpreta como HTML.
-function mostrarResultadoHecho(idContenedor, tipo, mensaje, detalles) {
-  const { aviso } = partesDeLista(idContenedor);
-  aviso.className = 'aviso-hecho aviso-hecho--' + tipo;
-  aviso.innerHTML = '';
-
-  const cuerpo = document.createElement('div');
-  cuerpo.className = 'aviso-hecho-cuerpo';
-  const linea = document.createElement('div');
-  linea.textContent = mensaje;
-  cuerpo.appendChild(linea);
-
-  if (detalles.length > 0) {
-    const ul = document.createElement('ul');
-    detalles.forEach(texto => {
-      const li = document.createElement('li');
-      li.textContent = texto;
-      ul.appendChild(li);
-    });
-    cuerpo.appendChild(ul);
-  }
-
-  const cerrar = document.createElement('button');
-  cerrar.type = 'button';
-  cerrar.className = 'aviso-hecho-cerrar';
-  cerrar.setAttribute('aria-label', 'Cerrar');
-  cerrar.textContent = '×';
-  cerrar.addEventListener('click', () => { aviso.hidden = true; });
-
-  aviso.appendChild(cuerpo);
-  aviso.appendChild(cerrar);
-  aviso.hidden = false;
 }

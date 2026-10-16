@@ -5,6 +5,7 @@
 //   abrirPedirACocina     → abre la ventana: fecha (mañana), el filtro "Mostrar" y la lista limpia
 //   platosDelFiltro       → los platos que se ven con el filtro elegido, ya ordenados
 //   renderizarListaPedido → dibuja la lista de platos con −, casillero y + (y el total)
+//   alCambiarCantidad     → lo que pasa al escribir o tocar − / + en un plato: guarda, pinta el renglón y actualiza el total
 //   leerCantidadPedida    → lo escrito para un plato: 0 si está vacío, el número, o null si es inválido
 //   actualizarTotalPedido → "Total: N viandas en M platos" y si se puede enviar
 //   cargaRapida           → "A cada uno", "Repartir" o "Limpiar" sobre los platos que se ven
@@ -36,22 +37,19 @@ function abrirPedirACocina() {
   inputFecha.min = fechaLocalISO(hoy);                                              // no deja elegir antes de hoy
   inputFecha.value = fechaLocalISO(manana);                                         // arranca en mañana
 
-  // 2. Cuántos platos faltan, con la misma regla de la tabla (los "sin control" no cuentan)
-  let sinStock = 0;                                                                 // cuántos sin stock
-  let bajos = 0;                                                                    // cuántos bajos
-  todosPlatos.forEach(plato => {                                                    // por cada plato...
-    const estado = estadoDelPlato(plato);                                           // ...su estado
-    if (estado === 'sin') sinStock += 1;
-    if (estado === 'bajo') bajos += 1;
-  });
+  // 2. Cuántos platos faltan, con la misma regla de la tabla (los "sin control" no cuentan).
+  //    filter arma una lista con los que cumplen y length dice cuántos son. Ej: [fideos (sin), tarta (bien)] → 1 sin stock
+  const sinStock = todosPlatos.filter(plato => estadoDelPlato(plato) === 'sin').length;   // cuántos sin stock
+  const bajos = todosPlatos.filter(plato => estadoDelPlato(plato) === 'bajo').length;     // cuántos bajos
   const faltan = sinStock + bajos;                                                  // los que faltan
 
   // 3. Los planes activos que tienen platos activos, sin repetir: { id_plan: { id, nombre } }
   const planesPorId = {};                                                           // arranca vacío
   todosPlatos.forEach(plato => {                                                    // por cada plato...
-    if (!plato.id_plan || !plato.plan_activo || planesPorId[plato.id_plan]) return; // (return = saltear: sin plan, plan inactivo o ya anotado)
-    let nombre = 'Plan ' + plato.id_plan;                                           // si el plan no tiene nombre
-    if (plato.plan_nombre) nombre = plato.plan_nombre;                              // su nombre
+    if (!plato.id_plan) return;                                                     // sin plan: saltear (return = seguir con el siguiente)
+    if (!plato.plan_activo) return;                                                 // plan desactivado: saltear
+    if (planesPorId[plato.id_plan]) return;                                         // plan ya anotado: saltear
+    const nombre = plato.plan_nombre || 'Plan ' + plato.id_plan;                    // su nombre (o "Plan 3" si no tiene)
     planesPorId[plato.id_plan] = { id: plato.id_plan, nombre: nombre };             // se anota
   });
   const planes = Object.values(planesPorId);                                        // Object.values = lo que hay adentro. Ej: { 3: {…}, 5: {…} } → [{…}, {…}]
@@ -75,8 +73,7 @@ function abrirPedirACocina() {
     option.textContent = opcion.texto;                                              // su texto (textContent: el nombre del plan no se interpreta como HTML)
     select.appendChild(option);
   });
-  select.value = '';                                                                // arranca en "Todos los planes"...
-  if (faltan > 0) select.value = 'faltan';                                          // ...o en "Los que faltan", si falta algo
+  select.value = faltan > 0 ? 'faltan' : '';                                        // arranca en "Los que faltan" si falta algo; si no, "Todos los planes"
 
   // 5. Todo limpio, se dibuja y se abre
   document.getElementById('pRapidoCantidad').value = '';                            // "Cargar rápido" vacío
@@ -99,22 +96,29 @@ function platosDelFiltro() {
   const filtro = document.getElementById('pPlan').value;                            // lo elegido en "Mostrar"
   const platos = todosPlatos.filter(plato => {                                      // filter = arma una lista nueva con los que cumplen
     const estado = estadoDelPlato(plato);                                           // el estado del plato
-    if (filtro === 'faltan') return estado === 'sin' || estado === 'bajo';          // "Los que faltan": sin stock o bajos
-    if (filtro === 'sin' || filtro === 'bajo') return estado === filtro;            // "Sin stock" o "Bajos": ese estado
-    if (filtro === '') return true;                                                 // "Todos los planes": todos
-    return plato.id_plan === Number(filtro);                                        // un plan: los de ese plan
+    // Cada case responde con return (return ya sale del switch: no hace falta break)
+    switch (filtro) {
+      case 'faltan':                                                                // según sea "Los que faltan": sin stock o bajos
+        return estado === 'sin' || estado === 'bajo';
+      case 'sin':                                                                   // según sea "Sin stock": solo esos
+        return estado === 'sin';
+      case 'bajo':                                                                  // según sea "Bajos": solo esos
+        return estado === 'bajo';
+      case '':                                                                      // según sea "Todos los planes": todos
+        return true;
+      default:                                                                      // si no, es un plan: los de ese plan
+        return plato.id_plan === Number(filtro);
+    }
   });
   platos.sort((a, b) => {                                                           // se ordenan...
     const porEstado = ESTADOS_STOCK[estadoDelPlato(a)].orden - ESTADOS_STOCK[estadoDelPlato(b)].orden;  // ...por estado
     if (porEstado !== 0) return porEstado;
     const planA = a.plan_nombre || '';                                              // ...por plan
     const planB = b.plan_nombre || '';
-    if (planA !== planB) {
-      if (!planA) return 1;                                                         // sin plan, al final
-      if (!planB) return -1;
-      return planA.localeCompare(planB, 'es');
-    }
-    return (a.nombre || '').localeCompare(b.nombre || '', 'es');                    // ...y por nombre
+    if (planA === planB) return (a.nombre || '').localeCompare(b.nombre || '', 'es');  // mismo plan: por nombre
+    if (!planA) return 1;                                                           // sin plan, al final
+    if (!planB) return -1;
+    return planA.localeCompare(planB, 'es');                                        // planes distintos: por plan
   });
   return platos;
 }
@@ -142,24 +146,18 @@ function renderizarListaPedido() {
   platos.forEach(plato => {                                                         // por cada plato...
     // a. Las etiquetas: el estado solo si falta (Sin stock / Bajo), y "sin receta"
     const estado = estadoDelPlato(plato);
-    let etiquetas = '';
-    if (estado === 'sin' || estado === 'bajo') {
-      etiquetas += `<span class="etiqueta-estado ${ESTADOS_STOCK[estado].clase}">${ESTADOS_STOCK[estado].texto}</span>`;
-    }
-    if (!plato.tiene_receta) etiquetas += '<span class="etiqueta-sin-receta">sin receta</span>';
+    const falta = estado === 'sin' || estado === 'bajo';
+    const etiquetaEstado = falta
+      ? '<span class="etiqueta-estado ' + ESTADOS_STOCK[estado].clase + '">' + ESTADOS_STOCK[estado].texto + '</span>'
+      : '';
+    const etiquetaReceta = plato.tiene_receta ? '' : '<span class="etiqueta-sin-receta">sin receta</span>';
+    const etiquetas = etiquetaEstado + etiquetaReceta;
 
     // b. La línea gris: "Libres: 3 · mínimo 5 · Mantenimiento" (el plan solo si el filtro no es un plan)
-    let detalle = 'Libres: ' + Number(plato.stock_heladera);
-    if (estado === 'sincontrol') {
-      detalle += ' · sin control';
-    } else {
-      detalle += ' · mínimo ' + Number(plato.stock_minimo);
-    }
-    if (!filtroEsPlan) {
-      let plan = 'Sin plan';
-      if (plato.plan_nombre) plan = plato.plan_nombre;
-      detalle += ' · ' + plan;
-    }
+    const textoMinimo = estado === 'sincontrol' ? ' · sin control' : ' · mínimo ' + Number(plato.stock_minimo);
+    const plan = plato.plan_nombre || 'Sin plan';
+    const textoPlan = filtroEsPlan ? '' : ' · ' + plan;
+    const detalle = 'Libres: ' + Number(plato.stock_heladera) + textoMinimo + textoPlan;
 
     // c. El renglón
     const fila = document.createElement('div');
@@ -177,25 +175,17 @@ function renderizarListaPedido() {
     const input = fila.querySelector('input');                                      // el casillero
     input.value = cantidadesPedido[plato.id] || '';                                 // lo que ya tenía escrito (o vacío)
 
-    // d. Guarda lo escrito, pinta el renglón y actualiza el total (lo usan el casillero y los botones − y +)
-    const alCambiar = () => {
-      cantidadesPedido[plato.id] = input.value;                                     // se guarda tal como está escrito
-      const cantidad = leerCantidadPedida(plato.id);                                // como número (null si es inválido)
-      input.classList.toggle('invalido', cantidad === null);                        // rojo si es inválido
-      fila.classList.toggle('con-cantidad', cantidad > 0);                          // verde suave si tiene más de 0
-      actualizarTotalPedido();                                                      // el total de abajo
-    };
-    input.addEventListener('input', alCambiar);                                     // al escribir
+    // d. Al escribir: se guarda, se pinta el renglón y se actualiza el total
+    input.addEventListener('input', () => alCambiarCantidad(plato.id, input, fila));
 
     // e. "−" y "+": suman o restan 1 (nunca bajan de 0; si había algo inválido, arrancan de 0)
     fila.querySelectorAll('.btn-paso').forEach(boton => {
       boton.addEventListener('click', () => {
-        let actual = leerCantidadPedida(plato.id);                                  // lo que hay
-        if (actual === null) actual = 0;                                            // inválido: arranca de 0
-        let nueva = actual + Number(boton.dataset.paso);                            // +1 o −1
-        if (nueva < 0) nueva = 0;                                                   // nunca menos de 0
+        const actual = leerCantidadPedida(plato.id) || 0;                           // lo que hay (inválido = null → arranca de 0)
+        const sumada = actual + Number(boton.dataset.paso);                         // +1 o −1
+        const nueva = sumada < 0 ? 0 : sumada;                                      // nunca menos de 0
         input.value = String(nueva);                                                // se escribe en el casillero
-        alCambiar();                                                                // y se hace lo mismo que al escribir
+        alCambiarCantidad(plato.id, input, fila);                                   // y se hace lo mismo que al escribir
       });
     });
 
@@ -206,6 +196,22 @@ function renderizarListaPedido() {
     contenedor.appendChild(fila);
   });
 
+  actualizarTotalPedido();                                                          // el total de abajo
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// alCambiarCantidad → lo que pasa al escribir en el casillero de un plato o al tocar − / +
+// ENTRADA: idProducto, input (su casillero) y fila (su renglón)
+// SALIDA:  nada (guarda lo escrito en cantidadesPedido, pinta el renglón y actualiza el total)
+// Ej: escribe "4" en fideos → cantidadesPedido[7] = '4', el renglón en verde suave y "Total: 4 viandas"
+//     escribe "2.5" → el casillero en rojo y "Enviar a cocina" apagado
+// ─────────────────────────────────────────────────────────────────────────────
+function alCambiarCantidad(idProducto, input, fila) {
+  cantidadesPedido[idProducto] = input.value;                                       // se guarda tal como está escrito
+  const cantidad = leerCantidadPedida(idProducto);                                  // como número (null si es inválido)
+  input.classList.toggle('invalido', cantidad === null);                            // rojo si es inválido
+  fila.classList.toggle('con-cantidad', cantidad > 0);                              // verde suave si tiene más de 0
   actualizarTotalPedido();                                                          // el total de abajo
 }
 
@@ -250,12 +256,8 @@ function actualizarTotalPedido() {
   document.getElementById('pTotalPlatos').textContent = 'en ' + conPlural(platos, 'plato', 'platos');
 
   const errorVentana = document.getElementById('pError');      // el lugar del error
-  if (hayInvalida) {                                           // si hay algo inválido, se avisa
-    errorVentana.textContent = 'Hay una cantidad inválida: tiene que ser un número entero mayor o igual a 0.';
-    errorVentana.style.display = 'block';
-  } else {                                                     // si no, se esconde
-    errorVentana.style.display = 'none';
-  }
+  if (hayInvalida) errorVentana.textContent = 'Hay una cantidad inválida: tiene que ser un número entero mayor o igual a 0.';
+  errorVentana.style.display = hayInvalida ? 'block' : 'none'; // con algo inválido se ve; si no, se esconde
 
   document.getElementById('pEnviar').disabled = total === 0 || hayInvalida;  // apagado si no hay nada o hay algo inválido
 }
@@ -272,7 +274,7 @@ function cargaRapida(accion) {
   const visibles = platosDelFiltro();                          // los platos que se ven
   const errorVentana = document.getElementById('pError');      // el lugar del error
 
-  // "Limpiar" no necesita número
+  // 1. "Limpiar" no necesita número
   if (accion === 'limpiar') {
     visibles.forEach(plato => {                                // por cada plato que se ve...
       delete cantidadesPedido[plato.id];                       // ...se borra lo escrito
@@ -281,34 +283,40 @@ function cargaRapida(accion) {
     return;
   }
 
-  // "A cada uno" y "Repartir" necesitan el número de "Cargar rápido": un entero mayor a 0
+  // 2. "A cada uno" y "Repartir" necesitan el número de "Cargar rápido": un entero mayor a 0
   const texto = document.getElementById('pRapidoCantidad').value.trim();
   const numero = Number(texto);
-  if (texto === '' || !Number.isInteger(numero) || numero <= 0) {
+  const numeroInvalido = texto === '' || !Number.isInteger(numero) || numero <= 0;
+  if (numeroInvalido) {
     errorVentana.textContent = 'Escribí un número entero mayor a 0 en "Cargar rápido".';
     errorVentana.style.display = 'block';
     return;
   }
 
-  if (accion === 'cada') {                                     // "A cada uno": el mismo número en cada plato
-    visibles.forEach(plato => {
-      cantidadesPedido[plato.id] = String(numero);
-    });
+  // 3. Sin platos no hay a quién repartir
+  const repartirSinPlatos = accion === 'repartir' && visibles.length === 0;
+  if (repartirSinPlatos) {
+    errorVentana.textContent = 'No hay platos para repartir.';
+    errorVentana.style.display = 'block';
+    return;
   }
 
-  if (accion === 'repartir') {                                 // "Repartir": en partes iguales
-    if (visibles.length === 0) {                               // sin platos no hay a quién repartir
-      errorVentana.textContent = 'No hay platos para repartir.';
-      errorVentana.style.display = 'block';
-      return;
+  // 4. Se carga cada plato que se ve
+  switch (accion) {
+    case 'cada':                                               // según sea "A cada uno": el mismo número en cada plato
+      visibles.forEach(plato => {
+        cantidadesPedido[plato.id] = String(numero);
+      });
+      break;
+    case 'repartir': {                                         // según sea "Repartir": en partes iguales
+      const base = Math.floor(numero / visibles.length);       // lo que le toca a cada uno. Ej: 10 entre 6 → 1
+      const sobrante = numero % visibles.length;               // lo que sobra (% = el resto de dividir). Ej: 10 % 6 → 4
+      visibles.forEach((plato, posicion) => {                  // posicion = 0 para el primero, 1 para el segundo…
+        const parte = posicion < sobrante ? base + 1 : base;   // a los primeros, uno más
+        cantidadesPedido[plato.id] = String(parte);
+      });
+      break;
     }
-    const base = Math.floor(numero / visibles.length);         // lo que le toca a cada uno. Ej: 10 entre 6 → 1
-    const sobrante = numero % visibles.length;                 // lo que sobra (% = el resto de dividir). Ej: 10 % 6 → 4
-    visibles.forEach((plato, posicion) => {                    // posicion = 0 para el primero, 1 para el segundo…
-      let parte = base;                                        // a cada uno, la base...
-      if (posicion < sobrante) parte = base + 1;               // ...y a los primeros, uno más
-      cantidadesPedido[plato.id] = String(parte);
-    });
   }
 
   renderizarListaPedido();                                     // se redibuja con lo nuevo
@@ -349,9 +357,7 @@ async function enviarPedidoACocina() {
     const datos = await respuesta.json().catch(() => ({}));    // la respuesta (si no es JSON, un objeto vacío)
 
     if (!respuesta.ok) {                                       // si no se pudo...
-      let mensaje = 'No se pudo enviar el pedido a cocina.';   // ...un mensaje por si no vino ninguno
-      if (datos.error) mensaje = datos.error;                  // ...o el del servidor
-      errorVentana.textContent = mensaje;
+      errorVentana.textContent = datos.error || 'No se pudo enviar el pedido a cocina.';  // ...el del servidor (o uno por si no vino)
       errorVentana.style.display = 'block';
       boton.disabled = false;                                  // ...y se puede corregir
       return;

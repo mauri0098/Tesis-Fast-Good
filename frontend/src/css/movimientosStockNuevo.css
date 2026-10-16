@@ -161,17 +161,17 @@ tbody tr:hover {
 /* Ancho mínimo: en el celular aparece el scroll de costado (del .table-wrapper)
    en vez de aplastarse */
 .table-wrapper table {
-  min-width: 900px;
+  min-width: 1100px;
 }
 
-/* Todas las celdas en una sola línea (fecha, "Compra #N", badge, cantidad...),
-   menos Motivo (columna 7). El renglón de detalle queda afuera: ocupa las 8 columnas */
-#movimientosBody tr:not(.fila-detalle-grupo) td:not(:nth-child(7)) {
+/* Todas las celdas en una sola línea (fecha, "Compra #N", badge, resumen...),
+   menos Motivo (columna 8). El renglón de detalle queda afuera: ocupa las 9 columnas */
+#movimientosBody tr:not(.fila-detalle-grupo) td:not(:nth-child(8)) {
   white-space: nowrap;
 }
 
 /* Motivo usa todo el ancho que sobra; las demás quedan con el ancho justo */
-#movimientosBody td:nth-child(7) {
+#movimientosBody td:nth-child(8) {
   width: 100%;
   min-width: 180px;
 }
@@ -527,7 +527,7 @@ tbody tr.fila-salida {
 }
 
 
-/* ── DETALLE DE LA COMPRA: fondo gris muy claro a todo el ancho de la tabla ── */
+/* ── DETALLE DE UN MOVIMIENTO (empezó siendo el de la compra): fondo gris muy claro a todo el ancho ── */
 tbody tr.fila-detalle-grupo td {
   background: #f6f7f9;
   padding: 1rem 1.25rem 0.9rem;
@@ -547,7 +547,23 @@ tbody tr.fila-detalle-grupo:hover td {
   padding: 0.6rem 0.9rem;
 }
 
-/* Un insumo por renglón: nombre a la izquierda, cantidad y vencimiento a la derecha */
+/* Título de cada parte del Detalle: "Insumos que se usaron", "Platos que salieron de la heladera"… */
+.detalle-titulo {
+  margin: 0.6rem 0 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Un dato del Detalle: "Lo pidió: …", "Marcó Hecho: …", "Cliente: …", "Motivo: …" */
+.detalle-linea {
+  margin: 0 0 0.2rem;
+  font-size: 0.82rem;
+}
+
+/* Un insumo (o un plato) por renglón: nombre a la izquierda, cantidad y vencimiento a la derecha */
 .lista-compra {
   list-style: none;
   margin: 0;

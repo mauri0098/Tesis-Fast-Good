@@ -8,6 +8,12 @@
  *
  * Se ejecuta con: node tests/test_e2e.js
  * Las credenciales del admin se leen del .env (TEST_ADMIN_USER y TEST_ADMIN_PASS).
+ *
+ * SOLO la sección HELADERA (pasos H8 y H9): node tests/test_e2e.js heladera
+ * Es la que se puede correr contra la base REAL: crea pedidos "PRUEBA – NO PREPARAR" y los anula al final,
+ * no marca Hecho, no descarta, no carga compras y no muestra el usuario ni el PIN (ver sus REGLAS más abajo).
+ * Lo de antes (sin "heladera") crea un producto, pasa un pedido a 3 y 4 (gasta insumos) y borra renglones:
+ * no correrlo contra la base real.
  */
 
 const path = require('path');
@@ -15,6 +21,8 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true
 const fechas = require(path.join(__dirname, '..', 'frontend', 'src', 'js', 'fechas.js'));
 // Para la limpieza de pedidos de prueba: ya no existe DELETE /api/pedidos/:id (los pedidos se anulan)
 const supabase = require(path.join(__dirname, '..', 'config', 'supabaseClient'));
+// Para la sección HELADERA: firma un token de un cocinero de mentira (solo para ver que el servidor le dice 403)
+const jwt = require('jsonwebtoken');
 
 const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
 
@@ -494,6 +502,375 @@ async function testCocinaYTareas() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// SECCIÓN HELADERA (pasos H8 y H9). Corre SOLA con: node tests/test_e2e.js heladera
+//
+// Funciones:
+//   comprobar          → anota una prueba: ✅ si se cumple, ❌ si no
+//   loginSinMostrar    → inicia sesión con el usuario del .env, sin mostrar el usuario ni el token
+//   leerHeladera       → cómo están algunos platos: { id: { nombre, libres, reservadas, en_heladera } }
+//   crearPedidoPrueba  → manda un pedido "PRUEBA – NO PREPARAR" por la web pública (sin sesión, como un cliente)
+//   anularPedidoPrueba → anula un pedido de prueba con el PIN del .env (sin mostrarlo)
+//   revisarHeladera    → compara la heladera con lo que tendría que haber cambiado: ✅ o ❌
+//   testHeladera       → la sección entera, de principio a fin (los pasos están numerados adentro)
+// Son 7 porque cada una hace un trabajo que se repite varias veces en la sección (leer la heladera,
+// crear y anular pedidos, revisar); testHeladera es la receta que las usa en orden.
+//
+// REGLAS (corre contra la base REAL, la que usa el negocio):
+//   - Solo crea pedidos "PRUEBA – NO PREPARAR" y los anula al final, aunque algo falle en el medio.
+//   - NUNCA marca "Hecho", ni descarta, ni pasa a 3 o 4 un pedido con personalizados, ni carga compras.
+//   - Guarda la heladera de los platos que usa y al final comprueba que quedó igual (si no, lo dice en rojo).
+//   - El usuario, la contraseña y el PIN salen del .env y nunca se muestran.
+//   - Manda 3 pedidos por la web (el límite es 5 cada 10 minutos por IP): para correrlo dos veces
+//     seguidas, esperar 10 minutos o reiniciar el servidor.
+// ═══════════════════════════════════════════════════════════════
+
+const NOMBRE_PRUEBA = 'PRUEBA – NO PREPARAR';    // así se ven los pedidos de prueba en todas las pantallas
+const ROJO = '\x1b[31m';                          // para escribir en rojo en la consola...
+const NORMAL = '\x1b[0m';                         // ...y volver al color de siempre
+const pedidosDePrueba = [];                       // los pedidos de prueba creados que todavía no se anularon
+
+// ─────────────────────────────────────────────────────────────────────────────
+// comprobar → anota una prueba en el resultado
+// ENTRADA: nombre (qué se prueba), seCumple (true o false) y detalle (lo que se ve al lado)
+// SALIDA:  seCumple (así se puede cortar si lo que sigue depende de esta prueba)
+// Ej: comprobar('Vender (A) → 200', true, 'pedido #260') → "✅ Vender (A) → 200 — pedido #260"
+// ─────────────────────────────────────────────────────────────────────────────
+function comprobar(nombre, seCumple, detalle) {
+  if (seCumple) ok(nombre, detalle);              // se cumple: ✅
+  if (!seCumple) fail(nombre, detalle);           // no se cumple: ❌ (va al detalle de fallos del final)
+  return seCumple;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// loginSinMostrar → inicia sesión con TEST_ADMIN_USER / TEST_ADMIN_PASS del .env
+// ENTRADA: nada
+// SALIDA:  { token, id } del usuario, o null si no se pudo. No escribe el usuario, la contraseña ni el token.
+// Ej: → { token: 'eyJ…', id: '3f2a…' } (nada de eso aparece en la consola)
+// ─────────────────────────────────────────────────────────────────────────────
+async function loginSinMostrar() {
+  const r = await post('/api/login', { nombre: ADMIN_USER, contraseña: ADMIN_PASS });
+  const salioBien = r.status === 200 && Boolean(r.data?.token);   // ?. = "si vino data, su token"
+  if (!salioBien) return null;
+  return { token: r.data.token, id: r.data.usuario?.id };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// leerHeladera → cómo están algunos platos en la heladera (GET /api/viandas-stock)
+// ENTRADA: ids (los números de los platos)
+// SALIDA:  { id: { nombre, libres, reservadas, en_heladera } }, o null si la ruta falló
+// Ej: [7] → { 7: { nombre: 'fideos', libres: 61, reservadas: 10, en_heladera: 71 } }
+// ─────────────────────────────────────────────────────────────────────────────
+async function leerHeladera(ids) {
+  const r = await get('/api/viandas-stock');
+  if (r.status !== 200 || !Array.isArray(r.data)) return null;    // si falló: null
+  const heladera = {};
+  ids.forEach(id => {                                             // por cada plato pedido...
+    const plato = r.data.find(p => p.id === id);                  // ...find = el plato con ese número (o undefined)
+    if (!plato) return;                                           // (return = saltear: ya no está activo)
+    heladera[id] = { nombre: plato.nombre, libres: plato.stock_heladera, reservadas: plato.reservadas, en_heladera: plato.en_heladera };
+  });
+  return heladera;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// crearPedidoPrueba → manda un pedido de combos "PRUEBA – NO PREPARAR" por la web pública (POST /api/pedidos-combos)
+// ENTRADA: combos ([{ id_combo, platos: [{ producto_id, cantidad, personalizado }] }]) y fechaEntrega ('AAAA-MM-DD')
+// SALIDA:  { status, data } (200 con id_pedido · 400 con el error · 429 si se pasó el límite de pedidos).
+//          Si se creó, el número queda en pedidosDePrueba (para anularlo al final, pase lo que pase).
+// Ej: 1 combo "Keto x10" con 10 fideos → { status: 200, data: { id_pedido: 260, total: 137000, … } }
+// Va SIN sesión, como un cliente de la web: el pedido queda a nombre de "Consumidor Final".
+// ─────────────────────────────────────────────────────────────────────────────
+async function crearPedidoPrueba(combos, fechaEntrega) {
+  const res = await fetch(BASE_URL + '/api/pedidos-combos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },              // sin Authorization: como la web sin sesión
+    body: JSON.stringify({
+      combos:            combos,
+      cliente_nombre:    NOMBRE_PRUEBA,
+      cliente_direccion: 'PRUEBA (no entregar)',
+      cliente_telefono:  '0',
+      cliente_email:     null,
+      fecha_entrega:     fechaEntrega,
+      metodo_pago:       'Efectivo',
+      tipo_entrega:      'Retiro en local',
+      barrio_id:         null,
+      observaciones:     'Pedido de prueba del test HELADERA: no preparar (el test lo anula solo)'
+    })
+  });
+  const data = await res.json().catch(() => null);                // si no es JSON: null
+  const idCreado = data?.id_pedido;                               // el número, si se creó
+  if (idCreado) pedidosDePrueba.push(idCreado);                   // se anota para anularlo al final
+  return { status: res.status, data: data };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// anularPedidoPrueba → anula un pedido de prueba (POST /api/pedidos/:id/anular) con el PIN del .env
+// ENTRADA: idPedido
+// SALIDA:  { status, data } (200 con viandas_devueltas · 409 si ya estaba anulado). El PIN no se muestra.
+//          Anulado (o ya anulado), sale de pedidosDePrueba.
+// Ej: 260 → { status: 200, data: { mensaje: 'Pedido anulado. Volvieron 10 viandas a la heladera.', viandas_devueltas: 10 } }
+// ─────────────────────────────────────────────────────────────────────────────
+async function anularPedidoPrueba(idPedido) {
+  const r = await post(`/api/pedidos/${idPedido}/anular`, { pin: process.env.ADMIN_PIN || '' });
+  const yaNoHayQueAnular = r.status === 200 || r.status === 409;  // se anuló ahora, o ya estaba anulado
+  const posicion = pedidosDePrueba.indexOf(idPedido);             // indexOf = en qué lugar de la lista está (−1 si no está)
+  const sacarDeLaLista = yaNoHayQueAnular && posicion >= 0;
+  if (sacarDeLaLista) pedidosDePrueba.splice(posicion, 1);        // splice(lugar, 1) = saca ese de la lista
+  return r;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// revisarHeladera → compara la heladera con lo que tendría que haber cambiado, plato por plato
+// ENTRADA: paso (el nombre de la prueba), antes y ahora (de leerHeladera) y los cambios esperados
+//          { id: { libres, reservadas } } (un plato que no está en cambios tiene que seguir igual)
+// SALIDA:  true si todo coincide (✅), false si no (❌ con lo que esperaba y lo que hay)
+// Ej: vender 10 fideos → cambios { 7: { libres: -10, reservadas: 10 } }: libres 61 → 51 y reservadas 10 → 20
+// ─────────────────────────────────────────────────────────────────────────────
+function revisarHeladera(paso, antes, ahora, cambios) {
+  if (!antes || !ahora) return comprobar(paso, false, 'no se pudo leer la heladera (GET /api/viandas-stock)');
+
+  const diferencias = [];                                         // lo que no coincide, en frases
+  // Object.keys da la lista de números de plato del objeto. Ej: { 7: {...}, 9: {...} } → ['7', '9']
+  Object.keys(antes).forEach(id => {                              // por cada plato...
+    const cambio = cambios[id] || { libres: 0, reservadas: 0 };   // ...lo que tenía que cambiar (nada, si no está)
+    const libresEsperadas = antes[id].libres + cambio.libres;
+    const reservadasEsperadas = antes[id].reservadas + cambio.reservadas;
+    const actual = ahora[id] || { libres: '?', reservadas: '?', en_heladera: '?' };  // si ya no está: "?"
+    const coincide = actual.libres === libresEsperadas && actual.reservadas === reservadasEsperadas
+      && actual.en_heladera === libresEsperadas + reservadasEsperadas;
+    if (coincide) return;                                         // (return = este plato está bien: seguir con el siguiente)
+    diferencias.push(`${antes[id].nombre}: libres ${actual.libres} (esperaba ${libresEsperadas}), reservadas ${actual.reservadas} (esperaba ${reservadasEsperadas})`);
+  });
+
+  // Cómo quedó cada plato, para mostrarlo. Ej: "fideos: 51 libres, 20 reservadas"
+  const comoQuedo = Object.keys(antes).map(id => `${antes[id].nombre}: ${ahora[id]?.libres} libres, ${ahora[id]?.reservadas} reservadas`).join(' · ');
+  const detalle = diferencias.length > 0 ? diferencias.join(' · ') : comoQuedo;
+  return comprobar(paso, diferencias.length === 0, detalle);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// testHeladera → la sección HELADERA entera, por las rutas, contra la base real (ver las REGLAS arriba)
+// ENTRADA: nada (usa el .env y el servidor prendido)
+// SALIDA:  nada (escribe ✅ / ❌ / ⚠️ por cada prueba; los totales salen en el resumen del final)
+// Ej: con "Keto x10" y 61 fideos libres: vende 10 (A), intenta más de los que quedan (B, no alcanza),
+//     vende 8 + 2 "sin sal" (D), A salta a 3, D queda en 2, revisa los movimientos y el mínimo,
+//     anula A y D, prueba que un anulado no se toca más y comprueba que la heladera volvió a 61.
+// ─────────────────────────────────────────────────────────────────────────────
+async function testHeladera() {
+  console.log('\n══════ HELADERA (pasos H8 y H9) ══════');
+  console.log(`  Crea pedidos "${NOMBRE_PRUEBA}" y los anula al final. No marca Hecho, no descarta, no carga compras.`);
+  let heladeraInicial = null;                                     // la heladera de los platos usados, al empezar
+
+  try {
+    // 1. Sesión (sin mostrar el usuario) y un cocinero de mentira (rol 2) para las pruebas de "403".
+    //    El token del cocinero se firma con el JWT_SECRET del .env; su id no existe (el 403 sale antes de ir a la base).
+    const sesion = await loginSinMostrar();
+    const ayudaLogin = sesion ? '' : 'revisá TEST_ADMIN_USER y TEST_ADMIN_PASS';   // la ayuda, solo si falló
+    if (!comprobar('Login con el usuario del .env (no se muestra)', Boolean(sesion), ayudaLogin)) return;
+    tokenAdmin = sesion.token;                                    // de acá en adelante, get / post / put van con sesión
+    const tokenCocinero = jwt.sign({ id: '00000000-0000-4000-8000-000000000002', rol: 2 }, process.env.JWT_SECRET || 'falta', { expiresIn: '10m' });
+    const comoCocinero = { Authorization: 'Bearer ' + tokenCocinero };
+
+    // 2. El combo y el plato (P): un combo de 3 o más viandas con un plato que tenga libres para dos pedidos
+    //    a la vez (A con N viandas y D con N − 2). Los datos salen de la web (/api/v1/combos) y de Producción.
+    const catalogo = await get('/api/v1/combos');
+    const stock = await get('/api/viandas-stock');
+    const hayDatos = catalogo.status === 200 && Array.isArray(catalogo.data) && stock.status === 200 && Array.isArray(stock.data);
+    if (!comprobar('Combos de la web y heladera de Producción', hayDatos, `combos ${catalogo.status} · heladera ${stock.status}`)) return;
+    const libresPorPlato = {};                                    // { id_producto: libres }
+    stock.data.forEach(plato => { libresPorPlato[plato.id] = plato.stock_heladera; });
+    // Cada combo con cada plato de su menú, en una sola lista. Acá sí hay un map adentro de un forEach: cada combo
+    // trae su propio menú. concat junta las listas. Ej: [Keto x10 con menú [fideos, tarta]] → [Keto+fideos, Keto+tarta]
+    let opciones = [];
+    catalogo.data.forEach(combo => {
+      opciones = opciones.concat(combo.menu.map(plato => ({ combo: combo, plato: plato })));
+    });
+    const elegida = opciones.find(op => op.combo.cantidad >= 3 && (libresPorPlato[op.plato.id] || 0) >= 2 * op.combo.cantidad - 2);
+    const ayudaCombo = elegida ? '' : 'hace falta un combo de 3 o más viandas con un plato con libres para dos pedidos';  // solo si falta
+    if (!comprobar('Hay un combo y un plato para probar', Boolean(elegida), ayudaCombo)) return;
+    const combo = elegida.combo;                                  // ej: "Keto x10"
+    const plato = elegida.plato;                                  // ej: fideos
+    const N = combo.cantidad;                                     // ej: 10
+    // Para "no alcanza": otro plato (Q) con menos libres que su combo. Si no hay, P repetido en varios combos.
+    const conPocas = opciones.find(op => op.plato.id !== plato.id && (libresPorPlato[op.plato.id] || 0) < op.combo.cantidad);
+    console.log(`  Combo «${combo.nombre}» (${N} viandas) · plato «${plato.nombre}» (${libresPorPlato[plato.id]} libres)`);
+
+    // 3. La heladera de los platos que se usan, al empezar (al final tiene que quedar igual), y las fechas
+    const idsUsados = conPocas ? [plato.id, conPocas.plato.id] : [plato.id];
+    heladeraInicial = await leerHeladera(idsUsados);
+    const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Cordoba' }).format(new Date());  // 'AAAA-MM-DD' en Argentina
+    const fechaEntrega = fechas.fechaLocalISO(fechas.sumarDiasHabiles(fechas.parseFechaLocal(hoy), 4));          // 4 días hábiles: alcanza también con personalizados
+    // [plato.id]: … = la clave es el número del plato. Ej: { [7]: { libres: -10 } } es { 7: { libres: -10 } }
+
+    // 4. VENDER (pedido A): N viandas de P → libres −N, reservadas +N
+    const pedidoA = await crearPedidoPrueba([{ id_combo: combo.id, platos: [{ producto_id: plato.id, cantidad: N, personalizado: null }] }], fechaEntrega);
+    const idA = pedidoA.data?.id_pedido;                          // el número del pedido A
+    const ventaCreada = pedidoA.status === 200 && Boolean(idA);
+    if (!comprobar('Vender (A) → 200', ventaCreada, `status=${pedidoA.status} ${pedidoA.data?.error || 'pedido #' + idA}`)) return;
+    const despuesDeA = await leerHeladera(idsUsados);
+    revisarHeladera('Vender: la heladera baja y las reservadas suben', heladeraInicial, despuesDeA, { [plato.id]: { libres: -N, reservadas: N } });
+
+    // 5. NO ALCANZA (pedido B): más viandas de las que quedan → 400 con el mensaje, y no se crea ningún pedido.
+    //    Con Q: un combo de Q. Sin Q: P repetido en tantos combos como haga falta para pasarse (hasta 10).
+    const libresP = despuesDeA ? despuesDeA[plato.id].libres : 0;
+    const combosNecesarios = Math.floor(libresP / N) + 1;         // ej: 51 libres y combos de 10 → 6 combos = 60
+    const comboDeP = { id_combo: combo.id, platos: [{ producto_id: plato.id, cantidad: N, personalizado: null }] };
+    const comboDeQ = conPocas ? { id_combo: conPocas.combo.id, platos: [{ producto_id: conPocas.plato.id, cantidad: conPocas.combo.cantidad, personalizado: null }] } : null;
+    const combosB = conPocas ? [comboDeQ] : Array(combosNecesarios).fill(comboDeP);  // Array(6).fill(x) = [x, x, x, x, x, x]
+    const platoB = conPocas ? conPocas.plato : plato;             // el plato que no alcanza
+    const sePuedeProbarB = Boolean(conPocas) || combosNecesarios <= 10;
+    if (!sePuedeProbarB) warn('No alcanza (B)', `no se probó: hay demasiadas libres de «${plato.nombre}» (harían falta más de 10 combos)`);
+    if (sePuedeProbarB) {
+      const listaAntes = await get(`/api/pedidos?desde=${hoy}&hasta=${hoy}`);    // los pedidos de hoy, antes
+      const pedidoB = await crearPedidoPrueba(combosB, fechaEntrega);
+      const listaDespues = await get(`/api/pedidos?desde=${hoy}&hasta=${hoy}`);  // y después
+      const cuantosAntes = (listaAntes.data || []).filter(p => p.cliente_nombre === NOMBRE_PRUEBA).length;
+      const cuantosDespues = (listaDespues.data || []).filter(p => p.cliente_nombre === NOMBRE_PRUEBA).length;
+      const mensajeB = String(pedidoB.data?.error || '');
+      const avisaBien = pedidoB.status === 400 && mensajeB.startsWith(`No quedan suficientes viandas de «${platoB.nombre}»`);  // startsWith = "empieza con"
+      comprobar('No alcanza (B) → 400 con el mensaje', avisaBien, `status=${pedidoB.status} "${mensajeB}"`);
+      comprobar('No alcanza: no se creó ningún pedido', cuantosDespues === cuantosAntes, `pedidos "${NOMBRE_PRUEBA}" de hoy: ${cuantosAntes} → ${cuantosDespues}`);
+      revisarHeladera('No alcanza: la heladera no cambió', despuesDeA, await leerHeladera(idsUsados), {});
+    }
+
+    // 6. CON PERSONALIZADO (pedido D): N − 2 de la heladera + 2 "sin sal" (esos no salen de la heladera: van a cocina)
+    const antesDeD = await leerHeladera(idsUsados);
+    const pedidoD = await crearPedidoPrueba([{ id_combo: combo.id, platos: [
+      { producto_id: plato.id, cantidad: N - 2, personalizado: null },
+      { producto_id: plato.id, cantidad: 2, personalizado: 'sin sal (PRUEBA)' }
+    ] }], fechaEntrega);
+    const idD = pedidoD.data?.id_pedido;                          // el número del pedido D
+    const ventaDCreada = pedidoD.status === 200 && Boolean(idD);
+    comprobar('Con personalizado (D) → 200', ventaDCreada, `status=${pedidoD.status} ${pedidoD.data?.error || 'pedido #' + idD}`);
+    revisarHeladera('Con personalizado: solo baja lo que sale de la heladera', antesDeD, await leerHeladera(idsUsados), { [plato.id]: { libres: -(N - 2), reservadas: N - 2 } });
+
+    // 7. TODO DE HELADERA SALTA A 3: A (sin personalizados) de 1 a 2 → el servidor lo deja en 3.
+    //    Al llegar a 3 corre descontar_insumos_pedido: A no tiene personalizados, así que no descuenta nada.
+    const estadoA = await put(`/api/pedidos/${idA}/estado`, { estado_id: 2 });
+    const saltoA3 = estadoA.status === 200 && estadoA.data?.pedido?.id_estado === 3;
+    comprobar('Todo de heladera: de 1 a 2 salta a 3', saltoA3, `status=${estadoA.status} estado=${estadoA.data?.pedido?.id_estado} ${estadoA.data?.error || ''}`);
+    const lecturaInsumosA = await supabase.from('movimientos_stock').select('id', { count: 'exact', head: true }).eq('id_pedido', idA);  // solo cuenta (head: sin traer filas)
+    const sinInsumosA = !lecturaInsumosA.error && lecturaInsumosA.count === 0;
+    comprobar('descontar_insumos_pedido en A (sin personalizados): 0 insumos', sinInsumosA,
+      lecturaInsumosA.error ? 'no se pudo leer movimientos_stock.id_pedido (¿se corrió sql/insumos_pedido.sql, bloque 1?)' : `${lecturaInsumosA.count} renglones de insumos`);
+
+    // 8. CON PERSONALIZADO QUEDA EN 2: D de 1 a 2. Solo si alcanzan los insumos de los 2 "sin sal"
+    //    (a 2 se revisan, no se descuentan). D nunca pasa a 3.
+    const stockD = await get(`/api/pedidos/${idD}/verificar-stock`);
+    const alcanzanInsumos = stockD.status === 200 && stockD.data?.ok === true;
+    if (!alcanzanInsumos) warn('Con personalizado queda en 2', `no se probó (el pedido no se movió): ${stockD.data?.error || 'status ' + stockD.status}`);
+    const estadoD = alcanzanInsumos ? await put(`/api/pedidos/${idD}/estado`, { estado_id: 2 }) : null;
+    const quedoEn2 = alcanzanInsumos && estadoD.status === 200 && estadoD.data?.pedido?.id_estado === 2;
+    if (alcanzanInsumos) comprobar('Con personalizado: de 1 a 2 queda en 2', quedoEn2, `status=${estadoD.status} estado=${estadoD.data?.pedido?.id_estado} ${estadoD.data?.error || ''}`);
+
+    // 9. FILTROS DE "ÚLTIMOS MOVIMIENTOS" (Producción): por tipo, y datos malos → 400
+    const ventas = await get('/api/movimientos-viandas?tipo=venta');
+    const listaVentas = Array.isArray(ventas.data) ? ventas.data : [];
+    const soloVentas = ventas.status === 200 && listaVentas.every(m => m.tipo === 'venta');   // every = ¿TODOS cumplen? Ej: [venta, venta] → true
+    comprobar('Últimos movimientos: ?tipo=venta trae solo ventas', soloVentas, `status=${ventas.status} · ${listaVentas.length} renglones`);
+    const ventaDeA = listaVentas.find(m => m.motivo === 'Pedido #' + idA);
+    const ventaDeABien = Boolean(ventaDeA) && Number(ventaDeA.cantidad) === -N && ventaDeA.plato_nombre === plato.nombre;
+    comprobar('Últimos movimientos: está la venta de A', ventaDeABien, ventaDeA ? `${ventaDeA.cantidad} ${ventaDeA.plato_nombre} · "${ventaDeA.motivo}"` : 'no apareció');
+    const tipoMalo = await get('/api/movimientos-viandas?tipo=raro');
+    comprobar('Últimos movimientos: ?tipo=raro → 400', tipoMalo.status === 400, `status=${tipoMalo.status} "${tipoMalo.data?.error}"`);
+    const desdeMalo = await get('/api/movimientos-viandas?desde=-5');
+    comprobar('Últimos movimientos: ?desde=-5 → 400', desdeMalo.status === 400, `status=${desdeMalo.status} "${desdeMalo.data?.error}"`);
+
+    // 10. MOVIMIENTOS DE STOCK, TODO JUNTO (GET /api/movimientos): las ventas de A y de D, con sus platos
+    const deHoy = await get(`/api/movimientos?desde=${hoy}&hasta=${hoy}`);
+    const movimientosHoy = Array.isArray(deHoy.data) ? deHoy.data : [];
+    comprobar('Movimientos de Stock: GET /api/movimientos de hoy → 200', deHoy.status === 200, `status=${deHoy.status} · ${movimientosHoy.length} movimientos ${deHoy.data?.error || ''}`);
+    const movVentaA = movimientosHoy.find(m => m.origen === 'venta' && m.numero === idA);
+    const ventaABien = Boolean(movVentaA) && movVentaA.tipo === 'salida' && movVentaA.cliente === NOMBRE_PRUEBA
+      && JSON.stringify(movVentaA.viandas) === JSON.stringify([{ plato: plato.nombre, cantidad: N }]);
+    comprobar('Movimientos de Stock: la venta de A (salida, con el cliente y sus platos)', ventaABien, movVentaA ? JSON.stringify(movVentaA.viandas) : 'no apareció');
+    const movVentaD = movimientosHoy.find(m => m.origen === 'venta' && m.numero === idD);
+    const ventaDBien = Boolean(movVentaD) && JSON.stringify(movVentaD.viandas) === JSON.stringify([{ plato: plato.nombre, cantidad: N - 2 }]);
+    comprobar('Movimientos de Stock: la venta de D, solo con lo que salió de la heladera', ventaDBien, movVentaD ? JSON.stringify(movVentaD.viandas) : 'no apareció');
+    const fechaMala = await get('/api/movimientos?desde=2026-02-30');
+    comprobar('Movimientos de Stock: fecha inválida → 400', fechaMala.status === 400, `status=${fechaMala.status} "${fechaMala.data?.error}"`);
+    const alReves = await get(`/api/movimientos?desde=${hoy}&hasta=2020-01-01`);
+    comprobar('Movimientos de Stock: "desde" mayor que "hasta" → 400', alReves.status === 400, `status=${alReves.status} "${alReves.data?.error}"`);
+
+    // 11. EL MÍNIMO: datos malos → 400 (el servidor corta antes de ir a la base: no cambia nada) y el cocinero → 403
+    const rutaMinimo = `/api/viandas-stock/${plato.id}/minimo`;
+    const casosMalos = [
+      { ruta: rutaMinimo, body: { stock_minimo: -1 } },           // negativo
+      { ruta: rutaMinimo, body: { stock_minimo: 2.5 } },          // con decimales
+      { ruta: rutaMinimo, body: { stock_minimo: 'abc' } },        // no es un número
+      { ruta: rutaMinimo, body: { stock_minimo: 10000 } },        // más de 9999
+      { ruta: rutaMinimo, body: {} },                             // sin el dato
+      { ruta: '/api/viandas-stock/abc/minimo', body: { stock_minimo: 5 } },   // plato que no es un número
+      { ruta: '/api/viandas-stock/0/minimo', body: { stock_minimo: 5 } }      // plato 0
+    ];
+    // map arma una lista de pedidos al servidor y Promise.all espera todas las respuestas. Ej: 7 casos → 7 respuestas
+    const respuestasMalas = await Promise.all(casosMalos.map(caso => put(caso.ruta, caso.body)));
+    const todos400 = respuestasMalas.every(r => r.status === 400);
+    comprobar('Mínimo: 7 datos malos → 400', todos400, respuestasMalas.map(r => r.status).join(', '));
+    const minimoCocinero = await put(rutaMinimo, { stock_minimo: 5 }, comoCocinero);
+    comprobar('Mínimo: el cocinero → 403', minimoCocinero.status === 403, `status=${minimoCocinero.status}`);
+    const heladeraCocinero = await get('/api/viandas-stock', comoCocinero);
+    comprobar('El cocinero ve la heladera → 200', heladeraCocinero.status === 200, `status=${heladeraCocinero.status}`);
+    const movimientosCocinero = await get(`/api/movimientos?desde=${hoy}&hasta=${hoy}`, comoCocinero);
+    comprobar('Movimientos de Stock: el cocinero → 403', movimientosCocinero.status === 403, `status=${movimientosCocinero.status}`);
+
+    // 12. ANULAR DEVUELVE: A (en 3) devuelve N y D (en 2) devuelve N − 2 (los "sin sal" no habían salido)
+    const antesDeAnular = await leerHeladera(idsUsados);
+    const anularA = await anularPedidoPrueba(idA);
+    comprobar('Anular A → 200 y devuelve sus viandas', anularA.status === 200 && anularA.data?.viandas_devueltas === N, `status=${anularA.status} "${anularA.data?.mensaje || anularA.data?.error}"`);
+    const anularD = await anularPedidoPrueba(idD);
+    comprobar('Anular D → 200 y devuelve solo las de heladera', anularD.status === 200 && anularD.data?.viandas_devueltas === N - 2, `status=${anularD.status} "${anularD.data?.mensaje || anularD.data?.error}"`);
+    const devueltas = N + (N - 2);                                // las de A más las de D
+    revisarHeladera('Anular: las viandas volvieron a la heladera', antesDeAnular, await leerHeladera(idsUsados), { [plato.id]: { libres: devueltas, reservadas: -devueltas } });
+
+    // 13. UN ANULADO NO CAMBIA DE ESTADO NI SE COBRA (A). El servidor corta antes de cambiar nada.
+    const estadoAnulado = await put(`/api/pedidos/${idA}/estado`, { estado_id: 2 });
+    comprobar('Anulado: cambiar el estado → 409', estadoAnulado.status === 409 && estadoAnulado.data?.error === 'Un pedido anulado no cambia de estado', `status=${estadoAnulado.status} "${estadoAnulado.data?.error}"`);
+    const pagadoAnulado = await put(`/api/pedidos/${idA}/pagado`, { pagado: true });
+    comprobar('Anulado: marcar pagado → 409', pagadoAnulado.status === 409 && pagadoAnulado.data?.error === 'Un pedido anulado no se puede cobrar', `status=${pagadoAnulado.status} "${pagadoAnulado.data?.error}"`);
+    const pagoAnulado = await put(`/api/pedidos/${idA}/pago`, { metodo_pago: 'Efectivo' });
+    comprobar('Anulado: cambiar el método de pago → 409', pagoAnulado.status === 409 && pagoAnulado.data?.error === 'Un pedido anulado no se puede cobrar', `status=${pagoAnulado.status} "${pagoAnulado.data?.error}"`);
+    const transferenciaAnulado = await put(`/api/pedidos/${idA}/transferencia-confirmada`, {});
+    comprobar('Anulado: confirmar la transferencia → 409', transferenciaAnulado.status === 409 && transferenciaAnulado.data?.error === 'Un pedido anulado no se puede cobrar', `status=${transferenciaAnulado.status} "${transferenciaAnulado.data?.error}"`);
+    const anularOtraVez = await anularPedidoPrueba(idA);
+    comprobar('Anulado: anular otra vez → 409', anularOtraVez.status === 409, `status=${anularOtraVez.status} "${anularOtraVez.data?.error}"`);
+
+    // 14. Las devoluciones, en "Últimos movimientos" (Producción) y en Movimientos de Stock
+    const devoluciones = await get('/api/movimientos-viandas?tipo=devolucion');
+    const devolucionDeA = (Array.isArray(devoluciones.data) ? devoluciones.data : []).find(m => m.motivo === 'Anulación del pedido #' + idA);
+    const devolucionABien = Boolean(devolucionDeA) && Number(devolucionDeA.cantidad) === N;
+    comprobar('Últimos movimientos: ?tipo=devolucion trae la anulación de A', devolucionABien, devolucionDeA ? `+${devolucionDeA.cantidad} ${devolucionDeA.plato_nombre}` : 'no apareció');
+    const deHoyDespues = await get(`/api/movimientos?desde=${hoy}&hasta=${hoy}`);
+    const movDevolucionA = (Array.isArray(deHoyDespues.data) ? deHoyDespues.data : []).find(m => m.origen === 'devolucion' && m.numero === idA);
+    const devolucionUnificadaBien = Boolean(movDevolucionA) && movDevolucionA.tipo === 'entrada'
+      && JSON.stringify(movDevolucionA.viandas) === JSON.stringify([{ plato: plato.nombre, cantidad: N }]);
+    comprobar('Movimientos de Stock: la devolución de A (entrada, con sus platos)', devolucionUnificadaBien, movDevolucionA ? JSON.stringify(movDevolucionA.viandas) : 'no apareció');
+
+    // 15. descontar_insumos_pedido (la función de la base de la parada 3B), en los casos que no descuentan nada.
+    //     Se llama directo a la base (no hay una ruta solo para esto); ninguno de estos casos guarda nada.
+    const sinUsuario = await supabase.rpc('descontar_insumos_pedido', { p_id_pedido: idA, p_id_usuario: null });
+    comprobar('descontar_insumos_pedido sin usuario → no hace nada', sinUsuario.data?.error === 'Falta el usuario que cambia el estado del pedido', sinUsuario.error ? 'error de la base (¿se corrió sql/insumos_pedido.sql, bloque 2?)' : `"${sinUsuario.data?.error}"`);
+    const noExiste = await supabase.rpc('descontar_insumos_pedido', { p_id_pedido: 2147483647, p_id_usuario: sesion.id });
+    comprobar('descontar_insumos_pedido de un pedido que no existe', noExiste.data?.error === 'El pedido no existe', noExiste.error ? 'error de la base' : `"${noExiste.data?.error}"`);
+    const deUnAnulado = await supabase.rpc('descontar_insumos_pedido', { p_id_pedido: idA, p_id_usuario: sesion.id });
+    comprobar('descontar_insumos_pedido de un anulado → no descuenta', deUnAnulado.data?.error === 'Un pedido anulado no descuenta insumos', deUnAnulado.error ? 'error de la base' : `"${deUnAnulado.data?.error}"`);
+    console.log('  ℹ️  "Ya descontado" la segunda vez (con insumos de verdad) se prueba en sql/insumos_pedido_probar.sql, parte B,');
+    console.log('      que se deshace sola: acá habría que pasar a 3 un pedido con personalizados, y eso gastaría insumos reales.');
+  } finally {
+    // 16. Al final, pase lo que pase: se anulan los pedidos de prueba que quedaron y la heladera tiene que estar igual.
+    //     slice() = una copia de la lista (anularPedidoPrueba va sacando de la original los que anula)
+    const quedan = pedidosDePrueba.slice();
+    await Promise.all(quedan.map(id => anularPedidoPrueba(id)));  // map + Promise.all = los anula y espera a todos
+    if (quedan.length > 0) console.log(`  🗑️  Anulados al final: ${quedan.map(id => '#' + id).join(', ')}`);
+    //     Si el test se cortó antes de leer la heladera, no hay con qué comparar ("? … : …" = solo se lee si hace falta)
+    const idsIniciales = heladeraInicial ? Object.keys(heladeraInicial).map(Number) : [];   // los platos que se usaron
+    const heladeraFinal = heladeraInicial ? await leerHeladera(idsIniciales) : null;
+    const quedoIgual = heladeraInicial ? revisarHeladera('Al final: la heladera quedó igual que al empezar', heladeraInicial, heladeraFinal, {}) : true;
+    if (!quedoIgual) console.log(`${ROJO}  ❌ LA HELADERA NO QUEDÓ IGUAL QUE AL EMPEZAR: mirá Producción (¿alguien cargó algo mientras corría el test?)${NORMAL}`);
+  }
+}
+
 // ─── Limpieza ─────────────────────────────────────────────────
 async function cleanup() {
   console.log('\n══════ LIMPIEZA ══════');
@@ -534,6 +911,13 @@ async function main() {
     process.exit(1);
   }
 
+  // "node tests/test_e2e.js heladera" corre SOLO la sección HELADERA (la que se puede correr contra la base
+  // real: no crea productos ni borra nada) y termina ahí. Sin "heladera", corre todo lo de antes.
+  if (process.argv[2] === 'heladera') {
+    await testHeladera();
+    terminar();
+  }
+
   const token = await testLogin();
   tokenAdmin = token;
   const planes = await testCatalogo();
@@ -555,6 +939,13 @@ async function main() {
 
   await cleanup();
 
+  terminar();
+}
+
+// ─── Resumen y salida (lo usan las dos formas de correr el test) ───
+// ENTRADA: nada (usa los contadores de ok / fail / warn)
+// SALIDA:  escribe el resumen y termina el programa (código 1 si algo falló, 0 si no)
+function terminar() {
   // ─── Resumen ────────────────────────────────────────────────
   console.log('\n╔══════════════════════════════════════════════════════════╗');
   console.log('║  RESUMEN DE RESULTADOS                                  ║');

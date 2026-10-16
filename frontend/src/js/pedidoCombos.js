@@ -9,7 +9,8 @@
 //   validarFormulario → controla cada campo, escribe los errores debajo y devuelve los datos limpios (o null)
 //   armarPedido       → junta el carrito y los datos del formulario en el pedido que se manda al servidor
 //   confirmarPedido   → lo que pasa al tocar "Confirmar pedido": valida, arma, manda, y si salió bien
-//                       vacía el carrito y muestra la confirmación (si no, muestra el error)
+//                       vacía el carrito y muestra la confirmación (si no, muestra el error; si el error es
+//                       "No quedan suficientes viandas…", además vuelve a pedir los combos: paso H8)
 //   enviarPedido      → manda el pedido a POST /api/pedidos-combos y traduce la respuesta a
 //                       { ok: true, respuesta } o { ok: false, error: "mensaje para el cliente" }
 //   mostrarConfirmacion  → dibuja "¡Recibimos tu pedido #N!" con lo que devolvió el servidor y el botón de WhatsApp
@@ -52,6 +53,10 @@ const ENTREGA_ENVIO = 'Delivery';
 let barriosCargados = false;
 
 // ── Prepara y abre la ventana del formulario ──────────────────────────────
+// ENTRADA: nada (usa carritoCombos, el carrito de carritoCombos.js)
+// SALIDA:  nada (la ventana "Finalizar pedido" abierta: resumen, total, fecha mínima y los datos de la sesión)
+// Ej: carrito con "Mantenimiento x10" (8 fideos + 2 fideos "sin sal") → "(1 combo)", total $ 137.000
+//     y la primera fecha posible a 3 días hábiles (uno más por el "sin sal")
 function abrirCheckout() {
   // Sin combos no hay nada que finalizar
   if (carritoCombos.length === 0) return;
@@ -70,11 +75,8 @@ function abrirCheckout() {
     // Ejemplo: entra [{ cantidad: 3, nombre: 'fideos' }, { cantidad: 2, nombre: 'fideos', personalizado: 'sin sal' }]
     //          sale  '3 × fideos, 2 × fideos (sin sal)'
     const platosTexto = combo.platos.map(plato => {
-      let texto = escHtml(plato.cantidad) + ' × ' + escHtml(plato.nombre);
-      if (plato.personalizado) {
-        texto = texto + ' (' + escHtml(plato.personalizado) + ')';
-      }
-      return texto;
+      const aclaracion = plato.personalizado ? ' (' + escHtml(plato.personalizado) + ')' : '';  // solo el personalizado
+      return escHtml(plato.cantidad) + ' × ' + escHtml(plato.nombre) + aclaracion;
     }).join(', ');
 
     html += `
@@ -85,8 +87,7 @@ function abrirCheckout() {
   });
   document.getElementById('ck-resumen-lista').innerHTML = html;
 
-  let textoCantidad = carritoCombos.length + ' combos';
-  if (carritoCombos.length === 1) textoCantidad = '1 combo';
+  const textoCantidad = carritoCombos.length === 1 ? '1 combo' : carritoCombos.length + ' combos';  // ej: "3 combos"
   document.getElementById('ck-resumen-cant').textContent = '(' + textoCantidad + ')';
   document.getElementById('ck-resumen-total').textContent = '$ ' + total.toLocaleString('es-AR');
   document.getElementById('ck-total').textContent = '$ ' + total.toLocaleString('es-AR');
@@ -97,50 +98,44 @@ function abrirCheckout() {
   //    some responde true si AL MENOS UNO cumple: [fideos x3, fideos x2 "sin sal"] → true
   const platosDelCarrito = carritoCombos.flatMap(combo => combo.platos);
   const hayPersonalizado = platosDelCarrito.some(plato => plato.personalizado);
-
-  let diasHabiles = DIAS_HABILES_ENTREGA;
-  let aclaracionPersonalizado = '';
-  if (hayPersonalizado) {
-    diasHabiles = DIAS_HABILES_CON_PERSONALIZADO;
-    aclaracionPersonalizado = ' (un día hábil más por los platos personalizados)';
-  }
+  const diasHabiles = hayPersonalizado ? DIAS_HABILES_CON_PERSONALIZADO : DIAS_HABILES_ENTREGA;
+  const aclaracionPersonalizado = hayPersonalizado ? ' (un día hábil más por los platos personalizados)' : '';
 
   const inputFecha = document.getElementById('ck-fecha');
   inputFecha.min = fechaLocalISO(sumarDiasHabiles(new Date(), diasHabiles));
   // Si había una fecha elegida que ya no alcanza, se borra
-  if (inputFecha.value && inputFecha.value < inputFecha.min) {
-    inputFecha.value = '';
-  }
+  const fechaQueNoAlcanza = inputFecha.value !== '' && inputFecha.value < inputFecha.min;
+  if (fechaQueNoAlcanza) inputFecha.value = '';
   document.getElementById('ck-fecha-ayuda').textContent =
     'La primera fecha posible es el ' + fechaDDMMAAAA(parseFechaLocal(inputFecha.min)) + aclaracionPersonalizado + '.';
 
   // 3. Si el cliente inició sesión, se completan solos los campos vacíos con sus datos.
   //    Los mismos 5 campos que completa el formulario viejo (preLlenarFormulario).
-  if (localStorage.getItem('usuario_id')) {
-    const datosDeSesion = {
-      'ck-nombre':    localStorage.getItem('usuario_nombre') || '',
-      'ck-apellido':  localStorage.getItem('usuario_apellido') || '',
-      'ck-email':     localStorage.getItem('usuario_email') || '',
-      'ck-telefono':  localStorage.getItem('usuario_telefono') || '',
-      'ck-direccion': localStorage.getItem('usuario_direccion') || ''
-    };
-    // Object.keys da la lista de nombres de un objeto.
-    // Ejemplo: { 'ck-nombre': 'Ana', 'ck-email': '' } → ['ck-nombre', 'ck-email']
-    Object.keys(datosDeSesion).forEach(idCampo => {
-      const campo = document.getElementById(idCampo);
-      // Si el campo ya tiene algo escrito, no se pisa: return = saltear este y seguir con el siguiente
-      if (campo.value) return;
-      campo.value = datosDeSesion[idCampo];
-    });
-  }
+  const usuarioId = localStorage.getItem('usuario_id');     // lo guarda el login (null si no inició sesión)
+  const datosDeSesion = {
+    'ck-nombre':    localStorage.getItem('usuario_nombre') || '',
+    'ck-apellido':  localStorage.getItem('usuario_apellido') || '',
+    'ck-email':     localStorage.getItem('usuario_email') || '',
+    'ck-telefono':  localStorage.getItem('usuario_telefono') || '',
+    'ck-direccion': localStorage.getItem('usuario_direccion') || ''
+  };
+  // Object.keys da la lista de nombres de un objeto. Sin sesión, la lista queda vacía y no se completa nada.
+  // Ejemplo: { 'ck-nombre': 'Ana', 'ck-email': '' } → ['ck-nombre', 'ck-email']
+  const camposACompletar = usuarioId ? Object.keys(datosDeSesion) : [];
+  camposACompletar.forEach(idCampo => {
+    const campo = document.getElementById(idCampo);
+    // Si el campo ya tiene algo escrito, no se pisa: return = saltear este y seguir con el siguiente
+    if (campo.value) return;
+    campo.value = datosDeSesion[idCampo];
+  });
 
   // 4. Errores limpios, el barrio visible solo si está elegido el envío, y la lista de barrios
   document.querySelectorAll('#form-pedido .campo__error').forEach(parrafo => {
     parrafo.textContent = '';
   });
+  // ?. = "si hay una opción marcada, su valor" (sin ninguna marcada da undefined: no es envío)
   const entregaElegida = document.querySelector('#form-pedido input[name="entrega"]:checked');
-  let conEnvio = false;
-  if (entregaElegida && entregaElegida.value === ENTREGA_ENVIO) conEnvio = true;
+  const conEnvio = entregaElegida?.value === ENTREGA_ENVIO;
   document.getElementById('ck-grupo-barrio').hidden = !conEnvio;
   cargarBarrios();
 
@@ -151,6 +146,10 @@ function abrirCheckout() {
 }
 
 // ── Pide los barrios al servidor y llena el select (una sola vez) ─────────
+// ENTRADA: nada
+// SALIDA:  nada (el select "Barrio" con una opción por barrio). Si ya estaban cargados no hace nada;
+//          si falla, escribe un aviso debajo del campo.
+// Ej: GET /api/barrios → [{ id: 3, nombre: 'Centro' }] → una opción "Centro" con valor 3
 async function cargarBarrios() {
   if (barriosCargados) return;
 
@@ -176,111 +175,117 @@ async function cargarBarrios() {
 }
 
 // ── Controla cada campo; devuelve los datos limpios o null si hay errores ──
+// ENTRADA: nada (lee los campos del formulario)
+// SALIDA:  { nombre, apellido, direccion, telefono, email, fecha, metodoPago, tipoEntrega, barrioId, observaciones }
+//          con los datos limpios, o null si algún campo está mal (y escribe el error debajo de ese campo)
+// Ej: Nombre "Ana", Apellido vacío y un sábado de fecha → null, y debajo: "Escribí tu apellido."
+//     y "Ese día no entregamos (feriado o fin de semana). Elegí otro."
 function validarFormulario() {
   const formulario = document.getElementById('form-pedido');
 
-  // Errores encontrados: { idDelParrafoDeError: mensaje }
-  const errores = {};
-
-  // Nombre y Apellido: obligatorios (como en el viejo, sin espacios de más).
-  // Juntos ("Nombre Apellido") son cliente_nombre: entre los dos, hasta 100 caracteres.
+  // 1. Se lee cada campo (Nombre, Apellido, Dirección, Teléfono y Email sin espacios de más, como en el viejo)
   const nombre = document.getElementById('ck-nombre').value.trim();
   const apellido = document.getElementById('ck-apellido').value.trim();
-  if (nombre === '') {
-    errores['err-nombre'] = 'Escribí tu nombre.';
-  }
-  if (apellido === '') {
-    errores['err-apellido'] = 'Escribí tu apellido.';
-  } else if ((nombre + ' ' + apellido).length > LARGO_MAXIMO.nombreCompleto) {
-    errores['err-apellido'] = 'Nombre y apellido juntos: hasta ' + LARGO_MAXIMO.nombreCompleto + ' caracteres.';
-  }
-
-  // Dirección: obligatoria siempre, como en el viejo (aunque sea retiro en el local)
   const direccion = document.getElementById('ck-direccion').value.trim();
-  if (direccion === '') {
-    errores['err-direccion'] = 'Escribí tu dirección.';
-  } else if (direccion.length > LARGO_MAXIMO.direccion) {
-    errores['err-direccion'] = 'Hasta ' + LARGO_MAXIMO.direccion + ' caracteres.';
-  }
-
-  // Teléfono: obligatorio, como en el viejo
   const telefono = document.getElementById('ck-telefono').value.trim();
-  if (telefono === '') {
-    errores['err-telefono'] = 'Escribí tu teléfono.';
-  } else if (telefono.length > LARGO_MAXIMO.telefono) {
-    errores['err-telefono'] = 'Hasta ' + LARGO_MAXIMO.telefono + ' caracteres.';
-  }
-
-  // Email: opcional. Si no se escribe va '' (vacío), como en el viejo.
-  // Si se escribe, tiene que tener la forma algo@algo.algo (el viejo también lo controla:
-  // su campo es type="email"). Ejemplo: 'ana@mail.com' → sí · 'ana@mail' → no
-  const email = document.getElementById('ck-email').value.trim();
-  if (email !== '') {
-    if (email.length > LARGO_MAXIMO.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errores['err-email'] = 'Revisá el email (o dejalo vacío).';
-    }
-  }
-
-  // Fecha: obligatoria, día hábil y no antes de la fecha mínima
+  const email = document.getElementById('ck-email').value.trim();            // opcional: si no se escribe va ''
   const inputFecha = document.getElementById('ck-fecha');
-  const fecha = inputFecha.value;
-  if (fecha === '') {
-    errores['err-fecha'] = 'Elegí la fecha de entrega.';
-  } else if (!esDiaHabil(parseFechaLocal(fecha))) {
-    errores['err-fecha'] = 'Ese día no entregamos (feriado o fin de semana). Elegí otro.';
-  } else if (fecha < inputFecha.min) {
-    errores['err-fecha'] = 'La primera fecha posible es el ' + fechaDDMMAAAA(parseFechaLocal(inputFecha.min)) + '.';
-  }
+  const fecha = inputFecha.value;                                            // 'AAAA-MM-DD', o '' si no eligió
+  // Método de Pago y Tipo de Entrega: la opción marcada (vienen elegidos Efectivo y Delivery, como en el viejo).
+  // ?. = "si hay una marcada, su valor"; || '' = si no hay ninguna, vacío
+  const metodoPago = formulario.querySelector('input[name="pago"]:checked')?.value || '';
+  const tipoEntrega = formulario.querySelector('input[name="entrega"]:checked')?.value || '';
+  const observaciones = document.getElementById('ck-observaciones').value;   // opcional: va tal cual se escribió
 
-  // Método de Pago: obligatorio (viene elegido Efectivo, como en el viejo)
-  let metodoPago = '';
-  const pagoElegido = formulario.querySelector('input[name="pago"]:checked');
-  if (pagoElegido) metodoPago = pagoElegido.value;
-  if (metodoPago === '') {
-    errores['err-pago'] = 'Elegí el método de pago.';
-  }
+  // 2. Las cuentas que usan los controles de abajo
+  // Email: si se escribe, tiene que tener la forma algo@algo.algo (el viejo también lo controla:
+  // su campo es type="email"). Ejemplo: 'ana@mail.com' → sí · 'ana@mail' → no
+  const emailConForma = email.length <= LARGO_MAXIMO.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const emailMalEscrito = email !== '' && !emailConForma;
+  // Barrio: obligatorio SOLO con envío a domicilio. Con retiro va null.
+  const conEnvio = tipoEntrega === ENTREGA_ENVIO;
+  const barrioElegido = Number(document.getElementById('ck-barrio').value);   // sin elegir: '' → 0
+  const barrioValido = Number.isInteger(barrioElegido) && barrioElegido > 0;
+  const faltaBarrio = conEnvio && !barrioValido;
+  const vaConBarrio = conEnvio && barrioValido;
+  const barrioId = vaConBarrio ? barrioElegido : null;
+  // La primera fecha posible (la puso abrirCheckout), para el mensaje. Ej: '2026-10-20' → '20/10/2026'
+  const primeraFecha = fechaDDMMAAAA(parseFechaLocal(inputFecha.min));
 
-  // Tipo de Entrega: obligatorio (viene elegido Delivery, como en el viejo)
-  let tipoEntrega = '';
-  const entregaElegida = formulario.querySelector('input[name="entrega"]:checked');
-  if (entregaElegida) tipoEntrega = entregaElegida.value;
-  if (tipoEntrega === '') {
-    errores['err-entrega'] = 'Elegí el tipo de entrega.';
-  }
+  // 3. Los controles de cada campo, en orden: { estaMal, mensaje }.
+  //    De cada campo vale el PRIMERO que está mal (como un "si no, si no").
+  //    Ej: Apellido vacío → 'Escribí tu apellido.' (el del largo ya no cuenta)
+  const controles = {
+    'err-nombre': [
+      { estaMal: nombre === '', mensaje: 'Escribí tu nombre.' }
+    ],
+    // Nombre y Apellido juntos ("Nombre Apellido") son cliente_nombre: entre los dos, hasta 100 caracteres
+    'err-apellido': [
+      { estaMal: apellido === '', mensaje: 'Escribí tu apellido.' },
+      { estaMal: (nombre + ' ' + apellido).length > LARGO_MAXIMO.nombreCompleto,
+        mensaje: 'Nombre y apellido juntos: hasta ' + LARGO_MAXIMO.nombreCompleto + ' caracteres.' }
+    ],
+    // Dirección: obligatoria siempre, como en el viejo (aunque sea retiro en el local)
+    'err-direccion': [
+      { estaMal: direccion === '', mensaje: 'Escribí tu dirección.' },
+      { estaMal: direccion.length > LARGO_MAXIMO.direccion, mensaje: 'Hasta ' + LARGO_MAXIMO.direccion + ' caracteres.' }
+    ],
+    // Teléfono: obligatorio, como en el viejo
+    'err-telefono': [
+      { estaMal: telefono === '', mensaje: 'Escribí tu teléfono.' },
+      { estaMal: telefono.length > LARGO_MAXIMO.telefono, mensaje: 'Hasta ' + LARGO_MAXIMO.telefono + ' caracteres.' }
+    ],
+    'err-email': [
+      { estaMal: emailMalEscrito, mensaje: 'Revisá el email (o dejalo vacío).' }
+    ],
+    // Fecha: obligatoria, día hábil y no antes de la fecha mínima
+    'err-fecha': [
+      { estaMal: fecha === '', mensaje: 'Elegí la fecha de entrega.' },
+      { estaMal: !esDiaHabil(parseFechaLocal(fecha)), mensaje: 'Ese día no entregamos (feriado o fin de semana). Elegí otro.' },
+      { estaMal: fecha < inputFecha.min, mensaje: 'La primera fecha posible es el ' + primeraFecha + '.' }
+    ],
+    'err-pago': [
+      { estaMal: metodoPago === '', mensaje: 'Elegí el método de pago.' }
+    ],
+    'err-entrega': [
+      { estaMal: tipoEntrega === '', mensaje: 'Elegí el tipo de entrega.' }
+    ],
+    'err-barrio': [
+      { estaMal: faltaBarrio, mensaje: 'Seleccioná tu barrio.' }
+    ],
+    'err-observaciones': [
+      { estaMal: observaciones.length > LARGO_MAXIMO.observaciones, mensaje: 'Hasta ' + LARGO_MAXIMO.observaciones + ' caracteres.' }
+    ]
+  };
 
-  // Barrio de entrega: obligatorio SOLO con envío a domicilio. Con retiro va null.
-  let barrioId = null;
-  if (tipoEntrega === ENTREGA_ENVIO) {
-    const barrioElegido = Number(document.getElementById('ck-barrio').value);
-    if (!Number.isInteger(barrioElegido) || barrioElegido <= 0) {
-      errores['err-barrio'] = 'Seleccioná tu barrio.';
-    } else {
-      barrioId = barrioElegido;
-    }
-  }
-
-  // Observaciones: opcional. Va tal cual se escribió ('' si está vacío), como en el viejo.
-  const observaciones = document.getElementById('ck-observaciones').value;
-  if (observaciones.length > LARGO_MAXIMO.observaciones) {
-    errores['err-observaciones'] = 'Hasta ' + LARGO_MAXIMO.observaciones + ' caracteres.';
-  }
-
-  // Se borran los errores anteriores y se escriben los nuevos debajo de cada campo.
-  // Object.keys da la lista de nombres del objeto. Ejemplo: { 'err-nombre': '...', 'err-pago': '...' } → ['err-nombre', 'err-pago']
+  // 4. Se borran los errores anteriores y se escribe, debajo de cada campo, su primer control que falla
   formulario.querySelectorAll('.campo__error').forEach(parrafo => {
     parrafo.textContent = '';
   });
-  const idsConError = Object.keys(errores);
-  idsConError.forEach(idError => {
-    document.getElementById(idError).textContent = errores[idError];
+  let hayErrores = false;
+  // Object.keys da la lista de nombres del objeto. Ej: { 'err-nombre': [...], 'err-pago': [...] } → ['err-nombre', 'err-pago']
+  Object.keys(controles).forEach(idError => {
+    // find = el primer control que está mal (o undefined si están todos bien).
+    // Ej: [{ estaMal: true, mensaje: 'Escribí tu apellido.' }, { estaMal: false, … }] → el primero
+    const controlQueFalla = controles[idError].find(control => control.estaMal);
+    // Este campo está bien: return = saltear este y seguir con el siguiente
+    if (!controlQueFalla) return;
+    document.getElementById(idError).textContent = controlQueFalla.mensaje;
+    hayErrores = true;
   });
 
-  if (idsConError.length > 0) return null;
-
+  // 5. Con algún error no se sigue; si están todos bien, los datos limpios
+  if (hayErrores) return null;
   return { nombre, apellido, direccion, telefono, email, fecha, metodoPago, tipoEntrega, barrioId, observaciones };
 }
 
 // ── Junta el carrito y los datos en el pedido que se manda al servidor ────
+// ENTRADA: datos = lo que devolvió validarFormulario
+// SALIDA:  el pedido para POST /api/pedidos-combos (sin precios, sin total y sin usuario)
+// Ej: carrito [Mantenimiento x10 con 8 fideos + 2 fideos "sin sal"] + datos de Ana López →
+//     { combos: [{ id_combo: 1, platos: [{ producto_id: 5, cantidad: 8, personalizado: null },
+//                                        { producto_id: 5, cantidad: 2, personalizado: 'sin sal' }] }],
+//       cliente_nombre: 'Ana López', ... }
 function armarPedido(datos) {
   // De cada combo va solo su id y sus platos (id, cantidad y texto personalizado).
   // Nada de precios ni nombres: el servidor los saca de la base.
@@ -311,6 +316,11 @@ function armarPedido(datos) {
 }
 
 // ── Al tocar "Confirmar pedido" ───────────────────────────────────────────
+// ENTRADA: evento = el "submit" del formulario
+// SALIDA:  nada. Si salió bien: carrito vacío, formulario limpio y la confirmación a la vista.
+//          Si no: el mensaje debajo del botón (y si faltan viandas, los combos se vuelven a pedir).
+// Ej: pide 16 fideos y quedan 12 → "No quedan suficientes viandas de «fideos»: pediste 16 y quedan 12"
+//     y el menú se recarga mostrando que quedan 12
 async function confirmarPedido(evento) {
   // El formulario no recarga la página
   evento.preventDefault();
@@ -334,6 +344,12 @@ async function confirmarPedido(evento) {
   boton.disabled = false;
   boton.textContent = 'Confirmar pedido';
 
+  // Si no alcanzan las viandas de un plato (otro cliente se las llevó), se vuelven a pedir los combos
+  // (combosCatalogo.js), en la misma categoría: así el menú muestra lo que queda al armar el combo de nuevo.
+  // startsWith = "empieza con". Ej: 'No quedan suficientes viandas de «fideos»: pediste 16 y quedan 12' → sí
+  const faltanViandas = !resultado.ok && resultado.error.startsWith('No quedan suficientes viandas');
+  if (faltanViandas) cargarCombos(true);
+
   // No salió: se muestra el mensaje y el carrito y el formulario quedan como estaban.
   // textContent lo muestra como texto, nunca como HTML.
   if (!resultado.ok) {
@@ -352,6 +368,11 @@ async function confirmarPedido(evento) {
 }
 
 // ── Manda el pedido al servidor y traduce la respuesta ────────────────────
+// ENTRADA: pedido = lo que armó armarPedido
+// SALIDA:  { ok: true, respuesta } con lo que devolvió el servidor, o { ok: false, error: 'mensaje para el cliente' }
+// Ej: 200 → { ok: true, respuesta: { id_pedido: 251, total: 137000, combos: [...] } }
+//     400 → { ok: false, error: 'No quedan suficientes viandas de «fideos»: pediste 16 y quedan 12' }
+//     500 o sin internet → { ok: false, error: 'No pudimos enviar tu pedido. Probá de nuevo en unos minutos.' }
 async function enviarPedido(pedido) {
   try {
     // apiFetch (api.js) agrega el token si el cliente inició sesión: el servidor saca de ahí
@@ -364,15 +385,13 @@ async function enviarPedido(pedido) {
     const cuerpo = await respuesta.json();
 
     // 200: pedido creado
-    if (respuesta.ok) {
-      return { ok: true, respuesta: cuerpo };
-    }
+    if (respuesta.ok) return { ok: true, respuesta: cuerpo };
 
     // 400 (algún dato mal, un combo que ya no está) o 429 (demasiados pedidos seguidos):
     // el servidor manda un mensaje pensado para el cliente
-    if ((respuesta.status === 400 || respuesta.status === 429) && cuerpo.error) {
-      return { ok: false, error: cuerpo.error };
-    }
+    const esErrorConAviso = respuesta.status === 400 || respuesta.status === 429;
+    const traeMensaje = esErrorConAviso && cuerpo.error;
+    if (traeMensaje) return { ok: false, error: cuerpo.error };
 
     // Cualquier otro error (500): mensaje simple; el detalle queda en la consola
     console.error('Error al crear el pedido:', respuesta.status, cuerpo);
@@ -385,6 +404,11 @@ async function enviarPedido(pedido) {
 }
 
 // ── Dibuja la confirmación con lo que devolvió el servidor ────────────────
+// ENTRADA: respuesta = lo que devolvió el servidor (id_pedido, total, combos con sus platos)
+//          datos     = lo que devolvió validarFormulario
+// SALIDA:  nada (la vista "¡Recibimos tu pedido #N!" con el botón de WhatsApp)
+// Ej: { id_pedido: 251, total: 137000, combos: [Mantenimiento x10: 8 fideos + 2 fideos (sin sal)] }
+//     → "¡Recibimos tu pedido #251!", "Total: $ 137.000"
 function mostrarConfirmacion(respuesta, datos) {
   // Combos con sus platos: nombres y precios que guardó el servidor (los de la base)
   let combosHtml = '';
@@ -395,11 +419,8 @@ function mostrarConfirmacion(respuesta, datos) {
     // Ejemplo: entra [{ cantidad: 8, nombre: 'fideos' }, { cantidad: 2, nombre: 'fideos', personalizado: 'sin sal' }]
     //          sale  '<li>8 × fideos</li><li>2 × fideos (sin sal)</li>'
     const platosHtml = combo.platos.map(plato => {
-      let texto = escHtml(plato.cantidad) + ' × ' + escHtml(plato.nombre);
-      if (plato.personalizado) {
-        texto = texto + ' (' + escHtml(plato.personalizado) + ')';
-      }
-      return '<li>' + texto + '</li>';
+      const aclaracion = plato.personalizado ? ' (' + escHtml(plato.personalizado) + ')' : '';  // solo el personalizado
+      return '<li>' + escHtml(plato.cantidad) + ' × ' + escHtml(plato.nombre) + aclaracion + '</li>';
     }).join('');
 
     combosHtml += `
@@ -410,16 +431,12 @@ function mostrarConfirmacion(respuesta, datos) {
   });
 
   // Entrega, fecha, total y (si es transferencia) el alias
-  let textoEntrega = 'Retiro en el local';
-  if (datos.tipoEntrega === ENTREGA_ENVIO) {
-    textoEntrega = 'Envío a domicilio: ' + datos.direccion;
-  }
+  const conEnvio = datos.tipoEntrega === ENTREGA_ENVIO;
+  const textoEntrega = conEnvio ? 'Envío a domicilio: ' + datos.direccion : 'Retiro en el local';
   const fechaEntrega = fechaDDMMAAAA(parseFechaLocal(datos.fecha));
   const total = Number(respuesta.total).toLocaleString('es-AR');
-  let notaTransferencia = '';
-  if (datos.metodoPago === 'Transferencia') {
-    notaTransferencia = `<p class="nota">Alias: ${escHtml(ALIAS_TRANSFERENCIA)}</p>`;
-  }
+  const conTransferencia = datos.metodoPago === 'Transferencia';
+  const notaTransferencia = conTransferencia ? '<p class="nota">Alias: ' + escHtml(ALIAS_TRANSFERENCIA) + '</p>' : '';
 
   document.getElementById('ok-cuerpo').innerHTML = `
     <div class="confirmacion">
@@ -443,6 +460,9 @@ function mostrarConfirmacion(respuesta, datos) {
 }
 
 // ── Arma el mensaje de WhatsApp (mismo formato que redirigirAWhatsApp del formulario viejo) ──
+// ENTRADA: respuesta = lo que devolvió el servidor · datos = lo que devolvió validarFormulario
+// SALIDA:  el enlace 'https://wa.me/5493512294243?text=...' con el mensaje adentro
+// Ej: pedido #251 → '...Pedido: #251 ... 1x PRUEBA Mantenimiento x10: $137.000\n   - 8 fideos\n   - 2 fideos (sin sal)...'
 function armarMensajeWhatsApp(respuesta, datos) {
   // Fecha y hora de ahora, igual que el viejo (ej: "15/10/26, 06:30 p. m.hs")
   const fechaFormateada = new Date().toLocaleString('es-AR', {
@@ -461,25 +481,18 @@ function armarMensajeWhatsApp(respuesta, datos) {
     // map arma una línea por plato y join las une con saltos de línea.
     // Ejemplo: [{ cantidad: 8, nombre: 'fideos' }] → '   - 8 fideos'
     const lineasPlatos = combo.platos.map(plato => {
-      let linea = '   - ' + plato.cantidad + ' ' + plato.nombre;
-      if (plato.personalizado) {
-        linea = linea + ' (' + plato.personalizado + ')';
-      }
-      return linea;
+      const aclaracion = plato.personalizado ? ' (' + plato.personalizado + ')' : '';   // solo el personalizado
+      return '   - ' + plato.cantidad + ' ' + plato.nombre + aclaracion;
     }).join('\n');
 
     lineasCombos += '1x ' + combo.nombre + ': $' + Number(combo.precio).toLocaleString('es-AR') + '\n' + lineasPlatos + '\n';
   });
 
   // Igual que el viejo: el alias solo con transferencia, y la dirección solo con delivery
-  let lineaAlias = '\n';
-  if (datos.metodoPago === 'Transferencia') {
-    lineaAlias = '► ALIAS: ' + ALIAS_TRANSFERENCIA + '\n\n';
-  }
-  let lineaEntrega = 'Entrega: Retiro en local';
-  if (datos.tipoEntrega === ENTREGA_ENVIO) {
-    lineaEntrega = 'Entrega: Delivery\nDirección: ' + datos.direccion;
-  }
+  const conTransferencia = datos.metodoPago === 'Transferencia';
+  const lineaAlias = conTransferencia ? '► ALIAS: ' + ALIAS_TRANSFERENCIA + '\n\n' : '\n';
+  const conEnvio = datos.tipoEntrega === ENTREGA_ENVIO;
+  const lineaEntrega = conEnvio ? 'Entrega: Delivery\nDirección: ' + datos.direccion : 'Entrega: Retiro en local';
 
   // Nuevo (el viejo no la tiene): la fecha de entrega elegida
   const fechaEntrega = fechaDDMMAAAA(parseFechaLocal(datos.fecha));
@@ -541,18 +554,18 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('ck-fecha').addEventListener('change', evento => {
     const campoFecha = evento.target;
     document.getElementById('err-fecha').textContent = '';
-    if (campoFecha.value && !esDiaHabil(parseFechaLocal(campoFecha.value))) {
+    const diaSinEntrega = campoFecha.value !== '' && !esDiaHabil(parseFechaLocal(campoFecha.value));
+    if (diaSinEntrega) {
       document.getElementById('err-fecha').textContent = 'Ese día no entregamos (feriado o fin de semana). Elegí otro.';
       campoFecha.value = '';
     }
   });
 
-  // Cerrar: con la ✕, "Volver al inicio" o un clic en el fondo oscuro
+  // Cerrar: con la ✕, "Volver al inicio" o un clic en el fondo oscuro (la ventana misma)
   ventana.addEventListener('click', evento => {
-    const boton = evento.target.closest('[data-accion="cerrar"]');
-    if (evento.target === ventana || boton) {
-      ventana.close();
-    }
+    const tocoCerrar = evento.target.closest('[data-accion="cerrar"]') !== null;   // closest = el botón, o null
+    const hayQueCerrar = evento.target === ventana || tocoCerrar;
+    if (hayQueCerrar) ventana.close();
   });
 });
 

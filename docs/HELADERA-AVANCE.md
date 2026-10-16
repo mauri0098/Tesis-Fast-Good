@@ -1,4 +1,4 @@
-# Heladera — avance del refactor (15/10/2026)
+# Heladera — avance del refactor (16/10/2026)
 
 Leer junto con `ESTADO-PROYECTO.md`, `CLAUDE.md` y `docs/informe_heladera.md`. Este archivo dice **dónde estamos parados** en la heladera.
 Se actualiza al terminar cada paso: estado, resultados y el próximo prompt.
@@ -33,6 +33,10 @@ Se crean funciones NUEVAS (no se cambian las viejas) porque Render (rama Rodrigu
 10. (H8) Reservadas = suma de `cantidad_de_heladera` (NO `cantidad`) de los pedidos en 1, 2 o 3. Los personalizados y los pedidos de la web vieja tienen 0; en 4 ya se entregaron y en 5 volvieron a las libres.
 11. (H8) El mínimo de un plato se cambia desde Producción: roles 6, 5 y 1, entero de 0 a 9999 (0 = sin control). El cocinero lo ve, pero no lo cambia.
 12. (H8) La Parte 1 va en tres paradas (Producción → Consultar Pedidos → cocina y web nueva), con prueba en la web después de cada una. Archivos nuevos: `pedirCocina.js` (parada 1) y `pagoPedido.js` (parada 2).
+13. (16/10) **Cambio de plan: todo de una vez** (paradas 2 y 3 y la Parte 2 de H9), con un test por las rutas al final (`node tests/test_e2e.js heladera`), en vez de probar en la web después de cada parada.
+14. (16/10) Parada 3: se reescribe la tabla de `movimientosStockNuevo.js` (el modal de compra NO se toca); C1 va como 3B; el menú: la nueva se llama "📋 Movimientos de Stock" y la vieja "Movimientos (viejo)" hasta que ande "− Registrar salida"; no se borran archivos.
+15. (16/10) Filtros de Movimientos de Stock: un movimiento se ve si ALGUNA de sus partes coincide (una producción aparece en Viandas + Entradas y en Insumos + Salidas). Lo cargado a mano es "Ajuste"; las fechas arrancan en los últimos 30 días; una producción sin pedido a cocina es "Tanda vieja".
+16. (16/10) **Estilo nuevo** (CLAUDE.md, sección "Estilo"): nunca un `if` adentro de otro, `||` para los valores por defecto, `switch` "según sea", tablas en vez de `if / else if`, salir temprano, ternario simple solo fuera del HTML, condiciones con nombre. Se aplicó a todo lo de este paso sin cambiar lo que hace (comparado lo viejo con lo nuevo).
 
 ## Resultados de H0 (revisión de la base, solo lectura)
 - `id_pedido_detalle` existe, 0 renglones lo usan.
@@ -54,8 +58,8 @@ Se crean funciones NUEVAS (no se cambian las viejas) porque Render (rama Rodrigu
 | H5 | Nada para cocinar → 3 al pasar de 1 a 2 (server.js + ListarPedidos.js) | ✅ probado en la web: 10 fideos → bajó 10; de 1 a 2 saltó solo a "Listo para Entregar"; anulado → volvieron 10 |
 | H6 | VENDER adentro de `crear_pedido_combos` (EL INTERRUPTOR). Candado a todos los platos del pedido, ordenados por id_producto | ✅ probado en la web: 8 fideos + 2 "sin sal" → bajó 8 (los "sin sal" no); anulado → volvieron 8. Dos ventanas con canelones: la segunda dio "No quedan suficientes viandas… quedan 6" y no creó el pedido. Todo volvió a los números del principio. Commit hecho |
 | H7 | Prueba completa real + marcas NO USAR + actualizar `informe_heladera.md` | ✅ Bloque 4 corrido: la 4A dio 12 filas en "sí". La prueba completa en la web se salteó (decisión del usuario). ⚠ En git el último commit es `db441dc` "funcionan los combos" (H5 + H6): los archivos de H7 siguen sin commitear |
-| **H8** | **Pantallas: `heladera.js`, `pedidosCocina.js`, `ListarPedidos.js` y sus rutas reescritos con mis reglas + reservadas, filtros de movimientos, mínimo editable, "Volvieron N viandas", recargar combos y Pago bloqueado en anulados** (el Word pasó a H10) | ✍ Parte 1 en 3 paradas. **Parada 1 (Producción): escrita, falta probar en la web** (ver "H8 — parada 1"). ⏭ Parada 2 (Consultar Pedidos). ⏭ Parada 3, ampliada el 16/10 (ver "H8 — parada 3"): 3A cocina y web nueva · 3B C1 (insumos de un pedido en una función de la base) · 3C Movimientos de Stock todo junto. Plan mostrado en el chat, esperando OK |
-| **H9** | **REFACTOR PARA ENTENDER (Parte 2): las 4 funciones de `heladera.sql`, `crear_pedido_combos` y las rutas de `server.js` que las llaman**, con las reglas de CLAUDE.md y ENTRADA/SALIDA arriba de cada función, sin cambiar lo que hacen (mismas entradas, salidas y mensajes) | ⏭ después de probar la Parte 1 |
+| **H8** | **Pantallas: `heladera.js`, `pedidosCocina.js`, `ListarPedidos.js` y sus rutas reescritos con mis reglas + reservadas, filtros de movimientos, mínimo editable, "Volvieron N viandas", recargar combos y Pago bloqueado en anulados** (el Word pasó a H10) | ✍ **Paradas 1, 2 y 3 (3A, 3B, 3C) escritas** (ver "H8 paradas 2 y 3 + H9"). Falta: correr el SQL de 3B, reiniciar, correr el test HELADERA y mirar las pantallas |
+| **H9** | **REFACTOR PARA ENTENDER (Parte 2): las 4 funciones de `heladera.sql`, `crear_pedido_combos` y las rutas de `server.js` que las llaman**, con las reglas de CLAUDE.md y ENTRADA/SALIDA arriba de cada función, sin cambiar lo que hacen (mismas entradas, salidas y mensajes) | ✍ **Escrito** con el estilo nuevo (también las pantallas de H8) y **comparado** lo viejo con lo nuevo (sección 9.2 del INFORME): todo igual. Falta correr el SQL (heladera.sql 1–3 y pedido_combos_funciones.sql) |
 | H10 | RECORRIDO COMPLETO: un Word de punta a punta con fideos (producir → vender → cocina con personalizado → pasar a 3 → entregar/anular → descartar), con pantalla, ruta, función, tablas y números en cada paso, y el DER actualizado | |
 
 **Orden para probar H4 → H6 (acordado el 15/10):** ✅ hecho (H4 probado → servidor con H5 → #5 y #6 anulados → SQL de H6 → pruebas en la web).
@@ -156,29 +160,55 @@ Cómo probarlo (cuando tu prima no esté cargando; el pedido de prueba se crea y
 | 12 | Como cocinero | El mínimo es un número (sin casillero), sin "+ Pedir a cocina" ni "Te faltan…" |
 | 13 | (Opcional) Consola, como cocinero: `apiFetch('/api/viandas-stock/7/minimo', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stock_minimo: 3 }) }).then(r => r.status)` | `403` |
 
-## H8 — parada 3: plan ampliado (16/10, esperando OK)
-Pedido del usuario (16/10): **Movimientos de Stock muestra TODO junto**: insumos (`movimientos_stock`) y viandas
-(`movimientos_viandas`), del más nuevo al más viejo, **una fila por movimiento** con botón Detalle (Ver/Ocultar), como hoy "Compra #2".
-- Columnas: Fecha y hora · Origen · Referencia · Tipo (▲ Entrada / ▼ Salida) · Resumen ("6 insumos", "2 viandas · 2 insumos") · Usuario · Proveedor (solo compras; si no, "—") · Motivo · Detalle.
-- Filtros: Todo / Insumos / Viandas, y Entradas / Salidas.
-- Sin cambiar la base, salvo C1: solo la ruta y la pantalla.
+## H8 paradas 2 y 3 + H9 — qué se hizo y cómo seguir (16/10)
+Plan aprobado el 16/10 (decisiones 13 a 16). Detalle de todo, con antes/ahora, en las secciones 8.2 a 9 de `INFORME-CAMBIOS-HELADERA.md`.
 
-| Origen | Tipo | Referencia | Qué muestra el Detalle |
+| Parte | Qué se hizo | Archivos |
+|---|---|---|
+| Parada 2 | Consultar Pedidos reescrito (37 → 13 funciones) + `pagoPedido.js` nuevo (5). Un anulado no se cobra (Pago gris y rutas `/pagado`, `/transferencia-confirmada` y `/pago` → 409). "Volvieron N viandas a la heladera". El aviso del pago dice el estado que quedó | `ListarPedidos.js`, `pagoPedido.js` (nuevo), `ConsultarPedidos.html`, `server.js` |
+| Parada 3A | `pedidosCocina.js` (11 → 3): "Hecho" muestra el motivo real de la base. La web nueva vuelve a pedir los combos si no alcanzan las viandas | `pedidosCocina.js`, `combosCatalogo.js`, `pedidoCombos.js` |
+| Parada 3B (C1) | Columna `movimientos_stock.id_pedido` + función `descontar_insumos_pedido` (todo o nada, una sola vez, con quién fue, convive con Render). `server.js` la llama | `sql/insumos_pedido.sql` (nuevo), `sql/insumos_pedido_probar.sql` (nuevo), `server.js` |
+| Parada 3C | `GET /api/movimientos` (insumos y viandas juntos, de a 1000 hasta tener todo) y la tabla nueva de Movimientos de Stock (9 columnas, Detalle Ver/Ocultar, filtros). Menú: "📋 Movimientos de Stock" (la nueva) y "Movimientos (viejo)" | `server.js`, `movimientosStockNuevo.js` (solo la tabla), `MovimientosStockNuevo.html`, `movimientosStockNuevo.css`, `roles.js` |
+| H9 | Estilo nuevo en todo lo anterior + `heladera.js`, `pedirCocina.js`, las rutas y las funciones de la base, **sin cambiar lo que hacen** (lo único a propósito: el descarte con `id_producto` ≤ 0 da 400 antes de ir a la base) | todos los de arriba + `sql/heladera.sql` (bloques 1–3) y `sql/pedido_combos_funciones.sql` |
+| Test | Sección HELADERA nueva en `tests/test_e2e.js` (corre sola con `node tests/test_e2e.js heladera`) | `tests/test_e2e.js` |
+
+### El SQL, todo junto y en orden (Supabase → SQL Editor; cada bloque de `begin;` a `commit;` → Run)
+| # | Archivo | Líneas | Qué hace | ¿Obligatorio? |
+|---|---|---|---|---|
+| 1 | `sql/insumos_pedido.sql`, bloque 1 | 34–46 | Columna nueva `movimientos_stock.id_pedido` (+ índice y cartel). Solo agrega | **Sí** (la usan el bloque 2 y `GET /api/movimientos`) |
+| 2 | `sql/insumos_pedido.sql`, bloque 2 | 66–226 | Función `descontar_insumos_pedido` | **Sí** (sin ella, pasar un pedido a 3 o 4 da error) |
+| 3 | `sql/heladera.sql`, bloque 1 | 47–141 | `descartar_viandas` ordenada (H9: solo comentarios) | Recomendado (deja la base igual que el archivo) |
+| 4 | `sql/heladera.sql`, bloque 2 | 171–335 | `producir_viandas` ordenada (H9: solo comentarios) | Recomendado |
+| 5 | `sql/heladera.sql`, bloque 3 | 365–479 | `anular_pedido_con_devolucion` ordenada (H9: la devolución en pasos, mismo resultado) | **Sí** (para tener lo de H9) |
+| 6 | `sql/pedido_combos_funciones.sql` | 57–401 | `crear_pedido_combos` ordenada (H9: pasos 9 y 15 sin if adentro de if, mismos mensajes) | **Sí** (para tener lo de H9) |
+
+El bloque 4 de `sql/heladera.sql` (las marcas de H7) **no** hace falta: los carteles quedan aunque la función se vuelva a crear.
+Todo se puede correr más de una vez. Render (rama Rodriguez) sigue andando: no cambia ninguna entrada ni salida.
+
+Pruebas en SQL (opcionales, se deshacen solas; seleccionar cada parte con el mouse → Run):
+| Archivo | Parte | Líneas | Qué tiene que salir |
 |---|---|---|---|
-| Compra | ▲ | Compra #N | insumos, cantidad y vencimiento (como hoy) |
-| Producción | ▲ | Pedido a cocina #N | viandas que entraron + insumos que se usaron (unidos por `id_movimiento_vianda`), quién lo pidió y quién marcó Hecho. Motivo: "Producción de viandas" |
-| Venta | ▼ | Pedido #N | cliente y platos que salieron de la heladera |
-| Devolución | ▲ | Pedido #N anulado | platos que volvieron |
-| Descarte | ▼ | — | platos y motivo |
-| Cocina de un pedido | ▼ | Pedido #N | insumos que gastaron los personalizados |
-| Ajuste | ▲ / ▼ | — | qué y por qué |
+| `sql/insumos_pedido_probar.sql` | A | 13–33 | 3 filas con `coincide` = "sí" |
+| | B | 36–135 | ERROR en rojo a propósito "FIN DE LA PRUEBA…" con: B1 descontó (o "Stock insuficiente…" si falta huevo), B2 `ya_descontado: true`, B3 `ya_descontado: true` (renglón viejo), B4 "Un pedido anulado no descuenta insumos" |
+| | C | 138–147 | `0` y `0` |
+| `sql/heladera_probar.sql` | 3A · 3B · 3C | 318–364 · 367–493 · 496–524 | Como en H4 (anular, después de H9) |
+| `sql/pedido_combos_probar.sql` | 6A · 6B · 6C | 139–211 · 214–340 · 343–360 | Como en H6 (vender, después de H9) |
 
-Plan propuesto (en el chat del 16/10), en tres paradas chicas, con prueba en la web después de cada una:
-- **3A**: cocina y web nueva (lo que ya estaba): `pedidosCocina.js` y `GET …/pendientes` con las reglas; la web nueva vuelve a pedir los combos cuando sale "No quedan suficientes".
-- **3B**: C1. Columna nueva `movimientos_stock.id_pedido` (solo agregar) y función de la base `descontar_insumos_pedido(p_id_pedido, p_id_usuario)`: todo o nada, con candado al pedido y a los insumos, no descuenta un anulado y guarda quién fue. Usa el mismo texto de motivo ("Consumo por producción pedido #005") para que Render siga viendo lo descontado hasta el merge. SQL nuevo: `sql/insumos_pedido.sql` y `sql/insumos_pedido_probar.sql`.
-- **3C**: ruta nueva `GET /api/movimientos?desde=&hasta=` (junta las dos tablas y trae de a 1000 renglones hasta tener todo) y la tabla de `MovimientosStockNuevo.html` / `movimientosStockNuevo.js` (el modal "Registrar compra" no se toca).
+### Después del SQL
+1. Reiniciar el servidor (siempre DESPUÉS del SQL).
+2. `node tests/test_e2e.js heladera` (con el servidor prendido). Crea pedidos "PRUEBA – NO PREPARAR" y los anula; no marca
+   Hecho, no descarta, no carga compras, no pasa a 3 o 4 nada con personalizados; guarda la heladera de los platos que usa y
+   al final comprueba que quedó igual (si no, en rojo). Manda 3 pedidos por la web: para correrlo otra vez, esperar 10
+   minutos o reiniciar el servidor. Correrlo cuando tu prima no esté cargando.
+3. Mirar las pantallas (lista corta):
 
-Decisiones pendientes: OK para reescribir la parte de la tabla de `movimientosStockNuevo.js`; C1 sí o no; qué pasa con el menú al final.
+| Pantalla | Qué mirar |
+|---|---|
+| Consultar Pedidos | Un anulado: select apagado, "Pago" gris (no abre) y "Anulado" gris. Anular uno de prueba → "Volvieron N viandas a la heladera". Escape cierra la ventana abierta |
+| Producción | Igual que en la parada 1 (8 columnas, mínimo, filtros, "Ver más", Descartar → Cancelar) |
+| Tareas de Cocina | Los pendientes se ven igual (no tocar "Hecho" sin comida real) |
+| Web nueva | Si pedís más de lo que queda: el mensaje y el menú se recarga en la misma categoría |
+| 📋 Movimientos de Stock | Abre la página nueva: últimos 30 días, 9 columnas, "Ver" / "Ocultar", filtros Todo / Insumos / Viandas y Entradas / Salidas, buscador. La venta y la devolución del test aparecen. "Movimientos (viejo)" sigue andando |
 
 ## Cómo se prueba cada paso SQL
 1. Correr el bloque del paso en `sql/heladera.sql` (de `begin;` a `commit;`).
@@ -195,37 +225,32 @@ Decisiones pendientes: OK para reescribir la parte de la tabla de `movimientosSt
 Nota: cada caso de mentira gasta números de id que no vuelven (H2: renglón 17 del cuaderno; H3: renglón 18 y pedido a cocina #9; H4: 2 números de pedido y algunos del cuaderno; H6: 6A y 6B gastan hasta 4 números de pedido).
 
 ## Arreglar después de H7 (anotado, no meter antes)
-- `descontarStockPedido` controla "ya descontado" buscando el texto "pedido #500" en el motivo → también encuentra "pedido #5000". Y un movimiento cargado a mano con "pedido #012" en el motivo haría que el pedido #12 no descuente nunca. Arreglar antes de producción → **propuesto para H8, parada 3B (C1)**.
-- `descontarStockPedido` descuenta insumo por insumo (no todo o nada) y no guarda quién fue. Pasarlo a una función de la base como las otras → **parada 3B (C1)**.
+- ✍ (escrito en H8, parada 3B, falta correr el SQL) `descontarStockPedido` controla "ya descontado" buscando el texto "pedido #500" en el motivo → también encuentra "pedido #5000". Y un movimiento cargado a mano con "pedido #012" en el motivo haría que el pedido #12 no descuente nunca → ahora `id_pedido` o el motivo exacto.
+- ✍ (ídem) `descontarStockPedido` descuenta insumo por insumo (no todo o nada) y no guarda quién fue → ahora `descontar_insumos_pedido` en la base.
 - Huevo está en −35 en la base real: falta cargar compras o hacer un ajuste. (La compra se carga antes de las pruebas de H7. Mientras siga en negativo, ningún pedido con personalizados que lleven huevo puede pasar a 2: lo mostró la prueba "a" de H6.)
 - El aviso `insumo_corto` calcula "falta" = necesario − disponible. Con stock negativo se lee raro: la prueba de H3 usó 4 huevos y dijo "falta 39" (4 − (−35)).
-- Choque raro (H4): si anulan un pedido justo mientras otro lo pasa a 3, no revive (por el `.neq`), pero los insumos de sus personalizados ya se descontaron (se arregla junto con pasar `descontarStockPedido` a la base). En ese choque los mensajes dicen "Stock insuficiente" / "falta de stock" en vez de "anulado".
-- El cartel "Volvieron N viandas a la heladera" queda para B2 (H8, **parada 2**): la ruta anular ya devuelve `viandas_devueltas` y un `mensaje` con el número.
-- Para H8 (**parada 2**): en Consultar Pedidos, un pedido cancelado sigue con el botón "Pago" activo. Revisar si se puede registrar un pago en un anulado (pantalla y rutas `/pago`, `/pagado`, `/transferencia-confirmada`).
-- Para H8 (**parada 2**): si al confirmar el pago (paso de 1 a 2) el pedido salta a 3 y después falla el registro del pago, el aviso dice "El pedido pasó a En Preparación…" aunque quedó en 3.
-- Para B7 (H8, **parada 3**): si la web nueva recibe "No quedan suficientes viandas…", que vuelva a pedir los combos para mostrar lo que queda.
+- ✍ (H8, 3B) Choque raro (H4): si anulan un pedido justo mientras otro lo pasa a 3, no revive (por el `.neq`), pero los insumos de sus personalizados ya se descontaban → ahora `descontar_insumos_pedido` pone candado al pedido y no descuenta un anulado ("Un pedido anulado no descuenta insumos").
+- ✍ (H8, parada 2) El cartel "Volvieron N viandas a la heladera" al anular.
+- ✍ (H8, parada 2) Un pedido cancelado ya no se puede cobrar: "Pago" gris y las rutas `/pago`, `/pagado`, `/transferencia-confirmada` → 409.
+- ✍ (H8, parada 2) Si al confirmar el pago el pedido salta a 3 y falla el registro del pago, el aviso dice el estado que quedó.
+- ✍ (H8, parada 3A, B7) Si la web nueva recibe "No quedan suficientes viandas…", vuelve a pedir los combos.
 - **Vencimiento de las viandas** (columna nueva): hoy solo tienen vencimiento los insumos de las compras (`movimientos_stock.fecha_vencimiento`). Anotado para más adelante: **NO hacerlo ahora**.
 - Movimientos de Stock: en la página nueva, "− Registrar salida" todavía no hace nada (no tiene función). En la vieja, `POST /api/movimientos-stock` no guarda quién lo cargó ni es todo o nada, y `DELETE /api/movimientos-stock/:id` borra renglones (contra "se desactiva, no se borra"). `GET /api/movimientos-stock` trae como mucho 1000 renglones.
 - **Consultar Pedidos trae como mucho 1000 pedidos** (límite de Supabase por consulta): `GET /api/pedidos` los ordena del más nuevo al más viejo, así que cuando haya más, los más viejos no se ven (salvo filtrando por fechas). Hace falta paginación más adelante (que el servidor mande de a una página). Lo mismo, mucho más lejos, para las reservadas de Producción: se suman como mucho 1000 renglones de pedidos sin entregar.
 
 ## Próximo prompt para Claude Code (🔴 MODO POTENTE, Effort Max)
-La parada 3 se amplió el 16/10 y su plan espera OK (ver "H8 — parada 3"): se puede contestar junto con el resultado de la parada 1.
-Después de probar la parada 1 en la web (lista de "H8 — parada 1"), mandar este (cambiando los resultados):
+Cuando el SQL de la tabla "El SQL, todo junto y en orden" esté corrido (los 6 bloques; las pruebas SQL son opcionales), mandar:
 ```
-Probé la parada 1 de H8 (Producción) en la web: [resultados de las pruebas 1 a 13, o qué falló].
-Si algo falló, arreglalo primero y frená. Si está todo bien: actualizá docs/HELADERA-AVANCE.md y la sección 8.1 de
-docs/INFORME-CAMBIOS-HELADERA.md con los resultados, y seguí con la PARADA 2 (Consultar Pedidos) del plan aprobado:
-ListarPedidos.js reescrito con mis reglas + pagoPedido.js nuevo, el botón "Pago" apagado en los anulados (y las rutas
-/pago, /pagado y /transferencia-confirmada que respondan 409 si el pedido está anulado), el cartel "Volvieron N viandas"
-al anular, y PUT /estado + cambiarEstadoPedido con mis reglas. Explicame cada función con ENTRADA/SALIDA, decime qué
-pruebo en la web y frená. Todo al INFORME-CAMBIOS-HELADERA.md. No hagas commit.
+SQL corrido: [los 6 bloques; y si corriste las pruebas, qué dieron: insumos A/B/C, heladera 3A/3B/3C, combos 6A/6B/6C].
+Reiniciá el servidor y corré node tests/test_e2e.js heladera. Pasame el resultado y la lista corta de qué mirar en cada
+pantalla. Si algo falla, decime qué y por qué, sin arreglar nada sin mi OK. Actualizá docs/HELADERA-AVANCE.md y el
+INFORME con los resultados. No hagas commit.
 ```
-Si el chat se corta en el medio de la parada 1 (antes de probarla), mandar este:
+Si el chat se corta antes de correr el SQL, mandar este:
 ```
-Estamos en H8, Parte 1, parada 1 (Producción): ya está escrita (ver docs/HELADERA-AVANCE.md, "H8 — parada 1", y la
-sección 8.1 de docs/INFORME-CAMBIOS-HELADERA.md). No la vuelvas a escribir. Revisá esos cambios buscando errores
-(server.js: GET /api/viandas-stock, PUT /api/viandas-stock/:id/minimo, GET /api/movimientos-viandas; heladera.js,
-pedirCocina.js, heladera.html, heladera.css) y decime qué encontraste sin arreglar nada sin mi OK. No hagas commit.
+Estamos en H8 (paradas 1, 2 y 3) + H9: ya está todo escrito y comparado (ver docs/HELADERA-AVANCE.md, "H8 paradas 2 y 3
++ H9", y las secciones 8.2 a 9 de docs/INFORME-CAMBIOS-HELADERA.md). No lo vuelvas a escribir. Revisá los cambios
+buscando errores y decime qué encontraste sin arreglar nada sin mi OK. No corras nada contra la base. No hagas commit.
 ```
 
 ## Cómo trabajamos (recordatorio)

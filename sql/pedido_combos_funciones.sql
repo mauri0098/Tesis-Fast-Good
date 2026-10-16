@@ -1,6 +1,20 @@
 -- =====================================================
--- PEDIDOS POR COMBO — FUNCIÓN crear_pedido_combos
+-- PEDIDOS POR COMBO — FUNCIÓN crear_pedido_combos (VENDER: paso H6, ordenada en H9)
 -- Guarda un pedido de combos completo: pedidos + pedido_combos + pedido_detalles.
+--
+-- QUÉ HACE: controla el pedido entero (combos, platos, sumas, textos y que alcance la heladera) y,
+--           si todo está bien, lo guarda y saca de la heladera los platos normales. Si algo está mal,
+--           no guarda nada.
+-- ENTRADA:  p_id_usuario (lo pone el SERVIDOR: el token o "Consumidor Final"), los datos del cliente
+--           (nombre, dirección, teléfono, email, fecha de entrega, método de pago, tipo de entrega, barrio,
+--           observaciones; los controla el servidor) y p_combos:
+--           [{ id_combo, platos: [{ producto_id, cantidad, personalizado }] }]
+-- SALIDA:   { "ok": true, "id_pedido": 215, "total": 137000, "combos": [...] }
+--           o { "ok": false, "error": "mensaje claro" }   (no se guardó nada)
+-- EJEMPLO:  combo "PRUEBA Mantenimiento x10" con 8 fideos + 2 fideos "sin sal" → pedido #250 en estado 1,
+--           fideos 71 → 63 (los 2 "sin sal" no salen de la heladera), renglón "venta" −8 "Pedido #250".
+--           Con 12 fideos en la heladera y 16 pedidos → 'No quedan suficientes viandas de «fideos»: pediste 16 y quedan 12'.
+-- Paso H9: solo se ordenaron los comentarios (PASO 1 a PASO 17). Lo que hace no cambió.
 --
 -- La va a llamar el servidor con supabase.rpc('crear_pedido_combos', {...})
 -- desde la ruta nueva POST /api/pedidos-combos (paso 12). Nadie más puede llamarla.
@@ -89,12 +103,12 @@ begin
   -- PARTE 1: CONTROLES (no escribe nada)
   -- ===================================================
 
-  -- 1. El usuario tiene que venir (lo pone el servidor)
+  -- PASO 1. El usuario tiene que venir (lo pone el servidor)
   if p_id_usuario is null then                         -- si no vino...
     return jsonb_build_object('ok', false, 'error', 'Falta el usuario del pedido');  -- ...se corta acá
-  end if;                                              -- fin del control 1
+  end if;                                              -- fin del paso 1
 
-  -- 2. p_combos tiene que ser una lista con entre 1 y 10 combos.
+  -- PASO 2. p_combos tiene que ser una lista con entre 1 y 10 combos.
   --    Se controla en dos "if" separados: primero que sea una lista, y recién después
   --    se mide su largo (medir algo que no es una lista daría un error).
   if p_combos is null or jsonb_typeof(p_combos) <> 'array' then           -- si no es una lista...
@@ -102,12 +116,12 @@ begin
   end if;                                              -- fin de "es una lista"
   if jsonb_array_length(p_combos) < 1 or jsonb_array_length(p_combos) > 10 then  -- si tiene 0 o más de 10...
     return jsonb_build_object('ok', false, 'error', 'El pedido tiene que tener entre 1 y 10 combos');  -- ...se corta
-  end if;                                              -- fin del control 2
+  end if;                                              -- fin del paso 2
 
   -- Se recorre cada combo del pedido ("value" es cada elemento de la lista)
   for v_combo_json in select value from jsonb_array_elements(p_combos) loop
 
-    -- 3. id_combo: tiene que ser un número entero mayor a 0.
+    -- PASO 3. id_combo: tiene que ser un número entero mayor a 0.
     --    Primero se mira el TIPO; recién si es un número se lee su valor. Así, si llega
     --    "abc" o 3.5, se responde con un mensaje claro en vez de cortarse con un error raro.
     v_numero := null;                                  -- arranca vacío
@@ -116,10 +130,10 @@ begin
     end if;                                            -- fin de leer el número
     if v_numero is null or v_numero <> trunc(v_numero) or v_numero < 1 or v_numero > 2147483647 then  -- vacío, con decimales, menor a 1 o gigante
       return jsonb_build_object('ok', false, 'error', 'Hay un combo con datos inválidos');  -- se corta
-    end if;                                            -- fin del control 3
+    end if;                                            -- fin del paso 3
     v_id_combo := v_numero::integer;                   -- ya es seguro convertirlo a entero
 
-    -- 4. El combo tiene que existir, estar activo y ser de un plan activo
+    -- PASO 4. El combo tiene que existir, estar activo y ser de un plan activo
     --    (la misma regla que usa el catálogo GET /api/v1/combos para mostrarlo)
     select c.id, c.nombre, c.cantidad, c.precio        -- datos del combo...
       into v_combo                                     -- ...guardados en v_combo
@@ -131,9 +145,9 @@ begin
     if not found then                                  -- si no apareció ninguno...
       return jsonb_build_object('ok', false, 'error',  -- ...se corta con este mensaje
         'El combo ' || v_id_combo || ' no existe o ya no está disponible');
-    end if;                                            -- fin del control 4
+    end if;                                            -- fin del paso 4
 
-    -- 5. platos: una lista con al menos 1 plato y no más platos que viandas tiene el combo
+    -- PASO 5. platos: una lista con al menos 1 plato y no más platos que viandas tiene el combo
     --    (cada plato trae al menos 1 vianda: con más renglones que viandas, la suma no puede dar justo).
     if coalesce(jsonb_typeof(v_combo_json->'platos'), '') <> 'array' then  -- si "platos" no es una lista...
       return jsonb_build_object('ok', false, 'error', 'Hay un combo con datos inválidos');  -- ...se corta
@@ -142,14 +156,14 @@ begin
        or jsonb_array_length(v_combo_json->'platos') > v_combo.cantidad then  -- ...o con demasiados renglones
       return jsonb_build_object('ok', false, 'error',  -- se corta con este mensaje
         '«' || v_combo.nombre || '» tiene que tener entre 1 y ' || v_combo.cantidad || ' platos');
-    end if;                                            -- fin del control 5
+    end if;                                            -- fin del paso 5
 
     -- Se recorre cada plato de este combo
     v_suma := 0;                                       -- la suma de viandas arranca en 0
     v_platos_listos := '[]'::jsonb;                    -- la lista de platos controlados arranca vacía
     for v_plato_json in select value from jsonb_array_elements(v_combo_json->'platos') loop
 
-      -- 6. producto_id: número entero mayor a 0 (mismo cuidado que con id_combo)
+      -- PASO 6. producto_id: número entero mayor a 0 (mismo cuidado que con id_combo)
       v_numero := null;                                -- arranca vacío
       if jsonb_typeof(v_plato_json->'producto_id') = 'number' then  -- si es un número...
         v_numero := (v_plato_json->>'producto_id')::numeric;       -- ...se lee su valor
@@ -157,10 +171,10 @@ begin
       if v_numero is null or v_numero <> trunc(v_numero) or v_numero < 1 or v_numero > 2147483647 then  -- inválido
         return jsonb_build_object('ok', false, 'error',  -- se corta con este mensaje
           'Hay un plato con datos inválidos en «' || v_combo.nombre || '»');
-      end if;                                          -- fin del control 6
+      end if;                                          -- fin del paso 6
       v_id_producto := v_numero::integer;              -- ya es seguro convertirlo a entero
 
-      -- 7. cantidad: número entero mayor a 0 y no más que las viandas del combo
+      -- PASO 7. cantidad: número entero mayor a 0 y no más que las viandas del combo
       v_numero := null;                                -- arranca vacío
       if jsonb_typeof(v_plato_json->'cantidad') = 'number' then  -- si es un número...
         v_numero := (v_plato_json->>'cantidad')::numeric;        -- ...se lee su valor
@@ -168,10 +182,10 @@ begin
       if v_numero is null or v_numero <> trunc(v_numero) or v_numero < 1 or v_numero > v_combo.cantidad then  -- inválida
         return jsonb_build_object('ok', false, 'error',  -- se corta con este mensaje
           'Hay una cantidad inválida en «' || v_combo.nombre || '»');
-      end if;                                          -- fin del control 7
+      end if;                                          -- fin del paso 7
       v_cantidad := v_numero::integer;                 -- ya es seguro convertirla a entero
 
-      -- 8. El plato tiene que estar en el menú de ESTE combo (renglón activo) y estar activo
+      -- PASO 8. El plato tiene que estar en el menú de ESTE combo (renglón activo) y estar activo
       select pr.nombre                                 -- nombre del plato...
         into v_nombre_plato                            -- ...guardado en v_nombre_plato
         from combo_productos cp                        -- el menú de los combos
@@ -185,26 +199,27 @@ begin
         return jsonb_build_object('ok', false, 'error',  -- se corta con este mensaje
           'El plato «' || coalesce(v_nombre_plato, 'N° ' || v_id_producto)          -- (si no existe, se muestra su número)
           || '» no está en el menú de «' || v_combo.nombre || '» o ya no está disponible');
-      end if;                                          -- fin del control 8
+      end if;                                          -- fin del paso 8
 
-      -- 9. Personalizado: puede no venir (o venir null). Si viene, tiene que ser un texto
-      --    que, sin espacios de más, no quede vacío y tenga hasta 150 caracteres.
-      v_texto := null;                                 -- arranca sin texto
+      -- PASO 9. Personalizado: puede no venir (o venir null). Si viene, tiene que ser un texto
+      --         que, sin espacios de más, no quede vacío y tenga hasta 150 caracteres.
+      --         Sin un if adentro de otro: primero se mira el TIPO y después el texto.
       v_tipo := coalesce(jsonb_typeof(v_plato_json->'personalizado'), 'null');  -- si no vino el dato, cuenta como null
-      if v_tipo = 'string' then                        -- si vino un texto...
-        v_texto := btrim(v_plato_json->>'personalizado', E' \t\r\n');  -- ...se le sacan espacios, tabs y saltos de línea de los bordes
-        if v_texto = '' then                           -- si quedó vacío...
-          return jsonb_build_object('ok', false, 'error',  -- ...se corta con este mensaje
-            'El texto personalizado de «' || v_nombre_plato || '» no puede estar vacío');
-        end if;                                        -- fin de "vacío"
-        if char_length(v_texto) > 150 then             -- si tiene más de 150 caracteres...
-          return jsonb_build_object('ok', false, 'error',  -- ...se corta con este mensaje
-            'El texto personalizado de «' || v_nombre_plato || '» admite hasta 150 caracteres');
-        end if;                                        -- fin de "largo"
-      elsif v_tipo <> 'null' then                      -- si vino otra cosa (un número, una lista...)
-        return jsonb_build_object('ok', false, 'error',  -- se corta con este mensaje
+      if v_tipo not in ('string', 'null') then         -- si vino otra cosa (un número, una lista...)...
+        return jsonb_build_object('ok', false, 'error',  -- ...se corta con este mensaje
           'Hay un plato con datos inválidos en «' || v_combo.nombre || '»');
-      end if;                                          -- fin del control 9
+      end if;                                          -- fin de "otra cosa"
+      v_texto := case when v_tipo = 'string'           -- "case when" = "según sea": si vino un texto...
+                      then btrim(v_plato_json->>'personalizado', E' \t\r\n')  -- ...sin espacios, tabs ni saltos de línea en los bordes
+                      else null end;                   -- ...si no vino, null (es un plato normal)
+      if v_texto = '' then                             -- si quedó vacío (con null la pregunta no da "sí" y no entra)...
+        return jsonb_build_object('ok', false, 'error',  -- ...se corta con este mensaje
+          'El texto personalizado de «' || v_nombre_plato || '» no puede estar vacío');
+      end if;                                          -- fin de "vacío"
+      if char_length(v_texto) > 150 then               -- si tiene más de 150 caracteres (con null tampoco entra)...
+        return jsonb_build_object('ok', false, 'error',  -- ...se corta con este mensaje
+          'El texto personalizado de «' || v_nombre_plato || '» admite hasta 150 caracteres');
+      end if;                                          -- fin del paso 9
 
       -- El plato pasó todos los controles: se suma y se guarda en la lista de platos listos
       v_suma := v_suma + v_cantidad;                   -- suma de viandas del combo
@@ -216,11 +231,11 @@ begin
       );
     end loop;                                          -- fin de los platos de este combo
 
-    -- 10. La suma de las viandas tiene que ser JUSTO la cantidad del combo
+    -- PASO 10. La suma de las viandas tiene que ser JUSTO la cantidad del combo
     if v_suma <> v_combo.cantidad then                 -- si no da justo...
       return jsonb_build_object('ok', false, 'error',  -- ...se corta con este mensaje
         '«' || v_combo.nombre || '» tiene ' || v_suma || ' viandas y tienen que ser ' || v_combo.cantidad);
-    end if;                                            -- fin del control 10
+    end if;                                            -- fin del paso 10
 
     -- El combo pasó todos los controles: su precio (de la BASE) se suma al total
     v_total := v_total + v_combo.precio;               -- el total sale solo de combos.precio
@@ -233,7 +248,7 @@ begin
     );
   end loop;                                            -- fin de los combos del pedido
 
-  -- 11. LISTA DE VENTAS: por plato, las viandas NORMALES (no personalizadas) sumando TODOS los
+  -- PASO 11. LISTA DE VENTAS: por plato, las viandas NORMALES (no personalizadas) sumando TODOS los
   --     combos del pedido. Los personalizados no salen de la heladera: no cuentan.
   --     Ej: combos [8 fideos + 2 fideos "sin sal"] y [10 fideos] → [{ "id_producto": 7, "cantidad": 18 }]
   --     (jsonb_array_elements abre una lista en filas, una por elemento: acá se abren los combos y,
@@ -251,7 +266,7 @@ begin
            where pla.value->>'personalizado' is null             -- solo los platos normales
            group by (pla.value->>'id_producto')::integer) t;     -- un renglón por plato
 
-  -- 12. CANDADO a TODOS los platos del pedido (normales y personalizados), en orden de número.
+  -- PASO 12. CANDADO a TODOS los platos del pedido (normales y personalizados), en orden de número.
   --     "for update" = hasta que termine la función, nadie más puede cambiar esos platos.
   --     Si dos clientes compran las últimas viandas a la vez, el segundo espera acá y después
   --     ve cuántas quedaron. Los personalizados también llevan candado (aunque no salen de la
@@ -265,7 +280,7 @@ begin
     order by id                                        -- siempre en el mismo orden
       for update;                                      -- con candado
 
-  -- 13. ¿Alcanzan las viandas de la heladera? Plato por plato, en orden de número.
+  -- PASO 13. ¿Alcanzan las viandas de la heladera? Plato por plato, en orden de número.
   --     Si a uno no le alcanza, se corta con un mensaje claro: todavía no se guardó nada.
   for v_venta_json in select value from jsonb_array_elements(v_ventas) loop  -- cada plato que sale de la heladera
     select nombre, stock_heladera                      -- su nombre y cuántas viandas libres tiene
@@ -278,7 +293,7 @@ begin
         || '»: pediste ' || (v_venta_json->>'cantidad')         -- cuántas se pidieron
         || ' y quedan ' || v_stock.stock_heladera);             -- y cuántas hay (ej: "pediste 16 y quedan 12")
     end if;                                            -- fin de "no alcanza"
-  end loop;                                            -- fin del control 13
+  end loop;                                            -- fin del paso 13
 
   -- ===================================================
   -- PARTE 2: GUARDAR (todo pasó los controles)
@@ -286,7 +301,7 @@ begin
   -- Se usan SOLO los datos ya controlados (v_combos_listos y v_ventas), no lo que llegó.
   -- ===================================================
 
-  -- 14. La cabecera del pedido (igual que el pedido viejo: estado 1 "Registrado", sin pagar)
+  -- PASO 14. La cabecera del pedido (igual que el pedido viejo: estado 1 "Registrado", sin pagar)
   insert into pedidos (                                -- tabla de pedidos, columnas:
     id_usuario, id_estado, total,                      -- usuario, estado y total
     cliente_nombre, cliente_direccion, cliente_telefono, cliente_email,  -- datos del cliente
@@ -302,7 +317,7 @@ begin
   )
   returning id into v_id_pedido;                       -- se guarda el id del pedido nuevo
 
-  -- 15. Cada combo (pedido_combos) y sus platos (pedido_detalles)
+  -- PASO 15. Cada combo (pedido_combos) y sus platos (pedido_detalles)
   for v_combo_listo in select value from jsonb_array_elements(v_combos_listos) loop
 
     -- El combo comprado, con el precio que se cobró (por si después el combo cambia de precio)
@@ -320,13 +335,10 @@ begin
     for v_plato_json in select value from jsonb_array_elements(v_combo_listo->'platos') loop
       -- ¿Sale de la heladera? Un plato normal sí (todas sus viandas) y nace listo: la cocina no lo ve.
       -- Un personalizado no (lo cocina la cocina): 0 de heladera y no listo.
-      if v_plato_json->>'personalizado' is null then   -- si es un plato normal...
-        v_de_heladera := (v_plato_json->>'cantidad')::integer;  -- ...todas sus viandas salen de la heladera
-        v_listo := true;                               -- ...y ya está listo
-      else                                             -- si es personalizado...
-        v_de_heladera := 0;                            -- ...no sale de la heladera
-        v_listo := false;                              -- ...y lo tiene que hacer la cocina
-      end if;                                          -- fin de "¿sale de la heladera?"
+      v_listo := (v_plato_json->>'personalizado') is null;  -- un plato normal nace listo; un personalizado no (lo cocina la cocina)
+      v_de_heladera := case when v_listo               -- "case when" = "según sea": si es normal...
+                            then (v_plato_json->>'cantidad')::integer  -- ...todas sus viandas salen de la heladera (ej: 8)
+                            else 0 end;                -- ...si es personalizado, ninguna
 
       insert into pedido_detalles (                    -- tabla de platos del pedido, columnas:
         id_pedido, id_pedido_combo, id_producto, cantidad, precio_unitario,  -- a qué pedido y combo, qué plato, cuántos y a qué precio
@@ -345,7 +357,7 @@ begin
     end loop;                                          -- fin de los platos de este combo
   end loop;                                            -- fin de los combos
 
-  -- 16. VENTAS: por cada plato de la lista del paso 11, se resta de la heladera y se anota un
+  -- PASO 16. VENTAS: por cada plato de la lista del paso 11, se resta de la heladera y se anota un
   --     renglón "venta" en el cuaderno, con cantidad NEGATIVA (salen viandas).
   --     Un solo renglón por plato aunque esté en varios combos (ej: fideos −18, no −8 y −10).
   --     Si no hay platos normales, la lista está vacía y no se hace nada.
@@ -363,7 +375,7 @@ begin
      where id = (v_venta_json->>'id_producto')::integer;  -- solo este plato
   end loop;                                            -- fin de las ventas
 
-  -- 17. Todo guardado: se devuelve el pedido con los nombres y precios de la BASE
+  -- PASO 17. Todo guardado: se devuelve el pedido con los nombres y precios de la BASE
   --     (los usa el mensaje de WhatsApp)
   return jsonb_build_object(                           -- respuesta:
     'ok',        true,                                 -- salió bien

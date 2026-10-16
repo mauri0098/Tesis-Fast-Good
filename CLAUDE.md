@@ -21,14 +21,24 @@
 - Respetá mis funciones y mi estilo. Cambiá lo mínimo posible. Si algo hay que reescribir, preguntame antes.
 - Nada de trucos difíciles de leer. Prefiero más líneas claras que pocas líneas complicadas.
 
+## Estilo: código profesional y simple (sin if anidados)
+- NUNCA un if adentro de otro if. Máximo un nivel.
+- Valores por defecto con ||: const direccion = pedido.cliente_direccion || '-';  (nada de let + if)
+- switch ("según sea") cuando se compara una misma variable contra varios valores. Cada case con su comentario "según sea…" y su break.
+- Tablas (objetos) en vez de if / else if para elegir un texto, un color o un valor. Ej: MENSAJE_VACIO[modo], COLORES_ESTADO[estado].
+- Salir temprano: los "no" arriba con return (if (!pedido) return;) y lo importante abajo, sin else.
+- Ternario simple, de un solo nivel, solo FUERA del HTML, para elegir entre dos valores: const texto = pedido.pagado ? 'PAGADO' : 'PENDIENTE';  Nunca un ternario adentro de otro, ni adentro de un template.
+- Si una condición mezcla varias cosas, primero se guarda en una variable con nombre claro (const faltaEfectivo = a && !b;) y después un solo if.
+- Código básico que se entienda leyéndolo una vez: nombres en español, comentario en cada línea, ENTRADA / SALIDA y un ejemplo arriba de cada función. Profesional no quiere decir complicado.
+
 ## Cómo recorrer listas y armar HTML (para que yo lo entienda)
 - Para recorrer listas usá forEach (es el que mejor entiendo). No uses for...of ni for con contador.
   Adentro del forEach, "return" = saltear ese y seguir con el siguiente: poné un comentario que lo diga.
 - Para buscar UN solo elemento en una lista usá find. Para filtrar varios, filter.
 - Nada de forEach adentro de otro forEach si se puede evitar. Si hay que cruzar dos listas,
   primero armá un objeto { id: valor } con una de ellas y después recorré la otra.
-- Nada de "? :" adentro de los template strings (`...`). Calculá eso antes en una variable con if/else.
-  Ej: let claseElegido = ''; if (cantidad > 0) claseElegido = ' plato--elegido';
+- Nada de "? :" adentro de los template strings (`...`). Calculá eso antes en una variable (ver "Estilo" arriba).
+  Ej: const claseElegido = cantidad > 0 ? ' plato--elegido' : '';
 - Cuando uses algo que no sea básico (flatMap, some, reduce, etc.), poné un comentario con un ejemplo
   de qué entra y qué sale.
 

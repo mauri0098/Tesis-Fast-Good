@@ -1,9 +1,11 @@
-# Informe: todo lo que cambió en la heladera (pasos H1 a H8)
+# Informe: todo lo que cambió en la heladera (pasos H1 a H9)
 
-> Rama `mejoras-fastgood` · 15/10/2026.
+> Rama `mejoras-fastgood` · 15/10/2026 (actualizado el 16/10/2026).
 > **H1 a H6: probados** (H4, H5 y H6 desde la web). Desde el 15/10 la heladera está conectada a la web nueva.
 > **H7** (marcas "NO USAR" / "USAR"): bloque 4 corrido y la 4A dio 12 filas en "sí". La prueba completa en la web se salteó (decisión tuya).
-> **H8** (pantallas, Parte 1): parada 1 (Producción) escrita, falta probarla en la web. Siguen la parada 2 (Consultar Pedidos) y la 3 (cocina y web nueva).
+> **H8** (pantallas, Parte 1): paradas 1, 2 y 3 (3A, 3B y 3C) **escritas**. Falta correr el SQL nuevo, el test y probar en la web.
+> **H9** (Parte 2: el estilo nuevo del CLAUDE.md en todo lo de H8, en las rutas y en las funciones de la base, **sin cambiar
+> lo que hacen**): escrito y comparado (lo viejo contra lo nuevo, miles de casos, ver la sección 9). Falta correr el SQL.
 > **Este informe se actualiza con cada cambio nuevo** (código, SQL, pantallas), con el mismo formato (regla del 15/10).
 > Los ejemplos usan tus datos: **fideos con 71 viandas**, el combo de prueba "PRUEBA Mantenimiento x10" y la
 > receta de fideos que mostró la prueba de H3: **300 g de harina integral y 2 huevos por vianda**.
@@ -58,6 +60,11 @@ Alrededor de las 4 acciones cambiaron estas piezas de `server.js` y de la grilla
 | Marcas en la base y en los `.sql` | Las funciones viejas dicen "NO USAR" y las 4 nuevas "USAR" (solo comentarios: no cambia lo que hacen) | H7 |
 | Pantalla Producción (`heladera.js` reescrito + `pedirCocina.js` nuevo) | Libres, reservadas y en heladera; el mínimo se cambia desde la tabla; "Últimos movimientos" con filtro por tipo y "Ver más" | H8 |
 | `GET /api/viandas-stock`, `PUT /api/viandas-stock/:id/minimo` (nueva) y `GET /api/movimientos-viandas` | Traen las reservadas · cambian el mínimo (roles 6, 5 y 1) · filtran el cuaderno, de a 50 | H8 |
+| Consultar Pedidos (`ListarPedidos.js` reescrito + `pagoPedido.js` nuevo) y las rutas de pago | Un anulado no se cobra ni cambia de estado (pantalla y servidor: 409); "Volvieron 10 viandas a la heladera"; el aviso del pago dice el estado que quedó | H8 (parada 2) |
+| Tareas de Cocina (`pedidosCocina.js`) y la web nueva | "Hecho" muestra el motivo real de la base; si no alcanzan las viandas, la web vuelve a pedir los combos | H8 (parada 3A) |
+| `descontar_insumos_pedido` (función nueva) + `movimientos_stock.id_pedido` (columna nueva) | Los insumos de un pedido se descuentan todo junto, una sola vez, atados al pedido y con quién fue (arreglo C1) | H8 (parada 3B) |
+| Movimientos de Stock (`GET /api/movimientos` nueva + la tabla de `movimientosStockNuevo.js`) | Insumos y viandas en una sola lista, una fila por cosa que pasó, con su Detalle | H8 (parada 3C) |
+| El estilo nuevo (CLAUDE.md, "sin if anidados") | Todo lo de H8, las rutas y las funciones de la base, escrito con `switch`, tablas, `\|\|` y "salir temprano". Hace exactamente lo mismo | H9 |
 
 ### Cada vianda gasta sus insumos UNA sola vez
 
@@ -167,6 +174,33 @@ Y un pedido de **10 fideos sin personalizar**, al pasar de 1 a 2, **salta direct
 - **`Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' })`**. La fecha de hoy en Argentina como
   `AAAA-MM-DD` (el formato `en-CA` escribe así), sin importar en qué país está el servidor. Ej: → `'2026-10-15'`.
 - **`localeCompare(otro, 'es')`**. Compara dos textos como el diccionario (para ordenar). Ej: `'berenjenas'.localeCompare('fideos', 'es')` → negativo (va antes).
+
+**Nuevos en H8 (paradas 2 y 3) y en H9 (el estilo nuevo)**
+
+- **`a || b` (valor por defecto).** Da `a`, y si `a` está vacío (`''`, `null`, `undefined`, `0`), da `b`.
+  Ej: `pedido.cliente_direccion || '-'` → `'Calle 1'` o, si no tiene, `'-'`. Reemplaza a `let x = '-'; if (…) x = …;`.
+- **`a ? b : c` (ternario simple).** "Si `a`, `b`; si no, `c`". Solo de un nivel y nunca adentro del HTML.
+  Ej: `const textoPagado = pedido.pagado ? 'PAGADO' : 'PENDIENTE';`
+- **`?.` ("si existe…").** `pedido.usuarios?.nombre` = el nombre del usuario si vino `usuarios`; si no, `undefined` (sin romper).
+  Ej: `document.querySelector('input[name="pago"]:checked')?.value || ''` → el valor marcado, o `''` si no hay ninguno.
+- **`switch (x) { case …: … break; }` ("según sea").** Compara una misma variable contra varios valores fijos.
+  Ej: `switch (mov.origen) { case 'compra': referencia = 'Compra #2'; break; case 'venta': … }`. Si un `case` termina
+  con `return`, no hace falta `break` (el `return` ya sale).
+- **Tabla (objeto) en vez de `if / else if`.** Ej: `MENSAJE_VACIO[modo]` con `{ hoy: 'No hay pedidos para producir hoy', … }`.
+- **`find` sobre una lista de controles `{ estaMal, mensaje }`.** El primero que está mal da el error (como un "si no, si no").
+  Ej: `[{ estaMal: true, mensaje: 'Escribí tu apellido.' }, { estaMal: false, … }].find(c => c.estaMal)` → el primero.
+- **`some` / `every`.** ¿AL MENOS UNO cumple? / ¿TODOS cumplen? Ej: `[venta, venta].every(m => m.tipo === 'venta')` → true.
+- **`concat`.** Junta dos listas en una nueva. Ej: `[fideos].concat([arroz, tarta])` → `[fideos, arroz, tarta]`.
+- **`Array.from(lista)`.** Convierte la lista de la pantalla (`querySelectorAll`) en una lista común, para usar `some`.
+- **`DocumentFragment`.** Un "tbody vacío en memoria": se arma el renglón y su Detalle ahí, y se pegan juntos en la tabla.
+- **`while (condición) { … }` ("mientras").** Repite mientras se cumpla. No es recorrer una lista: se usa cuando no se
+  sabe cuántas vueltas hacen falta. Ej: traer de a 1000 renglones hasta que vengan menos de 1000.
+- **`/^Consumo por producción pedido #(\d+)$/.exec(texto)`.** Busca el texto entero (`^` y `$`) y saca el número.
+  Ej: `'Consumo por producción pedido #005'` → `['…', '005']`; `'… pedido #005 (a mano)'` → `null`.
+- **SQL `case when p_id_pedido < 100 then lpad(…, 3, '0') else p_id_pedido::text end`.** El número con 3 cifras como mínimo,
+  igual que `padStart(3, '0')` de JavaScript: 5 → `'005'` · 250 → `'250'` · 5000 → `'5000'`. (Solo `lpad` cortaría el 5000 a `'500'`.)
+- **SQL `trim_scale(numero)`.** Saca los ceros de más después de la coma. Ej: `600.000` → `600`.
+- **Supabase `.select('id', { count: 'exact', head: true })`** (en el test). Solo cuenta las filas, sin traerlas.
 
 ---
 
@@ -931,13 +965,14 @@ contestadas). `docs/ESTADO-PROYECTO.md` y `docs/CONTEXTO-COMPLETO.md` ya no dice
 
 ## 8. H8: las pantallas, con las reglas del CLAUDE.md (Parte 1)
 
-H8 va en **tres paradas**. Después de cada una se prueba en la web, y recién ahí se sigue.
+H8 iba en **tres paradas**, probando en la web después de cada una. El 16/10 cambió el plan: **todo de una vez**
+(paradas 2 y 3, y la Parte 2 de H9), con un test por las rutas al final.
 
 | Parada | Pantalla | Estado |
 |---|---|---|
-| 1 | Producción (`heladera.html`) | ✍ escrita, falta probar en la web |
-| 2 | Consultar Pedidos (`ConsultarPedidos.html`) | ⏭ después de probar la 1 |
-| 3 | Ampliada el 16/10, en tres partes: **3A** Tareas de Cocina (`pedidosCocina.js`) y la web nueva (`index-combos.html`) · **3B** los insumos de un pedido en una función de la base, con `id_pedido` (arreglo C1) · **3C** Movimientos de Stock con todo junto (insumos y viandas) | ⏭ plan mostrado, esperando OK; va después de probar la 2 |
+| 1 | Producción (`heladera.html`) | ✍ escrita (y pasada al estilo nuevo en H9), falta probar en la web |
+| 2 | Consultar Pedidos (`ConsultarPedidos.html`) — sección 8.2 | ✍ escrita, falta probar |
+| 3 | Ampliada el 16/10: **3A** Tareas de Cocina y la web nueva (8.3) · **3B** los insumos de un pedido en una función de la base, con `id_pedido` (arreglo C1, 8.4) · **3C** Movimientos de Stock con todo junto (8.5) | ✍ escrita, falta correr el SQL de 3B, el test y probar |
 
 En cada parada pasan dos cosas:
 1. **El código se reescribe con las reglas del CLAUDE.md**: pocas funciones, cada una con un trabajo entero; `forEach`
@@ -983,6 +1018,9 @@ un trabajo entero:
 | `actualizarTotalPedido` | pedirCocina.js | "Total: N viandas en M platos" y si se puede enviar | `actualizarResumenPedido` |
 | `cargaRapida` | pedirCocina.js | "A cada uno", "Repartir" y "Limpiar" | `pedidoACadaUno`, `pedidoRepartir`, `pedidoLimpiar`, `leerCargaRapida`, `partesIguales` |
 | `enviarPedidoACocina` | pedirCocina.js | Manda el pedido a cocina | `enviarPedido`, `itemsDelPedido` |
+
+En H9 (sección 9) se sumaron 3 funciones con el estilo nuevo: `crearFilaPlato` y `fechaYHoraCortas` en `heladera.js`
+(ahora 14) y `alCambiarCantidad` en `pedirCocina.js` (ahora 8). Ver 9.3.
 
 **Por qué se separó `pedirCocina.js`.** "Pedir a cocina" es una ventana entera, con su lista, su filtro y su carga rápida
 (casi la mitad del archivo viejo). Separada, cada archivo se lee de una vez. Las dos comparten `todosPlatos` y
@@ -1259,6 +1297,9 @@ descartar 70"). La pantalla ahora lo explica antes de que pase.
 | Lo corto que se usa una vez, adentro | `hoyEnArgentina()` y `diaSiguiente()` (servidor); `fechaCorta`, `horaCorta` y `cantidadConSigno` (pantalla) | Adentro de la ruta `hechos-hoy`, de `cargarMovimientos` y de `cargarHechosHoy` |
 | `forEach` también en el servidor | `leerItemsViandas`: `for (const item of items) { … return { error }; }` y `Object.entries(…).map(…).filter(…).sort(…)` | `items.forEach(…)` con `let error = null` (con el primer error, los demás renglones se saltean) y `Object.keys(…).forEach(…)`. Se comparó la vieja con la nueva en 21 casos: dan lo mismo |
 
+**Ojo: el 16/10 cambiaron las reglas** (sección "Estilo" del CLAUDE.md): ahora sí van `some`, `||` y el ternario simple
+fuera del HTML, y nunca un `if` adentro de otro. Cómo quedó esta pantalla con eso está en la sección 9.3.
+
 #### 8.1.7 Qué probar en la web (parada 1)
 
 Reiniciar el servidor y recargar Producción con Ctrl+F5. Probar cuando tu prima no esté cargando. Los pedidos de prueba
@@ -1282,7 +1323,549 @@ se crean y se anulan solo desde el servidor nuevo.
 
 ---
 
-## 9. Las pruebas
+### 8.2 Parada 2: Consultar Pedidos
+
+**SQL: no hace falta.** Reiniciar el servidor (cambió `server.js`) y recargar con Ctrl+F5.
+
+| Archivo | Qué cambió |
+|---|---|
+| `frontend/src/js/ListarPedidos.js` | Reescrito: de **37 funciones a 13**. La grilla, sus filtros, el estado, el Detalle y Anular |
+| `frontend/src/js/pagoPedido.js` | **Nuevo**: las ventanas "Pago del Pedido" y "Confirmar Pago", en 5 funciones (antes estaban adentro de `ListarPedidos.js`) |
+| `frontend/pages/ConsultarPedidos.html` | Los `onclick` con los nombres nuevos, el botón "Pago" gris cuando está apagado y el `<script>` de `pagoPedido.js` |
+| `server.js` | `PUT /pagado`, `PUT /transferencia-confirmada` y `PUT /pago`: un anulado → 409; el número de pedido se controla entero; se guarda solo si no está anulado. `GET /api/pedidos`, `GET …/verificar-stock` y `PUT …/estado`: lo mismo de antes, ordenado en pasos |
+
+#### 8.2.1 Las funciones de antes y las de ahora
+
+| Ahora | Archivo | Qué hace | Junta lo que hacían antes |
+|---|---|---|---|
+| `iniciarConsultarPedidos` | ListarPedidos.js | Al abrir: buscador, fechas, teclas (Escape cierra, Enter en el PIN anula), estados y pedidos | los 3 `DOMContentLoaded`, `fetchEstados`, `fetchPedidos`, `iniciarFiltro` y el `keydown` |
+| `renderizarPedidos` | ListarPedidos.js | El título, el filtro (fechas + buscador) y la tabla de a 15 | `renderizarPedidos`, `filtrarPedidos`, `actualizarTituloListado` |
+| `crearFilaPedido` | ListarPedidos.js | La fila de un pedido, con sus botones | `crearFilaPedido` |
+| `aplicarFechas` | ListarPedidos.js | "Aplicar" o "Ver todos" | `aplicarFiltroFechas`, `verTodosLosPedidos` |
+| `alCambiarEstado` | ListarPedidos.js | Cambió el select: si hace falta, primero los insumos y "¿ya pagó?" | la mitad de `cambiarEstadoPedido` y `verificarStockPedido` (los de la pantalla) |
+| `guardarEstado` | ListarPedidos.js | Manda el estado y muestra el que quedó guardado | la otra mitad de `cambiarEstadoPedido` (pantalla) |
+| `pintarEstado` | ListarPedidos.js | El color del select | `aplicarColorEstado` |
+| `abrirDetalles` | ListarPedidos.js | La ventana Detalle (combos y platos) | `abrirModalDetalles` |
+| `abrirAnular` | ListarPedidos.js | La ventana Anular (pide el PIN) | `abrirModalAnular`, `ocultarErrorAnular` |
+| `confirmarAnulacion` | ListarPedidos.js | Manda la anulación y avisa cuántas viandas volvieron | `confirmarAnulacion`, `mostrarErrorAnular` |
+| `cerrarVentana` | ListarPedidos.js | Cierra cualquiera de las 4 ventanas ("Confirmar Pago" cerrada = "No, todavía no pagó") | `cerrarModalDetalles`, `cerrarModalPago`, `cerrarModalAnular`, `cancelarConfirmarPago` |
+| `mostrarCartel` | ListarPedidos.js | El aviso verde (salió bien) o amarillo (atención) | `mostrarExito`, `mostrarAlerta`, `mostrarAlertaStock` |
+| `formatearPrecio` | ListarPedidos.js | `137000` → `"$ 137.000"` | `formatPrecio` y las cuentas sueltas con `Intl.NumberFormat` |
+| `abrirPago` | pagoPedido.js | Abre "Pago del Pedido" con el método guardado (un anulado, no) | `abrirModalPago` |
+| `mostrarOpcionesPago` | pagoPedido.js | La opción del método y, en el Mixto, cuánto falta | `actualizarSubopcionesPago`, `actualizarSumaMixto`, `metodoPagoSeleccionado` |
+| `guardarPago` | pagoPedido.js | Controla y manda el pago | `guardarPago`, `armarPagoDesdeModal`, `mostrarErrorPago`, `ocultarErrorPago` |
+| `abrirConfirmarPago` | pagoPedido.js | "¿Ya pagó?" antes de pasar a En Preparación | `abrirModalConfirmarPago` |
+| `responderConfirmarPago` | pagoPedido.js | "Sí" (cambia el estado y registra el pago) o "No" (el select vuelve) | `aceptarConfirmarPago`, `cancelarConfirmarPago` |
+
+Son 13 en `ListarPedidos.js` (más de 8) porque la pantalla tiene la grilla, sus filtros y 4 ventanas.
+
+#### 8.2.2 Un pedido anulado no se cobra (pantalla y servidor)
+
+**ANTES.** Desde H4 un anulado tenía el select apagado y "Anulado" en gris, pero **"Pago" seguía andando**, y el
+servidor lo dejaba cobrar:
+```js
+app.put('/api/pedidos/:id/pagado', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => {
+  const { id } = req.params;                 // "12abc" llegaba a la base tal cual
+  const { pagado } = req.body;
+  if (pagado) { /* buscaba el pedido solo para el control del Mixto */ }
+  const { data, error } = await supabase.from('pedidos').update({ pagado: Boolean(pagado) }).eq('id', id).select().single();
+  ...
+```
+**AHORA** (servidor; lo mismo en `/transferencia-confirmada` y en `/pago`):
+```js
+const id = Number(req.params.id);                                 // "12abc" → NaN
+const idInvalido = !Number.isInteger(id) || id <= 0 || id > ENTERO_MAXIMO_BASE;
+if (idInvalido) return res.status(400).json({ error: 'ID de pedido inválido' });
+...                                                               // se lee el pedido
+if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
+if (pedido.id_estado === ESTADO_ANULADO) return res.status(409).json({ error: 'Un pedido anulado no se puede cobrar' });
+...
+const { data, error } = await supabase.from('pedidos').update({ pagado: pagado })
+  .eq('id', id)
+  .neq('id_estado', ESTADO_ANULADO)                               // solo si no lo anularon justo en el medio
+  .select().maybeSingle();
+if (!data) return res.status(409).json({ error: 'Un pedido anulado no se puede cobrar' });
+```
+**AHORA** (pantalla): en la fila, `const pagoApagado = anulado ? 'disabled title="Un pedido anulado no se cobra"' : '';`,
+y `abrirPago` tampoco abre la ventana de un anulado ("Un pedido anulado no se puede cobrar.").
+
+| Ruta | ENTRADA | SALIDA |
+|---|---|---|
+| `PUT /api/pedidos/:id/pagado` | número de pedido y `{ pagado }` | `{ mensaje, pedido }` · 400 número inválido · 404 no existe · 409 anulado o Mixto sin transferencia · 500 |
+| `PUT /api/pedidos/:id/transferencia-confirmada` | número de pedido | `{ mensaje, pedido }` · 400 · 404 · 409 anulado o no es Mixto · 500 |
+| `PUT /api/pedidos/:id/pago` | número de pedido y `{ metodo_pago, montos… }` | `{ mensaje, pedido }` · 400 datos o montos · 404 · 409 anulado · 500 |
+
+**Ejemplo con fideos.** El pedido #250 (10 fideos) se anuló: volvieron sus 10 viandas. Si alguien lo marcaba "pagado",
+la caja decía que entró plata de un pedido que no existe más. Ahora: "Pago" gris, y si igual se llama a la ruta
+(por ejemplo desde la consola) → 409 "Un pedido anulado no se puede cobrar".
+
+| Control de seguridad | Qué protege, y de qué |
+|---|---|
+| Número de pedido entero > 0 | `12abc`, `-1` o `1.5` → 400 antes de tocar la base (antes `parseInt('12abc')` daba 12: se cobraba el #12) |
+| 409 si está anulado | Que no se registre plata de un pedido anulado (errores o trampas en la caja) |
+| `.neq('id_estado', 5)` en el `update` | Si dos personas lo tocan a la vez (una anula y la otra cobra), el cobro no pisa la anulación |
+| `requireAuth` + `requireRol` | Igual que antes: sin login 401, sin el rol 403 |
+
+#### 8.2.3 "Volvieron 10 viandas a la heladera" y el aviso del pago
+
+| | ANTES | AHORA |
+|---|---|---|
+| Al anular | "✓ Pedido #250 anulado correctamente." | "✓ Pedido #250 anulado. Volvieron 10 viandas a la heladera." (1 → "Volvió 1 vianda…"; 0 → solo "anulado") |
+| Si el estado cambió pero falló el registro del pago | "El pedido pasó a En Preparación, pero no se pudo marcar como pagado. HTTP 500" | "El pedido pasó a **Listo para Entregar**, pero no se pudo marcar como pagado." (el estado que quedó de verdad, y sin el detalle interno) |
+
+El número de viandas lo manda el servidor (`viandas_devueltas`, de la base): la pantalla no lo calcula.
+
+#### 8.2.4 Qué probar en la web (parada 2)
+
+| # | Qué hacés | Qué tiene que pasar |
+|---|---|---|
+| 1 | Abrís Consultar Pedidos | Igual que antes: el título "Producción de hoy…", los filtros, la tabla de a 15 |
+| 2 | Un pedido de prueba en Transferencia, de 1 a 2 | "¿Ya pagó?". "No" → el select vuelve. "Sí" → queda en 2 (o salta a 3 si es todo de heladera) y PAGADO |
+| 3 | Anulás un pedido de prueba con 10 viandas de heladera | "Pedido #N anulado. Volvieron 10 viandas a la heladera." y en Producción vuelven las 10 |
+| 4 | En el anulado | Select apagado, "Pago" gris (no abre) y "Anulado" gris |
+| 5 | Escape con una ventana abierta | Se cierra (si es "Confirmar Pago", cuenta como "No") |
+
+---
+
+### 8.3 Parada 3A: Tareas de Cocina y la web nueva
+
+**SQL: no hace falta.**
+
+| Archivo | Qué cambió |
+|---|---|
+| `frontend/src/js/pedidosCocina.js` | Reescrito: de **11 funciones a 3** (`conPlural`, `cargarPendientes`, `marcarHecho`). Lo usan Producción y Tareas de Cocina |
+| `frontend/src/js/combosCatalogo.js` | `cargarCombos(mantenerCategoria)`: al recargar se queda en la categoría elegida si todavía tiene combos |
+| `frontend/src/js/pedidoCombos.js` | Si el servidor dice "No quedan suficientes viandas…", vuelve a pedir los combos |
+
+#### 8.3.1 "Hecho": el motivo de verdad
+
+**ANTES** (`marcarDetalleHecho`): con un 409 decía siempre "Ya estaba marcado", aunque el motivo fuera otro
+(por ejemplo "El pedido a cocina no existe").
+**AHORA** (`marcarHecho`): el resultado sale de una tabla, con el mensaje de la base:
+```js
+const RESULTADOS = {
+  ok:        { tipo: frases.length > 0 ? 'aviso' : 'ok', mensaje: '✓ ' + texto + ': hecho.', detalles: frases },
+  rechazado: { tipo: 'info',  mensaje: datos.error || 'Ya estaba marcado.', detalles: [] },   // el motivo de verdad
+  error:     { tipo: 'error', mensaje: datos.error || 'No se pudo marcar el plato como hecho.', detalles: [] }
+};
+let clave = 'error';
+if (respuesta.status === 409) clave = 'rechazado';
+if (respuesta.ok) clave = 'ok';
+resultado = RESULTADOS[clave];
+```
+Los clics en "Hecho" se escuchan **una sola vez sobre toda la lista** (`lista.addEventListener('click', …)` y
+`evento.target.closest('.btn-hecho')`): así sirven también para los platos que aparecen al recargar.
+
+| | ENTRADA | SALIDA |
+|---|---|---|
+| `cargarPendientes(idContenedor, opciones)` | dónde se dibuja y, la primera vez, `{ conBotonHecho, recargar }` | la lista de pendientes (o null si falló); en pantalla, una tarjeta por cocinero |
+| `marcarHecho(idContenedor, evento)` | la lista y el clic | nada: pregunta, marca (POST …/hecho), muestra el resultado arriba de la lista y recarga |
+
+**Ejemplo con fideos.** "¿Marcar 2 fideos como hecho?" → Sí → verde "✓ 2 fideos: hecho." · con un insumo corto,
+amarillo "Faltaron 39 u de Huevo" · si otra persona ya lo había marcado, gris con el mensaje de la base.
+
+#### 8.3.2 La web nueva vuelve a pedir los combos cuando no alcanzan las viandas
+
+**ANTES.** Si otro cliente se llevaba las últimas viandas mientras armabas el combo, salía "No quedan suficientes
+viandas de «fideos»: pediste 16 y quedan 12" pero el menú seguía mostrando lo de antes.
+**AHORA** (`confirmarPedido` en `pedidoCombos.js`):
+```js
+// startsWith = "empieza con". Ej: 'No quedan suficientes viandas de «fideos»: pediste 16 y quedan 12' → sí
+const faltanViandas = !resultado.ok && resultado.error.startsWith('No quedan suficientes viandas');
+if (faltanViandas) cargarCombos(true);    // combosCatalogo.js: recarga, en la misma categoría
+```
+y en `combosCatalogo.js`:
+```js
+const sigueLaElegida = mantenerCategoria && combosDisponibles.some(combo => combo.categoria.id === categoriaElegida);
+categoriaElegida = sigueLaElegida ? categoriaElegida : combosDisponibles[0].categoria.id;   // si no, la del primer combo
+```
+El mensaje lo arma la base (`crear_pedido_combos`): la web no decide nada, solo recarga para mostrar lo que queda.
+
+---
+
+### 8.4 Parada 3B: los insumos de un pedido, en una función de la base (arreglo C1)
+
+**SQL: sí.** `sql/insumos_pedido.sql`, bloques 1 y 2 (ver la lista al final, en HELADERA-AVANCE).
+
+| Archivo | Qué cambió |
+|---|---|
+| `sql/insumos_pedido.sql` | **Nuevo.** Bloque 1: columna `movimientos_stock.id_pedido` (solo se agrega). Bloque 2: función `descontar_insumos_pedido` |
+| `sql/insumos_pedido_probar.sql` | **Nuevo.** A: 3 casos que fallan · B: caso de mentira (descuenta, "ya descontado", convive con Render) · C: comprobar |
+| `server.js` | `descontarStockPedido(pedidoId, idUsuario)` llama a la función de la base. `cambiarEstadoPedido` le pasa quién cambia el estado (del token). `calcularConsumoPedido` ya no está: su cuenta quedó en `verificarStockPedido` (solo lee) y en la base (descuenta) |
+
+**ANTES** (`descontarStockPedido`, en el servidor, en pasos sueltos):
+```js
+const motivoBase = `pedido #${String(pedidoId).padStart(3, '0')}`;
+// "¿Ya se descontó?": busca el texto ADENTRO del motivo
+const { data: movPrevio } = await supabase.from('movimientos_stock').select('id').ilike('motivo', `%${motivoBase}%`).limit(1);
+if (movPrevio && movPrevio.length > 0) return null;
+...
+for (const [keyId, totalRaw] of Object.entries(consumo)) {
+  await supabase.from('insumos').update({ stock_actual: nuevoStock }).eq('id', idNum);   // uno por uno
+  movimientosAInsertar.push({ id_insumo: idNum, tipo: 'salida', cantidad: cantidadRequerida, motivo: `Consumo por producción ${motivoBase}`, fecha: fechaHora });
+}
+await supabase.from('movimientos_stock').insert(movimientosAInsertar);
+```
+Tres problemas: (1) buscar "pedido #500" **adentro** del motivo también encuentra "pedido #5000", y un movimiento a mano
+con "pedido #012" hacía que el #12 no descuente nunca; (2) si fallaba en el medio, quedaba **a medias** (unos insumos
+descontados y otros no); (3) no guardaba **quién** fue.
+
+**AHORA** (servidor):
+```js
+const { data, error } = await supabase.rpc('descontar_insumos_pedido', {
+  p_id_pedido:  pedidoId,
+  p_id_usuario: idUsuario                                         // del token, nunca del body
+});
+if (error) { console.error(...); return { status: 500, error: MENSAJE_ERROR_INTERNO }; }
+if (!data || !data.ok) return { status: 409, error: data?.error || 'No se pudieron descontar los insumos del pedido' };
+return null;
+```
+**AHORA** (base, `descontar_insumos_pedido`, en 8 pasos):
+```sql
+-- PASO 3: el motivo de siempre, con 3 cifras como mínimo (igual que padStart de JavaScript)
+v_motivo := 'Consumo por producción pedido #' || case when p_id_pedido < 100 then lpad(p_id_pedido::text, 3, '0') else p_id_pedido::text end;
+-- PASO 4: ¿ya se descontó? Por id_pedido (los nuevos) o por el motivo EXACTO (los viejos y los de Render)
+if exists (select 1 from movimientos_stock where id_pedido = p_id_pedido or motivo = v_motivo) then
+  return jsonb_build_object('ok', true, 'ya_descontado', true, 'insumos', 0);
+end if;
+-- PASO 5: candado a los insumos que se van a tocar, en orden de número (for update)
+-- PASO 6: el primero que no alcanza → { ok: false, error: 'Stock insuficiente de "Huevo": se necesitan 4, hay 2 disponibles' }
+-- PASO 7: resta cada insumo y anota su renglón "salida" con id_pedido e id_usuario
+```
+Antes de todo eso: sin usuario → error; candado al pedido; si no existe → "El pedido no existe"; si está anulado →
+"Un pedido anulado no descuenta insumos".
+
+| | ENTRADA | SALIDA |
+|---|---|---|
+| `descontar_insumos_pedido(p_id_pedido, p_id_usuario)` | el pedido que pasa a 3 o 4 y quién lo pasa | `{ ok: true, ya_descontado: false, insumos: 2 }` · `{ ok: true, ya_descontado: true, insumos: 0 }` · `{ ok: false, error }` (sin guardar nada) |
+| `descontarStockPedido(pedidoId, idUsuario)` | ídem | null si salió bien (o ya estaba) · `{ status: 409, error }` · `{ status: 500, error }` |
+
+**Ejemplo con fideos.** Pedido #250 con 8 fideos de heladera + 2 "sin sal" (receta: 300 g de harina integral y 2 huevos).
+Pasa a 3 → la cocina cocinó 2 → harina −600 g, huevo −4 u, 2 renglones "salida" con `id_pedido = 250` y el motivo
+"Consumo por producción pedido #250". Pasa a 4 → `ya_descontado: true`: no descuenta otra vez. Con solo 2 huevos →
+"Stock insuficiente de "Huevo": se necesitan 4, hay 2 disponibles" y **no se toca nada** (ni la harina).
+
+**Convive con Render** (rama Rodriguez, hasta el merge): el servidor viejo sigue descontando con su código y busca
+el motivo. Por eso la función escribe **el mismo motivo**, y para "ya descontado" mira `id_pedido` **o** ese texto exacto.
+
+| Control de seguridad | Qué protege, y de qué |
+|---|---|
+| Todo o nada (una función de la base) | Que un pedido quede con la mitad de los insumos descontados si algo falla en el medio |
+| `for update` al pedido y a los insumos (en orden) | Dos personas pasando el mismo pedido a 3 a la vez: la segunda espera y ve "ya descontado" (no se descuenta dos veces) |
+| `id_pedido` + motivo **exacto** | El #5 no se confunde con el #50 ni con el #5000, ni con un motivo escrito a mano |
+| Usuario del token (`req.usuario.id`) | Queda anotado quién fue, y nadie puede firmar con otro usuario mandándolo en el body |
+| `revoke … from public, anon, authenticated` + `grant … to service_role` | Solo el servidor la puede ejecutar: nadie desde el navegador con la clave pública |
+| `set search_path = public` | Nadie puede meter una tabla falsa con el mismo nombre en otra carpeta |
+| Un anulado no descuenta | Que se gasten insumos de un pedido que no se va a entregar |
+
+| Se conecta con | |
+|---|---|
+| La llama | `cambiarEstadoPedido` (al pasar a 3 o 4): `PUT /api/pedidos/:id/estado` y el ✓ Listo del cocinero |
+| Tablas | `pedidos` (candado y estado), `pedido_detalles`, `producto_insumo` (receta), `insumos` (resta), `movimientos_stock` (renglones con `id_pedido`) |
+| La lee | `GET /api/movimientos` (8.5): agrupa "Cocina de un pedido" por `id_pedido` (o por el motivo exacto) |
+
+---
+
+### 8.5 Parada 3C: Movimientos de Stock con todo junto
+
+**SQL:** el bloque 1 de `sql/insumos_pedido.sql` (la ruta nueva lee `movimientos_stock.id_pedido`).
+
+| Archivo | Qué cambió |
+|---|---|
+| `server.js` | **Nueva:** `GET /api/movimientos?desde=&hasta=`, con `nombreDeUsuario`, `traerTodasLasFilas` y `armarMovimientos`. Solo lee |
+| `frontend/src/js/movimientosStockNuevo.js` | La parte de la tabla, reescrita (5 funciones). **El modal "Registrar compra" no se tocó** |
+| `frontend/pages/MovimientosStockNuevo.html` | Filtros "Todo / Insumos / Viandas" y "Entradas / Salidas", buscador "insumo o plato", 9 columnas |
+| `frontend/src/css/movimientosStockNuevo.css` | Motivo pasó a la columna 8; títulos y datos del Detalle |
+| `frontend/src/js/roles.js` | Menú: la nueva se llama "📋 Movimientos de Stock" y la vieja "Movimientos (viejo)" (queda hasta que ande "− Registrar salida") |
+
+**ANTES.** La pantalla nueva mostraba solo los **insumos** (`GET /api/movimientos-stock`, como mucho 1000 renglones):
+las compras agrupadas ("Compra #2" con Detalles) y cada salida suelta. Las viandas no aparecían.
+
+**AHORA.** Una fila por cada cosa que pasó, insumos y viandas juntos, del más nuevo al más viejo:
+
+| Origen | Tipo | Referencia | Motivo | El Detalle muestra |
+|---|---|---|---|---|
+| Compra | ▲ | Compra #N | el escrito | insumos, cantidad y vencimiento |
+| Producción | ▲ | Pedido a cocina #N (las de antes: "Tanda vieja") | "Producción de viandas" | quién lo pidió, quién marcó Hecho, las viandas que entraron y los insumos que se usaron |
+| Venta | ▼ | Pedido #N | "Pedido #N" | el cliente y los platos que salieron |
+| Devolución | ▲ | Pedido #N anulado | "Anulación del pedido #N" | los platos que volvieron |
+| Descarte | ▼ | — | el escrito | el motivo y los platos |
+| Cocina de un pedido | ▼ | Pedido #N | "Consumo por producción pedido #N" | los insumos que gastaron los personalizados |
+| Ajuste | ▲ / ▼ | — | el escrito | el motivo y qué |
+
+Columnas: Fecha y hora · Origen · Referencia · Tipo · Resumen ("6 insumos", "2 viandas · 2 insumos") · Usuario ·
+Proveedor (solo compras; si no, "—") · Motivo · Detalle (Ver / Ocultar).
+
+**Cómo se juntan** (`armarMovimientos`, sin `forEach` adentro de otro): un objeto `{ clave: movimiento }` y cada renglón
+se suma al suyo. Compra → `id_compra` · Producción → el renglón de viandas (sus insumos lo traen en `id_movimiento_vianda`) ·
+Venta y devolución → el pedido (con la misma hora) · Cocina → `id_pedido`, o el motivo exacto · Descarte y ajuste → uno por renglón.
+```js
+const motivoDePedido = /^Consumo por producción pedido #(\d+)$/.exec(fila.motivo || '');
+const pedidoDelMotivo = motivoDePedido ? Number(motivoDePedido[1]) : null;   // '005' → 5
+const idPedido = fila.id_pedido || pedidoDelMotivo;                          // primero id_pedido; si no, el del motivo
+let datos = null;                                                            // el primero que corresponde, en este orden:
+if (fila.id_compra) datos = { clave: 'compra-' + fila.id_compra, origen: 'compra', tipo: 'entrada', numero: fila.id_compra };
+if (!datos && fila.id_movimiento_vianda) datos = { clave: 'produccion-' + fila.id_movimiento_vianda, origen: 'produccion', … };
+if (!datos && idPedido) datos = { clave: 'cocina-' + idPedido + '-' + fila.fecha, origen: 'cocina', tipo: 'salida', numero: idPedido };
+if (!datos) datos = { clave: 'ajuste-insumo-' + fila.id, origen: 'ajuste', … };                      // lo cargado a mano
+```
+**Trae TODO entre las fechas** (`traerTodasLasFilas`): de a 1000 renglones (lo máximo que manda Supabase), con un
+`while`, hasta que vengan menos de 1000. Si pasa de 20.000 → 400 "Hay demasiados movimientos en esas fechas: elegí menos días".
+
+**Los filtros (decisión 4): un movimiento se ve si ALGUNA de sus partes coincide.** Cada movimiento tiene sus partes:
+viandas y/o insumos, cada una con su lado. En una producción, las viandas **entran** y los insumos **salen**:
+```js
+const tipoInsumos = mov.origen === 'produccion' ? 'salida' : mov.tipo;
+if (mov.viandas.length > 0) mov.partes.push({ que: 'viandas', tipo: mov.tipo, nombres: platos });
+if (mov.insumos.length > 0) mov.partes.push({ que: 'insumos', tipo: tipoInsumos, nombres: insumos });
+...
+const visibles = listaMovimientos.filter(mov => mov.partes.some(parte => {
+  const coincideQue = que === 'todo' || parte.que === que;
+  const coincideTipo = tipo === '' || parte.tipo === tipo;
+  const coincideTexto = texto === '' || parte.nombres.includes(texto);
+  return coincideQue && coincideTipo && coincideTexto;
+}));
+```
+Así el "Hecho" de 2 fideos aparece con "Viandas + Entradas" y con "Insumos + Salidas", pero no con "Insumos + Entradas".
+Las fechas arrancan en **los últimos 30 días**; al cambiarlas se piden de nuevo al servidor.
+
+| | ENTRADA | SALIDA |
+|---|---|---|
+| `GET /api/movimientos` | `?desde=` y `?hasta=` (opcionales, días de Argentina, los dos incluidos) | `[{ clave, origen, tipo, fecha, numero, usuario, proveedor, motivo, cliente, pidio, insumos, viandas }]` · 400 fecha inválida, "desde" mayor que "hasta" o demasiados · 500 |
+| `traerMovimientos()` | (lee las fechas de arriba) | la lista con sus partes, o `[]` y el problema en `errorMovimientos` |
+| `filtrarMovimientos()` | (lee los filtros) | nada: dibuja los que pasan |
+| `renderizarMovimientos(movimientos)` | los que pasaron | nada: la tabla de a 15 (o "No hay movimientos", o el problema en rojo) |
+| `crearRenglon(mov)` | un movimiento | el renglón y su Detalle, juntos (DocumentFragment) |
+| `htmlDetalle(mov)` | un movimiento | el HTML de adentro del Detalle, según el origen |
+
+**Ejemplo con fideos** (15/10): "15/10/2026 14:32 · Producción · Pedido a cocina #9 · ▲ Entrada · 2 viandas · 2 insumos ·
+Ana López · — · Producción de viandas · [Ver]" → Detalle: "Lo pidió: Mauri Rodriguez · Marcó Hecho: Ana López ·
+Viandas que entraron a la heladera: fideos 2 · Insumos que se usaron: Harina integral 600 g, Huevo 4 u".
+Y la venta del #250: "Venta · Pedido #250 · ▼ Salida · 10 viandas · … · Pedido #250" → "Cliente: PRUEBA – NO PREPARAR · fideos 10".
+
+| Control de seguridad | Qué protege, y de qué |
+|---|---|
+| `requireAuth` + `requireRol(6, 5, 1)` | Sin login 401; el cocinero 403 (como la pantalla vieja) |
+| Fechas `AAAA-MM-DD` que existan (`leerFechaPara`) | `2026-02-30` o texto raro → 400; nunca se pega texto en la consulta (`.gte` / `.lt` son parámetros) |
+| Tope de 20.000 renglones | Nadie puede hacer que el servidor traiga la base entera de una vez (sobrecarga) |
+| Solo lee | La ruta no cambia nada en la base |
+| `escHtml` en todo lo que va al HTML | Un proveedor o un cliente con `<script>` se ve como texto (XSS) |
+
+---
+
+## 9. H9 (Parte 2): el estilo nuevo, sin cambiar lo que hace nada
+
+### 9.1 La regla (CLAUDE.md, sección "Estilo", desde el 16/10)
+
+- NUNCA un `if` adentro de otro. Máximo un nivel.
+- Valores por defecto con `||`: `const direccion = pedido.cliente_direccion || '-';` (nada de `let` + `if`).
+- `switch` ("según sea") cuando se compara una misma variable contra varios valores, cada `case` con su comentario y su `break`.
+- Tablas (objetos) en vez de `if / else if` para elegir un texto, un color o un valor: `MENSAJE_VACIO[modo]`, `COLORES_ESTADO[estado]`.
+- Salir temprano: los "no" arriba con `return` y lo importante abajo, sin `else`.
+- Ternario simple, de un nivel, solo FUERA del HTML. Nunca uno adentro de otro ni adentro de un template.
+- Si una condición mezcla varias cosas, primero se guarda en una variable con nombre (`const faltaEfectivo = a && !b;`).
+- Nombres en español, comentario en cada línea, ENTRADA / SALIDA y un ejemplo arriba de cada función.
+
+En la parte "Cómo recorrer listas…" del CLAUDE.md, el renglón viejo ("calculalo antes con if/else") quedó así:
+"Nada de `? :` adentro de los template strings. Calculá eso antes en una variable (ver "Estilo" arriba).
+Ej: `const claseElegido = cantidad > 0 ? ' plato--elegido' : '';`".
+
+### 9.2 Cómo se comprobó que hace lo mismo
+
+Cada archivo se corrió **viejo y nuevo con los mismos datos de mentira** (una página o una base inventada, en la
+computadora: nada contra la base real) y se compararon **todos** los resultados: lo que se dibuja, lo que se manda al
+servidor, los avisos y los datos que quedan.
+
+| Qué | Cómo | Casos | Resultado |
+|---|---|---|---|
+| `ListarPedidos.js` + `pagoPedido.js` | La pantalla entera: buscar, fechas, cambiar estados, "¿ya pagó?", pagos, anular, Escape… | 20.000 | iguales |
+| `pedidosCocina.js` | Dibujar pendientes, "Hecho" (verde, amarillo, gris, rojo), recargar, cerrar el aviso | 8.000 | iguales |
+| `pedidoCombos.js` | Abrir, validar, confirmar (1.004 llegaron al servidor), WhatsApp, fecha, cerrar | 8.000 | iguales |
+| `heladera.js` + `pedirCocina.js` | Filtros, páginas, mínimo (110 guardados), descarte (28), pedir a cocina (772), recargas | 6.000 | iguales |
+| `verificarStockPedido` (servidor) | La cuenta de insumos | 3.000 | iguales |
+| `POST /api/pedidos-combos` (VENDER) | Todos los controles hasta la base | 6.000 | iguales |
+| Rutas de Consultar Pedidos + `cambiarEstadoPedido` | Base de mentira | 20.000 + 5.000 | iguales |
+| Ruta anular | Base de mentira | 5.000 | iguales |
+| Rutas de Producción (8 rutas) | Base de mentira | 20.000 | iguales (salvo el cambio a propósito del descarte, ver 9.6) |
+| `armarMovimientos` + `GET /api/movimientos` | Versión 1 contra versión 2 | 20.000 + 64 | iguales |
+| Funciones de la base | Comparación de texto: en descartar y producir solo cambiaron comentarios; anular y vender, revisadas a mano y con sus pruebas de mentira | — | ver 9.5 |
+
+Además: cada `.js` pasó `node --check` (sintaxis) y un buscador de "if adentro de if" y de `else`.
+
+### 9.3 Las pantallas: antes y ahora (ejemplos)
+
+**Valores por defecto** (`crearFilaPedido`)
+```js
+// ANTES
+let cliente = 'Anónimo';
+if (pedido.cliente_nombre) {
+  cliente = pedido.cliente_nombre;
+} else if (pedido.usuarios && pedido.usuarios.nombre) {
+  cliente = pedido.usuarios.nombre;
+}
+// AHORA
+const cliente = pedido.cliente_nombre || pedido.usuarios?.nombre || 'Anónimo';
+```
+**`switch` según el método de pago** (`crearFilaPedido`)
+```js
+// ANTES
+if (metodo === 'Mixto' && pedido.transferencia_confirmada && !pedido.pagado) { detallePago = '…Efectivo pendiente…'; }
+else if (metodo === 'Mixto') { detallePago = '💵 … 🏦 …'; }
+else if (metodo === 'Efectivo' && pedido.pago_anticipado) { detallePago = '…Pago anticipado…'; }
+// AHORA
+switch (metodo) {
+  case 'Mixto': {                                                // según sea Mixto
+    const faltaEfectivo = pedido.transferencia_confirmada && !pedido.pagado;
+    detallePago = faltaEfectivo ? '…Efectivo pendiente…' : '💵 … 🏦 …';
+    break;
+  }
+  case 'Efectivo':                                               // según sea Efectivo
+    detallePago = pedido.pago_anticipado ? '…Pago anticipado…' : '';
+    break;
+}
+```
+**Tabla en vez de `if / else if`** (`abrirPago`, en `pagoPedido.js`)
+```js
+// ANTES
+let opcion = 'Efectivo'; let tipoTarjeta = null;
+if (guardado.startsWith('Tarjeta')) { opcion = 'Tarjeta'; tipoTarjeta = guardado.replace('Tarjeta ', ''); }
+else if (['Efectivo', 'Transferencia', 'Mixto'].includes(guardado)) { opcion = guardado; }
+// AHORA (OPCION_DE_METODO y TIPO_DE_TARJETA son dos tablas arriba del archivo)
+const opcion = OPCION_DE_METODO[guardado] || 'Efectivo';         // 'Tarjeta Crédito' → 'Tarjeta'
+const tipoTarjeta = TIPO_DE_TARJETA[guardado] || null;           // 'Tarjeta Crédito' → 'Crédito'
+```
+**El primer control que falla, sin `else if`** (`validarFormulario` en `pedidoCombos.js` y `confirmarDescarte` en `heladera.js`)
+```js
+// ANTES
+if (fecha === '') { errores['err-fecha'] = 'Elegí la fecha de entrega.'; }
+else if (!esDiaHabil(parseFechaLocal(fecha))) { errores['err-fecha'] = 'Ese día no entregamos…'; }
+else if (fecha < inputFecha.min) { errores['err-fecha'] = 'La primera fecha posible es el …'; }
+// AHORA: cada campo con su lista de controles { estaMal, mensaje }; vale el PRIMERO que está mal
+'err-fecha': [
+  { estaMal: fecha === '', mensaje: 'Elegí la fecha de entrega.' },
+  { estaMal: !esDiaHabil(parseFechaLocal(fecha)), mensaje: 'Ese día no entregamos (feriado o fin de semana). Elegí otro.' },
+  { estaMal: fecha < inputFecha.min, mensaje: 'La primera fecha posible es el ' + primeraFecha + '.' }
+],
+...
+const controlQueFalla = controles[idError].find(control => control.estaMal);   // find = el primero que está mal
+```
+**Una función adentro de otra, afuera** (`heladera.js` y `pedirCocina.js`)
+
+| ANTES | AHORA | Por qué |
+|---|---|---|
+| `crearPaginacion({ …, funcionRenderFila: plato => { …60 líneas… } })` | `funcionRenderFila: crearFilaPlato` y la función aparte | Afuera puede "salir temprano": `if (!puedeAdministrar) return fila;` (antes era un `if` grande con otro `if` adentro) |
+| `const alCambiar = () => { … };` adentro de `renderizarListaPedido` | `alCambiarCantidad(idProducto, input, fila)` aparte | Lo usan el casillero y los botones − / + |
+| Dos bloques iguales `let fecha = '-'; if (movimiento.fecha) { …5 líneas… }` | `fechaYHoraCortas(texto)` → `{ dia: '15/10', hora: '18:40' }` o null | Se usaba en "Últimos movimientos" y en "Hecho hoy" |
+
+**`switch` con `return`** (`platosDelFiltro` en `pedirCocina.js`)
+```js
+switch (filtro) {
+  case 'faltan': return estado === 'sin' || estado === 'bajo';   // según sea "Los que faltan"
+  case 'sin':    return estado === 'sin';                        // según sea "Sin stock"
+  case 'bajo':   return estado === 'bajo';                       // según sea "Bajos"
+  case '':       return true;                                    // según sea "Todos los planes"
+  default:       return plato.id_plan === Number(filtro);        // si no, es un plan
+}
+```
+
+| Archivo | Funciones | Nuevas en H9 |
+|---|---|---|
+| `ListarPedidos.js` | 13 | — |
+| `pagoPedido.js` | 5 | tablas `OPCION_DE_METODO` y `TIPO_DE_TARJETA` |
+| `pedidosCocina.js` | 3 | tabla `RESULTADOS` adentro de `marcarHecho` |
+| `pedidoCombos.js` | 8 | — (los controles del formulario pasaron a una lista `{ estaMal, mensaje }`) |
+| `heladera.js` | 14 | `crearFilaPlato`, `fechaYHoraCortas` |
+| `pedirCocina.js` | 8 | `alCambiarCantidad` |
+| `combosCatalogo.js` | 3 | — (solo lo de 3A: `some` en vez de un `if` adentro de otro) |
+| `movimientosStockNuevo.js` | 11 del modal + 5 de la tabla | la tabla entera es nueva (8.5) |
+
+### 9.4 Las rutas de `server.js`: antes y ahora (ejemplos)
+
+**"Solo se consulta si hace falta"** (`cambiarEstadoPedido`)
+```js
+// ANTES (un if adentro de otro)
+if (nuevoEstado === 2) {
+  const errorStock = await verificarStockPedido(pedidoId);
+  if (errorStock) return errorStock;
+}
+if (nuevoEstado === 3 || nuevoEstado === 4) {
+  const errorStock = await descontarStockPedido(pedidoId, idUsuario);
+  if (errorStock) return errorStock;
+}
+// AHORA
+const errorInsumos = nuevoEstado === 2 ? await verificarStockPedido(pedidoId) : null;
+if (errorInsumos) return errorInsumos;
+const pasaA3o4 = nuevoEstado === 3 || nuevoEstado === 4;
+const errorDescuento = pasaA3o4 ? await descontarStockPedido(pedidoId, idUsuario) : null;
+if (errorDescuento) return errorDescuento;
+```
+**El mensaje de la anulación** (ruta anular)
+```js
+// ANTES (let + if)
+let mensaje = 'Pedido anulado correctamente';
+if (data.viandas_devueltas === 1) mensaje = 'Pedido anulado. Volvió 1 vianda a la heladera.';
+if (data.viandas_devueltas > 1) mensaje = `Pedido anulado. Volvieron ${data.viandas_devueltas} viandas a la heladera.`;
+// AHORA
+const conViandas = devueltas === 1 ? 'Pedido anulado. Volvió 1 vianda a la heladera.' : `Pedido anulado. Volvieron ${devueltas} viandas a la heladera.`;
+const mensaje = devueltas >= 1 ? conViandas : 'Pedido anulado correctamente';
+```
+**VENDER** (`POST /api/pedidos-combos`): los controles quedaron uno debajo del otro, cada uno con su nombre
+(`cantidadInvalida`, `hayComboMalArmado`, `faltaNombre`…), con `forEach` y `concat` en vez de `for`; el usuario
+`leerToken(req)?.id || ID_CONSUMIDOR_FINAL`; y `?? null` para lo opcional. Mismas entradas, mismos mensajes (6.000 casos iguales).
+
+Siguen con el estilo de antes, porque no son de este paso (no se tocaron): el login, el catálogo viejo, `/api/cocina/tareas`,
+productos, insumos, recetas, compras, reportes, planes, combos (el armado) y usuarios.
+
+### 9.5 Las funciones de la base
+
+| Función | Archivo | Qué cambió |
+|---|---|---|
+| `descartar_viandas` | `sql/heladera.sql`, bloque 1 | Arriba: QUÉ HACE / ENTRADA / SALIDA / EJEMPLO. Los pasos se llaman "PASO 1…". Solo comentarios |
+| `producir_viandas` | bloque 2 | Ídem. Solo comentarios |
+| `anular_pedido_con_devolucion` | bloque 3 | Ídem, y la devolución en pasos: PASO 3 arma la lista de lo que vuelve (`jsonb_agg` del `group by … having`), PASO 4 pone los candados, PASO 5 devuelve. Mismo resultado |
+| `crear_pedido_combos` | `sql/pedido_combos_funciones.sql` | Ídem, y el control del texto personalizado (PASO 9) y la cuenta de heladera (PASO 15) sin `if` adentro de otro. Mismos mensajes |
+| `descontar_insumos_pedido` | `sql/insumos_pedido.sql`, bloque 2 | Nueva (8.4), ya escrita así |
+
+Ejemplo (PASO 9 de `crear_pedido_combos`):
+```sql
+-- ANTES: dos if adentro de otro, y un elsif
+v_texto := null;
+v_tipo := coalesce(jsonb_typeof(v_plato_json->'personalizado'), 'null');
+if v_tipo = 'string' then
+  v_texto := btrim(v_plato_json->>'personalizado', E' \t\r\n');
+  if v_texto = '' then return …'no puede estar vacío'; end if;
+  if char_length(v_texto) > 150 then return …'admite hasta 150 caracteres'; end if;
+elsif v_tipo <> 'null' then
+  return …'Hay un plato con datos inválidos en «…»';
+end if;
+-- AHORA: uno debajo del otro (el orden de las preguntas no cambia el resultado: un texto nunca es "otra cosa")
+v_tipo := coalesce(jsonb_typeof(v_plato_json->'personalizado'), 'null');      -- 'string', 'null' u otro
+if v_tipo not in ('string', 'null') then return …'Hay un plato con datos inválidos en «…»'; end if;
+v_texto := case when v_tipo = 'string' then btrim(v_plato_json->>'personalizado', E' \t\r\n') else null end;
+if v_texto = '' then return …'no puede estar vacío'; end if;
+if char_length(v_texto) > 150 then return …'admite hasta 150 caracteres'; end if;
+```
+
+### 9.6 Lo único que cambia a propósito
+
+| Dónde | ANTES | AHORA | Por qué |
+|---|---|---|---|
+| `POST /api/viandas-stock/descarte` con `id_producto` −3 o 0 | llegaba a la base → 409 "El plato no existe" | 400 "ID de plato inválido" sin ir a la base | La regla de validar cada dato (enteros mayores a 0) |
+| Rutas de pago (parada 2) | ver 8.2.2 | 400 / 404 / 409 | ídem, y "un anulado no se cobra" |
+
+Todo lo demás de H9 responde exactamente lo mismo que antes.
+
+### 9.7 Lo que quedó con el estilo de antes, a propósito
+
+| Qué | Por qué |
+|---|---|
+| El modal "Registrar compra" de `movimientosStockNuevo.js` (2 `else`: en `mostrarCantidad` y en `renderizarInsumosModal`) | Decisión 1 del 16/10: el modal no se toca |
+| El test viejo de `tests/test_e2e.js` (un `if / else` en `main`) | No es de este paso; la sección HELADERA nueva sí sigue el estilo |
+| `roles.js` | Solo cambiaron los dos renglones del menú |
+
+---
+
+## 10. Las pruebas
 
 | Archivo | Pruebas | Qué prueban |
 |---|---|---|
@@ -1292,14 +1875,23 @@ se crean y se anulan solo desde el servidor nuevo.
 | `sql/pedido_combos_probar.sql` | 6A, 6B, 6C | VENDER (H6): no alcanza; vende 18, los "sin sal" no salen, 100 "sin sal" se pueden pedir, y anular devuelve 18. H5 y H6 se probaron desde la web ✅ |
 | `sql/heladera_probar.sql` | 4A | Las marcas de H7 (solo lee) |
 | `sql/heladera_revisar.sql` | todo (solo lee) | Las funciones instaladas con su comentario y si la heladera cuadra con el cuaderno (H0 y H7) |
-| (en la web) | Parada 1 de H8 | Producción: la lista de la sección 8.1.7 |
+| `sql/insumos_pedido_probar.sql` | A, B, C | `descontar_insumos_pedido` (H8, 3B): A = 3 casos que fallan (sin usuario, no existe, anulado); B = de mentira: descuenta 600 g de harina y 4 huevos, la segunda vez "ya descontado", un renglón viejo con el motivo exacto también cuenta como descontado, y un anulado no descuenta; C = que B no dejó nada |
+| `sql/heladera_probar.sql` 3A–3C y `sql/pedido_combos_probar.sql` 6A–6C | (otra vez, después de H9) | Que `anular_pedido_con_devolucion` y `crear_pedido_combos`, ordenadas en H9, siguen dando lo mismo |
+| `tests/test_e2e.js heladera` | sección HELADERA (por las rutas, contra la base real) | Vender (la heladera baja, las reservadas suben), no alcanza (mensaje y no crea nada), todo de heladera salta a 3, con personalizado queda en 2, filtros de "Últimos movimientos", Movimientos de Stock todo junto, el mínimo (400 con datos malos, 403 al cocinero), anular devuelve, un anulado no cambia ni se cobra (409), y `descontar_insumos_pedido` en sus casos que no descuentan. Al final anula sus pedidos y comprueba la heladera |
+| (en la computadora, sin la base) | comparaciones de H9 | Lo viejo contra lo nuevo con datos de mentira: ver 9.2 |
+| (en la web) | Paradas 1, 2 y 3 de H8 | Las listas de 8.1.7 y 8.2.4, y la de HELADERA-AVANCE |
 
-Los casos "de mentira" (1B, 2B, 3B, 6A, 6B) terminan con un error a propósito: Postgres deshace todo y no queda nada guardado.
-Lo único que no vuelve son los números de id (se saltean).
+Los casos "de mentira" (1B, 2B, 3B, 6A, 6B y la B de insumos) terminan con un error a propósito: Postgres deshace todo y
+no queda nada guardado. Lo único que no vuelve son los números de id (se saltean).
+
+**Por qué "ya descontado" (con insumos de verdad) se prueba en SQL y no en el test.** Para que un pedido descuente insumos
+tiene que tener personalizados y pasar a 3 o 4, y la regla del test es no hacer eso nunca contra la base real (gastaría
+harina y huevos de verdad). La parte B de `sql/insumos_pedido_probar.sql` lo hace adentro de un bloque que se deshace
+solo. El test sí prueba el camino de la ruta con un pedido sin personalizados (pasa a 3, la función corre y no descuenta nada).
 
 ---
 
-## 10. Funciones viejas que quedan "NO USAR"
+## 11. Funciones viejas que quedan "NO USAR"
 
 No se borra nada (regla del CLAUDE.md). En H7 quedaron marcadas "NO USAR" en el `.sql` y en la base (`comment on function`
 / `comment on column`, ver la sección 7). **Ojo:** el servidor de Render (rama Rodriguez) todavía usa dos de ellas hasta el merge: no se tocan.
@@ -1315,4 +1907,17 @@ No se borra nada (regla del CLAUDE.md). En H7 quedaron marcadas "NO USAR" en el 
 | `orden_produccion_detalles.id_pedido_detalle` | (está en la base) | (nada) | No (H0: 0 renglones la usan) |
 
 Las que **siguen en uso** y no se reemplazaron: `crear_orden_produccion` ("Pedir a cocina") y `crear_pedido_combos`
-(cambiada en H6, no reemplazada).
+(cambiada en H6 y ordenada en H9, no reemplazada).
+
+### 11.1 Código de las pantallas y del servidor que se reemplazó en H8 y H9
+
+Esto es código (no la base): se reescribió adentro de los mismos archivos. No se borró ningún archivo.
+
+| Qué | Dónde estaba | Lo reemplaza |
+|---|---|---|
+| `calcularConsumoPedido` | `server.js` | La cuenta quedó en `verificarStockPedido` (al pasar a 2, solo lee) y en `descontar_insumos_pedido` (al pasar a 3 o 4, en la base) |
+| El descuento insumo por insumo de `descontarStockPedido` (`.ilike('motivo', '%pedido #005%')`) | `server.js` | `descontar_insumos_pedido` (8.4) |
+| 37 funciones de `ListarPedidos.js` | `ListarPedidos.js` | 13 en `ListarPedidos.js` + 5 en `pagoPedido.js` (8.2.1) |
+| 11 funciones de `pedidosCocina.js` | `pedidosCocina.js` | 3 (8.3) |
+| 14 funciones de la tabla de `movimientosStockNuevo.js` (`agruparCompras`, `dibujarCompra`, `coincideTipo`…) | `movimientosStockNuevo.js` | 5 (8.5). El modal de compra quedó igual |
+| `GET /api/movimientos-stock` | `server.js` | **Sigue**: la usa la página vieja ("Movimientos (viejo)"). La nueva usa `GET /api/movimientos` |

@@ -5,6 +5,12 @@
 --   Bloque 3: DEVOLVER  → anular_pedido_con_devolucion  (paso H4)  ← ya está
 --   VENDER no está acá: va adentro de crear_pedido_combos (sql/pedido_combos_funciones.sql, paso H6).
 --   Bloque 4: marcas "NO USAR" (las viejas) y "USAR" (las nuevas) (paso H7)  ← ya está
+--   Los insumos de un pedido (al pasar a 3 o 4) están en sql/insumos_pedido.sql (paso H8, parada 3B).
+--
+-- Paso H9 (refactor para entender): cada función tiene arriba QUÉ HACE, ENTRADA, SALIDA y un ejemplo con
+-- fideos, y adentro PASO 1, PASO 2… Lo que hacen NO cambió: mismas entradas, mismas salidas, mismos mensajes.
+-- El único cambio de forma: anular_pedido_con_devolucion arma la lista de lo que vuelve UNA vez (v_devuelve)
+-- en lugar de repetir la misma consulta para los candados y para devolver.
 --
 -- Las 4 acciones siguen las mismas reglas:
 --   - TODO O NADA: cada función corre entera en una sola transacción. Si devuelve
@@ -22,16 +28,20 @@
 
 
 -- =====================================================
--- BLOQUE 1 — DESCARTAR: descartar_viandas (paso H2)
--- Se tiran N viandas de un plato (vencidas, rotas, etc.).
--- Resta de la heladera y anota un renglón "descarte" en el cuaderno (movimientos_viandas).
--- NO toca insumos: ya se gastaron cuando se cocinaron esas viandas.
--- Solo se pueden tirar las viandas LIBRES (las que cuenta stock_heladera):
--- las que ya son de un pedido no están en ese número.
--- Reemplaza a registrar_descarte_vianda (que no exigía el motivo en la base).
+-- BLOQUE 1 — DESCARTAR: descartar_viandas (paso H2, ordenada en H9)
 --
--- Devuelve: { "ok": true, "id_movimiento": 122, "stock_heladera": 69 }
---        o: { "ok": false, "error": "mensaje claro" }   (no se guardó nada)
+-- QUÉ HACE: se tiran N viandas de un plato (vencidas, rotas, etc.). Resta de la heladera y anota un
+--           renglón "descarte" en el cuaderno (movimientos_viandas). NO toca insumos: ya se gastaron
+--           cuando se cocinaron. Solo se pueden tirar las viandas LIBRES (las que cuenta stock_heladera):
+--           las reservadas ya son de un pedido y no están en ese número.
+-- ENTRADA:  p_id_producto = qué plato · p_cantidad = cuántas (entero mayor a 0)
+--           p_id_usuario  = quién descarta (lo pone el SERVIDOR: sale del token)
+--           p_motivo      = por qué (obligatorio, hasta 200 caracteres)
+-- SALIDA:   { "ok": true, "id_movimiento": 122, "stock_heladera": 69 }
+--           o { "ok": false, "error": "mensaje claro" }   (no se guardó nada)
+-- EJEMPLO:  fideos con 71 libres, 2 "vencidas" → renglón "descarte" −2 → { ok: true, stock_heladera: 69 }
+--           fideos con 71 libres, 80           → 'En la heladera hay 71 viandas de «fideos»: no se pueden descartar 80'
+-- La llama: POST /api/viandas-stock/descarte (server.js). Reemplaza a registrar_descarte_vianda.
 -- =====================================================
 
 begin;                                                 -- abre el bloque: todo lo de abajo se aplica junto o no se aplica nada
@@ -57,26 +67,26 @@ begin                                                  -- empieza el código
   -- PARTE 1: CONTROLES (no escribe nada)
   -- ===================================================
 
-  -- 1. El usuario tiene que venir (lo pone el servidor)
+  -- PASO 1. El usuario tiene que venir (lo pone el servidor)
   if p_id_usuario is null then                         -- si no vino...
     return jsonb_build_object('ok', false, 'error', 'Falta el usuario que descarta');  -- ...se corta acá
-  end if;                                              -- fin del control 1
+  end if;                                              -- fin del paso 1
 
-  -- 2. La cantidad: un entero mayor a 0
+  -- PASO 2. La cantidad: un entero mayor a 0
   if p_cantidad is null or p_cantidad <= 0 then        -- si no vino, es 0 o es negativa...
     return jsonb_build_object('ok', false, 'error', 'La cantidad tiene que ser un número entero mayor a 0');  -- ...se corta acá
-  end if;                                              -- fin del control 2
+  end if;                                              -- fin del paso 2
 
-  -- 3. El motivo: obligatorio y hasta 200 caracteres (el servidor ya lo controló; la base lo repite)
+  -- PASO 3. El motivo: obligatorio y hasta 200 caracteres (el servidor ya lo controló; la base lo repite)
   v_motivo := btrim(coalesce(p_motivo, ''), E' \t\r\n');  -- saca espacios, tabs y saltos de línea de los bordes (si no vino, queda '')
   if v_motivo = '' then                                -- si quedó vacío...
     return jsonb_build_object('ok', false, 'error', 'El motivo es obligatorio');  -- ...se corta acá
   end if;                                              -- fin de "vacío"
   if char_length(v_motivo) > 200 then                  -- si tiene más de 200 caracteres...
     return jsonb_build_object('ok', false, 'error', 'El motivo admite hasta 200 caracteres');  -- ...se corta acá
-  end if;                                              -- fin del control 3
+  end if;                                              -- fin del paso 3
 
-  -- 4. El plato tiene que existir. "for update" = CANDADO: hasta que termine esta función,
+  -- PASO 4. El plato tiene que existir. "for update" = CANDADO: hasta que termine esta función,
   --    nadie más puede cambiar este plato (otro descarte, una venta, una producción).
   --    No se exige que esté activo: las viandas de un plato desactivado también se pueden tirar.
   select id, nombre, stock_heladera                    -- número, nombre y viandas libres del plato
@@ -87,32 +97,32 @@ begin                                                  -- empieza el código
 
   if not found then                                    -- si no existe...
     return jsonb_build_object('ok', false, 'error', 'El plato no existe');  -- ...se corta acá
-  end if;                                              -- fin del control 4
+  end if;                                              -- fin del paso 4
 
-  -- 5. No se pueden tirar más viandas de las que hay libres
+  -- PASO 5. No se pueden tirar más viandas de las que hay libres
   if v_plato.stock_heladera < p_cantidad then          -- si hay menos de las que se quieren tirar...
     return jsonb_build_object('ok', false, 'error',    -- ...se corta con este mensaje:
       'En la heladera hay ' || v_plato.stock_heladera || ' viandas de «' || v_plato.nombre  -- cuántas hay y de qué plato...
       || '»: no se pueden descartar ' || p_cantidad);  -- ...y cuántas se querían tirar
-  end if;                                              -- fin del control 5
+  end if;                                              -- fin del paso 5
 
   -- ===================================================
   -- PARTE 2: GUARDAR (todo pasó los controles)
   -- Si algo falla desde acá, Postgres deshace todo lo que hizo la función.
   -- ===================================================
 
-  -- 6. El renglón del cuaderno: "descarte", con cantidad NEGATIVA (salen viandas)
+  -- PASO 6. El renglón del cuaderno: "descarte", con cantidad NEGATIVA (salen viandas)
   insert into movimientos_viandas (id_producto, id_usuario, tipo, cantidad, motivo)  -- tabla del cuaderno, columnas:
   values (p_id_producto, p_id_usuario, 'descarte', -p_cantidad, v_motivo)            -- ej: fideos, Mauri, descarte, −2, "vencidos"
   returning id into v_id_movimiento;                   -- se guarda el número del renglón nuevo
 
-  -- 7. Restar de la heladera
+  -- PASO 7. Restar de la heladera
   update productos                                     -- tabla de platos
      set stock_heladera = stock_heladera - p_cantidad  -- ej: 71 − 2 = 69
    where id = p_id_producto                            -- solo este plato
   returning stock_heladera into v_stock_heladera;      -- se guarda cuántas quedaron
 
-  -- 8. Listo: se devuelve el renglón nuevo y cuántas quedaron (lo mismo que devolvía registrar_descarte_vianda)
+  -- PASO 8. Listo: se devuelve el renglón nuevo y cuántas quedaron (lo mismo que devolvía registrar_descarte_vianda)
   return jsonb_build_object(                           -- respuesta:
     'ok',             true,                            -- salió bien
     'id_movimiento',  v_id_movimiento,                 -- número del renglón del cuaderno
@@ -136,20 +146,26 @@ commit;                                                -- cierra el bloque y con
 
 
 -- =====================================================
--- BLOQUE 2 — PRODUCIR: producir_viandas (paso H3)
--- La cocina terminó un plato de un pedido a cocina y toca "Hecho":
---   - entran N viandas a la heladera (renglón "produccion" en el cuaderno),
---   - se descuentan los insumos de la receta × N: es la ÚNICA vez que esas viandas gastan insumos,
---   - el renglón del pedido a cocina queda hecho.
--- NO frena si falta un insumo: las viandas ya están cocinadas. El insumo queda en negativo
--- (la señal de que falta cargar una compra) y se avisa. Sin receta, entran igual y se avisa.
+-- BLOQUE 2 — PRODUCIR: producir_viandas (paso H3, ordenada en H9)
+--
+-- QUÉ HACE: la cocina terminó un plato de un pedido a cocina y toca "Hecho":
+--             - entran N viandas a la heladera (renglón "produccion" en el cuaderno),
+--             - se descuentan los insumos de la receta × N: es la ÚNICA vez que esas viandas gastan insumos,
+--             - el renglón del pedido a cocina queda hecho.
+--           NO frena si falta un insumo: las viandas ya están cocinadas. El insumo queda en negativo
+--           (la señal de que falta cargar una compra) y se avisa. Sin receta, entran igual y se avisa.
+-- ENTRADA:  p_id_detalle = el renglón del pedido a cocina que se terminó
+--           p_id_usuario = quién toca "Hecho" (lo pone el SERVIDOR: sale del token)
+-- SALIDA:   { "ok": true, "id_movimiento": 140, "stock_heladera": 73,
+--             "avisos": [ { "tipo": "insumo_corto", "nombre": "Huevo", "falta": 39, ... } ] }
+--           o { "ok": false, "error": "mensaje claro" }   (no se guardó nada)
+-- EJEMPLO:  "Pedido a cocina #9: 2 fideos" (receta: 300 g de harina integral y 2 huevos) →
+--           fideos 71 → 73, harina integral −600 g, huevo −4 u, renglón "produccion" +2 "Pedido a cocina #9".
+--           Si ya estaba hecho → 'Este plato ya estaba marcado como hecho'.
+-- La llama: POST /api/ordenes-produccion/detalles/:id/hecho (server.js).
 -- Reemplaza a marcar_detalle_hecho + aplicar_produccion_viandas (dos funciones → una), con los
 -- mismos textos y los mismos enlaces, así "Hecho hoy" y Movimientos de Stock se ven igual que antes.
 -- No mira id_pedido_detalle: nadie la usa (lo mostró el paso H0).
---
--- Devuelve: { "ok": true, "id_movimiento": 140, "stock_heladera": 73,
---             "avisos": [ { "tipo": "insumo_corto", "nombre": "harina", "falta": 50, ... } ] }
---        o: { "ok": false, "error": "mensaje claro" }   (no se guardó nada)
 -- =====================================================
 
 begin;                                                 -- abre el bloque: todo lo de abajo se aplica junto o no se aplica nada
@@ -176,12 +192,12 @@ begin                                                  -- empieza el código
   -- PARTE 1: CONTROLES Y CANDADOS (no escribe nada)
   -- ===================================================
 
-  -- 1. El usuario tiene que venir (lo pone el servidor)
+  -- PASO 1. El usuario tiene que venir (lo pone el servidor)
   if p_id_usuario is null then                         -- si no vino...
     return jsonb_build_object('ok', false, 'error', 'Falta el usuario que marca el plato');  -- ...se corta acá
-  end if;                                              -- fin del control 1
+  end if;                                              -- fin del paso 1
 
-  -- 2. CANDADO al renglón del pedido a cocina. Si dos personas tocan "Hecho" a la vez,
+  -- PASO 2. CANDADO al renglón del pedido a cocina. Si dos personas tocan "Hecho" a la vez,
   --    la segunda espera acá y después lo encuentra ya hecho.
   select id, id_orden_produccion, id_producto, cantidad, hecho  -- número, pedido a cocina, plato, viandas y si está hecho
     into v_detalle                                     -- se guardan en v_detalle
@@ -194,9 +210,9 @@ begin                                                  -- empieza el código
   end if;                                              -- fin de "no existe"
   if v_detalle.hecho then                              -- si ya estaba hecho...
     return jsonb_build_object('ok', false, 'error', 'Este plato ya estaba marcado como hecho');  -- ...se corta acá (no se suma dos veces)
-  end if;                                              -- fin del control 2
+  end if;                                              -- fin del paso 2
 
-  -- 3. CANDADO al plato (siempre primero el plato y después los insumos, como en todas las funciones).
+  -- PASO 3. CANDADO al plato (siempre primero el plato y después los insumos, como en todas las funciones).
   --    No se exige que esté activo: se puede marcar aunque lo hayan desactivado después de pedirlo.
   select nombre                                        -- el nombre del plato
     into v_plato                                       -- se guarda en v_plato
@@ -206,9 +222,9 @@ begin                                                  -- empieza el código
 
   if not found then                                    -- si el plato no existe (no debería pasar)...
     return jsonb_build_object('ok', false, 'error', 'El plato no existe');  -- ...se corta acá
-  end if;                                              -- fin del control 3
+  end if;                                              -- fin del paso 3
 
-  -- 4. CANDADO a los insumos de la receta, ordenados por número: si dos producciones
+  -- PASO 4. CANDADO a los insumos de la receta, ordenados por número: si dos producciones
   --    comparten un insumo, una espera a la otra en vez de trabarse las dos.
   perform 1                                            -- no hace falta traer nada, solo poner los candados
      from insumos                                      -- de la tabla de insumos
@@ -218,7 +234,7 @@ begin                                                  -- empieza el código
     order by id                                        -- siempre en el mismo orden
       for update;                                      -- con candado
 
-  -- 5. ¿Tiene receta? Si no tiene, NO frena: las viandas entran igual (sin gastar insumos) y se avisa.
+  -- PASO 5. ¿Tiene receta? Si no tiene, NO frena: las viandas entran igual (sin gastar insumos) y se avisa.
   select count(*)                                      -- cuenta los insumos...
     into v_cant_receta                                 -- ...y lo guarda en v_cant_receta
     from producto_insumo                               -- ...de la tabla de recetas...
@@ -227,14 +243,14 @@ begin                                                  -- empieza el código
     v_avisos := v_avisos || jsonb_build_object(        -- ...se agrega un aviso:
       'tipo',    'sin_receta',                         -- de este tipo
       'mensaje', 'El plato no tiene receta: entraron las viandas sin descontar insumos');  -- con este texto (el mismo de antes)
-  end if;                                              -- fin del control 5
+  end if;                                              -- fin del paso 5
 
   -- ===================================================
   -- PARTE 2: GUARDAR
   -- Si algo falla desde acá, Postgres deshace todo lo que hizo la función.
   -- ===================================================
 
-  -- 6. El renglón del cuaderno: "produccion", con cantidad POSITIVA (entran viandas)
+  -- PASO 6. El renglón del cuaderno: "produccion", con cantidad POSITIVA (entran viandas)
   insert into movimientos_viandas (id_producto, id_usuario, tipo, cantidad, motivo)  -- tabla del cuaderno, columnas:
   values (v_detalle.id_producto,                       -- el plato
           p_id_usuario,                                -- quién tocó "Hecho"
@@ -243,7 +259,7 @@ begin                                                  -- empieza el código
           'Pedido a cocina #' || v_detalle.id_orden_produccion)  -- ej: "Pedido a cocina #9" (el mismo texto de antes)
   returning id into v_id_movimiento;                   -- se guarda el número del renglón nuevo
 
-  -- 7. Los insumos: por cada uno de la receta se resta receta × viandas y se anota su salida
+  -- PASO 7. Los insumos: por cada uno de la receta se resta receta × viandas y se anota su salida
   for v_insumo in                                      -- recorre los insumos de la receta, uno por vuelta:
     select ins.id,                                     -- número del insumo
            ins.nombre,                                 -- su nombre (para el aviso)
@@ -287,20 +303,20 @@ begin                                                  -- empieza el código
             v_id_movimiento);                          -- atada al renglón del paso 6: así se sabe qué gastó esta producción
   end loop;                                            -- fin de los insumos
 
-  -- 8. Sumar las viandas a la heladera
+  -- PASO 8. Sumar las viandas a la heladera
   update productos                                     -- tabla de platos
      set stock_heladera = stock_heladera + v_detalle.cantidad  -- ej: 71 + 2 = 73
    where id = v_detalle.id_producto                    -- solo este plato
   returning stock_heladera into v_stock_heladera;      -- se guarda cuántas hay ahora
 
-  -- 9. El renglón del pedido a cocina queda hecho, con la hora y el renglón del cuaderno que generó
+  -- PASO 9. El renglón del pedido a cocina queda hecho, con la hora y el renglón del cuaderno que generó
   update orden_produccion_detalles                     -- tabla de platos de los pedidos a cocina
      set hecho                = true,                  -- hecho
          fecha_hecho          = now(),                 -- ahora
          id_movimiento_vianda = v_id_movimiento        -- el renglón "produccion" (lo usan "Hecho hoy" y Movimientos de Stock)
    where id = p_id_detalle;                            -- solo este renglón
 
-  -- 10. Listo: lo mismo que devolvía marcar_detalle_hecho
+  -- PASO 10. Listo: lo mismo que devolvía marcar_detalle_hecho
   return jsonb_build_object(                           -- respuesta:
     'ok',             true,                            -- salió bien
     'id_movimiento',  v_id_movimiento,                 -- número del renglón del cuaderno
@@ -324,21 +340,26 @@ commit;                                                -- cierra el bloque y con
 
 
 -- =====================================================
--- BLOQUE 3 — DEVOLVER: anular_pedido_con_devolucion (paso H4)
--- Se anula un pedido (el PIN lo controla el servidor ANTES de llamarla):
---   - si está en 1, 2 o 3, vuelven a la heladera las viandas que sacó (renglón "devolucion"),
---   - si está en 4 (entregado), no vuelve nada: las viandas se fueron con el cliente,
---   - el pedido pasa a 5 (Cancelado). Un pedido en 5 no se puede anular otra vez.
--- Lo que vuelve sale del CUADERNO de ese pedido: sus ventas (negativas) + sus devoluciones (positivas).
--- Así nunca vuelve más de lo que se llevó, aunque alguien lo saque de 5 y lo vuelva a anular.
--- NO toca insumos (lo cocinado no se "descocina") ni pedido_detalles.
--- Los personalizados no tienen renglón "venta" (no salen de la heladera): no vuelven.
--- Los pedidos de la web vieja, y los de combos de antes de H6, no tienen ventas: se anulan sin
--- devolver nada, igual que hoy.
--- Reemplaza al "leer y actualizar" que hacía la ruta POST /api/pedidos/:id/anular.
+-- BLOQUE 3 — DEVOLVER: anular_pedido_con_devolucion (paso H4, ordenada en H9)
 --
--- Devuelve: { "ok": true, "viandas_devueltas": 10 }
---        o: { "ok": false, "error": "mensaje claro" }   (no se guardó nada)
+-- QUÉ HACE: anula un pedido (el PIN lo controla el servidor ANTES de llamarla):
+--             - si está en 1, 2 o 3, vuelven a la heladera las viandas que sacó (renglón "devolucion"),
+--             - si está en 4 (entregado), no vuelve nada: las viandas se fueron con el cliente,
+--             - el pedido pasa a 5 (Cancelado). Un pedido en 5 no se puede anular otra vez.
+--           Lo que vuelve sale del CUADERNO de ese pedido: sus ventas (negativas) + sus devoluciones (positivas).
+--           Así nunca vuelve más de lo que se llevó, aunque alguien lo saque de 5 y lo vuelva a anular.
+--           NO toca insumos (lo cocinado no se "descocina") ni pedido_detalles.
+--           Los personalizados no tienen renglón "venta" (no salen de la heladera): no vuelven.
+--           Los pedidos de la web vieja, y los de combos de antes de H6, no tienen ventas: se anulan sin
+--           devolver nada.
+-- ENTRADA:  p_id_pedido  = el pedido que se anula
+--           p_id_usuario = quién anula (lo pone el SERVIDOR: sale del token)
+-- SALIDA:   { "ok": true, "viandas_devueltas": 10 }
+--           o { "ok": false, "error": "mensaje claro" }   (no se guardó nada)
+-- EJEMPLO:  pedido #250 en 2 con 8 fideos de heladera + 2 "sin sal" → vuelven 8: fideos 63 → 71,
+--           renglón "devolucion" +8 "Anulación del pedido #250", pedido en 5 → { ok: true, viandas_devueltas: 8 }.
+--           Otra vez → 'El pedido ya está anulado'. En 4 (entregado) → { ok: true, viandas_devueltas: 0 }.
+-- La llama: POST /api/pedidos/:id/anular (server.js, con PIN).
 -- =====================================================
 
 begin;                                                 -- abre el bloque: todo lo de abajo se aplica junto o no se aplica nada
@@ -352,22 +373,23 @@ language plpgsql                                       -- está escrita en plpgs
 set search_path = public                               -- busca las tablas SIEMPRE en public (seguridad)
 as $$                                                  -- desde acá hasta el cierre de abajo es el código de la función
 declare                                                -- variables de la función:
-  v_pedido record;                                     -- el pedido leído de la base (número y estado)
-  v_plato  record;                                     -- un plato a devolver: su número y cuántas viandas vuelven
-  v_total  integer := 0;                               -- cuántas viandas volvieron en total (arranca en 0)
+  v_pedido   record;                                   -- el pedido leído de la base (número y estado)
+  v_devuelve jsonb := '[]'::jsonb;                     -- LO QUE VUELVE: [{ id_producto, cantidad }], un renglón por plato (vacía al empezar)
+  v_renglon  jsonb;                                    -- un renglón de v_devuelve
+  v_total    integer := 0;                             -- cuántas viandas volvieron en total (arranca en 0)
 begin                                                  -- empieza el código
 
   -- ===================================================
   -- PARTE 1: CONTROLES Y CANDADOS (no escribe nada)
   -- ===================================================
 
-  -- 1. El usuario tiene que venir (lo pone el servidor)
+  -- PASO 1. El usuario tiene que venir (lo pone el servidor)
   if p_id_usuario is null then                         -- si no vino...
     return jsonb_build_object('ok', false, 'error', 'Falta el usuario que anula el pedido');  -- ...se corta acá
-  end if;                                              -- fin del control 1
+  end if;                                              -- fin del paso 1
 
-  -- 2. CANDADO al pedido. Si dos personas lo anulan a la vez, la segunda espera acá y después
-  --    lo encuentra en 5. Mientras se anula, nadie más le puede cambiar el estado.
+  -- PASO 2. CANDADO al pedido. Si dos personas lo anulan a la vez, la segunda espera acá y después
+  --         lo encuentra en 5. Mientras se anula, nadie más le puede cambiar el estado.
   select id, id_estado                                 -- número y estado del pedido
     into v_pedido                                      -- se guardan en v_pedido
     from pedidos                                       -- de la tabla de pedidos
@@ -379,64 +401,68 @@ begin                                                  -- empieza el código
   end if;                                              -- fin de "no existe"
   if v_pedido.id_estado = 5 then                       -- si ya está anulado...
     return jsonb_build_object('ok', false, 'error', 'El pedido ya está anulado');  -- ...se corta acá (no devuelve dos veces)
-  end if;                                              -- fin del control 2
+  end if;                                              -- fin del paso 2
 
-  -- 3. Solo en 1, 2 o 3 vuelven viandas. CANDADO a los platos que tienen algo para devolver,
-  --    ordenados por número: el mismo orden que las otras funciones, así ninguna se traba con otra.
+  -- PASO 3. LA LISTA DE LO QUE VUELVE (una sola vez; la usan los pasos 4 y 5). Solo en 1, 2 o 3:
+  --         en 4 (entregado) queda vacía, porque las viandas se fueron con el cliente.
+  --         Por plato: las ventas (negativas) + las devoluciones (positivas) del cuaderno de ESTE pedido,
+  --         solo los que tienen algo para devolver. Ej: fideos −10 + 0 = −10 → vuelven 10.
+  --         Si alguien ya lo había anulado y "revivido", la cuenta da 0 y no vuelve nada otra vez.
   if v_pedido.id_estado in (1, 2, 3) then              -- si todavía no se entregó...
-    perform 1                                          -- no hace falta traer nada, solo poner los candados
-       from productos                                  -- de la tabla de platos
-      where id in (select mov.id_producto              -- los platos...
-                     from movimientos_viandas mov      -- ...del cuaderno...
-                    where mov.id_pedido = p_id_pedido  -- ...de este pedido...
-                      and mov.tipo in ('venta', 'devolucion')  -- ...contando sus ventas y devoluciones...
-                    group by mov.id_producto           -- ...plato por plato...
-                   having sum(mov.cantidad) < 0)       -- ...a los que les falta devolver algo (ej: −10 + 0 = −10)
-      order by id                                      -- siempre en el mismo orden
-        for update;                                    -- con candado
-  end if;                                              -- fin del control 3
+    select coalesce(jsonb_agg(jsonb_build_object(      -- arma la lista...
+             'id_producto', t.id_producto,             -- ...con cada plato...
+             'cantidad',    t.cantidad)                -- ...y cuántas viandas vuelven...
+             order by t.id_producto),                  -- ...ordenada por número de plato (el orden de los candados)...
+           '[]'::jsonb)                                -- ...(vacía si no hay nada para devolver)
+      into v_devuelve                                  -- y la guarda en v_devuelve
+      from (select mov.id_producto,                    -- el plato
+                   -sum(mov.cantidad) as cantidad      -- cuántas vuelven: las ventas son negativas, ej: −(−10 + 0) = 10
+              from movimientos_viandas mov             -- del cuaderno
+             where mov.id_pedido = p_id_pedido         -- de este pedido
+               and mov.tipo in ('venta', 'devolucion') -- sus ventas y devoluciones
+             group by mov.id_producto                  -- plato por plato
+            having sum(mov.cantidad) < 0) t;           -- solo los que tienen algo para devolver
+  end if;                                              -- fin del paso 3
+
+  -- PASO 4. CANDADO a los platos de la lista, ordenados por número: el mismo orden que las otras
+  --         funciones, así ninguna se traba con otra. Con la lista vacía no pone ningún candado.
+  perform 1                                            -- no hace falta traer nada, solo poner los candados
+     from productos                                    -- de la tabla de platos
+    where id in (select (ren.value ->> 'id_producto')::integer  -- los platos...
+                   from jsonb_array_elements(v_devuelve) ren)   -- ...de la lista de lo que vuelve
+    order by id                                        -- siempre en el mismo orden
+      for update;                                      -- con candado
 
   -- ===================================================
   -- PARTE 2: GUARDAR
   -- Si algo falla desde acá, Postgres deshace todo lo que hizo la función.
   -- ===================================================
 
-  -- 4. Devolver, plato por plato (solo en 1, 2 o 3; en 4 se saltea: no vuelve nada)
-  if v_pedido.id_estado in (1, 2, 3) then              -- si todavía no se entregó...
-    for v_plato in                                     -- recorre los platos a devolver, uno por vuelta:
-      select mov.id_producto,                          -- el plato
-             -sum(mov.cantidad) as cantidad            -- cuántas vuelven: las ventas son negativas, ej: −(−10 + 0) = 10
-        from movimientos_viandas mov                   -- del cuaderno
-       where mov.id_pedido = p_id_pedido               -- de este pedido
-         and mov.tipo in ('venta', 'devolucion')       -- sus ventas y devoluciones
-       group by mov.id_producto                        -- plato por plato
-      having sum(mov.cantidad) < 0                     -- solo los que tienen algo para devolver
-       order by mov.id_producto                        -- en el mismo orden que los candados
-    loop                                               -- empieza la vuelta
-      -- 4a. El renglón del cuaderno: "devolucion", con cantidad POSITIVA (vuelven viandas)
-      insert into movimientos_viandas (id_producto, id_usuario, id_pedido, tipo, cantidad, motivo)  -- tabla del cuaderno, columnas:
-      values (v_plato.id_producto,                     -- el plato
-              p_id_usuario,                            -- quién anuló
-              p_id_pedido,                             -- de qué pedido (así la próxima cuenta ya lo resta)
-              'devolucion',                            -- el tipo
-              v_plato.cantidad,                        -- cuántas vuelven (ej: +10)
-              'Anulación del pedido #' || p_id_pedido);  -- ej: "Anulación del pedido #250"
+  -- PASO 5. Devolver, plato por plato de la lista (en 4 la lista está vacía: no vuelve nada)
+  for v_renglon in select value from jsonb_array_elements(v_devuelve) loop  -- cada plato que vuelve, uno por vuelta
+    -- 5a. El renglón del cuaderno: "devolucion", con cantidad POSITIVA (vuelven viandas)
+    insert into movimientos_viandas (id_producto, id_usuario, id_pedido, tipo, cantidad, motivo)  -- tabla del cuaderno, columnas:
+    values ((v_renglon ->> 'id_producto')::integer,    -- el plato
+            p_id_usuario,                              -- quién anuló
+            p_id_pedido,                               -- de qué pedido (así la próxima cuenta ya lo resta)
+            'devolucion',                              -- el tipo
+            (v_renglon ->> 'cantidad')::integer,       -- cuántas vuelven (ej: +10)
+            'Anulación del pedido #' || p_id_pedido);  -- ej: "Anulación del pedido #250"
 
-      -- 4b. Sumar las viandas a la heladera
-      update productos                                 -- tabla de platos
-         set stock_heladera = stock_heladera + v_plato.cantidad  -- ej: 61 + 10 = 71
-       where id = v_plato.id_producto;                 -- solo este plato
+    -- 5b. Sumar las viandas a la heladera
+    update productos                                   -- tabla de platos
+       set stock_heladera = stock_heladera + (v_renglon ->> 'cantidad')::integer  -- ej: 61 + 10 = 71
+     where id = (v_renglon ->> 'id_producto')::integer;  -- solo este plato
 
-      v_total := v_total + v_plato.cantidad;           -- se suma al total de viandas que volvieron
-    end loop;                                          -- fin de los platos
-  end if;                                              -- fin del paso 4
+    v_total := v_total + (v_renglon ->> 'cantidad')::integer;  -- se suma al total de viandas que volvieron
+  end loop;                                            -- fin del paso 5
 
-  -- 5. El pedido pasa a 5 (Cancelado)
+  -- PASO 6. El pedido pasa a 5 (Cancelado)
   update pedidos                                       -- tabla de pedidos
      set id_estado = 5                                 -- Cancelado
    where id = p_id_pedido;                             -- solo este pedido
 
-  -- 6. Listo: cuántas viandas volvieron (0 si estaba en 4 o si no había sacado de la heladera)
+  -- PASO 7. Listo: cuántas viandas volvieron (0 si estaba en 4 o si no había sacado de la heladera)
   return jsonb_build_object(                           -- respuesta:
     'ok',                true,                         -- salió bien
     'viandas_devueltas', v_total                       -- viandas que volvieron a la heladera

@@ -2,8 +2,8 @@
 // COMBOSCATALOGO.JS — Catálogo de combos de index-combos.html
 //
 // Funciones:
-//   cargarCombos         → pide los combos al servidor (GET /api/v1/combos), los guarda
-//                          y muestra la primera categoría
+//   cargarCombos         → pide los combos al servidor (GET /api/v1/combos), los guarda y muestra
+//                          la primera categoría (o, al recargar, la que estaba elegida)
 //   renderizarCategorias → dibuja un botón por cada categoría que tiene combos y marca la elegida
 //   renderizarCombos     → dibuja las tarjetas de los combos de la categoría elegida
 //
@@ -21,7 +21,11 @@ let combosDisponibles = [];
 let categoriaElegida = null;
 
 // ── Trae los combos del servidor y muestra la primera categoría ─────────────
-async function cargarCombos() {
+// ENTRADA: mantenerCategoria: false al abrir la página · true al recargar (pedidoCombos.js, cuando no alcanzan
+//          las viandas): se queda en la categoría elegida si todavía tiene combos
+// SALIDA:  nada (guarda los combos en combosDisponibles y dibuja categorías y tarjetas)
+// Ej: recarga con "Keto" elegida → sigue en "Keto", con los "disponibles" nuevos de cada plato
+async function cargarCombos(mantenerCategoria) {
   const zonaCombos = document.getElementById('combos');
 
   try {
@@ -48,8 +52,11 @@ async function cargarCombos() {
     }
   });
 
-  // Arranca mostrando la categoría del primer combo
-  categoriaElegida = combosDisponibles[0].categoria.id;
+  // Arranca mostrando la categoría del primer combo. Al recargar, se queda en la elegida si todavía tiene combos.
+  // some responde true si AL MENOS UN combo es de la categoría elegida.
+  // Ej: elegida "Keto" (4) y quedan combos Keto → true · ya no queda ninguno → false
+  const sigueLaElegida = mantenerCategoria && combosDisponibles.some(combo => combo.categoria.id === categoriaElegida);
+  categoriaElegida = sigueLaElegida ? categoriaElegida : combosDisponibles[0].categoria.id;  // si no, la del primer combo
   renderizarCategorias();
   renderizarCombos();
 }
@@ -143,4 +150,4 @@ function renderizarCombos() {
 }
 
 // ── Al cargar la página ───────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', cargarCombos);
+document.addEventListener('DOMContentLoaded', () => cargarCombos(false));  // al abrir: desde la primera categoría

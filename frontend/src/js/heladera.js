@@ -6,9 +6,11 @@
 //   estadoDelPlato         → la regla única del estado de un plato: sin stock / bajo / bien / sin control
 //   cargarPlatos           → pide los platos (GET /api/viandas-stock) y dibuja la tabla
 //   renderizarTabla        → dibuja los botones de estado, la franja "Te faltan…" y la tabla (filtrada, ordenada y paginada)
+//   crearFilaPlato         → arma la fila de un plato, con sus botones (Descartar y, para quien administra, el mínimo)
 //   guardarMinimo          → manda el mínimo nuevo de un plato (PUT /api/viandas-stock/:id/minimo) y redibuja
 //   cargarMovimientos      → pide y dibuja "Últimos movimientos" con el filtro de tipo; "Ver más" agrega 50 más
 //   cargarHechosHoy        → pide y dibuja "Hecho hoy"
+//   fechaYHoraCortas       → una fecha de la base en dos textos cortos: { dia: '15/10', hora: '18:40' }
 //   cargarPendientesCocina → pide los pendientes de cocina (los dibuja pedidosCocina.js), pone cuántos hay en el botón
 //                            y, si se pide, abre la ventana
 //   abrirDescarte          → abre la ventana "Descartar" con los datos del plato
@@ -66,6 +68,7 @@ document.addEventListener('DOMContentLoaded', iniciarProduccion);   // cuando la
 // iniciarProduccion → arranca la pantalla
 // ENTRADA: nada (la llama el navegador cuando la página terminó de cargar)
 // SALIDA:  nada (engancha los botones y los filtros, hace la primera carga y programa la recarga cada 60 s)
+// Ej: entra la dueña → ve "+ Pedir a cocina"; entra un cocinero → no lo ve
 // ─────────────────────────────────────────────────────────────────────────────
 function iniciarProduccion() {
   // 1. ¿Puede pedir a cocina y cambiar el mínimo? Administrador del sistema, dueño y administrador (el cocinero no)
@@ -111,10 +114,10 @@ function iniciarProduccion() {
   // 7. Cada 60 segundos se recargan la tabla (en la misma página), los pendientes y "Hecho hoy".
   //    No se recarga si hay una ventana abierta o si se está escribiendo un mínimo (así no se pierde lo escrito).
   setInterval(() => {
-    let hayVentanaAbierta = false;                                             // ¿hay alguna ventana abierta?
-    document.querySelectorAll('.modal').forEach(ventana => {                   // por cada ventana de la pantalla...
-      if (ventana.style.display === 'block') hayVentanaAbierta = true;         // ...si se ve, hay una abierta
-    });
+    // Array.from convierte las ventanas de la pantalla en una lista común (para poder usar some).
+    // some responde true si AL MENOS UNA se ve. Ej: [Descartar cerrada, Pendientes abierta] → true
+    const ventanas = Array.from(document.querySelectorAll('.modal'));
+    const hayVentanaAbierta = ventanas.some(ventana => ventana.style.display === 'block');
     const enfocado = document.activeElement;                                   // el elemento que tiene el cursor (puede no haber)
     const escribiendoMinimo = Boolean(enfocado) && enfocado.classList.contains('input-minimo');  // ¿es un casillero de mínimo?
     if (hayVentanaAbierta || escribiendoMinimo) return;                        // (return = esta vez no se recarga)
@@ -168,7 +171,7 @@ async function cargarPlatos(mantenerPagina) {
 // ENTRADA: mantenerPagina: true para quedarse en la misma página (recarga automática o después de guardar un mínimo)
 // SALIDA:  nada (dibuja los botones de estado con cuántos hay, la franja "Te faltan…" y la tabla paginada de a 15)
 // Columnas: Plato · Plan · Libres · Reservadas · En heladera · Mínimo · Estado · Descartar
-// Ej: fideos con 61 libres y 10 reservadas → "fideos · Mantenimiento · 61 · 10 · 71 · [5 ✓] · Bien · ✖ Descartar"
+// Ej: 2 platos sin stock y 3 bajos → botones "Sin stock (2)" y "Bajos (3)", y la franja "Te faltan 5 platos: 2 sin stock y 3 bajos"
 // ─────────────────────────────────────────────────────────────────────────────
 function renderizarTabla(mantenerPagina) {
   // 1. Cuántos platos hay en cada estado. Ej: { sin: 2, bajo: 3, bien: 15, sincontrol: 0 }
@@ -187,10 +190,8 @@ function renderizarTabla(mantenerPagina) {
   if (cuenta.sincontrol > 0) {                                               // "Sin control" solo si hay alguno
     opciones.push({ valor: 'sincontrol', texto: 'Sin control', cantidad: cuenta.sincontrol });
   }
-  let filtroExiste = false;                                                  // ¿el filtro elegido está entre los botones?
-  opciones.forEach(opcion => {                                               // por cada botón...
-    if (opcion.valor === filtroEstado) filtroExiste = true;                  // ...si es el elegido, existe
-  });
+  // some responde true si AL MENOS UN botón es el del filtro elegido. Ej: elegido 'sincontrol' y ya no hay ninguno → false
+  const filtroExiste = opciones.some(opcion => opcion.valor === filtroEstado);
   if (!filtroExiste) filtroEstado = 'todos';                                 // si ya no está (no quedan "Sin control"), vuelve a "Todos"
 
   const contenedorFiltros = document.getElementById('filtrosEstado');        // donde van los botones
@@ -211,16 +212,15 @@ function renderizarTabla(mantenerPagina) {
   // 3. La franja "Te faltan 5 platos: 2 sin stock y 3 bajos" (solo para quien puede pedir, y solo si falta algo)
   const aviso = document.getElementById('avisoFaltantes');                   // la franja
   const faltan = cuenta.sin + cuenta.bajo;                                   // los que faltan: sin stock más bajos
-  if (!puedeAdministrar || faltan === 0) {                                   // si no puede pedir o no falta nada...
-    aviso.style.display = 'none';                                            // ...no se muestra
-  } else {                                                                   // si falta algo...
-    const partes = [];                                                       // ...se arma el texto por partes
-    if (cuenta.sin > 0) partes.push(cuenta.sin + ' sin stock');              // "2 sin stock"
-    if (cuenta.bajo > 0) partes.push(conPlural(cuenta.bajo, 'bajo', 'bajos'));  // "3 bajos"
-    document.getElementById('avisoTexto').textContent =                      // textContent: se muestra como texto
+  const mostrarAviso = puedeAdministrar && faltan > 0;                       // ¿se muestra la franja?
+  const partes = [];                                                         // el texto se arma por partes
+  if (cuenta.sin > 0) partes.push(cuenta.sin + ' sin stock');                // "2 sin stock"
+  if (cuenta.bajo > 0) partes.push(conPlural(cuenta.bajo, 'bajo', 'bajos'));  // "3 bajos"
+  if (mostrarAviso) {                                                        // textContent: se muestra como texto
+    document.getElementById('avisoTexto').textContent =
       'Te faltan ' + conPlural(faltan, 'plato', 'platos') + ': ' + partes.join(' y ');  // join une las partes con " y "
-    aviso.style.display = '';                                                // se muestra
   }
+  aviso.style.display = mostrarAviso ? '' : 'none';                          // '' = se ve · 'none' = escondida
 
   // 4. Los platos que se ven: los que coinciden con el buscador y con el filtro de estado
   const texto = document.getElementById('filtroNombre').value.toLowerCase();  // lo escrito en el buscador, en minúsculas
@@ -235,9 +235,9 @@ function renderizarTabla(mantenerPagina) {
     return (a.nombre || '').localeCompare(b.nombre || '', 'es');             // ...y si es el mismo, por nombre
   });
 
-  // 5. La tabla, de a 15 por página. crearPaginacion (paginacion.js) llama a funcionRenderFila una vez por fila.
-  let pagina = 1;                                                            // arranca en la página 1...
-  if (mantenerPagina && paginacionPlatos) pagina = paginacionPlatos.paginaActual();  // ...o se queda donde estaba
+  // 5. La tabla, de a 15 por página. crearPaginacion (paginacion.js) llama a crearFilaPlato una vez por fila.
+  const sigueEnLaPagina = mantenerPagina && paginacionPlatos !== null;       // ¿se queda en la página donde estaba?
+  const pagina = sigueEnLaPagina ? paginacionPlatos.paginaActual() : 1;      // si no, arranca en la página 1
   paginacionPlatos = crearPaginacion({
     datos: visibles,                                                         // los platos que se ven
     porPagina: 15,                                                           // de a 15
@@ -245,30 +245,40 @@ function renderizarTabla(mantenerPagina) {
     contenedorPaginacion: document.getElementById('paginacion'),             // donde van los números de página
     filaVacia: '<tr><td colspan="8" class="loading-text">No se encontraron platos</td></tr>',  // si no hay ninguno
     paginaInicial: pagina,                                                   // en qué página arranca
-    funcionRenderFila: plato => {                                            // cómo se arma la fila de un plato:
-      // a. Lo que va en cada celda, calculado antes (nada de "? :" adentro del HTML)
-      let plan = '-';                                                        // el plan ("-" si no tiene)
-      if (plato.plan_nombre) plan = plato.plan_nombre;
-      const estado = estadoDelPlato(plato);                                  // su estado
-      let etiqueta = '<span class="estado-sincontrol">— Sin control</span>';  // "Sin control" es un guion gris...
-      if (estado !== 'sincontrol') {                                         // ...los demás, una etiqueta de color
-        etiqueta = `<span class="etiqueta-estado ${ESTADOS_STOCK[estado].clase}">${ESTADOS_STOCK[estado].texto}</span>`;
-      }
-      let descarteApagado = '';                                              // sin libres no se puede descartar
-      if (Number(plato.stock_heladera) <= 0) descarteApagado = 'disabled';
-      let celdaMinimo = String(Number(plato.stock_minimo));                  // el cocinero solo ve el número...
-      if (puedeAdministrar) {                                                // ...los que administran lo pueden cambiar
-        celdaMinimo = `
+    funcionRenderFila: crearFilaPlato                                        // cómo se arma la fila de un plato (abajo)
+  });
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// crearFilaPlato → arma la fila de un plato para la tabla (la llama crearPaginacion, una vez por fila)
+// ENTRADA: plato (uno de todosPlatos)
+// SALIDA:  la fila <tr> lista para poner en la tabla, con sus botones andando
+// Ej: fideos con 61 libres, 10 reservadas y mínimo 5 → "fideos · Mantenimiento · 61 · 10 · 71 · [5 ✓] · Bien · ✖ Descartar"
+//     (el cocinero ve el mínimo como número, sin casillero ni ✓)
+// ─────────────────────────────────────────────────────────────────────────────
+function crearFilaPlato(plato) {
+  // 1. Lo que va en cada celda, calculado antes (nada de "? :" adentro del HTML)
+  const plan = plato.plan_nombre || '-';                                     // el plan ("-" si no tiene)
+  const estado = estadoDelPlato(plato);                                      // su estado
+  const datosEstado = ESTADOS_STOCK[estado];                                 // su texto y su color
+  const etiquetaColor = '<span class="etiqueta-estado ' + datosEstado.clase + '">' + datosEstado.texto + '</span>';
+  const sinControl = estado === 'sincontrol';                                // "Sin control" es un guion gris;
+  const etiqueta = sinControl ? '<span class="estado-sincontrol">— Sin control</span>' : etiquetaColor;  // los demás, de color
+  const sinLibres = Number(plato.stock_heladera) <= 0;                       // sin libres no se puede descartar
+  const descarteApagado = sinLibres ? 'disabled' : '';
+  const numeroMinimo = String(Number(plato.stock_minimo));                   // el cocinero solo ve el número...
+  const editorMinimo = `
           <div class="minimo-editar">
             <input type="number" class="input-minimo" min="0" max="9999" step="1" value="${Number(plato.stock_minimo)}"
                    aria-label="Mínimo de ${escHtml(plato.nombre)}">
             <button type="button" class="btn-guardar-minimo" title="Guardar el mínimo">✓</button>
-          </div>`;
-      }
+          </div>`;                                                           // ...los que administran lo pueden cambiar
+  const celdaMinimo = puedeAdministrar ? editorMinimo : numeroMinimo;
 
-      // b. La fila (lo que viene de la base pasa por escHtml; los números, por Number)
-      const fila = document.createElement('tr');
-      fila.innerHTML = `
+  // 2. La fila (lo que viene de la base pasa por escHtml; los números, por Number)
+  const fila = document.createElement('tr');
+  fila.innerHTML = `
         <td><strong>${escHtml(plato.nombre)}</strong></td>
         <td>${escHtml(plan)}</td>
         <td class="celda-stock">${Number(plato.stock_heladera)}</td>
@@ -282,18 +292,15 @@ function renderizarTabla(mantenerPagina) {
           </div>
         </td>`;
 
-      // c. Los botones de la fila
-      fila.querySelector('.btn-descartar').addEventListener('click', () => abrirDescarte(plato.id));  // "Descartar"
-      if (puedeAdministrar) {                                                // el mínimo: con ✓ o con Enter
-        const input = fila.querySelector('.input-minimo');                   // el casillero del mínimo
-        fila.querySelector('.btn-guardar-minimo').addEventListener('click', () => guardarMinimo(plato.id, input));
-        input.addEventListener('keydown', evento => {                        // al apretar una tecla en el casillero...
-          if (evento.key === 'Enter') guardarMinimo(plato.id, input);        // ...si es Enter, se guarda
-        });
-      }
-      return fila;                                                           // la fila terminada
-    }
+  // 3. Los botones de la fila
+  fila.querySelector('.btn-descartar').addEventListener('click', () => abrirDescarte(plato.id));  // "Descartar"
+  if (!puedeAdministrar) return fila;                                        // el cocinero no cambia el mínimo: la fila ya está
+  const input = fila.querySelector('.input-minimo');                         // el mínimo se guarda con ✓ o con Enter
+  fila.querySelector('.btn-guardar-minimo').addEventListener('click', () => guardarMinimo(plato.id, input));
+  input.addEventListener('keydown', evento => {                              // al apretar una tecla en el casillero...
+    if (evento.key === 'Enter') guardarMinimo(plato.id, input);              // ...si es Enter, se guarda
   });
+  return fila;                                                               // la fila terminada
 }
 
 
@@ -311,7 +318,8 @@ async function guardarMinimo(idProducto, input) {
   // 1. Control en la pantalla (el servidor lo vuelve a controlar): un entero de 0 a 9999
   const texto = input.value.trim();                            // lo escrito, sin espacios en los bordes
   const minimo = Number(texto);                                // como número
-  if (texto === '' || !Number.isInteger(minimo) || minimo < 0 || minimo > 9999) {  // vacío, con decimales, negativo o muy grande
+  const minimoInvalido = texto === '' || !Number.isInteger(minimo) || minimo < 0 || minimo > 9999;  // vacío, con decimales, negativo o muy grande
+  if (minimoInvalido) {
     mostrarToast('El mínimo tiene que ser un número entero de 0 a 9999.', 'error');   // se avisa
     input.focus();                                             // y el cursor vuelve al casillero
     return;
@@ -328,9 +336,7 @@ async function guardarMinimo(idProducto, input) {
     const datos = await respuesta.json().catch(() => ({}));    // la respuesta (si no es JSON, un objeto vacío)
 
     if (!respuesta.ok) {                                       // si el servidor no lo aceptó...
-      let mensaje = 'No se pudo guardar el mínimo.';           // ...un mensaje por si no mandó ninguno
-      if (datos.error) mensaje = datos.error;                  // ...o el del servidor
-      mostrarToast(mensaje, 'error');                          // ...se avisa
+      mostrarToast(datos.error || 'No se pudo guardar el mínimo.', 'error');  // ...se avisa con su mensaje (o uno por si no mandó)
       input.disabled = false;                                  // ...y se puede corregir
       return;
     }
@@ -375,38 +381,22 @@ async function cargarMovimientos(agregar) {
     const movimientos = await respuesta.json();                                      // hasta 50 renglones
 
     // 3. Si se empieza de nuevo, se borra la lista (y si no vino nada, se avisa)
-    if (!agregar) {
-      lista.innerHTML = '';                                                          // se borra lo de antes
-      if (movimientos.length === 0) {                                                // si no hay ninguno...
-        let textoVacio = 'Todavía no hay movimientos';                               // ...sin filtro
-        if (tipoMovimientos) textoVacio = 'No hay movimientos de este tipo';         // ...con filtro
-        lista.innerHTML = `<li class="mov-vacio">${textoVacio}</li>`;
-      }
-    }
+    const textoVacio = tipoMovimientos ? 'No hay movimientos de este tipo' : 'Todavía no hay movimientos';  // con filtro · sin filtro
+    const nadaParaMostrar = !agregar && movimientos.length === 0;                    // empezó de nuevo y no vino ninguno
+    if (!agregar) lista.innerHTML = '';                                              // se borra lo de antes
+    if (nadaParaMostrar) lista.innerHTML = `<li class="mov-vacio">${textoVacio}</li>`;
 
     // 4. Un renglón por movimiento: cantidad con signo y plato; abajo tipo · fecha · quién; y el motivo, si hay
     movimientos.forEach(movimiento => {
       const cantidad = Number(movimiento.cantidad);                                  // + entran, − salen
-      let textoCantidad = String(cantidad);                                          // negativa: tal cual (en rojo)...
-      let claseCantidad = 'salida';
-      if (cantidad > 0) {                                                            // ...positiva: con "+" (en verde)
-        textoCantidad = '+' + cantidad;
-        claseCantidad = 'entrada';
-      }
-      let tipo = movimiento.tipo;                                                    // el tipo como viene...
-      if (NOMBRES_TIPO[movimiento.tipo]) tipo = NOMBRES_TIPO[movimiento.tipo];       // ...o bien escrito: "Venta"
-      let fecha = '-';                                                               // la fecha, como "15/10 18:40"
-      if (movimiento.fecha) {
-        const momento = fechaDeTimestamp(movimiento.fecha);                          // de la base (UTC) a la hora de la computadora
-        const dia = String(momento.getDate()).padStart(2, '0');                      // padStart: completa con ceros. Ej: '7' → '07'
-        const mes = String(momento.getMonth() + 1).padStart(2, '0');                 // los meses van de 0 a 11
-        const hora = String(momento.getHours()).padStart(2, '0');
-        const minuto = String(momento.getMinutes()).padStart(2, '0');
-        fecha = dia + '/' + mes + ' ' + hora + ':' + minuto;
-      }
+      const esEntrada = cantidad > 0;                                                // positiva: entra
+      const textoCantidad = esEntrada ? '+' + cantidad : String(cantidad);           // positiva con "+" (verde); negativa tal cual (rojo)
+      const claseCantidad = esEntrada ? 'entrada' : 'salida';
+      const tipo = NOMBRES_TIPO[movimiento.tipo] || movimiento.tipo;                 // bien escrito ("Venta"), o como viene
+      const cuando = fechaYHoraCortas(movimiento.fecha);                             // { dia: '15/10', hora: '18:40' } o null
+      const fecha = cuando ? cuando.dia + ' ' + cuando.hora : '-';                   // "15/10 18:40" (sin fecha: "-")
       const detalle = tipo + ' · ' + fecha + ' · ' + movimiento.usuario_nombre;      // "Venta · 15/10 18:40 · Consumidor Final"
-      let htmlMotivo = '';                                                           // el motivo, solo si tiene
-      if (movimiento.motivo) htmlMotivo = `<div class="mov-motivo">${escHtml(movimiento.motivo)}</div>`;
+      const htmlMotivo = movimiento.motivo ? '<div class="mov-motivo">' + escHtml(movimiento.motivo) + '</div>' : '';  // solo si tiene
 
       const renglon = document.createElement('li');                                 // el renglón
       renglon.className = 'mov-item';
@@ -426,10 +416,10 @@ async function cargarMovimientos(agregar) {
   } catch (error) {                                                                  // si no se pudo...
     console.error('No se pudieron cargar los movimientos:', error);                  // ...el detalle a la consola
     if (agregar) {                                                                   // ...si era "Ver más", un aviso
-      mostrarToast('No se pudieron cargar más movimientos.', 'error');
-    } else {                                                                         // ...si no, en la lista
-      lista.innerHTML = '<li class="mov-vacio" style="color:red;">Error al cargar los movimientos</li>';
+      mostrarToast('No se pudieron cargar más movimientos.', 'error');               //    (la lista queda como estaba)
+      return;
     }
+    lista.innerHTML = '<li class="mov-vacio" style="color:red;">Error al cargar los movimientos</li>';  // ...si no, en la lista
   }
 }
 
@@ -454,15 +444,10 @@ async function cargarHechosHoy() {
 
     let html = '';                                                                   // se arman los renglones
     hechos.forEach(hecho => {                                                        // por cada plato hecho...
-      let hora = '-';                                                                // ...la hora, como "14:32"
-      if (hecho.fecha_hecho) {
-        const momento = fechaDeTimestamp(hecho.fecha_hecho);                         // de la base a la hora de la computadora
-        hora = String(momento.getHours()).padStart(2, '0') + ':' + String(momento.getMinutes()).padStart(2, '0');
-      }
-      let plan = '';                                                                 // ...el plan, si tiene
-      if (hecho.plan) plan = ` <span class="hh-plan">· ${escHtml(hecho.plan)}</span>`;
-      let quien = '';                                                                // ...quién lo marcó, si se sabe
-      if (hecho.marcado_por) quien = hecho.marcado_por;
+      const cuando = fechaYHoraCortas(hecho.fecha_hecho);                            // ...cuándo se marcó (o null)
+      const hora = cuando ? cuando.hora : '-';                                       // ...la hora, como "14:32" (sin fecha: "-")
+      const plan = hecho.plan ? ' <span class="hh-plan">· ' + escHtml(hecho.plan) + '</span>' : '';  // ...el plan, si tiene
+      const quien = hecho.marcado_por || '';                                         // ...quién lo marcó, si se sabe
       html += `
         <li>
           <span class="hh-hora">${escHtml(hora)}</span>
@@ -476,6 +461,24 @@ async function cargarHechosHoy() {
     console.error('No se pudo cargar lo hecho hoy:', error);                         // ...el detalle a la consola
     lista.innerHTML = '<li class="mov-vacio" style="color:red;">Error al cargar lo hecho hoy</li>';
   }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// fechaYHoraCortas → una fecha de la base en dos textos cortos, en la hora de la computadora
+//                    (la usan "Últimos movimientos", con día y hora, y "Hecho hoy", solo con la hora)
+// ENTRADA: texto de la base (ej: '2026-10-15T21:40:00+00:00'), o null / '' si no hay fecha
+// SALIDA:  { dia: '15/10', hora: '18:40' }, o null si no vino fecha
+// Ej: '2026-10-15T21:40:00+00:00' → { dia: '15/10', hora: '18:40' } (Argentina va 3 horas atrás de UTC)
+// ─────────────────────────────────────────────────────────────────────────────
+function fechaYHoraCortas(texto) {
+  if (!texto) return null;                                             // sin fecha, nada
+  const momento = fechaDeTimestamp(texto);                             // de la base (UTC) a la hora de la computadora
+  const dia = String(momento.getDate()).padStart(2, '0');              // padStart: completa con ceros. Ej: '7' → '07'
+  const mes = String(momento.getMonth() + 1).padStart(2, '0');         // los meses van de 0 a 11
+  const hora = String(momento.getHours()).padStart(2, '0');
+  const minuto = String(momento.getMinutes()).padStart(2, '0');
+  return { dia: dia + '/' + mes, hora: hora + ':' + minuto };
 }
 
 
@@ -495,12 +498,8 @@ async function cargarPendientesCocina(abrirVentana) {
   };
   const pendientes = await cargarPendientes('listaPendientes', opciones);           // la lista (o null si no se pudo cargar)
 
-  const boton = document.getElementById('btnPendientes');                            // el botón de la cabecera
-  if (pendientes) {                                                                  // si se cargó...
-    boton.textContent = 'Pendientes de cocina (' + pendientes.length + ')';          // ...con cuántos hay
-  } else {                                                                           // si no...
-    boton.textContent = 'Pendientes de cocina';                                      // ...sin número
-  }
+  const cuantos = pendientes ? ' (' + pendientes.length + ')' : '';                 // si se cargó, cuántos hay; si no, sin número
+  document.getElementById('btnPendientes').textContent = 'Pendientes de cocina' + cuantos;  // el botón de la cabecera
 }
 
 
@@ -515,10 +514,9 @@ function abrirDescarte(idProducto) {
   if (!plato) return;                                                  // si no está, no hace nada
 
   platoDescarte = plato;                                               // el plato que se descarta
-  let info = plato.nombre + ' — libres: ' + Number(plato.stock_heladera);  // el texto de arriba...
-  if (Number(plato.reservadas) > 0) {                                  // ...y si tiene reservadas, se aclara
-    info += ' (las ' + Number(plato.reservadas) + ' reservadas no se pueden descartar)';
-  }
+  const tieneReservadas = Number(plato.reservadas) > 0;                // si tiene reservadas, se aclara
+  const aclaracion = tieneReservadas ? ' (las ' + Number(plato.reservadas) + ' reservadas no se pueden descartar)' : '';
+  const info = plato.nombre + ' — libres: ' + Number(plato.stock_heladera) + aclaracion;  // el texto de arriba
   document.getElementById('dInfo').textContent = info;                 // textContent: el nombre se muestra como texto
   document.getElementById('dCantidad').value = '';                     // la cantidad, vacía
   document.getElementById('dCantidad').max = plato.stock_heladera;     // el casillero no deja pasar de las libres
@@ -543,17 +541,17 @@ async function confirmarDescarte() {
   const cantidad = Number(textoCantidad);                              // como número
   const motivo = document.getElementById('dMotivo').value.trim();      // el motivo, sin espacios en los bordes
 
-  // 1. Controles en la pantalla (el servidor y la base los vuelven a hacer)
-  let error = '';                                                      // el primer problema (vacío = ninguno)
-  if (textoCantidad === '' || !Number.isInteger(cantidad) || cantidad <= 0) {
-    error = 'La cantidad tiene que ser un número entero mayor a 0.';
-  } else if (cantidad > Number(platoDescarte.stock_heladera)) {
-    error = 'No podés descartar más viandas de las libres.';
-  } else if (!motivo) {
-    error = 'Escribí el motivo del descarte.';
-  }
-  if (error) {                                                         // si hay un problema...
-    errorVentana.textContent = error;                                  // ...se muestra
+  // 1. Controles en la pantalla (el servidor y la base los vuelven a hacer), en orden: { estaMal, mensaje }.
+  //    Vale el PRIMERO que está mal. Ej: cantidad 0 y sin motivo → 'La cantidad tiene que ser un número entero mayor a 0.'
+  const cantidadInvalida = textoCantidad === '' || !Number.isInteger(cantidad) || cantidad <= 0;
+  const controles = [
+    { estaMal: cantidadInvalida, mensaje: 'La cantidad tiene que ser un número entero mayor a 0.' },
+    { estaMal: cantidad > Number(platoDescarte.stock_heladera), mensaje: 'No podés descartar más viandas de las libres.' },
+    { estaMal: !motivo, mensaje: 'Escribí el motivo del descarte.' }
+  ];
+  const controlQueFalla = controles.find(control => control.estaMal);  // find = el primero que está mal (o undefined)
+  if (controlQueFalla) {                                               // si hay un problema...
+    errorVentana.textContent = controlQueFalla.mensaje;                // ...se muestra
     errorVentana.style.display = 'block';
     return;                                                            // ...y no se manda nada
   }
@@ -570,10 +568,8 @@ async function confirmarDescarte() {
     const datos = await respuesta.json().catch(() => ({}));            // la respuesta (si no es JSON, un objeto vacío)
 
     if (!respuesta.ok) {                                               // si no se pudo...
-      let mensaje = 'No se pudo registrar el descarte.';               // ...un mensaje por si no vino ninguno
-      if (datos.error) mensaje = datos.error;                          // ...o el del servidor
-      errorVentana.textContent = mensaje;                              // ...se muestra en la ventana
-      errorVentana.style.display = 'block';
+      errorVentana.textContent = datos.error || 'No se pudo registrar el descarte.';  // ...el mensaje del servidor (o uno por si no vino)
+      errorVentana.style.display = 'block';                            // ...se muestra en la ventana
       boton.disabled = false;                                          // ...y se puede corregir
       return;
     }
@@ -595,6 +591,7 @@ async function confirmarDescarte() {
 // cerrarVentana → cierra una ventana (modal) de la pantalla
 // ENTRADA: idVentana: 'modalPedido', 'modalPendientes' o 'modalDescarte'
 // SALIDA:  nada (la esconde; si es la de descartar, se olvida el plato elegido)
+// Ej: cerrarVentana('modalDescarte') → la ventana se esconde y platoDescarte vuelve a null
 // ─────────────────────────────────────────────────────────────────────────────
 function cerrarVentana(idVentana) {
   document.getElementById(idVentana).style.display = 'none';           // se esconde
@@ -606,6 +603,7 @@ function cerrarVentana(idVentana) {
 // mostrarToast → un aviso flotante que se va solo a los 3,5 segundos (el mismo de stock.js)
 // ENTRADA: mensaje (el texto) y tipo: 'exito' (verde) o 'error' (rojo)
 // SALIDA:  nada (lo muestra y lo saca solo)
+// Ej: mostrarToast('Mínimo de «fideos»: 100', 'exito') → un cartel verde abajo que se va solo
 // ─────────────────────────────────────────────────────────────────────────────
 function mostrarToast(mensaje, tipo) {
   const toast = document.createElement('div');                         // el aviso

@@ -82,13 +82,13 @@
   </footer>
 
   <!-- MODAL DETALLES DE PEDIDO -->
-  <div id="modalDetalles" class="modal-overlay" onclick="cerrarModalDetalles(event)">
+  <div id="modalDetalles" class="modal-overlay" onclick="cerrarVentana('modalDetalles', event)">
     <div class="modal-box">
       <div class="modal-header">
         <div>
           <h3 id="modalTitulo">Detalles del Pedido</h3>
         </div>
-        <button class="modal-close-btn" onclick="cerrarModalDetalles()">✕</button>
+        <button class="modal-close-btn" onclick="cerrarVentana('modalDetalles')">✕</button>
       </div>
       <div class="modal-body">
         <table class="modal-tabla">
@@ -107,11 +107,11 @@
   </div>
 
   <!-- MODAL PAGO DEL PEDIDO -->
-  <div id="modalPago" class="modal-overlay" onclick="cerrarModalPago(event)">
+  <div id="modalPago" class="modal-overlay" onclick="cerrarVentana('modalPago', event)">
     <div class="modal-box">
       <div class="modal-header">
         <h3 id="pagoTitulo">Pago del Pedido</h3>
-        <button class="modal-close-btn" onclick="cerrarModalPago()">✕</button>
+        <button class="modal-close-btn" onclick="cerrarVentana('modalPago')">✕</button>
       </div>
 
       <div class="pago-total">
@@ -182,18 +182,18 @@
       <div id="pagoError" class="pago-error"></div>
 
       <div class="pago-acciones">
-        <button class="btn-pago-cancelar" onclick="cerrarModalPago()">Cancelar</button>
+        <button class="btn-pago-cancelar" onclick="cerrarVentana('modalPago')">Cancelar</button>
         <button id="pagoGuardar" class="btn-pago-guardar" onclick="guardarPago()">Guardar</button>
       </div>
     </div>
   </div>
 
   <!-- MODAL CONFIRMAR PAGO (al pasar a En Preparación un pedido que no es en efectivo) -->
-  <div id="modalConfirmarPago" class="modal-overlay" onclick="cancelarConfirmarPago(event)">
+  <div id="modalConfirmarPago" class="modal-overlay" onclick="cerrarVentana('modalConfirmarPago', event)">
     <div class="modal-box">
       <div class="modal-header">
         <h3>Confirmar Pago</h3>
-        <button class="modal-close-btn" onclick="cancelarConfirmarPago()">✕</button>
+        <button class="modal-close-btn" onclick="cerrarVentana('modalConfirmarPago')">✕</button>
       </div>
 
       <!-- Transferencia / Tarjeta: se confirma el pago completo -->
@@ -209,18 +209,18 @@
       </p>
 
       <div class="pago-acciones">
-        <button class="btn-pago-cancelar" onclick="cancelarConfirmarPago()">No, todavía no pagó</button>
-        <button id="confirmarPagoSi" class="btn-pago-guardar" onclick="aceptarConfirmarPago()">Sí, ya pagó</button>
+        <button class="btn-pago-cancelar" onclick="responderConfirmarPago(false)">No, todavía no pagó</button>
+        <button id="confirmarPagoSi" class="btn-pago-guardar" onclick="responderConfirmarPago(true)">Sí, ya pagó</button>
       </div>
     </div>
   </div>
 
   <!-- MODAL ANULAR PEDIDO (requiere PIN, se valida en el servidor) -->
-  <div id="modalAnular" class="modal-overlay" onclick="cerrarModalAnular(event)">
+  <div id="modalAnular" class="modal-overlay" onclick="cerrarVentana('modalAnular', event)">
     <div class="modal-box">
       <div class="modal-header">
         <h3 id="anularTitulo">Anular Pedido</h3>
-        <button class="modal-close-btn" onclick="cerrarModalAnular()">✕</button>
+        <button class="modal-close-btn" onclick="cerrarVentana('modalAnular')">✕</button>
       </div>
 
       <p class="anular-texto">Esta acción es irreversible. Ingresá el PIN de autorización.</p>
@@ -232,7 +232,7 @@
       <div id="anularError" class="pago-error"></div>
 
       <div class="pago-acciones">
-        <button class="btn-pago-cancelar" onclick="cerrarModalAnular()">Cancelar</button>
+        <button class="btn-pago-cancelar" onclick="cerrarVentana('modalAnular')">Cancelar</button>
         <button id="anularConfirmar" class="btn-anular-confirmar" onclick="confirmarAnulacion()">Confirmar Anulación</button>
       </div>
     </div>
@@ -291,6 +291,8 @@
     .btn-eliminar:disabled { background: #adb5bd; cursor: not-allowed; }
     .btn-pago { background: #0d6efd; }
     .btn-pago:hover { background: #0b5ed7; }
+    /* Un pedido anulado no se cobra: "Pago" apagado (gris) */
+    .btn-pago:disabled { background: #adb5bd; cursor: not-allowed; }
 
     /* ── Columna Acciones: Pago (azul) + Anular (rojo), en fila y del mismo ancho ── */
     .acciones-pedido { display: flex; flex-direction: row; gap: 6px; align-items: center; justify-content: center; flex-wrap: nowrap; }
@@ -416,6 +418,7 @@
   <script src="../src/js/paginacion.js"></script>
   <script src="../src/js/fechas.js"></script>
   <script src="../src/js/ListarPedidos.js"></script>
+  <script src="../src/js/pagoPedido.js"></script>
 
 </div> <!-- /.admin-content -->
 <script>

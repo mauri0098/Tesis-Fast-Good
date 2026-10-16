@@ -146,186 +146,136 @@ function errorInterno(res, err) {
 }
 
 /* ======================================================
-   LÓGICA DE STOCK POR RECETA
-   - verificarStockPedido: al pasar a "En Preparación" (2). Solo lee, no descuenta.
-   - descontarStockPedido: al pasar a "Listo para Entregar" (3) o "Entregado" (4). Descuenta.
-   Solo cuentan lo que cocina la cocina: cantidad − cantidad_de_heladera. Las viandas de la
-   heladera ya gastaron sus insumos cuando se produjeron: así no se descuentan dos veces.
+   INSUMOS DE LOS PEDIDOS (solo lo que cocina la cocina: cantidad − cantidad_de_heladera)
+   - verificarStockPedido: al pasar a "En Preparación" (2). Solo lee: ¿alcanzan los insumos?
+   - descontarStockPedido: al pasar a "Listo para Entregar" (3) o "Entregado" (4). Descuenta una sola vez,
+     todo junto, con la función de la base descontar_insumos_pedido (sql/insumos_pedido.sql, paso H8 parada 3B).
+   Las viandas de la heladera ya gastaron sus insumos cuando se produjeron: así no se descuentan dos veces.
    Las dos devuelven null si todo OK, o { status, error }:
      409 = falta un insumo (el mensaje dice cuál) · 500 = falló algo interno (el detalle va al log).
    ====================================================== */
 
-// Calcula el consumo de insumos de lo que cocina la cocina (receta × (cantidad − cantidad_de_heladera))
-// y lo compara con el stock actual. Solo lee. Devuelve { status, error } si falla (500) o no alcanza (409),
-// o { consumo, stockMap, nombreMap } si alcanza (consumo vacío si el pedido no tiene detalles,
-// sus platos no tienen receta o todo sale de la heladera).
-async function calcularConsumoPedido(pedidoId) {
-  const sinConsumo = { consumo: {}, stockMap: {}, nombreMap: {} };
-
-  // 1. Productos y cantidades del pedido (y cuántas de esas viandas salieron de la heladera)
-  const { data: detalles, error: errDetalles } = await supabase
-    .from('pedido_detalles')
-    .select('id_producto, cantidad, cantidad_de_heladera')
-    .eq('id_pedido', pedidoId);
-
-  if (errDetalles) {
-    console.error('ERROR REAL DEL SERVIDOR [pedido_detalles]:', errDetalles);
-    return { status: 500, error: MENSAJE_ERROR_INTERNO };
-  }
-  if (!detalles || detalles.length === 0) return sinConsumo;
-
-  // 2. Recetas desde producto_insumo — select(*) para no asumir nombre de columna
-  const productIds = detalles.map(d => d.id_producto);
-  const { data: recetas, error: errRecetas } = await supabase
-    .from('producto_insumo')
-    .select('*')
-    .in('id_producto', productIds);
-
-  if (errRecetas) {
-    console.error('ERROR REAL DEL SERVIDOR [producto_insumo]:', errRecetas);
-    return { status: 500, error: MENSAJE_ERROR_INTERNO };
-  }
-  if (!recetas || recetas.length === 0) return sinConsumo;
-
-  // 3. Consumo total por insumo (cantidad_receta × viandas que cocina la cocina)
-  const consumo = {}; // { id_insumo: totalNecesario }
-  for (const detalle of detalles) {
-    // Lo que cocina la cocina: el total menos lo que salió de la heladera (vacío cuenta como 0).
-    // Ej: 10 fideos con 9 de heladera → la cocina cocina 1.
-    const cantidadACocinar = Number(detalle.cantidad) - Number(detalle.cantidad_de_heladera ?? 0);
-    if (cantidadACocinar <= 0) continue; // todo sale de la heladera: se saltea este plato y sigue con el siguiente
-
-    const insumosDelProducto = recetas.filter(
-      r => String(r.id_producto) === String(detalle.id_producto)
-    );
-    for (const r of insumosDelProducto) {
-      const cantidadReceta = Number(r.cantidad || r.cantidad_insumo || r.cantidad_necesaria || 0);
-      const totalNecesario = cantidadReceta * cantidadACocinar;
-      consumo[r.id_insumo] = (consumo[r.id_insumo] || 0) + totalNecesario;
-    }
-  }
-
-  const insumosIds = Object.keys(consumo).map(Number);
-  if (insumosIds.length === 0) return sinConsumo;
-
-  // 4. Stock actual desde insumos
-  const { data: insumos, error: errInsumos } = await supabase
-    .from('insumos')
-    .select('id, nombre, stock_actual')
-    .in('id', insumosIds);
-
-  if (errInsumos) {
-    console.error('ERROR REAL DEL SERVIDOR [insumos select]:', errInsumos);
-    return { status: 500, error: MENSAJE_ERROR_INTERNO };
-  }
-
-  // Mapa de stock con clave y valor forzados a Number para eliminar ambigüedad de tipos
-  const stockMap  = {}; // { id_num: stockActualNum }
-  const nombreMap = {}; // { id_num: nombre }
-  for (const fila of insumos) {
-    const idNum          = Number(fila.id);
-    stockMap[idNum]      = Number(fila.stock_actual ?? 0);
-    nombreMap[idNum]     = fila.nombre || String(fila.id);
-  }
-
-  // 5. Pre-flight check: comparación estrictamente numérica, antes de tocar nada
-  for (const [keyId, totalRaw] of Object.entries(consumo)) {
-    const idNum              = Number(keyId);
-    const stockActualNum     = stockMap[idNum] ?? 0;
-    const cantidadRequerida  = Number(totalRaw);
-
-    if (stockActualNum < cantidadRequerida) {
-      return { status: 409, error: `Stock insuficiente de "${nombreMap[idNum]}": se necesitan ${cantidadRequerida}, hay ${stockActualNum} disponibles` };
-    }
-  }
-
-  return { consumo, stockMap, nombreMap };
-}
-
-// Al pasar a "En Preparación": ¿alcanzan los insumos de lo que cocina la cocina? Solo lee, no descuenta.
-// Devuelve null si alcanza, o { status, error } (409 falta un insumo, 500 falló algo interno).
+// ─────────────────────────────────────────────────────────────────────────────
+// verificarStockPedido → ¿alcanzan los insumos de lo que cocina la cocina? Solo lee: no descuenta nada.
+// ENTRADA: pedidoId (el número de pedido)
+// SALIDA:  null si alcanza (o si no hay nada para cocinar) · { status: 409, error } si falta un insumo
+//          · { status: 500, error } si falló la base
+// Ej: 8 fideos de heladera + 2 fideos "sin sal" (receta: 300 g de harina integral y 2 huevos) → la cocina
+//     cocina 2 → hacen falta 600 g de harina y 4 huevos. Con Huevo en −35 →
+//     { status: 409, error: 'Stock insuficiente de "Huevo": se necesitan 4, hay -35 disponibles' }
+// La usan cambiarEstadoPedido (al pasar a 2) y GET /api/pedidos/:id/verificar-stock.
+// Es la misma cuenta que hace descontar_insumos_pedido en la base al pasar a 3 o 4.
+// ─────────────────────────────────────────────────────────────────────────────
 async function verificarStockPedido(pedidoId) {
   try {
-    const { status, error } = await calcularConsumoPedido(pedidoId);
-    if (error) return { status, error };
-    return null;
-  } catch (error) {
+    // 1. Los platos del pedido: cuántas viandas tiene cada uno y cuántas salieron de la heladera
+    const { data: detalles, error: errDetalles } = await supabase  // pide a la base...
+      .from('pedido_detalles')                                    // ...los platos de los pedidos...
+      .select('id_producto, cantidad, cantidad_de_heladera')      // ...plato, viandas y viandas de heladera...
+      .eq('id_pedido', pedidoId);                                 // ...de este pedido
+    if (errDetalles) {                                            // si falló la base...
+      console.error('ERROR REAL DEL SERVIDOR [pedido_detalles]:', errDetalles);  // ...el detalle al log
+      return { status: 500, error: MENSAJE_ERROR_INTERNO };       // ...y un mensaje simple
+    }
+
+    // 2. Lo que cocina la cocina, por plato: cantidad − cantidad_de_heladera (vacío cuenta como 0).
+    //    Ej: [8 fideos de heladera (8 − 8 = 0), 2 fideos "sin sal" (2 − 0 = 2)] → { 7: 2 }
+    const aCocinarPorPlato = {};                                  // { id_producto: viandas que cocina la cocina }
+    const idsPlatos = [];                                         // los platos que cocina la cocina, sin repetir
+    (detalles || []).forEach(detalle => {                         // por cada plato del pedido...
+      const aCocinar = Number(detalle.cantidad) - Number(detalle.cantidad_de_heladera ?? 0);  // ...lo que cocina la cocina
+      if (aCocinar <= 0) return;                                  // (return = saltear este plato: todo sale de la heladera)
+      const esNuevo = aCocinarPorPlato[detalle.id_producto] === undefined;  // ¿es la primera vez que aparece?
+      if (esNuevo) idsPlatos.push(detalle.id_producto);           // la primera vez se anota
+      aCocinarPorPlato[detalle.id_producto] = (aCocinarPorPlato[detalle.id_producto] || 0) + aCocinar;  // se suma
+    });
+    if (idsPlatos.length === 0) return null;                      // no hay nada para cocinar: alcanza
+
+    // 3. Las recetas de esos platos
+    const { data: recetas, error: errRecetas } = await supabase   // pide a la base...
+      .from('producto_insumo')                                    // ...las recetas...
+      .select('id_producto, id_insumo, cantidad_necesaria')       // ...plato, insumo y cuánto lleva por vianda...
+      .in('id_producto', idsPlatos);                              // ...de los platos que cocina la cocina
+    if (errRecetas) {                                             // si falló la base...
+      console.error('ERROR REAL DEL SERVIDOR [producto_insumo]:', errRecetas);
+      return { status: 500, error: MENSAJE_ERROR_INTERNO };
+    }
+
+    // 4. Cuánto hace falta de cada insumo: receta × viandas que cocina la cocina, sumando todos los platos.
+    //    Ej: fideos (300 g de harina, 2 huevos) × 2 → { harina: 600, huevo: 4 }
+    const necesarioPorInsumo = {};                                // { id_insumo: cuánto hace falta }
+    const idsInsumos = [];                                        // los insumos, sin repetir
+    (recetas || []).forEach(renglon => {                          // por cada renglón de receta...
+      const necesario = Number(renglon.cantidad_necesaria || 0) * aCocinarPorPlato[renglon.id_producto];  // ...receta × viandas
+      const esNuevo = necesarioPorInsumo[renglon.id_insumo] === undefined;  // ¿es la primera vez que aparece?
+      if (esNuevo) idsInsumos.push(renglon.id_insumo);            // la primera vez se anota
+      necesarioPorInsumo[renglon.id_insumo] = (necesarioPorInsumo[renglon.id_insumo] || 0) + necesario;  // se suma
+    });
+    if (idsInsumos.length === 0) return null;                     // sin receta no se gasta nada: alcanza
+
+    // 5. Cuánto hay de cada insumo
+    const { data: insumos, error: errInsumos } = await supabase   // pide a la base...
+      .from('insumos')                                            // ...los insumos...
+      .select('id, nombre, stock_actual')                         // ...número, nombre y cuánto hay...
+      .in('id', idsInsumos);                                      // ...los de las recetas
+    if (errInsumos) {                                             // si falló la base...
+      console.error('ERROR REAL DEL SERVIDOR [insumos select]:', errInsumos);
+      return { status: 500, error: MENSAJE_ERROR_INTERNO };
+    }
+    const insumoPorId = {};                                       // { id_insumo: { nombre, stock_actual } }
+    (insumos || []).forEach(insumo => {                           // por cada insumo...
+      insumoPorId[insumo.id] = insumo;                            // ...se guarda por su número
+    });
+
+    // 6. El primer insumo (en orden de número) que no alcanza: con ese se avisa. Si ninguno falta, alcanza.
+    //    sort con (a, b) => a − b ordena números de menor a mayor. Ej: [9, 2, 5] → [2, 5, 9]
+    idsInsumos.sort((a, b) => a - b);                             // el mismo orden que usa la base
+    let error = null;                                             // el aviso (null = alcanza todo)
+    idsInsumos.forEach(idInsumo => {                              // por cada insumo...
+      if (error) return;                                          // (return = saltear: ya se encontró uno que falta)
+      const insumo = insumoPorId[idInsumo];                       // ...sus datos (pueden faltar si se borró)
+      const disponible = Number(insumo?.stock_actual ?? 0);       // ?. = "si existe el insumo, su stock"; ?? 0 = vacío cuenta como 0
+      const nombre = insumo?.nombre || String(idInsumo);          // su nombre (o su número si no se encontró)
+      const necesario = Number(necesarioPorInsumo[idInsumo]);     // cuánto hace falta
+      if (disponible < necesario) error = `Stock insuficiente de "${nombre}": se necesitan ${necesario}, hay ${disponible} disponibles`;  // el mismo mensaje de antes
+    });
+    if (error) return { status: 409, error: error };              // falta un insumo: 409 con el mensaje
+    return null;                                                  // alcanza todo
+  } catch (error) {                                               // si algo falló de golpe...
     console.error('ERROR REAL DEL SERVIDOR en verificarStockPedido:', error);
     return { status: 500, error: MENSAJE_ERROR_INTERNO };
   }
 }
 
-// Al pasar a "Listo para Entregar" o "Entregado": descuenta los insumos de lo que cocina la cocina,
-// una sola vez por pedido. Devuelve null si salió bien, o { status, error } (409 / 500).
-async function descontarStockPedido(pedidoId) {
+// ─────────────────────────────────────────────────────────────────────────────
+// descontarStockPedido → descuenta, una sola vez y todo junto, los insumos de lo que cocinó la cocina
+// ENTRADA: pedidoId (el pedido que pasa a 3 o 4) e idUsuario (quién lo pasa: sale del token)
+// SALIDA:  null si salió bien (o si ya estaba descontado) · { status: 409, error } si falta un insumo o el
+//          pedido no se puede (anulado, no existe) · { status: 500, error } si falló la base
+// Ej: 8 fideos de heladera + 2 "sin sal" al pasar a 3 → harina integral −600 g y huevo −4 u, con id_pedido
+//     y el motivo de siempre ("Consumo por producción pedido #250"). Si después pasa a 4: no descuenta otra vez.
+// La hace la base (descontar_insumos_pedido, sql/insumos_pedido.sql): candado al pedido y a los insumos,
+// todo o nada. La usa cambiarEstadoPedido (al pasar a 3 o 4).
+// ─────────────────────────────────────────────────────────────────────────────
+async function descontarStockPedido(pedidoId, idUsuario) {
   try {
-    const motivoBase = `pedido #${String(pedidoId).padStart(3, '0')}`;
-
-    // 0. Idempotencia: si ya existe un movimiento para este pedido, no descontar de nuevo
-    const { data: movPrevio, error: errCheck } = await supabase
-      .from('movimientos_stock')
-      .select('id')
-      .ilike('motivo', `%${motivoBase}%`)
-      .limit(1);
-
-    if (errCheck) {
-      console.error('ERROR REAL DEL SERVIDOR [movimientos_stock check]:', errCheck);
-      return { status: 500, error: MENSAJE_ERROR_INTERNO };
-    }
-    if (movPrevio && movPrevio.length > 0) {
-      console.log(`[STOCK] Pedido #${pedidoId} ya fue procesado — omitiendo descuento.`);
-      return null;
+    const { data, error } = await supabase.rpc('descontar_insumos_pedido', {  // llama a la función de la base con...
+      p_id_pedido:  pedidoId,                                     // ...el pedido...
+      p_id_usuario: idUsuario                                     // ...y quién lo pasa (del token, nunca del body)
+    });
+    if (error) {                                                  // si falló la base...
+      console.error('ERROR REAL DEL SERVIDOR [descontar_insumos_pedido]:', error);  // ...el detalle al log
+      return { status: 500, error: MENSAJE_ERROR_INTERNO };       // ...y un mensaje simple
     }
 
-    // 1–5. Consumo del pedido y pre-flight check (compartido con verificarStockPedido)
-    const calculo = await calcularConsumoPedido(pedidoId);
-    if (calculo.error) return { status: calculo.status, error: calculo.error };
-
-    const { consumo, stockMap, nombreMap } = calculo;
-    if (Object.keys(consumo).length === 0) return null;
-
-    // 6. Aplicar descuentos en insumos
-    const fechaHora = new Date().toISOString();
-    const movimientosAInsertar = [];
-
-    for (const [keyId, totalRaw] of Object.entries(consumo)) {
-      const idNum             = Number(keyId);
-      const cantidadRequerida = Number(totalRaw);
-      const nuevoStock        = (stockMap[idNum] ?? 0) - cantidadRequerida;
-
-      const { error: errUpdate } = await supabase
-        .from('insumos')
-        .update({ stock_actual: nuevoStock })
-        .eq('id', idNum);
-
-      if (errUpdate) {
-        console.error('ERROR REAL DEL SERVIDOR [insumos update]:', nombreMap[idNum], errUpdate);
-        return { status: 500, error: MENSAJE_ERROR_INTERNO };
-      }
-
-      movimientosAInsertar.push({
-        id_insumo: idNum,
-        tipo:      'salida',
-        cantidad:  cantidadRequerida,
-        motivo:    `Consumo por producción ${motivoBase}`,
-        fecha:     fechaHora
-      });
+    // ok: false = la base no descontó nada (falta un insumo, el pedido está anulado o no existe).
+    // El mensaje es el de la base (?. = "si vino data, su error") o uno por si no mandó ninguno.
+    if (!data || !data.ok) {
+      return { status: 409, error: data?.error || 'No se pudieron descontar los insumos del pedido' };
     }
 
-    // 7. Registrar movimientos en movimientos_stock
-    const { error: errMov } = await supabase
-      .from('movimientos_stock')
-      .insert(movimientosAInsertar);
-
-    if (errMov) {
-      console.error('ERROR REAL DEL SERVIDOR [movimientos_stock insert]:', errMov);
-      return { status: 500, error: MENSAJE_ERROR_INTERNO };
-    }
-
-    console.log(`[STOCK] Descuento registrado para ${motivoBase} (${movimientosAInsertar.length} insumos)`);
-    return null; // éxito
-
-  } catch (error) {
+    return null;                                                  // descontó (o ya estaba descontado)
+  } catch (error) {                                               // si algo falló de golpe...
     console.error('ERROR REAL DEL SERVIDOR en descontarStockPedido:', error);
     return { status: 500, error: MENSAJE_ERROR_INTERNO };
   }
@@ -958,14 +908,20 @@ const LARGO_MAXIMO_EMAIL             = 100; // la columna pedidos.cliente_email 
 const DIAS_HABILES_ENTREGA           = 2;   // 48 hs hábiles, como el pedido viejo
 const DIAS_HABILES_CON_PERSONALIZADO = 3;   // un plato personalizado se cocina aparte: 1 día hábil más
 
-// POST /api/pedidos-combos → crea un pedido de COMBOS (lo usa index-combos.html). Es público.
-// El navegador solo dice qué combos y qué platos eligió. Acá se controlan los datos del cliente con las
-// mismas reglas que POST /api/pedidos. El contenido de cada combo (activo, platos del menú, suma justa,
-// texto personalizado), el precio y el total los controla y calcula la base: crear_pedido_combos
-// (sql/pedido_combos_funciones.sql), que guarda todo junto o nada.
-// CON HELADERA (paso H6): la función también controla que alcancen las viandas de los platos normales,
-// las resta de la heladera y anota la venta en el cuaderno. Si no alcanzan, no guarda nada y su mensaje
-// ("No quedan suficientes viandas de «fideos»: pediste 16 y quedan 12") vuelve acá como un 400.
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/pedidos-combos → crea un pedido de COMBOS (VENDER: la web nueva, index-combos.html). Es pública.
+// ENTRADA: body { combos: [{ id_combo, platos: [{ producto_id, cantidad, personalizado }] }], cliente_nombre,
+//          cliente_direccion, cliente_telefono, cliente_email, fecha_entrega, metodo_pago, observaciones,
+//          barrio_id, tipo_entrega }. El navegador NO manda precios, total ni usuario (y si los manda, no se usan).
+// SALIDA:  { mensaje, id_pedido, total, combos } · 400 con un mensaje claro si algo está mal o no alcanzan
+//          las viandas · 429 si se hicieron demasiados pedidos seguidos (limitePedidos) · 500 error interno
+// Ej: 1 combo "PRUEBA Mantenimiento x10" con 8 fideos + 2 fideos "sin sal" → { id_pedido: 250, total: 137000, ... }
+//     y fideos 71 → 63. Con 12 fideos y 16 pedidos → 400 'No quedan suficientes viandas de «fideos»: pediste 16 y quedan 12'.
+// Acá se controlan los datos del cliente (las mismas reglas que POST /api/pedidos) y la FORMA de los combos.
+// El contenido de cada combo (activo, platos del menú, suma justa, texto personalizado), el precio, el total
+// y la heladera los controla la base: crear_pedido_combos (sql/pedido_combos_funciones.sql), todo o nada.
+// Paso H9: misma entrada, misma salida y mismos mensajes; solo se reescribió con forEach y sin if anidados.
+// ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/pedidos-combos', limitePedidos, async (req, res) => {
   const {
     combos,
@@ -982,77 +938,71 @@ app.post('/api/pedidos-combos', limitePedidos, async (req, res) => {
 
   // 1. Combos: una lista de 1 a 10. Acá solo se mira la FORMA (lo justo para saber si hay platos
   //    personalizados, que cambian la fecha mínima). El contenido lo controla la base.
-  if (!Array.isArray(combos) || combos.length < 1 || combos.length > MAXIMO_COMBOS_POR_PEDIDO) {
+  const cantidadInvalida = !Array.isArray(combos) || combos.length < 1 || combos.length > MAXIMO_COMBOS_POR_PEDIDO;
+  if (cantidadInvalida) {
     return res.status(400).json({ error: `El pedido tiene que tener entre 1 y ${MAXIMO_COMBOS_POR_PEDIDO} combos` });
   }
 
-  // some responde true si AL MENOS UNO de la lista cumple la condición.
-  // Ejemplo: [{ platos: [...] }, { platos: 'hola' }] → true (el segundo no tiene una lista de platos)
-  const hayComboMalArmado = combos.some(combo =>
-    !combo || typeof combo !== 'object' || !Array.isArray(combo.platos)
-  );
-  if (hayComboMalArmado) {
-    return res.status(400).json({ error: 'Hay un combo con datos inválidos' });
-  }
+  // 2. Cada combo tiene que ser un objeto con su lista de platos. Ej: [{ platos: [...] }, { platos: 'hola' }] → mal
+  let hayComboMalArmado = false;                                  // arranca en "todos bien"
+  combos.forEach(combo => {                                       // por cada combo...
+    const malArmado = !combo || typeof combo !== 'object' || !Array.isArray(combo.platos);  // ...¿le falta su lista?
+    if (malArmado) hayComboMalArmado = true;                      // ...si le falta, está mal
+  });
+  if (hayComboMalArmado) return res.status(400).json({ error: 'Hay un combo con datos inválidos' });
 
-  // flatMap junta en una sola lista los platos de todos los combos.
-  // Ejemplo: [{ platos: [fideos, berenjenas] }, { platos: [arroz] }] → [fideos, berenjenas, arroz]
-  const platos = combos.flatMap(combo => combo.platos);
+  // 3. Los platos de todos los combos en una sola lista. concat = junta dos listas en una nueva.
+  //    Ej: [{ platos: [fideos, berenjenas] }, { platos: [arroz] }] → [fideos, berenjenas, arroz]
+  let platos = [];                                                // arranca vacía
+  combos.forEach(combo => {                                       // por cada combo...
+    platos = platos.concat(combo.platos);                         // ...se le suman sus platos
+  });
 
-  // Cada plato tiene que ser un objeto, y "personalizado" un texto o vacío (null o sin el dato).
-  // Ejemplo: [{ personalizado: null }, { personalizado: 5 }] → true (el segundo está mal)
-  const hayPlatoMalArmado = platos.some(plato =>
-    !plato || typeof plato !== 'object' ||
-    (plato.personalizado != null && typeof plato.personalizado !== 'string')
-  );
-  if (hayPlatoMalArmado) {
-    return res.status(400).json({ error: 'Hay un plato con datos inválidos' });
-  }
+  // 4. Cada plato tiene que ser un objeto, y "personalizado" un texto o vacío (null o sin el dato).
+  //    De paso se mira si hay algún personalizado con texto escrito (cambia la fecha mínima).
+  //    Ej: [{ personalizado: null }, { personalizado: 'sin sal' }] → bien, y hay personalizado
+  let hayPlatoMalArmado = false;                                  // arranca en "todos bien"
+  let hayPersonalizado = false;                                   // arranca en "ninguno personalizado"
+  platos.forEach(plato => {                                       // por cada plato...
+    const noEsObjeto = !plato || typeof plato !== 'object';       // ...¿no es un objeto?
+    const textoNoEsTexto = !noEsObjeto && plato.personalizado != null && typeof plato.personalizado !== 'string';  // ...¿"personalizado" no es texto?
+    const conTextoEscrito = !noEsObjeto && typeof plato.personalizado === 'string' && plato.personalizado.trim() !== '';  // ...¿tiene texto?
+    if (noEsObjeto || textoNoEsTexto) hayPlatoMalArmado = true;   // si no es objeto o el texto no es texto: está mal
+    if (conTextoEscrito) hayPersonalizado = true;                 // si tiene texto escrito: hay un personalizado
+  });
+  if (hayPlatoMalArmado) return res.status(400).json({ error: 'Hay un plato con datos inválidos' });
 
-  // ¿Algún plato personalizado (con texto escrito)? Ejemplo: [{ personalizado: null }, { personalizado: 'sin sal' }] → true
-  const hayPersonalizado = platos.some(plato =>
-    typeof plato.personalizado === 'string' && plato.personalizado.trim() !== ''
-  );
+  // 5. Método de pago y tipo de entrega: las mismas listas cerradas que POST /api/pedidos
+  if (!METODOS_PAGO.includes(metodo_pago)) return res.status(400).json({ error: 'Método de pago inválido' });
+  const tipoInvalido = tipo_entrega != null && !TIPOS_ENTREGA.includes(tipo_entrega);  // vino un tipo y no es de la lista
+  if (tipoInvalido) return res.status(400).json({ error: 'Tipo de entrega inválido' });
 
-  // 2. Método de pago y tipo de entrega: las mismas listas cerradas que POST /api/pedidos
-  if (!METODOS_PAGO.includes(metodo_pago)) {
-    return res.status(400).json({ error: 'Método de pago inválido' });
-  }
-  if (tipo_entrega != null && !TIPOS_ENTREGA.includes(tipo_entrega)) {
-    return res.status(400).json({ error: 'Tipo de entrega inválido' });
-  }
-
-  // 3. Datos del cliente.
+  // 6. Datos del cliente.
   //    a) Los mismos largos máximos que POST /api/pedidos. Cada renglón de LARGO_MAXIMO_PEDIDO es
   //       [campo, nombre para el mensaje, largo máximo], ej: ['cliente_nombre', 'El nombre', 100].
   //       find devuelve el PRIMER renglón que no se cumple (o undefined si están todos bien).
   const largoNoCumplido = LARGO_MAXIMO_PEDIDO.find(renglon => {
-    const valor = req.body[renglon[0]];
-    const maximo = renglon[2];
-    return valor != null && (typeof valor !== 'string' || valor.length > maximo);
+    const valor = req.body[renglon[0]];                           // lo que mandó el navegador en ese campo
+    const maximo = renglon[2];                                    // su largo máximo
+    return valor != null && (typeof valor !== 'string' || valor.length > maximo);  // no cumple: no es texto o es muy largo
   });
   if (largoNoCumplido) {
     return res.status(400).json({ error: `${largoNoCumplido[1]} admite hasta ${largoNoCumplido[2]} caracteres` });
   }
 
-  //    b) Nuevo (la ruta vieja solo lo controla en el navegador): nombre, dirección y teléfono obligatorios
-  if (typeof cliente_nombre !== 'string' || cliente_nombre.trim() === '') {
-    return res.status(400).json({ error: 'El nombre es obligatorio' });
-  }
-  if (typeof cliente_direccion !== 'string' || cliente_direccion.trim() === '') {
-    return res.status(400).json({ error: 'La dirección es obligatoria' });
-  }
-  if (typeof cliente_telefono !== 'string' || cliente_telefono.trim() === '') {
-    return res.status(400).json({ error: 'El teléfono es obligatorio' });
-  }
+  //    b) Nombre, dirección y teléfono obligatorios (un texto que no quede vacío)
+  const faltaNombre = typeof cliente_nombre !== 'string' || cliente_nombre.trim() === '';
+  if (faltaNombre) return res.status(400).json({ error: 'El nombre es obligatorio' });
+  const faltaDireccion = typeof cliente_direccion !== 'string' || cliente_direccion.trim() === '';
+  if (faltaDireccion) return res.status(400).json({ error: 'La dirección es obligatoria' });
+  const faltaTelefono = typeof cliente_telefono !== 'string' || cliente_telefono.trim() === '';
+  if (faltaTelefono) return res.status(400).json({ error: 'El teléfono es obligatorio' });
 
-  //    c) Nuevo: el email es opcional, pero si viene, hasta 100 caracteres
-  //       (en la ruta vieja, uno más largo termina en un error 500 de la base)
-  if (cliente_email != null && (typeof cliente_email !== 'string' || cliente_email.length > LARGO_MAXIMO_EMAIL)) {
-    return res.status(400).json({ error: `El email admite hasta ${LARGO_MAXIMO_EMAIL} caracteres` });
-  }
+  //    c) El email es opcional, pero si viene, hasta 100 caracteres
+  const emailInvalido = cliente_email != null && (typeof cliente_email !== 'string' || cliente_email.length > LARGO_MAXIMO_EMAIL);
+  if (emailInvalido) return res.status(400).json({ error: `El email admite hasta ${LARGO_MAXIMO_EMAIL} caracteres` });
 
-  // 4. Fecha de entrega: obligatoria, que exista de verdad (leerFechaPara rechaza, por ejemplo, 2026-02-30),
+  // 7. Fecha de entrega: obligatoria, que exista de verdad (leerFechaPara rechaza, por ejemplo, 2026-02-30),
   //    día hábil y al menos 2 días hábiles después de hoy en Argentina (3 si hay algún personalizado)
   if (!leerFechaPara(fecha_entrega)) {
     return res.status(400).json({ error: 'La fecha de entrega es obligatoria (formato AAAA-MM-DD)' });
@@ -1060,67 +1010,55 @@ app.post('/api/pedidos-combos', limitePedidos, async (req, res) => {
   if (!fechas.esDiaHabil(fechas.parseFechaLocal(fecha_entrega))) {
     return res.status(400).json({ error: 'La fecha de entrega tiene que ser un día hábil (de lunes a viernes, sin feriados)' });
   }
-
-  let diasHabiles = DIAS_HABILES_ENTREGA;
-  let aclaracionFecha = '(48 hs hábiles)';
-  if (hayPersonalizado) {
-    diasHabiles = DIAS_HABILES_CON_PERSONALIZADO;
-    aclaracionFecha = '(48 hs hábiles, más 1 día por los platos personalizados)';
-  }
-  const primeraFecha = fechas.fechaLocalISO(fechas.sumarDiasHabiles(hoyArgentina(), diasHabiles));
-  // "AAAA-MM-DD" se puede comparar como texto
-  if (fecha_entrega < primeraFecha) {
-    const primeraFechaTexto = fechas.fechaDDMMAAAA(fechas.parseFechaLocal(primeraFecha));
+  const diasHabiles = hayPersonalizado ? DIAS_HABILES_CON_PERSONALIZADO : DIAS_HABILES_ENTREGA;  // 3 con personalizados, si no 2
+  const aclaracionFecha = hayPersonalizado ? '(48 hs hábiles, más 1 día por los platos personalizados)' : '(48 hs hábiles)';
+  const primeraFecha = fechas.fechaLocalISO(fechas.sumarDiasHabiles(hoyArgentina(), diasHabiles));  // la primera que se acepta
+  const primeraFechaTexto = fechas.fechaDDMMAAAA(fechas.parseFechaLocal(primeraFecha));             // como "21/10/2026"
+  if (fecha_entrega < primeraFecha) {                             // "AAAA-MM-DD" se puede comparar como texto
     return res.status(400).json({ error: `La primera fecha de entrega disponible es el ${primeraFechaTexto} ${aclaracionFecha}` });
   }
 
-  // 5. Barrio: opcional. Si viene, tiene que ser un número entero que exista en la tabla barrios
-  //    (en la ruta vieja, uno inventado termina en un error 500 de la base)
-  let barrioId = null;
-  if (barrio_id != null && barrio_id !== '') {
-    barrioId = Number(barrio_id);
-    if (!Number.isInteger(barrioId) || barrioId <= 0 || barrioId > ENTERO_MAXIMO_BASE) {
-      return res.status(400).json({ error: 'Barrio inválido' });
-    }
-    const { data: barrio, error: errorBarrio } = await supabase
-      .from('barrios')
-      .select('id')
-      .eq('id', barrioId)
-      .maybeSingle();
-    if (errorBarrio) return errorInterno(res, errorBarrio);
-    if (!barrio) {
-      return res.status(400).json({ error: 'El barrio elegido no existe' });
-    }
+  // 8. Barrio: opcional. Si viene, tiene que ser un número entero que exista en la tabla barrios
+  const vinoBarrio = barrio_id != null && barrio_id !== '';       // ¿mandó un barrio?
+  const barrioId = vinoBarrio ? Number(barrio_id) : null;         // como número (null si no mandó)
+  const barrioInvalido = vinoBarrio && (!Number.isInteger(barrioId) || barrioId <= 0 || barrioId > ENTERO_MAXIMO_BASE);
+  if (barrioInvalido) return res.status(400).json({ error: 'Barrio inválido' });
+  let barrioEncontrado = true;                                    // sin barrio no hay nada que buscar
+  let errorBarrio = null;                                         // el error de la base, si hubo
+  if (vinoBarrio) {                                               // con barrio, se busca en la base
+    const consulta = await supabase.from('barrios').select('id').eq('id', barrioId).maybeSingle();
+    errorBarrio = consulta.error;                                 // el error (o null)
+    barrioEncontrado = Boolean(consulta.data);                    // ¿existe?
   }
+  if (errorBarrio) return errorInterno(res, errorBarrio);         // si falló la base: 500
+  if (!barrioEncontrado) return res.status(400).json({ error: 'El barrio elegido no existe' });
 
-  // 6. Usuario: sale del token si el cliente inició sesión; si no, "Consumidor Final". Nunca del body.
+  // 9. Usuario: sale del token si el cliente inició sesión; si no, "Consumidor Final". Nunca del body.
+  //    ?. = "si vino un token, su id"; || = si no, Consumidor Final
   const idUsuario = leerToken(req)?.id || ID_CONSUMIDOR_FINAL;
 
-  // Lo opcional que no vino se manda como null: a la base hay que pasarle TODOS los datos
-  // (si faltara uno, no encontraría la función)
-  let email = null;
-  if (cliente_email != null) email = cliente_email;
-  let notas = null;
-  if (observaciones != null) notas = observaciones;
-  let tipoEntrega = null;
-  if (tipo_entrega != null) tipoEntrega = tipo_entrega;
+  // 10. Lo opcional que no vino se manda como null: a la base hay que pasarle TODOS los datos
+  //     (si faltara uno, no encontraría la función). ?? = "si no vino (null o nada), null"; un '' se respeta.
+  const email = cliente_email ?? null;
+  const notas = observaciones ?? null;
+  const tipoEntrega = tipo_entrega ?? null;
 
-  // A la base van solo los datos de cada combo y de cada plato: si el navegador mandó
-  // otra cosa (por ejemplo un precio), ni siquiera llega.
-  // map arma una lista nueva transformando cada elemento.
-  // Ejemplo: entra [{ id_combo: 1, precio: 1, platos: [{ producto_id: 5, cantidad: 10, nombre: 'x' }] }]
-  //          sale  [{ id_combo: 1, platos: [{ producto_id: 5, cantidad: 10, personalizado: null }] }]
-  const combosParaLaBase = combos.map(combo => {
-    const platosDelCombo = combo.platos.map(plato => {
-      let personalizado = null;
-      if (plato.personalizado != null) personalizado = plato.personalizado;
-      return { producto_id: plato.producto_id, cantidad: plato.cantidad, personalizado: personalizado };
+  // 11. A la base van SOLO los datos de cada combo y de cada plato: si el navegador mandó otra cosa
+  //     (por ejemplo un precio), ni siquiera llega. Acá sí hay un forEach adentro de otro: cada combo
+  //     trae su propia lista de platos y hay que armar una lista adentro de otra.
+  //     Ej: entra [{ id_combo: 1, precio: 1, platos: [{ producto_id: 5, cantidad: 10, nombre: 'x' }] }]
+  //         sale  [{ id_combo: 1, platos: [{ producto_id: 5, cantidad: 10, personalizado: null }] }]
+  const combosParaLaBase = [];                                    // arranca vacía
+  combos.forEach(combo => {                                       // por cada combo...
+    const platosDelCombo = [];                                    // ...sus platos limpios
+    combo.platos.forEach(plato => {                               // ...por cada plato...
+      platosDelCombo.push({ producto_id: plato.producto_id, cantidad: plato.cantidad, personalizado: plato.personalizado ?? null });
     });
-    return { id_combo: combo.id_combo, platos: platosDelCombo };
+    combosParaLaBase.push({ id_combo: combo.id_combo, platos: platosDelCombo });
   });
 
-  // 7. Guardar: la función de la base controla el contenido de los combos, calcula el total
-  //    con los precios de la base y guarda pedidos + pedido_combos + pedido_detalles (todo o nada)
+  // 12. Guardar: la función de la base controla el contenido de los combos, calcula el total con los
+  //     precios de la base, saca de la heladera los platos normales y guarda todo junto (o nada)
   try {
     const { data, error } = await supabase.rpc('crear_pedido_combos', {
       p_id_usuario:        idUsuario,
@@ -1135,19 +1073,13 @@ app.post('/api/pedidos-combos', limitePedidos, async (req, res) => {
       p_observaciones:     notas,
       p_combos:            combosParaLaBase
     });
-
-    // Error de la base (no debería pasar): al cliente, un mensaje genérico; el detalle, al log
-    if (error) return errorInterno(res, error);
+    if (error) return errorInterno(res, error);                   // error de la base: mensaje genérico (el detalle al log)
 
     // ok: false = la base encontró algo mal en los combos, o no alcanzan las viandas, y NO guardó nada
     // (ej: "«Keto x10» tiene 9 viandas…" o "No quedan suficientes viandas de «fideos»…")
-    if (!data || !data.ok) {
-      let mensaje = 'No se pudo crear el pedido';
-      if (data && data.error) mensaje = data.error;
-      return res.status(400).json({ error: mensaje });
-    }
+    if (!data || !data.ok) return res.status(400).json({ error: data?.error || 'No se pudo crear el pedido' });
 
-    // 8. Listo: número de pedido, total y combos con los nombres y precios de la base (para el WhatsApp)
+    // 13. Listo: número de pedido, total y combos con los nombres y precios de la base (para el WhatsApp)
     res.json({
       mensaje:   'Pedido creado correctamente',
       id_pedido: data.id_pedido,
@@ -1159,366 +1091,444 @@ app.post('/api/pedidos-combos', limitePedidos, async (req, res) => {
   }
 });
 
-// GET /api/pedidos?desde=YYYY-MM-DD&hasta=YYYY-MM-DD → pedidos, opcionalmente filtrados por fecha_pedido.
-// Sin parámetros devuelve todos (lo usa Consultar Pedidos). Los días son de Argentina (UTC-3, sin horario
-// de verano): fecha_pedido está en UTC, y un pedido de las 22 h del 30/09 es 01:00 UTC del 01/10.
-const OFFSET_ARGENTINA = '-03:00';
-const FORMATO_FECHA = /^\d{4}-\d{2}-\d{2}$/;
+// =============================================================================
+// CONSULTAR PEDIDOS (paso H8, parada 2): lista, pago, estado. Un pedido ANULADO (estado 5)
+// no cambia más de estado ni se cobra.
+// =============================================================================
+const ESTADO_ANULADO = 5;                                         // el estado "Cancelado": es final
+const OFFSET_ARGENTINA = '-03:00';                                // la hora de Argentina (no tiene horario de verano)
+const FORMATO_FECHA = /^\d{4}-\d{2}-\d{2}$/;                      // una fecha AAAA-MM-DD (ej: 2026-10-16)
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/pedidos → los pedidos, del más nuevo al más viejo (pantalla Consultar Pedidos)
+// ENTRADA: ?desde=AAAA-MM-DD y ?hasta=AAAA-MM-DD (opcionales: filtran por fecha_pedido, en días de Argentina)
+// SALIDA:  [{ id, fecha_pedido, fecha_entrega, total, metodo_pago, pagado, cliente_nombre, …, id_estado,
+//            estados, barrios, pedido_detalles: [...], pedido_combos: [...] }] · 400 si una fecha es inválida · 500
+// Ej: GET /api/pedidos → [{ id: 250, cliente_nombre: 'PRUEBA – NO PREPARAR', total: 137000, id_estado: 1, … }]
+// fecha_pedido está en UTC: un pedido de las 22 h del 30/09 es 01:00 UTC del 01/10; por eso se compara con -03:00.
+// Ojo: Supabase manda como mucho 1000 pedidos por consulta (anotado en pendientes: falta paginar).
+// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/pedidos', requireAuth, requireRol(6, 5, 1), async (req, res) => {
-  const { desde, hasta } = req.query;
-  if ((desde && !FORMATO_FECHA.test(desde)) || (hasta && !FORMATO_FECHA.test(hasta))) {
-    return res.status(400).json({ error: 'Las fechas deben tener el formato AAAA-MM-DD' });
-  }
+  const desde = req.query.desde;                                  // desde qué día (o nada)
+  const hasta = req.query.hasta;                                  // hasta qué día (o nada)
 
-  let query = supabase
-    .from('pedidos')
-    .select(`
-      id,
-      fecha_pedido,
-      fecha_entrega,
-      total,
-      metodo_pago,
-      monto_efectivo,
-      monto_transferencia,
-      monto_tarjeta,
-      pago_anticipado,
-      pagado,
-      transferencia_confirmada,
-      cliente_nombre,
-      cliente_direccion,
-      cliente_telefono,
-      cliente_email,
-      observaciones,
-      tipo_entrega,
-      barrio_id,
-      id_estado,
-      estados ( nombre ),
-      barrios ( id, nombre ),
-      pedido_detalles (
-        cantidad,
-        precio_unitario,
-        id_pedido_combo,
-        personalizado,
-        observaciones_plato,
-        productos ( nombre, codigo_plato )
-      ),
-      pedido_combos (
+  // 1. Las fechas, si vienen, con el formato AAAA-MM-DD
+  const fechaInvalida = (desde && !FORMATO_FECHA.test(desde)) || (hasta && !FORMATO_FECHA.test(hasta));
+  if (fechaInvalida) return res.status(400).json({ error: 'Las fechas deben tener el formato AAAA-MM-DD' });
+
+  try {
+    // 2. Los pedidos con su estado, su barrio, sus platos y sus combos
+    let consulta = supabase                                       // arma el pedido a la base...
+      .from('pedidos')                                            // ...la tabla de pedidos...
+      .select(`
         id,
-        precio,
-        combos ( nombre )
-      )
-    `)
-    .order('fecha_pedido', { ascending: false });
+        fecha_pedido,
+        fecha_entrega,
+        total,
+        metodo_pago,
+        monto_efectivo,
+        monto_transferencia,
+        monto_tarjeta,
+        pago_anticipado,
+        pagado,
+        transferencia_confirmada,
+        cliente_nombre,
+        cliente_direccion,
+        cliente_telefono,
+        cliente_email,
+        observaciones,
+        tipo_entrega,
+        barrio_id,
+        id_estado,
+        estados ( nombre ),
+        barrios ( id, nombre ),
+        pedido_detalles (
+          cantidad,
+          precio_unitario,
+          id_pedido_combo,
+          personalizado,
+          observaciones_plato,
+          productos ( nombre, codigo_plato )
+        ),
+        pedido_combos (
+          id,
+          precio,
+          combos ( nombre )
+        )
+      `)                                                          // ...con todo lo que muestra la grilla
+      .order('fecha_pedido', { ascending: false });               // del más nuevo al más viejo
 
-  if (desde) query = query.gte('fecha_pedido', `${desde}T00:00:00${OFFSET_ARGENTINA}`);
-  if (hasta) query = query.lte('fecha_pedido', `${hasta}T23:59:59.999${OFFSET_ARGENTINA}`);
+    // 3. El filtro de fechas, si vino (días de Argentina)
+    if (desde) consulta = consulta.gte('fecha_pedido', `${desde}T00:00:00${OFFSET_ARGENTINA}`);   // desde las 00:00
+    if (hasta) consulta = consulta.lte('fecha_pedido', `${hasta}T23:59:59.999${OFFSET_ARGENTINA}`);  // hasta las 23:59
 
-  const { data, error } = await query;
+    const { data, error } = await consulta;                       // se hace la consulta
+    if (error) return errorInterno(res, error);                   // si falló la base: 500 con un mensaje simple
 
-  if (error) {
-    return errorInterno(res, error);
+    res.json(data);                                               // la lista de pedidos
+  } catch (e) {                                                   // si algo falló de golpe...
+    errorInterno(res, e);                                         // ...500 con un mensaje simple
   }
-
-  res.json(data);
 });
 
-// pagado = true significa que el pedido está TOTALMENTE cobrado.
-// En un Mixto eso requiere que la transferencia ya esté confirmada (la marca el admin al pasarlo a
-// En Preparación); el repartidor completa el cobro del efectivo con el botón Cobrado de Envíos.
+// ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/pedidos/:id/pagado → marca un pedido como cobrado (o lo desmarca)
+// ENTRADA: el número de pedido en la dirección y { pagado: true | false } en el body
+// SALIDA:  { mensaje: 'Pago actualizado', pedido } · 400 número inválido · 404 no existe
+//          · 409 si está anulado, o si es un Mixto sin la transferencia confirmada · 500
+// Ej: PUT /api/pedidos/250/pagado { pagado: true } → { mensaje: 'Pago actualizado', pedido: { id: 250, pagado: true, … } }
+//     Si el #250 está anulado → 409 'Un pedido anulado no se puede cobrar'
+// pagado = true quiere decir TOTALMENTE cobrado. En un Mixto pide que la transferencia ya esté confirmada
+// (la marca el admin al pasarlo a En Preparación); el repartidor completa el cobro con "Cobrado" en Envíos.
+// ─────────────────────────────────────────────────────────────────────────────
 app.put('/api/pedidos/:id/pagado', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => {
-  const { id } = req.params;
-  const { pagado } = req.body;
+  // 1. El número de pedido: entero, mayor a 0 y que entre en la base ("12abc" no pasa)
+  const id = Number(req.params.id);
+  const idInvalido = !Number.isInteger(id) || id <= 0 || id > ENTERO_MAXIMO_BASE;
+  if (idInvalido) return res.status(400).json({ error: 'ID de pedido inválido' });
+  const pagado = Boolean(req.body?.pagado);                       // true = cobrado, false = sin cobrar (como antes)
 
-  if (pagado) {
-    const { data: pedido, error: errLectura } = await supabase
-      .from('pedidos')
-      .select('id, metodo_pago, transferencia_confirmada')
-      .eq('id', id)
-      .maybeSingle();
-
-    if (errLectura) return errorInterno(res, errLectura);
+  try {
+    // 2. El pedido tiene que existir y no estar anulado
+    const { data: pedido, error: errLectura } = await supabase    // pide a la base...
+      .from('pedidos')                                            // ...el pedido...
+      .select('id, id_estado, metodo_pago, transferencia_confirmada')  // ...su estado y su pago...
+      .eq('id', id)                                               // ...este
+      .maybeSingle();                                             // uno o ninguno
+    if (errLectura) return errorInterno(res, errLectura);         // si falló la base: 500
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
-    if (pedido.metodo_pago === 'Mixto' && !pedido.transferencia_confirmada) {
+    if (pedido.id_estado === ESTADO_ANULADO) return res.status(409).json({ error: 'Un pedido anulado no se puede cobrar' });
+
+    // 3. Un Mixto no se puede marcar cobrado si la transferencia todavía no se confirmó
+    const faltaTransferencia = pagado && pedido.metodo_pago === 'Mixto' && !pedido.transferencia_confirmada;
+    if (faltaTransferencia) {
       return res.status(409).json({
         error: 'No se puede marcar como cobrado: la transferencia de este pedido Mixto todavía no fue confirmada. Confirmala desde Consultar Pedidos.'
       });
     }
+
+    // 4. Se guarda. ".neq" = "distinto de": si justo lo anularon en el medio, no se toca.
+    const { data, error } = await supabase                        // pide a la base...
+      .from('pedidos')                                            // ...en la tabla de pedidos...
+      .update({ pagado: pagado })                                 // ...que cambie si está cobrado...
+      .eq('id', id)                                               // ...de este pedido...
+      .neq('id_estado', ESTADO_ANULADO)                           // ...solo si no está anulado...
+      .select()                                                   // ...y devuelva cómo quedó
+      .maybeSingle();                                             // uno o ninguno
+    if (error) return errorInterno(res, error);                   // si falló la base: 500
+    if (!data) return res.status(409).json({ error: 'Un pedido anulado no se puede cobrar' });  // lo anularon justo
+
+    res.json({ mensaje: 'Pago actualizado', pedido: data });      // listo: el pedido como quedó
+  } catch (e) {                                                   // si algo falló de golpe...
+    errorInterno(res, e);                                         // ...500 con un mensaje simple
   }
-
-  const { data, error } = await supabase
-    .from('pedidos')
-    .update({ pagado: Boolean(pagado) })
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) return errorInterno(res, error);
-  res.json({ mensaje: 'Pago actualizado', pedido: data });
 });
 
-// PUT /api/pedidos/:id/transferencia-confirmada → en un Mixto, registra que la parte por
-// transferencia ya llegó. No toca pagado: el efectivo se cobra al entregar.
+// ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/pedidos/:id/transferencia-confirmada → en un Mixto, registra que la transferencia ya llegó
+// ENTRADA: el número de pedido en la dirección
+// SALIDA:  { mensaje: 'Transferencia confirmada', pedido } · 400 número inválido · 404 no existe
+//          · 409 si está anulado o no es Mixto · 500
+// Ej: PUT /api/pedidos/250/transferencia-confirmada → { pedido: { id: 250, transferencia_confirmada: true, … } }
+// No toca "pagado": el efectivo del Mixto se cobra al entregar.
+// ─────────────────────────────────────────────────────────────────────────────
 app.put('/api/pedidos/:id/transferencia-confirmada', requireAuth, requireRol(6, 5, 1), async (req, res) => {
-  const id = parseInt(req.params.id);
-  if (!Number.isInteger(id)) {
-    return res.status(400).json({ error: 'ID de pedido inválido' });
+  // 1. El número de pedido: entero, mayor a 0 y que entre en la base
+  const id = Number(req.params.id);
+  const idInvalido = !Number.isInteger(id) || id <= 0 || id > ENTERO_MAXIMO_BASE;
+  if (idInvalido) return res.status(400).json({ error: 'ID de pedido inválido' });
+
+  try {
+    // 2. El pedido tiene que existir, no estar anulado y ser Mixto
+    const { data: pedido, error: errLectura } = await supabase
+      .from('pedidos')
+      .select('id, id_estado, metodo_pago')
+      .eq('id', id)
+      .maybeSingle();
+    if (errLectura) return errorInterno(res, errLectura);
+    if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
+    if (pedido.id_estado === ESTADO_ANULADO) return res.status(409).json({ error: 'Un pedido anulado no se puede cobrar' });
+    if (pedido.metodo_pago !== 'Mixto') {
+      return res.status(409).json({ error: 'Solo los pedidos con pago Mixto tienen una transferencia para confirmar.' });
+    }
+
+    // 3. Se guarda (solo si no lo anularon justo en el medio)
+    const { data, error } = await supabase
+      .from('pedidos')
+      .update({ transferencia_confirmada: true })
+      .eq('id', id)
+      .neq('id_estado', ESTADO_ANULADO)
+      .select()
+      .maybeSingle();
+    if (error) return errorInterno(res, error);
+    if (!data) return res.status(409).json({ error: 'Un pedido anulado no se puede cobrar' });
+
+    res.json({ mensaje: 'Transferencia confirmada', pedido: data });
+  } catch (e) {
+    errorInterno(res, e);
   }
-
-  const { data: pedido, error: errLectura } = await supabase
-    .from('pedidos')
-    .select('id, metodo_pago')
-    .eq('id', id)
-    .maybeSingle();
-
-  if (errLectura) return errorInterno(res, errLectura);
-  if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
-  if (pedido.metodo_pago !== 'Mixto') {
-    return res.status(409).json({ error: 'Solo los pedidos con pago Mixto tienen una transferencia para confirmar.' });
-  }
-
-  const { data, error } = await supabase
-    .from('pedidos')
-    .update({ transferencia_confirmada: true })
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) return errorInterno(res, error);
-  res.json({ mensaje: 'Transferencia confirmada', pedido: data });
 });
 
-// Método de pago del pedido: Efectivo, Transferencia, Tarjeta Débito, Tarjeta Crédito o Mixto
-// (Mixto = efectivo + transferencia, sin tarjeta).
-// Los montos se calculan / validan contra el total guardado en la base, no contra el que manda el front.
-// Siempre se escriben los tres montos (los que no corresponden en 0) para que no queden valores
-// viejos al cambiar de método. pago_anticipado solo puede ser true con Efectivo.
+// ─────────────────────────────────────────────────────────────────────────────
+// pesosACentavos → pasa un monto en pesos a centavos (un número entero), para comparar sin errores de redondeo
+// ENTRADA: un número o un texto con un número (ej: 137000 o '68500.5')
+// SALIDA:  los centavos, redondeados (ej: 13700000 · 6850050). Si no es un número da NaN
+// Ej: en JavaScript 0.1 + 0.2 da 0.30000000000000004; en centavos, 10 + 20 = 30 justo.
+// La usa PUT /api/pedidos/:id/pago varias veces (por eso es una función aparte y no va adentro de la ruta).
+// ─────────────────────────────────────────────────────────────────────────────
+function pesosACentavos(monto) {
+  return Math.round(Number(monto) * 100);                         // ej: 685.5 → 68550
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/pedidos/:id/pago → guarda el método de pago: Efectivo, Transferencia, Tarjeta Débito,
+//                             Tarjeta Crédito o Mixto (Mixto = efectivo + transferencia, sin tarjeta)
+// ENTRADA: el número de pedido en la dirección y { metodo_pago, monto_efectivo, monto_transferencia,
+//          monto_tarjeta, pago_anticipado } en el body (los montos solo cuentan en el Mixto)
+// SALIDA:  { mensaje: 'Método de pago actualizado', pedido } · 400 datos inválidos · 404 no existe
+//          · 409 si está anulado · 500
+// Ej: pedido #250 de $137.000 en Mixto con 68.500 + 68.500 → guarda los dos montos y 0 en tarjeta.
+//     Con 68.500 + 60.000 → 400 'La suma de los montos ($128500) debe ser igual al total del pedido ($137000).'
+// Los montos se controlan contra el total de la BASE, nunca contra el que manda la pantalla. Siempre se
+// escriben los tres montos (los que no corresponden en 0). pago_anticipado solo puede ser true con Efectivo.
+// ─────────────────────────────────────────────────────────────────────────────
 app.put('/api/pedidos/:id/pago', requireAuth, requireRol(6, 5, 1), async (req, res) => {
-  const id = parseInt(req.params.id);
-  const { metodo_pago, monto_efectivo, monto_transferencia, monto_tarjeta, pago_anticipado } = req.body;
+  const metodo_pago = req.body?.metodo_pago;                      // el método elegido
+  const monto_efectivo = req.body?.monto_efectivo;                // en el Mixto: lo que se paga en efectivo
+  const monto_transferencia = req.body?.monto_transferencia;      // en el Mixto: lo que se paga por transferencia
+  const monto_tarjeta = req.body?.monto_tarjeta;                  // en el Mixto tiene que ser 0
+  const pago_anticipado = req.body?.pago_anticipado;              // con Efectivo: si pagó antes
 
-  if (!Number.isInteger(id)) {
-    return res.status(400).json({ error: 'ID de pedido inválido' });
-  }
+  // 1. El número de pedido: entero, mayor a 0 y que entre en la base
+  const id = Number(req.params.id);
+  const idInvalido = !Number.isInteger(id) || id <= 0 || id > ENTERO_MAXIMO_BASE;
+  if (idInvalido) return res.status(400).json({ error: 'ID de pedido inválido' });
 
+  // 2. El método, de la lista cerrada
   if (!METODOS_PAGO.includes(metodo_pago)) {
     return res.status(400).json({ error: 'Método de pago inválido. Debe ser Efectivo, Transferencia, Tarjeta Débito, Tarjeta Crédito o Mixto.' });
   }
 
-  const { data: pedido, error: errLectura } = await supabase
-    .from('pedidos')
-    .select('id, total')
-    .eq('id', id)
-    .maybeSingle();
+  try {
+    // 3. El pedido tiene que existir y no estar anulado. El total sale de la base.
+    const { data: pedido, error: errLectura } = await supabase
+      .from('pedidos')
+      .select('id, total, id_estado')
+      .eq('id', id)
+      .maybeSingle();
+    if (errLectura) return errorInterno(res, errLectura);
+    if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
+    if (pedido.id_estado === ESTADO_ANULADO) return res.status(409).json({ error: 'Un pedido anulado no se puede cobrar' });
 
-  if (errLectura) return errorInterno(res, errLectura);
-  if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
-
-  // Se trabaja en centavos para no arrastrar errores de redondeo (0.1 + 0.2 !== 0.3)
-  const aCentavos = n => Math.round(Number(n) * 100);
-  const totalCent = aCentavos(pedido.total);
-  let efectivoCent      = 0;
-  let transferenciaCent = 0;
-  let tarjetaCent       = 0;
-
-  if (metodo_pago === 'Efectivo') {
-    efectivoCent = totalCent;
-  } else if (metodo_pago === 'Transferencia') {
-    transferenciaCent = totalCent;
-  } else if (metodo_pago === 'Tarjeta Débito' || metodo_pago === 'Tarjeta Crédito') {
-    tarjetaCent = totalCent;
-  } else {
-    // Mixto: solo efectivo + transferencia. La tarjeta no entra en el pago mixto.
-    if (aCentavos(monto_tarjeta ?? 0) !== 0) {
+    // 4. El Mixto: sin tarjeta, los dos montos mayores a 0 y que sumen justo el total (en centavos)
+    const totalCent = pesosACentavos(pedido.total);               // el total de la base
+    const esMixto = metodo_pago === 'Mixto';
+    const efectivoMixto = pesosACentavos(monto_efectivo);         // lo escrito en efectivo
+    const transferenciaMixto = pesosACentavos(monto_transferencia);  // lo escrito en transferencia
+    const tarjetaEnMixto = esMixto && pesosACentavos(monto_tarjeta ?? 0) !== 0;  // ?? 0 = si no vino, 0
+    if (tarjetaEnMixto) {
       return res.status(400).json({ error: 'El pago mixto solo puede combinar efectivo y transferencia (sin tarjeta).' });
     }
-
-    efectivoCent      = aCentavos(monto_efectivo);
-    transferenciaCent = aCentavos(monto_transferencia);
-
-    if (!Number.isFinite(efectivoCent) || !Number.isFinite(transferenciaCent) || efectivoCent <= 0 || transferenciaCent <= 0) {
+    const montosInvalidos = esMixto && (!Number.isFinite(efectivoMixto) || !Number.isFinite(transferenciaMixto) || efectivoMixto <= 0 || transferenciaMixto <= 0);
+    if (montosInvalidos) {
       return res.status(400).json({ error: 'En el pago mixto, los montos en efectivo y en transferencia deben ser mayores a 0.' });
     }
-    if (efectivoCent + transferenciaCent !== totalCent) {
+    const sumaDistinta = esMixto && efectivoMixto + transferenciaMixto !== totalCent;
+    if (sumaDistinta) {
       return res.status(400).json({
-        error: `La suma de los montos ($${(efectivoCent + transferenciaCent) / 100}) debe ser igual al total del pedido ($${totalCent / 100}).`
+        error: `La suma de los montos ($${(efectivoMixto + transferenciaMixto) / 100}) debe ser igual al total del pedido ($${totalCent / 100}).`
       });
     }
-  }
 
-  const { data, error } = await supabase
-    .from('pedidos')
-    .update({
-      metodo_pago,
-      monto_efectivo:      efectivoCent / 100,
-      monto_transferencia: transferenciaCent / 100,
-      monto_tarjeta:       tarjetaCent / 100,
-      pago_anticipado:     metodo_pago === 'Efectivo' && pago_anticipado === true
-    })
-    .eq('id', id)
-    .select()
-    .single();
+    // 5. Cuánto va en cada forma de pago, según sea el método (una tabla en vez de if / else if)
+    const CENTAVOS_POR_METODO = {
+      'Efectivo':        { efectivo: totalCent,     transferencia: 0,                  tarjeta: 0 },
+      'Transferencia':   { efectivo: 0,             transferencia: totalCent,          tarjeta: 0 },
+      'Tarjeta Débito':  { efectivo: 0,             transferencia: 0,                  tarjeta: totalCent },
+      'Tarjeta Crédito': { efectivo: 0,             transferencia: 0,                  tarjeta: totalCent },
+      'Mixto':           { efectivo: efectivoMixto, transferencia: transferenciaMixto, tarjeta: 0 }
+    };
+    const centavos = CENTAVOS_POR_METODO[metodo_pago];            // ej: Transferencia de $137.000 → { 0, 13700000, 0 }
 
-  if (error) {
+    // 6. Se guarda (solo si no lo anularon justo en el medio)
+    const { data, error } = await supabase
+      .from('pedidos')
+      .update({
+        metodo_pago:         metodo_pago,
+        monto_efectivo:      centavos.efectivo / 100,
+        monto_transferencia: centavos.transferencia / 100,
+        monto_tarjeta:       centavos.tarjeta / 100,
+        pago_anticipado:     metodo_pago === 'Efectivo' && pago_anticipado === true  // true solo con Efectivo
+      })
+      .eq('id', id)
+      .neq('id_estado', ESTADO_ANULADO)
+      .select()
+      .maybeSingle();
+
     // 23514 = violación de un CHECK: la base todavía no acepta este valor de metodo_pago
-    if (error.code === '23514') {
+    const metodoNoAceptado = Boolean(error) && error.code === '23514';
+    if (metodoNoAceptado) {
       return res.status(400).json({
         error: `La base de datos no acepta el método "${metodo_pago}". Hay que actualizar la restricción (CHECK) de metodo_pago en la tabla pedidos.`
       });
     }
-    return errorInterno(res, error);
+    if (error) return errorInterno(res, error);                   // otro error de la base: 500
+    if (!data) return res.status(409).json({ error: 'Un pedido anulado no se puede cobrar' });  // lo anularon justo
+
+    res.json({ mensaje: 'Método de pago actualizado', pedido: data });
+  } catch (e) {
+    errorInterno(res, e);
   }
-  res.json({ mensaje: 'Método de pago actualizado', pedido: data });
 });
 
-// Cambia el estado de un pedido. La usan PUT /estado (admin) y PUT /listo-cocinero (cocina).
-// Al pasar a 2 verifica que alcance el stock, sin descontar: si no alcanza, no se cambia nada y
-// devuelve status 409 (500 si falló algo interno). Al pasar a 3 o 4 descuenta el stock (idempotente,
-// ver descontarStockPedido), con el mismo 409 o 500 si falla. Al pasar a 3 marca todos los platos como listos.
-// Un pedido anulado (5) no cambia más de estado: si justo lo anularon, devuelve 409 y no toca nada más.
-// Devuelve { status, pedido } o { status, error }.
-async function cambiarEstadoPedido(pedidoId, nuevoEstado) {
-  if (nuevoEstado === 2) {
-    const errorStock = await verificarStockPedido(pedidoId);
-    if (errorStock) return errorStock; // ya viene armado: { status: 409 o 500, error }
-  }
+// ─────────────────────────────────────────────────────────────────────────────
+// cambiarEstadoPedido → cambia el estado de un pedido, con lo que pide cada estado
+// ENTRADA: pedidoId, nuevoEstado (1 a 4) e idUsuario (quién lo cambia: sale del token)
+// SALIDA:  { status: 200, pedido } (el pedido como quedó) · { status: 409, error } si falta un insumo o el
+//          pedido está anulado · { status: 500, error } si falló la base
+// Ej: pedido #251 (8 fideos de heladera + 2 "sin sal") a 2 → se revisan 600 g de harina y 4 huevos (no se descuentan);
+//     a 3 → se descuentan (descontar_insumos_pedido) y todos sus platos quedan listos.
+// La usan PUT /api/pedidos/:pedidoId/estado (admin) y PUT /api/pedidos/:id/listo-cocinero (cocina).
+// ─────────────────────────────────────────────────────────────────────────────
+async function cambiarEstadoPedido(pedidoId, nuevoEstado, idUsuario) {
+  // 1. A 2 (En Preparación): ¿alcanzan los insumos de lo que cocina la cocina? Solo lee.
+  //    "condición ? await … : null" = solo se consulta si hace falta.
+  const errorInsumos = nuevoEstado === 2 ? await verificarStockPedido(pedidoId) : null;
+  if (errorInsumos) return errorInsumos;                          // ya viene armado: { status: 409 o 500, error }
 
-  if ([3, 4].includes(nuevoEstado)) {
-    const errorStock = await descontarStockPedido(pedidoId);
-    if (errorStock) return errorStock; // ya viene armado: { status: 409 o 500, error }
-  }
+  // 2. A 3 o 4: se descuentan los insumos, una sola vez por pedido (lo controla la base)
+  const pasaA3o4 = nuevoEstado === 3 || nuevoEstado === 4;
+  const errorDescuento = pasaA3o4 ? await descontarStockPedido(pedidoId, idUsuario) : null;
+  if (errorDescuento) return errorDescuento;                      // ya viene armado: { status: 409 o 500, error }
 
-  // Cambia el estado SOLO si el pedido no está anulado (.neq = "distinto de"). Las rutas ya lo
-  // controlan antes; esto es por si alguien lo anula justo en el medio: así no "revive".
-  // maybeSingle: si no cambió ninguna fila, data viene vacío (con .single() sería un error 500).
+  // 3. Cambia el estado SOLO si el pedido no está anulado (.neq = "distinto de"). Las rutas ya lo
+  //    controlan antes; esto es por si alguien lo anula justo en el medio: así no "revive".
+  //    maybeSingle: si no cambió ninguna fila, data viene vacío (con .single() sería un error 500).
   const { data, error } = await supabase
     .from('pedidos')
     .update({ id_estado: nuevoEstado })
     .eq('id', pedidoId)
-    .neq('id_estado', 5)
+    .neq('id_estado', ESTADO_ANULADO)
     .select()
     .maybeSingle();
-
   if (error) return { status: 500, error: mensajeInterno(error) };
+  if (!data) return { status: 409, error: 'Un pedido anulado no cambia de estado' };  // no cambió nada: está anulado
 
-  // No cambió ninguna fila: el pedido está anulado. Se corta acá, antes de marcar los platos listos.
-  if (!data) return { status: 409, error: 'Un pedido anulado no cambia de estado' };
-
-  if (nuevoEstado === 3) {
-    const { error: errListo } = await supabase
-      .from('pedido_detalles')
-      .update({ listo: true })
-      .eq('id_pedido', pedidoId);
-
-    // El estado ya cambió, que es lo importante: el pedido sale de cocina igual. Solo se registra.
-    if (errListo) console.error('[ESTADO] no se pudieron marcar los platos como listos:', errListo);
-  }
-
-  return { status: 200, pedido: data };
+  // 4. Solo a 3: todos los platos quedan listos (la cocina deja de verlos). Si es otro estado, ya está.
+  if (nuevoEstado !== 3) return { status: 200, pedido: data };
+  const { error: errListo } = await supabase
+    .from('pedido_detalles')
+    .update({ listo: true })
+    .eq('id_pedido', pedidoId);
+  // El estado ya cambió, que es lo importante: el pedido sale de cocina igual. Solo se registra.
+  if (errListo) console.error('[ESTADO] no se pudieron marcar los platos como listos:', errListo);
+  return { status: 200, pedido: data };                           // el pedido como quedó
 }
 
-// GET /api/pedidos/:id/verificar-stock → ¿alcanza el stock para preparar el pedido? Solo lee.
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/pedidos/:id/verificar-stock → ¿alcanzan los insumos para preparar el pedido? Solo lee.
+// ENTRADA: el número de pedido en la dirección
+// SALIDA:  { ok: true } · { ok: false, error } si falta un insumo · 400 número inválido · 404 no existe · 500
+// Ej: pedido con 2 fideos "sin sal" y Huevo en −35 → { ok: false, error: 'Stock insuficiente de "Huevo": se necesitan 4, hay -35 disponibles' }
 // La usa la grilla antes de abrir "Confirmar Pago", para no pedir la confirmación si igual no puede pasar a 2.
-// Responde { ok: true }, { ok: false, error } si falta un insumo, o 500 si falló algo interno.
+// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/pedidos/:id/verificar-stock', requireAuth, requireRol(6, 5, 1), async (req, res) => {
-  const id = parseInt(req.params.id);
-  if (!Number.isInteger(id)) {
-    return res.status(400).json({ error: 'ID de pedido inválido' });
+  // 1. El número de pedido: entero, mayor a 0 y que entre en la base
+  const id = Number(req.params.id);
+  const idInvalido = !Number.isInteger(id) || id <= 0 || id > ENTERO_MAXIMO_BASE;
+  if (idInvalido) return res.status(400).json({ error: 'ID de pedido inválido' });
+
+  try {
+    // 2. Tiene que existir
+    const { data: pedido, error: errLectura } = await supabase
+      .from('pedidos')
+      .select('id')
+      .eq('id', id)
+      .maybeSingle();
+    if (errLectura) return errorInterno(res, errLectura);
+    if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
+
+    // 3. ¿Alcanzan los insumos?
+    const errorStock = await verificarStockPedido(id);
+    if (!errorStock) return res.json({ ok: true });               // alcanza
+    if (errorStock.status === 500) return res.status(500).json({ error: errorStock.error });  // falló algo interno (ya está en el log)
+    res.json({ ok: false, error: errorStock.error });             // falta un insumo: la grilla muestra el aviso
+  } catch (e) {
+    errorInterno(res, e);
   }
-
-  const { data: pedido, error: errLectura } = await supabase
-    .from('pedidos')
-    .select('id')
-    .eq('id', id)
-    .maybeSingle();
-
-  if (errLectura) return errorInterno(res, errLectura);
-  if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
-
-  const errorStock = await verificarStockPedido(id);
-  if (!errorStock) return res.json({ ok: true });                      // alcanza
-  if (errorStock.status === 500) {                                      // falló algo interno (el detalle ya está en el log)
-    return res.status(500).json({ error: errorStock.error });
-  }
-  res.json({ ok: false, error: errorStock.error });                     // falta un insumo: la grilla muestra el aviso
 });
 
-// PUT /api/pedidos/:pedidoId/estado → cambia el estado de un pedido (grilla de Consultar Pedidos y Envíos).
-// Body: { estado_id } de 1 a 4. El 5 (cancelar) va por POST /anular. Un pedido anulado no cambia más de estado.
-// De 1 a 2, si no tiene nada para cocinar (todo sale de la heladera), queda en 3: la respuesta trae el estado guardado.
+// ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/pedidos/:pedidoId/estado → cambia el estado de un pedido (grilla de Consultar Pedidos y Envíos)
+// ENTRADA: el número de pedido en la dirección y { estado_id } en el body: 1, 2, 3 o 4 (el 5 va por "Anular")
+// SALIDA:  { mensaje: 'Estado actualizado', pedido } (con el estado que quedó guardado) · 400 datos inválidos
+//          · 403 cancelar sin PIN o repartidor que no marca Entregado · 404 no existe
+//          · 409 anulado o falta un insumo · 500
+// Ej: pedido #250 con 10 fideos (todo de heladera) de 1 a 2 → queda en 3: { pedido: { id: 250, id_estado: 3, … } }
+//     pedido #251 con 8 fideos + 2 "sin sal" de 1 a 2 → queda en 2 (si alcanzan los insumos)
+// Un pedido anulado no cambia más de estado: sus viandas ya volvieron a la heladera.
+// ─────────────────────────────────────────────────────────────────────────────
 app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => {
-  const pedidoId = Number(req.params.pedidoId);
-  const nuevoEstado = Number(req.body?.estado_id);
+  const pedidoId = Number(req.params.pedidoId);                   // el pedido, de la dirección
+  const nuevoEstado = Number(req.body?.estado_id);                // el estado nuevo, del body
 
-  // El número de pedido: entero, mayor a 0 y que entre en la base
-  if (!Number.isInteger(pedidoId) || pedidoId <= 0 || pedidoId > ENTERO_MAXIMO_BASE) {
-    return res.status(400).json({ error: 'ID de pedido inválido' });
-  }
+  // 1. El número de pedido: entero, mayor a 0 y que entre en la base
+  const idInvalido = !Number.isInteger(pedidoId) || pedidoId <= 0 || pedidoId > ENTERO_MAXIMO_BASE;
+  if (idInvalido) return res.status(400).json({ error: 'ID de pedido inválido' });
 
-  // Cancelar (5) solo se puede por POST /anular, que pide el PIN
-  if (nuevoEstado === 5) {
+  // 2. Cancelar (5) solo se puede por POST /anular, que pide el PIN
+  if (nuevoEstado === ESTADO_ANULADO) {
     return res.status(403).json({ error: 'Para cancelar un pedido usá "Anular", que pide el PIN de autorización' });
   }
 
-  // El estado nuevo tiene que ser 1, 2, 3 o 4 (includes = "está en la lista". Ej: [1, 2, 3, 4].includes(7) → false)
-  const estadoValido = [1, 2, 3, 4].includes(nuevoEstado);
-  if (!estadoValido) {
-    return res.status(400).json({ error: 'Estado inválido' });
-  }
+  // 3. El estado nuevo tiene que ser 1, 2, 3 o 4 (includes = "está en la lista". Ej: [1, 2, 3, 4].includes(7) → false)
+  if (![1, 2, 3, 4].includes(nuevoEstado)) return res.status(400).json({ error: 'Estado inválido' });
 
-  // El repartidor (rol 3) solo puede marcar un pedido como Entregado (4)
-  if (req.usuario.rol === 3 && nuevoEstado !== 4) {
-    return res.status(403).json({ error: 'El repartidor solo puede marcar un pedido como Entregado' });
-  }
+  // 4. El repartidor (rol 3) solo puede marcar un pedido como Entregado (4)
+  const repartidorNoEntrega = req.usuario.rol === 3 && nuevoEstado !== 4;
+  if (repartidorNoEntrega) return res.status(403).json({ error: 'El repartidor solo puede marcar un pedido como Entregado' });
 
   try {
-    // Verificar que el pedido existe (maybeSingle: si no existe, data viene vacío; con .single() sería un 500)
+    // 5. El pedido tiene que existir (maybeSingle: si no existe, data viene vacío; con .single() sería un 500)
     const { data: pedidoActual, error: errLectura } = await supabase
       .from('pedidos')
       .select('id, id_estado')
       .eq('id', pedidoId)
       .maybeSingle();
-
     if (errLectura) return errorInterno(res, errLectura);
-    if (!pedidoActual) {
-      return res.status(404).json({ error: 'Pedido no encontrado' });
-    }
+    if (!pedidoActual) return res.status(404).json({ error: 'Pedido no encontrado' });
 
-    // Un pedido anulado (5) no cambia más de estado: sus viandas ya volvieron a la heladera.
-    // Se corta ANTES de cambiarEstadoPedido, para no revisar ni descontar insumos de un anulado.
-    if (pedidoActual.id_estado === 5) {
-      return res.status(409).json({ error: 'Un pedido anulado no cambia de estado' });
-    }
+    // 6. Un pedido anulado no cambia más de estado. Se corta ANTES de revisar o descontar insumos.
+    if (pedidoActual.id_estado === ESTADO_ANULADO) return res.status(409).json({ error: 'Un pedido anulado no cambia de estado' });
 
-    // Nada para cocinar → 3 (paso H5 de la heladera): al pasar de 1 a 2, si TODOS sus platos salen
-    // de la heladera (ninguno va a la cocina), el pedido pasa directo a 3 "Listo para Entregar".
-    // Si quedara en 2, la cocina no lo vería nunca (nace con todo listo) y Envíos solo muestra 3 y 4.
-    let estadoFinal = nuevoEstado;
-    if (pedidoActual.id_estado === 1 && nuevoEstado === 2) {
-      const { data: detalles, error: errDetalles } = await supabase
-        .from('pedido_detalles')
-        .select('cantidad, cantidad_de_heladera')
-        .eq('id_pedido', pedidoId);
+    // 7. Nada para cocinar → 3 (paso H5): al pasar de 1 a 2, si TODOS sus platos salen de la heladera
+    //    (ninguno va a la cocina), el pedido pasa directo a 3 "Listo para Entregar".
+    //    Si quedara en 2, la cocina no lo vería nunca (nace con todo listo) y Envíos solo muestra 3 y 4.
+    //    Los platos se piden solo si pasa de 1 a 2 ("condición ? await … : …" = solo se consulta si hace falta).
+    const de1a2 = pedidoActual.id_estado === 1 && nuevoEstado === 2;
+    const consultaPlatos = de1a2
+      ? await supabase.from('pedido_detalles').select('cantidad, cantidad_de_heladera').eq('id_pedido', pedidoId)
+      : { data: [], error: null };
+    if (consultaPlatos.error) return errorInterno(res, consultaPlatos.error);
+    const detalles = consultaPlatos.data || [];                   // los platos del pedido (vacía si no pasa de 1 a 2)
 
-      if (errDetalles) return errorInterno(res, errDetalles);
+    // Cuántas viandas cocina la cocina: cantidad − cantidad_de_heladera (vacío cuenta como 0),
+    // la misma cuenta que verificarStockPedido. Ej: 8 fideos de heladera + 2 "sin sal" → 0 + 2 = 2.
+    let viandasACocinar = 0;
+    detalles.forEach(detalle => {                                 // por cada plato...
+      const aCocinar = Number(detalle.cantidad) - Number(detalle.cantidad_de_heladera ?? 0);  // ...lo que cocina la cocina
+      if (aCocinar > 0) viandasACocinar = viandasACocinar + aCocinar;                           // ...se suma
+    });
 
-      // Cuántas viandas tiene que cocinar la cocina: cantidad − cantidad_de_heladera (vacío cuenta como 0),
-      // la misma cuenta que calcularConsumoPedido. Ej: 8 fideos de heladera + 2 "sin sal" → 0 + 2 = 2.
-      let viandasACocinar = 0;
-      (detalles || []).forEach(detalle => {
-        const aCocinar = Number(detalle.cantidad) - Number(detalle.cantidad_de_heladera ?? 0);
-        if (aCocinar > 0) viandasACocinar = viandasACocinar + aCocinar;
-      });
+    // Salta solo si tiene platos y la cocina no tiene nada que hacer (un pedido sin platos no salta)
+    const todoDeHeladera = de1a2 && detalles.length > 0 && viandasACocinar === 0;
+    const estadoFinal = todoDeHeladera ? 3 : nuevoEstado;         // el estado que se va a guardar
 
-      // Salta solo si tiene platos y la cocina no tiene nada que hacer (un pedido sin platos no salta)
-      const tienePlatos = Array.isArray(detalles) && detalles.length > 0;
-      if (tienePlatos && viandasACocinar === 0) estadoFinal = 3;
-    }
-
-    const resultado = await cambiarEstadoPedido(pedidoId, estadoFinal);
+    // 8. Se cambia (con los insumos que correspondan). El usuario sale del token.
+    const resultado = await cambiarEstadoPedido(pedidoId, estadoFinal, req.usuario.id);
     if (resultado.error) return res.status(resultado.status).json({ error: resultado.error });
 
-    res.json({ mensaje: 'Estado actualizado', pedido: resultado.pedido });
+    res.json({ mensaje: 'Estado actualizado', pedido: resultado.pedido });  // con el estado que quedó guardado
   } catch (e) {
     errorInterno(res, e);
   }
@@ -1529,10 +1539,10 @@ app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), as
 // pasa a 3 (Listo para Entregar) con la misma lógica que usa el admin, incluido el descuento de stock.
 // Si falta stock, los platos quedan listos, el pedido sigue en 2 y se avisa (lo resuelve el admin).
 app.put('/api/pedidos/:id/listo-cocinero', requireAuth, requireRol(2, 6, 5, 1), async (req, res) => {
-  const id = parseInt(req.params.id);
-  const cocineroId = req.usuario.id;
+  const id = Number(req.params.id);                               // el pedido, de la dirección (Number: "12abc" no pasa)
+  const cocineroId = req.usuario.id;                              // el cocinero sale del token, nunca del body
 
-  if (!Number.isInteger(id)) {
+  if (!Number.isInteger(id) || id <= 0 || id > ENTERO_MAXIMO_BASE) {  // entero, mayor a 0 y que entre en la base
     return res.status(400).json({ error: 'ID de pedido inválido' });
   }
 
@@ -1582,7 +1592,7 @@ app.put('/api/pedidos/:id/listo-cocinero', requireAuth, requireRol(2, 6, 5, 1), 
       });
     }
 
-    const resultado = await cambiarEstadoPedido(id, 3);
+    const resultado = await cambiarEstadoPedido(id, 3, cocineroId);  // pasa a 3 y descuenta los insumos (queda anotado quién)
 
     if (resultado.status === 409) {
       return res.status(409).json({
@@ -1604,53 +1614,57 @@ app.put('/api/pedidos/:id/listo-cocinero', requireAuth, requireRol(2, 6, 5, 1), 
   }
 });
 
-// Anular pedido: no se borra, se pasa a estado 5 (Cancelado) con anular_pedido_con_devolucion (sql/heladera.sql).
-// Si estaba en 1, 2 o 3, vuelven a la heladera las viandas que había sacado; en 4 (entregado) no vuelve nada.
-// Requiere el PIN de autorización configurado en .env (ADMIN_PIN); se valida acá, nunca en el front.
-// El usuario que anula sale del token.
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/pedidos/:id/anular → anula un pedido (DEVOLVER: el botón "Anular" de Consultar Pedidos, con PIN)
+// ENTRADA: el número de pedido en la dirección y { pin } en el body. El usuario que anula sale del token.
+// SALIDA:  { mensaje, viandas_devueltas } · 400 número inválido · 403 PIN incorrecto · 409 no existe o ya
+//          está anulado · 429 demasiados intentos fallidos (limiteAnular) · 500
+// Ej: pedido #250 en 2 con 10 fideos de heladera → { mensaje: 'Pedido anulado. Volvieron 10 viandas a la heladera.',
+//     viandas_devueltas: 10 } y fideos 61 → 71. Otra vez → 409 'El pedido ya está anulado'.
+// El pedido no se borra: pasa a 5 (Cancelado) con anular_pedido_con_devolucion (sql/heladera.sql), que en 1, 2 o 3
+// devuelve a la heladera las viandas que sacó; en 4 (entregado) no devuelve nada.
+// El PIN es el de .env (ADMIN_PIN) y se controla acá, nunca en la pantalla.
+// Paso H9: misma entrada, misma salida y mismos mensajes; solo se ordenó con pasos y comentarios.
+// ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/pedidos/:id/anular', limiteAnular, requireAuth, requireRol(6, 5, 1), async (req, res) => {
-  const id = Number(req.params.id);
-  const pin = String(req.body?.pin ?? '');
+  const id = Number(req.params.id);                               // el pedido, de la dirección
+  const pin = String(req.body?.pin ?? '');                        // el PIN escrito (vacío si no vino)
 
-  // El número de pedido: entero, mayor a 0 y que entre en la base
-  if (!Number.isInteger(id) || id <= 0 || id > ENTERO_MAXIMO_BASE) {
-    return res.status(400).json({ error: 'ID de pedido inválido' });
-  }
+  // 1. El número de pedido: entero, mayor a 0 y que entre en la base
+  const idInvalido = !Number.isInteger(id) || id <= 0 || id > ENTERO_MAXIMO_BASE;
+  if (idInvalido) return res.status(400).json({ error: 'ID de pedido inválido' });
 
-  const adminPin = process.env.ADMIN_PIN;
+  // 2. El PIN del servidor tiene que estar configurado
+  const adminPin = process.env.ADMIN_PIN;                         // el PIN de verdad, del .env (nunca se manda a la pantalla)
   if (!adminPin) {
     console.error('[ANULAR pedido] falta ADMIN_PIN en el .env');
     return res.status(500).json({ error: 'El PIN de autorización no está configurado en el servidor' });
   }
 
-  // Comparación en tiempo constante para no filtrar información por el tiempo de respuesta
-  const a = Buffer.from(pin);
-  const b = Buffer.from(adminPin);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-    return res.status(403).json({ error: 'PIN incorrecto' });
-  }
+  // 3. El PIN escrito tiene que ser igual. Se compara "en tiempo constante" (timingSafeEqual): tarda lo
+  //    mismo acierte o no, así nadie puede adivinarlo midiendo cuánto tarda la respuesta.
+  const escrito = Buffer.from(pin);                               // el PIN escrito, como bytes
+  const verdadero = Buffer.from(adminPin);                        // el PIN de verdad, como bytes
+  const pinIncorrecto = escrito.length !== verdadero.length || !crypto.timingSafeEqual(escrito, verdadero);  // (si el largo es distinto, ni se compara)
+  if (pinIncorrecto) return res.status(403).json({ error: 'PIN incorrecto' });
 
   try {
+    // 4. La base anula y devuelve las viandas, todo junto o nada
     const { data, error } = await supabase.rpc('anular_pedido_con_devolucion', {
-      p_id_pedido:  id,
-      p_id_usuario: req.usuario.id
+      p_id_pedido:  id,                                           // el pedido
+      p_id_usuario: req.usuario.id                                // quién anula (del token)
     });
+    if (error) return errorInterno(res, error);                   // si falló la base: 500
 
-    if (error) return errorInterno(res, error);
+    // ok: false = no se hizo nada (no existe o ya estaba anulado). El mensaje es el de la base (o uno por si no vino).
+    if (!data || !data.ok) return res.status(409).json({ error: data?.error || 'No se pudo anular el pedido' });
 
-    // ok: false = no se hizo nada (no existe o ya estaba anulado)
-    if (!data || !data.ok) {
-      let mensaje = 'No se pudo anular el pedido';
-      if (data && data.error) mensaje = data.error;
-      return res.status(409).json({ error: mensaje });
-    }
+    // 5. El mensaje dice cuántas viandas volvieron (0 si estaba entregado o no había sacado de la heladera)
+    const devueltas = data.viandas_devueltas;                     // ej: 10
+    const conViandas = devueltas === 1 ? 'Pedido anulado. Volvió 1 vianda a la heladera.' : `Pedido anulado. Volvieron ${devueltas} viandas a la heladera.`;
+    const mensaje = devueltas >= 1 ? conViandas : 'Pedido anulado correctamente';
 
-    // El mensaje dice cuántas viandas volvieron (0 si estaba entregado o no había sacado de la heladera)
-    let mensaje = 'Pedido anulado correctamente';
-    if (data.viandas_devueltas === 1) mensaje = 'Pedido anulado. Volvió 1 vianda a la heladera.';
-    if (data.viandas_devueltas > 1) mensaje = `Pedido anulado. Volvieron ${data.viandas_devueltas} viandas a la heladera.`;
-
-    res.json({ mensaje, viandas_devueltas: data.viandas_devueltas });
+    res.json({ mensaje: mensaje, viandas_devueltas: devueltas });
   } catch (e) {
     errorInterno(res, e);
   }
@@ -1813,17 +1827,23 @@ app.put('/api/productos/:id/cocinero', requireAuth, requireRol(6, 5), async (req
    API ESTADOS
    ====================================================== */
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/estados → los estados de un pedido, en orden (los selects de Consultar Pedidos y Envíos)
+// ENTRADA: nada (el usuario logueado, rol 6, 5, 1 o 3)
+// SALIDA:  [{ id: 1, nombre: 'Registrado' }, { id: 2, nombre: 'En Preparación' }, …] · 500
+// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/estados', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => {
-  const { data, error } = await supabase
-    .from('estados')
-    .select('id, nombre')
-    .order('id', { ascending: true });
+  try {
+    const { data, error } = await supabase                        // pide a la base...
+      .from('estados')                                            // ...la tabla de estados...
+      .select('id, nombre')                                       // ...número y nombre...
+      .order('id', { ascending: true });                          // ...del 1 al 5
+    if (error) return errorInterno(res, error);                   // si falló la base: 500
 
-  if (error) {
-    return errorInterno(res, error);
+    res.json(data);                                               // la lista
+  } catch (e) {
+    errorInterno(res, e);
   }
-
-  res.json(data);
 });
 /* ======================================================
    API STOCK
@@ -2553,12 +2573,8 @@ app.get('/api/viandas-stock', requireAuth, requireRol(...ROLES_HELADERA), async 
     // 4. La respuesta: un objeto por plato
     const resultado = [];                                         // la lista que se devuelve
     (platos || []).forEach(plato => {                             // por cada plato activo...
-      let planNombre = null;                                      // el nombre de su plan (vacío si no tiene)
-      let planActivo = false;                                     // si su plan está activo
-      if (plato.planes) {                                         // si tiene plan...
-        planNombre = plato.planes.nombre;                         // ...su nombre
-        planActivo = Boolean(plato.planes.activo);                // ...y si está activo
-      }
+      const planNombre = plato.planes ? plato.planes.nombre : null;           // el nombre de su plan (null si no tiene)
+      const planActivo = plato.planes ? Boolean(plato.planes.activo) : false; // si su plan está activo
       const libres = Number(plato.stock_heladera || 0);           // las que se pueden vender
       const reservadas = reservadasPorPlato[plato.id] || 0;       // las de pedidos sin entregar (0 si no hay)
       const tieneReceta = Array.isArray(plato.producto_insumo) && plato.producto_insumo.length > 0;  // si tiene al menos un insumo
@@ -2594,14 +2610,12 @@ const MINIMO_MAXIMO = 9999;                                       // el mínimo 
 
 app.put('/api/viandas-stock/:id/minimo', requireAuth, requireRol(...ROLES_CAMBIAN_MINIMO), async (req, res) => {
   const idProducto = Number(req.params.id);                       // el número de plato, de la ruta
-  if (!Number.isInteger(idProducto) || idProducto <= 0 || idProducto > ENTERO_MAXIMO_BASE) {  // tiene que ser un entero mayor a 0
-    return res.status(400).json({ error: 'ID de plato inválido' });  // si no: 400
-  }
+  const idInvalido = !Number.isInteger(idProducto) || idProducto <= 0 || idProducto > ENTERO_MAXIMO_BASE;  // tiene que ser un entero mayor a 0
+  if (idInvalido) return res.status(400).json({ error: 'ID de plato inválido' });  // si no: 400
 
   const minimo = leerCantidadViandas(req.body?.stock_minimo, true);  // el mínimo nuevo: entero mayor o igual a 0 (null si no es válido)
-  if (minimo === null || minimo > MINIMO_MAXIMO) {                // vacío, con decimales, negativo o más de 9999...
-    return res.status(400).json({ error: `El mínimo tiene que ser un número entero de 0 a ${MINIMO_MAXIMO}` });  // ...400
-  }
+  const minimoInvalido = minimo === null || minimo > MINIMO_MAXIMO;  // vacío, con decimales, negativo o más de 9999
+  if (minimoInvalido) return res.status(400).json({ error: `El mínimo tiene que ser un número entero de 0 a ${MINIMO_MAXIMO}` });
 
   try {
     const { data, error } = await supabase                        // pide a la base...
@@ -2620,36 +2634,46 @@ app.put('/api/viandas-stock/:id/minimo', requireAuth, requireRol(...ROLES_CAMBIA
   }
 });
 
-// POST /api/viandas-stock/descarte → descarta viandas de la heladera (descartar_viandas, en sql/heladera.sql).
-// Body: { id_producto, cantidad, motivo }. No toca insumos. El usuario sale del token.
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/viandas-stock/descarte → descarta viandas libres de la heladera (DESCARTAR: "Descartar" de Producción)
+// ENTRADA: body { id_producto, cantidad, motivo }: plato, entero mayor a 0 y motivo obligatorio (hasta 200).
+//          El usuario sale del token.
+// SALIDA:  { mensaje: 'Descarte registrado', id_movimiento, stock_heladera } · 400 dato inválido
+//          · 409 si la base no lo acepta (no hay tantas libres, no existe) · 500
+// Ej: { id_producto: 7, cantidad: 2, motivo: 'vencidas' } → { stock_heladera: 69 } (fideos 71 → 69).
+//     Con 80 → 409 'En la heladera hay 71 viandas de «fideos»: no se pueden descartar 80'.
+// La base (descartar_viandas, sql/heladera.sql) resta y anota el renglón "descarte" todo junto. No toca insumos.
+// Paso H9: misma entrada, misma salida y mismos mensajes. El número de plato ahora también tiene que ser
+// mayor a 0 y entrar en la base (antes "-3" llegaba a la base y volvía "El plato no existe"; ahora es un 400).
+// ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/viandas-stock/descarte', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
-  const idProducto = Number(req.body.id_producto);
-  if (!Number.isInteger(idProducto)) {
-    return res.status(400).json({ error: 'ID de plato inválido' });
-  }
-  const cantidad = leerCantidadViandas(req.body.cantidad);
-  if (cantidad === null) {
-    return res.status(400).json({ error: 'La cantidad tiene que ser un número entero mayor a 0' });
-  }
-  const lecturaMotivo = leerMotivoVianda(req.body.motivo, true);
+  // 1. El plato: entero, mayor a 0 y que entre en la base
+  const idProducto = Number(req.body?.id_producto);
+  const idInvalido = !Number.isInteger(idProducto) || idProducto <= 0 || idProducto > ENTERO_MAXIMO_BASE;
+  if (idInvalido) return res.status(400).json({ error: 'ID de plato inválido' });
+
+  // 2. La cantidad: entero mayor a 0
+  const cantidad = leerCantidadViandas(req.body?.cantidad);
+  if (cantidad === null) return res.status(400).json({ error: 'La cantidad tiene que ser un número entero mayor a 0' });
+
+  // 3. El motivo: obligatorio, hasta 200 caracteres
+  const lecturaMotivo = leerMotivoVianda(req.body?.motivo, true);
   if (lecturaMotivo.error) return res.status(400).json({ error: lecturaMotivo.error });
 
   try {
+    // 4. La base descarta, todo junto o nada (vuelve a controlar todo)
     const { data, error } = await supabase.rpc('descartar_viandas', {
-      p_id_producto: idProducto,
-      p_cantidad:    cantidad,
-      p_id_usuario:  req.usuario.id,
-      p_motivo:      lecturaMotivo.motivo
+      p_id_producto: idProducto,                                  // qué plato
+      p_cantidad:    cantidad,                                    // cuántas
+      p_id_usuario:  req.usuario.id,                              // quién (del token)
+      p_motivo:      lecturaMotivo.motivo                         // por qué
     });
+    if (error) return errorInterno(res, error);                   // si falló la base: 500
 
-    if (error) return errorInterno(res, error);
+    // ok: false = no se guardó nada (no hay tantas libres, el plato no existe…). El mensaje es el de la base.
+    if (!data || !data.ok) return res.status(409).json({ error: data?.error || 'No se pudo registrar el descarte' });
 
-    if (!data || !data.ok) {
-      let mensaje = 'No se pudo registrar el descarte';
-      if (data && data.error) mensaje = data.error;
-      return res.status(409).json({ error: mensaje });
-    }
-
+    // 5. Listo: el renglón nuevo y cuántas libres quedaron
     res.json({ mensaje: 'Descarte registrado', id_movimiento: data.id_movimiento, stock_heladera: data.stock_heladera });
   } catch (e) {
     errorInterno(res, e);
@@ -2696,9 +2720,7 @@ function platoVisibleParaCocinero(producto, idCocinero) {
 // ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/ordenes-produccion', requireAuth, requireRol(...ROLES_PIDEN_COCINA), async (req, res) => {
   const fechaPara = leerFechaPara(req.body.fecha_para);           // la fecha: "AAAA-MM-DD" que exista de verdad (null si no)
-  if (fechaPara === null) {                                       // si no es válida...
-    return res.status(400).json({ error: 'La fecha del pedido es inválida' });  // ...400
-  }
+  if (fechaPara === null) return res.status(400).json({ error: 'La fecha del pedido es inválida' });  // si no es válida: 400
   const lectura = leerItemsViandas(req.body.items);               // la lista de platos, controlada y limpia
   if (lectura.error) return res.status(400).json({ error: lectura.error });  // si algo está mal: 400 con el motivo
 
@@ -2710,12 +2732,9 @@ app.post('/api/ordenes-produccion', requireAuth, requireRol(...ROLES_PIDEN_COCIN
     });
     if (error) return errorInterno(res, error);                   // si falló la base: 500 con un mensaje simple
 
-    // ok: false = la base no guardó nada (fecha pasada, plato inactivo, etc.)
-    if (!data || !data.ok) {                                      // si no salió...
-      let mensaje = 'No se pudo crear el pedido a cocina';        // ...un mensaje por si la base no mandó ninguno
-      if (data && data.error) mensaje = data.error;               // ...o el mensaje de la base
-      return res.status(400).json({ error: mensaje });            // ...400 con ese mensaje
-    }
+    // ok: false = la base no guardó nada (fecha pasada, plato inactivo, etc.): 400 con el mensaje de la base
+    // (?. = "si vino data, su error"; || = si no mandó ninguno, este)
+    if (!data || !data.ok) return res.status(400).json({ error: data?.error || 'No se pudo crear el pedido a cocina' });
 
     res.json({ mensaje: 'Pedido a cocina creado', id_orden: data.id_orden });  // listo: el número del pedido a cocina
   } catch (e) {                                                   // si algo falló de golpe...
@@ -2723,104 +2742,115 @@ app.post('/api/ordenes-produccion', requireAuth, requireRol(...ROLES_PIDEN_COCIN
   }
 });
 
-// GET /api/ordenes-produccion/pendientes → platos pedidos a cocina que todavía no están hechos.
-// Un cocinero (rol 2) ve los que le tocan según platoEsDelCocinero (cocinero del plato o, si no tiene,
-// principal o suplente del plan) y los que no tienen a nadie. El id_cocinero del detalle es solo para mostrar.
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/ordenes-produccion/pendientes → los platos pedidos a cocina que todavía no están hechos
+//                                         ("Pendientes de cocina" de Producción y "Para stock" de Tareas de Cocina)
+// ENTRADA: nada (el usuario logueado). Un cocinero (rol 2) ve los que le tocan (cocinero del plato o, si no tiene,
+//          principal o suplente del plan) y los que no tienen a nadie. Los demás roles ven todo.
+// SALIDA:  [{ id, id_cocinero, id_orden, fecha_para, plato, plan, cantidad, cocinero }], ordenados por fecha_para,
+//          número de pedido a cocina y plato · 500
+// Ej: [{ id: 21, id_orden: 9, fecha_para: '2026-10-16', plato: 'fideos', plan: 'Mantenimiento', cantidad: 2, cocinero: 'Ana López' }]
+// El id_cocinero del renglón es solo para mostrar (agrupar por cocinero).
+// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/ordenes-produccion/pendientes', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
-  const { data, error } = await supabase
-    .from('orden_produccion_detalles')
-    .select(`
-      id, cantidad, id_cocinero,
-      ordenes_produccion ( id, fecha_para ),
-      productos ( nombre, id_cocinero, planes ( nombre, id_cocinero, id_cocinero_suplente ) ),
-      cocinero:usuarios!id_cocinero ( nombre, apellido )
-    `)
-    .eq('hecho', false);
+  try {
+    // 1. Los platos de pedidos a cocina sin hacer, con su pedido, su plato, su plan y su cocinero
+    const { data, error } = await supabase                        // pide a la base...
+      .from('orden_produccion_detalles')                          // ...los platos de los pedidos a cocina...
+      .select(`
+        id, cantidad, id_cocinero,
+        ordenes_produccion ( id, fecha_para ),
+        productos ( nombre, id_cocinero, planes ( nombre, id_cocinero, id_cocinero_suplente ) ),
+        cocinero:usuarios!id_cocinero ( nombre, apellido )
+      `)                                                          // ...con su pedido, plato, plan y cocinero...
+      .eq('hecho', false);                                        // ...los que no están hechos
+    if (error) return errorInterno(res, error);                   // si falló la base: 500
 
-  if (error) return errorInterno(res, error);
+    // 2. Un objeto por plato (el cocinero ve solo lo suyo y lo que no tiene a nadie)
+    const esCocinero = Number(req.usuario.rol) === 2;             // si el que mira es un cocinero
+    const resultado = [];                                         // la lista que se devuelve
+    (data || []).forEach(detalle => {                             // por cada plato pendiente...
+      const loPuedeVer = Boolean(detalle.productos) && platoVisibleParaCocinero(detalle.productos, req.usuario.id);  // ¿es suyo o no tiene cocinero?
+      const ocultoAlCocinero = esCocinero && !loPuedeVer;         // un cocinero no ve los platos de otro cocinero
+      if (ocultoAlCocinero) return;                               // (return = saltear este plato y seguir con el siguiente)
+      const plato = detalle.productos ? detalle.productos.nombre : null;                 // el nombre del plato (null si no vino)
+      const plan = detalle.productos?.planes ? detalle.productos.planes.nombre : null;   // el de su plan (?. = "si vino el plato, su plan")
+      const asignado = detalle.cocinero;                          // el cocinero asignado (o null)
+      const cocinero = asignado ? ((asignado.nombre || '') + ' ' + (asignado.apellido || '')).trim() : null;  // "Ana López" (trim saca el espacio de más)
+      resultado.push({                                            // se agrega a la respuesta:
+        id:          detalle.id,                                  // número del renglón (el botón "Hecho" lo usa)
+        id_cocinero: detalle.id_cocinero,                         // para agrupar por cocinero
+        id_orden:    detalle.ordenes_produccion.id,               // número del pedido a cocina
+        fecha_para:  detalle.ordenes_produccion.fecha_para,       // para cuándo
+        plato:       plato,                                       // el plato
+        plan:        plan,                                        // su plan
+        cantidad:    detalle.cantidad,                            // cuántas viandas
+        cocinero:    cocinero                                     // quién lo cocina
+      });
+    });
 
-  // El filtro del cocinero se hace en JS, igual que en /api/cocina/tareas
-  let detalles = data || [];
-  if (Number(req.usuario.rol) === 2) {
-    detalles = detalles.filter(d => d.productos && platoVisibleParaCocinero(d.productos, req.usuario.id));
+    // 3. Por fecha_para, después por número de pedido a cocina y después por plato. Supabase no ordena
+    //    la lista principal por columnas de otra tabla, así que se ordena acá ("AAAA-MM-DD" se compara como texto).
+    //    sort recibe una función que compara dos renglones: negativo = a va antes, positivo = b va antes.
+    resultado.sort((a, b) => {
+      if (a.fecha_para !== b.fecha_para) return a.fecha_para.localeCompare(b.fecha_para);  // primero lo más urgente
+      if (a.id_orden !== b.id_orden) return a.id_orden - b.id_orden;                      // después por pedido a cocina
+      return (a.plato || '').localeCompare(b.plato || '', 'es');                          // y por nombre del plato
+    });
+
+    res.json(resultado);                                          // la lista
+  } catch (e) {
+    errorInterno(res, e);
   }
-
-  const resultado = detalles.map(d => {
-    let plato = null;
-    let plan = null;
-    if (d.productos) {
-      plato = d.productos.nombre;
-      if (d.productos.planes) plan = d.productos.planes.nombre;
-    }
-    let cocinero = null;
-    if (d.cocinero) cocinero = `${d.cocinero.nombre || ''} ${d.cocinero.apellido || ''}`.trim();
-
-    return {
-      id:          d.id,
-      id_cocinero: d.id_cocinero,
-      id_orden:    d.ordenes_produccion.id,
-      fecha_para:  d.ordenes_produccion.fecha_para,
-      plato,
-      plan,
-      cantidad:    d.cantidad,
-      cocinero
-    };
-  });
-
-  // Por fecha_para y después por número de pedido. Supabase no ordena la lista principal por
-  // columnas de una tabla unida, así que se ordena acá. "AAAA-MM-DD" se puede comparar como texto.
-  resultado.sort((a, b) => {
-    if (a.fecha_para !== b.fecha_para) return a.fecha_para.localeCompare(b.fecha_para);
-    if (a.id_orden !== b.id_orden) return a.id_orden - b.id_orden;
-    return (a.plato || '').localeCompare(b.plato || '', 'es');
-  });
-
-  res.json(resultado);
 });
 
-// POST /api/ordenes-produccion/detalles/:id/hecho → la cocina terminó un plato del pedido (producir_viandas, en sql/heladera.sql).
-// Entran las viandas al stock y se descuentan los insumos. Si algo no alcanza se carga igual
-// y vuelve en "avisos". El usuario sale del token. Un cocinero solo marca lo que le corresponde.
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/ordenes-produccion/detalles/:id/hecho → la cocina terminó un plato de un pedido a cocina (PRODUCIR)
+// ENTRADA: el número del renglón del pedido a cocina en la dirección. El usuario sale del token.
+// SALIDA:  { mensaje: 'Plato marcado como hecho', stock_heladera, avisos } · 400 número inválido
+//          · 403 un cocinero que no tiene ese plato · 404 no existe (cocinero) · 409 ya estaba hecho o no existe · 500
+// Ej: "Pedido a cocina #9: 2 fideos" → { stock_heladera: 73, avisos: [] } (fideos 71 → 73, harina −600 g, huevo −4 u).
+//     Si el huevo no alcanza → se marca igual y vuelve el aviso { tipo: 'insumo_corto', nombre: 'Huevo', falta: 39, … }.
+// Lo hace la base (producir_viandas, sql/heladera.sql), todo junto. Un cocinero solo marca lo que le corresponde.
+// Paso H9: misma entrada, misma salida y mismos mensajes; solo se ordenó con pasos y comentarios.
+// ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/ordenes-produccion/detalles/:id/hecho', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
+  // 1. El renglón: entero, mayor a 0 y que entre en la base
   const idDetalle = Number(req.params.id);
-  if (!Number.isInteger(idDetalle) || idDetalle <= 0 || idDetalle > ENTERO_MAXIMO_BASE) {
-    return res.status(400).json({ error: 'ID de plato del pedido inválido' });
-  }
+  const idInvalido = !Number.isInteger(idDetalle) || idDetalle <= 0 || idDetalle > ENTERO_MAXIMO_BASE;
+  if (idInvalido) return res.status(400).json({ error: 'ID de plato del pedido inválido' });
 
   try {
-    // Cocinero: antes de marcar, ver que el plato le corresponda
-    if (Number(req.usuario.rol) === 2) {
-      const { data: detalle, error: errDetalle } = await supabase
+    // 2. Un cocinero solo marca lo que le corresponde (los demás roles, cualquiera).
+    //    El plato se busca solo si es un cocinero ("condición ? await … : …" = solo se consulta si hace falta).
+    const esCocinero = Number(req.usuario.rol) === 2;
+    const consultaDetalle = esCocinero
+      ? await supabase
         .from('orden_produccion_detalles')
         .select('id, productos ( id_cocinero, planes ( id_cocinero, id_cocinero_suplente ) )')
         .eq('id', idDetalle)
-        .maybeSingle();
+        .maybeSingle()
+      : { data: null, error: null };
+    if (consultaDetalle.error) return errorInterno(res, consultaDetalle.error);
+    const detalle = consultaDetalle.data;                         // el renglón (solo si es un cocinero)
+    const noExiste = esCocinero && !detalle;                      // el cocinero pidió un renglón que no existe
+    if (noExiste) return res.status(404).json({ error: 'El plato del pedido no existe' });
+    const noLeCorresponde = esCocinero && (!detalle.productos || !platoVisibleParaCocinero(detalle.productos, req.usuario.id));
+    if (noLeCorresponde) return res.status(403).json({ error: 'Este plato no te corresponde' });
 
-      if (errDetalle) return errorInterno(res, errDetalle);
-      if (!detalle) return res.status(404).json({ error: 'El plato del pedido no existe' });
-      if (!detalle.productos || !platoVisibleParaCocinero(detalle.productos, req.usuario.id)) {
-        return res.status(403).json({ error: 'Este plato no te corresponde' });
-      }
-    }
-
+    // 3. La base produce, todo junto o nada: viandas a la heladera, insumos y renglón "produccion"
     const { data, error } = await supabase.rpc('producir_viandas', {
-      p_id_detalle: idDetalle,
-      p_id_usuario: req.usuario.id
+      p_id_detalle: idDetalle,                                    // qué renglón del pedido a cocina
+      p_id_usuario: req.usuario.id                                // quién toca "Hecho" (del token)
     });
+    if (error) return errorInterno(res, error);                   // si falló la base: 500
 
-    if (error) return errorInterno(res, error);
+    // ok: false = no se hizo nada (no existe o ya estaba hecho): 409 con el mensaje de la base
+    if (!data || !data.ok) return res.status(409).json({ error: data?.error || 'No se pudo marcar el plato como hecho' });
 
-    // ok: false = no se hizo nada (no existe o ya estaba hecho)
-    if (!data || !data.ok) {
-      let mensaje = 'No se pudo marcar el plato como hecho';
-      if (data && data.error) mensaje = data.error;
-      return res.status(409).json({ error: mensaje });
-    }
-
-    let avisos = [];
-    if (Array.isArray(data.avisos)) avisos = data.avisos;
-
-    res.json({ mensaje: 'Plato marcado como hecho', stock_heladera: data.stock_heladera, avisos });
+    // 4. Listo: cuántas hay ahora y los avisos (si faltó un insumo o el plato no tiene receta)
+    const avisos = Array.isArray(data.avisos) ? data.avisos : [];  // la lista de avisos (vacía si no vino)
+    res.json({ mensaje: 'Plato marcado como hecho', stock_heladera: data.stock_heladera, avisos: avisos });
   } catch (e) {
     errorInterno(res, e);
   }
@@ -2862,22 +2892,13 @@ app.get('/api/ordenes-produccion/hechos-hoy', requireAuth, requireRol(...ROLES_H
     const esCocinero = Number(req.usuario.rol) === 2;             // si el que mira es un cocinero
     const resultado = [];                                         // la lista que se devuelve
     (data || []).forEach(detalle => {                             // por cada plato hecho...
-      if (esCocinero) {                                           // ...si mira un cocinero:
-        const loPuedeVer = Boolean(detalle.productos) && platoVisibleParaCocinero(detalle.productos, req.usuario.id);  // ¿es suyo o no tiene cocinero?
-        if (!loPuedeVer) return;                                  // (return = saltear este plato y seguir con el siguiente)
-      }
-      let plato = null;                                           // el nombre del plato
-      let plan = null;                                            // el nombre de su plan
-      if (detalle.productos) {                                    // si vino el plato...
-        plato = detalle.productos.nombre;                         // ...su nombre
-        if (detalle.productos.planes) plan = detalle.productos.planes.nombre;  // ...y el de su plan, si tiene
-      }
-      let marcadoPor = null;                                      // quién lo marcó
-      if (detalle.movimiento && detalle.movimiento.usuarios) {    // si vino el usuario del renglón "produccion"...
-        const nombre = detalle.movimiento.usuarios.nombre || '';  // ...su nombre (vacío si no tiene)
-        const apellido = detalle.movimiento.usuarios.apellido || '';  // ...su apellido (vacío si no tiene)
-        marcadoPor = (nombre + ' ' + apellido).trim();            // "Ana López" (trim saca el espacio que sobra si falta uno)
-      }
+      const loPuedeVer = Boolean(detalle.productos) && platoVisibleParaCocinero(detalle.productos, req.usuario.id);  // ¿es suyo o no tiene cocinero?
+      const ocultoAlCocinero = esCocinero && !loPuedeVer;         // un cocinero no ve los platos de otro cocinero
+      if (ocultoAlCocinero) return;                               // (return = saltear este plato y seguir con el siguiente)
+      const plato = detalle.productos ? detalle.productos.nombre : null;                 // el nombre del plato (null si no vino)
+      const plan = detalle.productos?.planes ? detalle.productos.planes.nombre : null;   // el de su plan (?. = "si vino el plato, su plan")
+      const quien = detalle.movimiento ? detalle.movimiento.usuarios : null;             // el usuario del renglón "produccion" (o null)
+      const marcadoPor = quien ? ((quien.nombre || '') + ' ' + (quien.apellido || '')).trim() : null;  // "Ana López" (trim saca el espacio de más)
       resultado.push({                                            // se agrega a la respuesta:
         id:          detalle.id,                                  // número del renglón
         id_orden:    detalle.id_orden_produccion,                 // número del pedido a cocina
@@ -2910,22 +2931,15 @@ const MOVIMIENTOS_POR_PAGINA = 50;                                // cuántos re
 
 app.get('/api/movimientos-viandas', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
   // 1. El tipo: vacío (todos) o uno de la lista cerrada. La consulta nunca se arma con el texto que llegó.
-  let tipo = '';                                                  // vacío = todos los tipos
-  if (req.query.tipo != null && req.query.tipo !== '') {          // si vino un tipo...
-    tipo = String(req.query.tipo);                                // ...como texto
-    if (!TIPOS_MOVIMIENTO_VIANDA.includes(tipo)) {                // ...tiene que ser uno de los 5 (includes = "está en la lista")
-      return res.status(400).json({ error: 'Tipo de movimiento inválido' });  // si no: 400
-    }
-  }
+  const vinoTipo = req.query.tipo != null && req.query.tipo !== '';  // ¿se eligió un tipo?
+  const tipo = vinoTipo ? String(req.query.tipo) : '';            // el tipo como texto ('' = todos)
+  const tipoInvalido = vinoTipo && !TIPOS_MOVIMIENTO_VIANDA.includes(tipo);  // tiene que ser uno de los 5 (includes = "está en la lista")
+  if (tipoInvalido) return res.status(400).json({ error: 'Tipo de movimiento inválido' });
 
   // 2. Desde: cuántos renglones saltear. Entero mayor o igual a 0 (vacío = 0)
-  let desde = 0;                                                  // sin "desde": arranca del primero
-  if (req.query.desde != null && req.query.desde !== '') {        // si vino...
-    desde = leerCantidadViandas(req.query.desde, true);           // ...entero mayor o igual a 0 (null si no)
-    if (desde === null) {                                         // si no es válido...
-      return res.status(400).json({ error: 'El valor de "desde" es inválido' });  // ...400
-    }
-  }
+  const vinoDesde = req.query.desde != null && req.query.desde !== '';  // ¿vino "desde"?
+  const desde = vinoDesde ? leerCantidadViandas(req.query.desde, true) : 0;  // entero mayor o igual a 0 (null si no es válido)
+  if (desde === null) return res.status(400).json({ error: 'El valor de "desde" es inválido' });
 
   try {
     // 3. La consulta: los renglones con su plato y quién los anotó, del más nuevo al más viejo
@@ -2942,14 +2956,9 @@ app.get('/api/movimientos-viandas', requireAuth, requireRol(...ROLES_HELADERA), 
     // 4. La respuesta: un objeto por renglón
     const resultado = [];                                         // la lista que se devuelve
     (data || []).forEach(movimiento => {                          // por cada renglón...
-      let platoNombre = '-';                                      // ...el nombre del plato ("-" si no vino)
-      if (movimiento.productos) platoNombre = movimiento.productos.nombre;
-      let usuarioNombre = '-';                                    // ...quién lo anotó ("-" si no vino)
-      if (movimiento.usuarios) {                                  // si vino el usuario...
-        const nombre = movimiento.usuarios.nombre || '';          // ...su nombre (vacío si no tiene)
-        const apellido = movimiento.usuarios.apellido || '';      // ...su apellido (vacío si no tiene)
-        usuarioNombre = (nombre + ' ' + apellido).trim();         // ...junto: "Consumidor Final"
-      }
+      const platoNombre = movimiento.productos ? movimiento.productos.nombre : '-';  // ...el nombre del plato ("-" si no vino)
+      const quien = movimiento.usuarios;                          // ...quién lo anotó (o null)
+      const usuarioNombre = quien ? ((quien.nombre || '') + ' ' + (quien.apellido || '')).trim() : '-';  // "Consumidor Final" ("-" si no vino)
       resultado.push({                                            // se agrega a la respuesta:
         id:             movimiento.id,                            // número del renglón
         tipo:           movimiento.tipo,                          // produccion, venta, devolucion, descarte o ajuste
@@ -2964,6 +2973,266 @@ app.get('/api/movimientos-viandas', requireAuth, requireRol(...ROLES_HELADERA), 
     res.json(resultado);                                          // se manda la lista
   } catch (e) {                                                   // si algo falló de golpe...
     errorInterno(res, e);                                         // ...500 con un mensaje simple
+  }
+});
+
+/* ======================================================
+   MOVIMIENTOS DE STOCK, TODO JUNTO (paso H8, parada 3C)
+   Insumos (movimientos_stock) y viandas (movimientos_viandas) en una sola lista:
+   una fila por cada cosa que pasó (una compra, un "Hecho", una venta, una devolución, un descarte,
+   lo que gastó la cocina en un pedido o un ajuste a mano). Solo lee: no cambia nada en la base.
+   ====================================================== */
+
+const FILAS_POR_VUELTA = 1000;                                    // Supabase manda como mucho 1000 renglones por consulta
+const TOPE_FILAS_MOVIMIENTOS = 20000;                             // más que esto por libreta = "elegí menos días"
+
+// ─────────────────────────────────────────────────────────────────────────────
+// nombreDeUsuario → "Nombre Apellido" de un usuario que vino de la base, o "-" si no vino
+// ENTRADA: usuario ({ nombre, apellido } o null)
+// SALIDA:  el texto. Ej: { nombre: 'Ana', apellido: 'López' } → 'Ana López' · null → '-'
+// La usa armarMovimientos (para quién cargó, quién pidió y quién marcó Hecho).
+// ─────────────────────────────────────────────────────────────────────────────
+function nombreDeUsuario(usuario) {
+  if (!usuario) return '-';                                       // no vino: "-"
+  const nombre = (String(usuario.nombre || '') + ' ' + String(usuario.apellido || '')).trim();  // "Ana López" (trim saca el espacio que sobra)
+  return nombre || '-';                                           // si quedó vacío, "-"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// traerTodasLasFilas → trae TODOS los renglones de una libreta entre dos fechas, de a 1000
+//                      (Supabase manda como mucho 1000 por consulta)
+// ENTRADA: tabla ('movimientos_stock' o 'movimientos_viandas', la pone el servidor, nunca la pantalla),
+//          columnas (qué traer) y desdeISO / hastaISO (fecha y hora con -03:00; null = sin límite)
+// SALIDA:  { filas } con todos los renglones, del más nuevo al más viejo y sin repetir
+//          · { error } si falló la base · { demasiadas: true } si pasa el tope de 20.000
+// Ej: 2.350 renglones → 3 vueltas: del 0 al 999, del 1000 al 1999 y del 2000 al 2349 (vinieron 350: no hay más).
+// La usa GET /api/movimientos.
+// ─────────────────────────────────────────────────────────────────────────────
+async function traerTodasLasFilas(tabla, columnas, desdeISO, hastaISO) {
+  const filas = [];                                               // todos los renglones juntos
+  const vistos = {};                                              // { id: true }: si entra uno nuevo mientras se pide, no se repite
+  let desde = 0;                                                  // desde qué renglón se pide en cada vuelta
+  let hayMas = true;                                              // ¿puede haber más?
+
+  // while = "mientras": repite el bloque mientras hayMas sea true. No es recorrer una lista:
+  // no se sabe de antemano cuántas vueltas hacen falta.
+  while (hayMas) {
+    // 1. La consulta: siempre en el mismo orden (si no, una vuelta podría repetir o saltear renglones)
+    let consulta = supabase                                       // arma el pedido a la base...
+      .from(tabla)                                                // ...la libreta...
+      .select(columnas)                                           // ...con estas columnas...
+      .order('fecha', { ascending: false })                       // ...del más nuevo al más viejo...
+      .order('id', { ascending: false });                         // ...y si empatan, por número
+    if (desdeISO) consulta = consulta.gte('fecha', desdeISO);     // desde esa hora (incluida)
+    if (hastaISO) consulta = consulta.lt('fecha', hastaISO);      // hasta antes de esa hora
+
+    // 2. Esta vuelta: del renglón "desde" al "desde + 999"
+    const { data, error } = await consulta.range(desde, desde + FILAS_POR_VUELTA - 1);
+    if (error) return { error: error };                           // si falló la base: se avisa
+
+    // 3. Se agregan los que no estaban
+    const vuelta = data || [];                                    // los renglones de esta vuelta
+    vuelta.forEach(fila => {                                      // por cada uno...
+      if (vistos[fila.id]) return;                                // (return = saltear: ya estaba)
+      vistos[fila.id] = true;                                     // ...se anota...
+      filas.push(fila);                                           // ...y se agrega
+    });
+    if (filas.length > TOPE_FILAS_MOVIMIENTOS) return { demasiadas: true };  // demasiados: se corta
+
+    // 4. ¿Hay más? Si vinieron 1000 puede haber más; si vinieron menos, ya está
+    hayMas = vuelta.length === FILAS_POR_VUELTA;
+    desde = desde + FILAS_POR_VUELTA;                             // la próxima vuelta arranca 1000 más abajo
+  }
+
+  return { filas: filas };                                        // todos los renglones
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// armarMovimientos → junta los renglones de las dos libretas en MOVIMIENTOS (una fila por cosa que pasó)
+// ENTRADA: filasViandas (renglones de movimientos_viandas) y filasStock (renglones de movimientos_stock),
+//          con sus datos unidos (plato, insumo, usuario, compra, pedido, pedido a cocina)
+// SALIDA:  [{ clave, origen, tipo, fecha, numero, usuario, proveedor, motivo, cliente, pidio, insumos, viandas }],
+//          del más nuevo al más viejo
+//            origen  = 'compra' · 'produccion' · 'venta' · 'devolucion' · 'descarte' · 'cocina' · 'ajuste'
+//            tipo    = 'entrada' o 'salida'
+//            numero  = el de la compra, el pedido a cocina o el pedido (null si no tiene)
+//            insumos = [{ nombre, cantidad, unidad, vence }] · viandas = [{ plato, cantidad }]
+// Ej: el "Hecho" de 2 fideos del pedido a cocina #9 = 1 renglón de viandas (+2) y 2 de insumos (harina, huevo)
+//     → { origen: 'produccion', tipo: 'entrada', numero: 9, usuario: 'Ana López', pidio: 'Mauri Rodriguez',
+//         viandas: [{ plato: 'fideos', cantidad: 2 }],
+//         insumos: [{ nombre: 'Harina integral', cantidad: 600, unidad: 'g' }, { nombre: 'Huevo', cantidad: 4, unidad: 'u' }] }
+// Cómo se juntan, sin forEach adentro de otro: un objeto { clave: movimiento } y cada renglón se suma al suyo.
+//   compra → id_compra · produccion → el renglón de viandas (los insumos lo traen en id_movimiento_vianda)
+//   venta y devolucion → el pedido (todos sus renglones se guardan juntos, con la misma hora)
+//   cocina → id_pedido, o el motivo EXACTO "Consumo por producción pedido #005" (los renglones viejos y los de Render)
+//   descarte y ajuste → uno por renglón
+// La usa GET /api/movimientos.
+// ─────────────────────────────────────────────────────────────────────────────
+function armarMovimientos(filasViandas, filasStock) {
+  const movimientoPorClave = {};                                  // { clave: movimiento }
+  const movimientos = [];                                         // la lista, en el orden en que se crean
+
+  // 1. LAS VIANDAS (movimientos_viandas): producción, venta, devolución, descarte y ajuste
+  filasViandas.forEach(fila => {                                  // por cada renglón de viandas...
+    const cantidad = Number(fila.cantidad);                       // + entran, − salen
+    const pedidoACocina = (fila.orden_produccion_detalles || [])[0];  // el pedido a cocina del "Hecho" (undefined si no tiene)
+
+    // a. A qué movimiento pertenece, según sea el tipo del renglón. Lo que no es de estos tipos
+    //    (o una venta o devolución sin pedido) queda como ajuste, uno por renglón.
+    const ajuste = { clave: 'ajuste-vianda-' + fila.id, origen: 'ajuste', tipo: cantidad > 0 ? 'entrada' : 'salida', numero: null };
+    let datos = ajuste;
+    switch (fila.tipo) {
+      case 'produccion':                                          // según sea un "Hecho" (o una tanda vieja): sus insumos traen este número
+        datos = { clave: 'produccion-' + fila.id, origen: 'produccion', tipo: 'entrada', numero: pedidoACocina?.id_orden_produccion ?? null };
+        break;
+      case 'venta':                                               // según sea una venta de la web nueva: todos los platos del pedido juntos
+        datos = fila.id_pedido ? { clave: 'venta-' + fila.id_pedido + '-' + fila.fecha, origen: 'venta', tipo: 'salida', numero: fila.id_pedido } : ajuste;
+        break;
+      case 'devolucion':                                          // según sea una anulación: todos los platos que volvieron juntos
+        datos = fila.id_pedido ? { clave: 'devolucion-' + fila.id_pedido + '-' + fila.fecha, origen: 'devolucion', tipo: 'entrada', numero: fila.id_pedido } : ajuste;
+        break;
+      case 'descarte':                                            // según sea un descarte: uno por renglón
+        datos = { clave: 'descarte-' + fila.id, origen: 'descarte', tipo: 'salida', numero: null };
+        break;
+    }
+
+    // b. Si es el primer renglón de su movimiento, se crea el movimiento
+    //    (?. = "si existe…"; en producción: quién pidió a cocina; en venta: el cliente)
+    const esNuevo = !movimientoPorClave[datos.clave];
+    if (esNuevo) {
+      const quienPidio = datos.origen === 'produccion' ? pedidoACocina?.ordenes_produccion : null;  // solo en producción: el pedido a cocina, con su usuario
+      movimientoPorClave[datos.clave] = {
+        clave:     datos.clave,                                   // para reconocerlo
+        origen:    datos.origen,                                  // de dónde viene
+        tipo:      datos.tipo,                                    // entrada o salida
+        fecha:     fila.fecha,                                    // cuándo
+        numero:    datos.numero,                                  // el pedido o el pedido a cocina
+        usuario:   nombreDeUsuario(fila.usuarios),                // quién lo hizo (en producción: quién marcó Hecho)
+        proveedor: null,                                          // solo las compras
+        motivo:    fila.motivo,                                   // el motivo escrito (ej: "vencidas")
+        cliente:   datos.origen === 'venta' ? fila.pedidos?.cliente_nombre ?? null : null,  // solo las ventas: el cliente
+        pidio:     quienPidio ? nombreDeUsuario(quienPidio.usuarios) : null,               // solo la producción: quién pidió
+        insumos:   [],                                            // los insumos (se llenan en el paso 2)
+        viandas:   []                                             // los platos
+      };
+      movimientos.push(movimientoPorClave[datos.clave]);          // y se agrega a la lista
+    }
+
+    // c. El plato de este renglón (en positivo: el tipo ya dice si entra o sale)
+    const plato = fila.productos && fila.productos.nombre ? fila.productos.nombre : '-';
+    movimientoPorClave[datos.clave].viandas.push({ plato: plato, cantidad: Math.abs(cantidad) });
+  });
+
+  // 2. LOS INSUMOS (movimientos_stock): compra, producción (se suman a su renglón de viandas), cocina y ajuste
+  filasStock.forEach(fila => {                                    // por cada renglón de insumos...
+    // a. ¿Es lo que gastó la cocina en un pedido? Los nuevos tienen id_pedido; los viejos, el motivo EXACTO.
+    //    exec busca el texto: ^ y $ = tiene que ser el motivo entero; (\d+) = el número. Ej: '…pedido #005' → ['…', '005']
+    const motivoDePedido = /^Consumo por producción pedido #(\d+)$/.exec(fila.motivo || '');
+    const pedidoDelMotivo = motivoDePedido ? Number(motivoDePedido[1]) : null;  // '005' → 5 (null si no es de un pedido)
+    const idPedido = fila.id_pedido || pedidoDelMotivo;           // primero id_pedido; si no, el del motivo
+
+    // b. A qué movimiento pertenece: se elige el primero que corresponde, en este orden
+    //    (compra, después "Hecho", después pedido; si no es ninguno, lo cargado a mano es un ajuste)
+    let datos = null;
+    if (fila.id_compra) datos = { clave: 'compra-' + fila.id_compra, origen: 'compra', tipo: 'entrada', numero: fila.id_compra };
+    if (!datos && fila.id_movimiento_vianda) datos = { clave: 'produccion-' + fila.id_movimiento_vianda, origen: 'produccion', tipo: 'entrada', numero: null };
+    if (!datos && idPedido) datos = { clave: 'cocina-' + idPedido + '-' + fila.fecha, origen: 'cocina', tipo: 'salida', numero: idPedido };
+    if (!datos) datos = { clave: 'ajuste-insumo-' + fila.id, origen: 'ajuste', tipo: fila.tipo === 'entrada' ? 'entrada' : 'salida', numero: null };
+
+    // c. Si es el primer renglón de su movimiento, se crea (en producción ya lo creó el paso 1)
+    const esNuevo = !movimientoPorClave[datos.clave];
+    if (esNuevo) {
+      movimientoPorClave[datos.clave] = {
+        clave:     datos.clave,
+        origen:    datos.origen,
+        tipo:      datos.tipo,
+        fecha:     fila.fecha,
+        numero:    datos.numero,
+        usuario:   nombreDeUsuario(fila.usuarios),
+        proveedor: datos.origen === 'compra' ? fila.compras?.proveedor || null : null,  // solo las compras
+        motivo:    fila.motivo,
+        cliente:   null,
+        pidio:     null,
+        insumos:   [],
+        viandas:   []
+      };
+      movimientos.push(movimientoPorClave[datos.clave]);
+    }
+
+    // d. El insumo de este renglón. La unidad: la del renglón o, si no la guardó, la del insumo.
+    movimientoPorClave[datos.clave].insumos.push({
+      nombre:   fila.insumos?.nombre || '-',                      // ej: "Harina integral"
+      cantidad: Number(fila.cantidad),                            // ej: 600
+      unidad:   fila.unidad || fila.insumos?.unidad_medida || '', // ej: "g"
+      vence:    fila.fecha_vencimiento || null                    // solo las compras
+    });
+  });
+
+  // 3. Del más nuevo al más viejo (si dos tienen la misma hora, por su clave, para que el orden no cambie)
+  //    sort recibe una función que compara dos movimientos: negativo = a va antes, positivo = b va antes
+  movimientos.sort((a, b) => {
+    const horaA = new Date(a.fecha).getTime();                    // la fecha como número (milisegundos)
+    const horaB = new Date(b.fecha).getTime();
+    if (horaA !== horaB) return horaB - horaA;                    // el más nuevo primero
+    return a.clave.localeCompare(b.clave);                        // empate: por clave
+  });
+
+  return movimientos;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/movimientos → TODO lo que entró y salió, insumos y viandas juntos (pantalla Movimientos de Stock)
+// ENTRADA: ?desde=AAAA-MM-DD y ?hasta=AAAA-MM-DD (opcionales; días de Argentina, los dos incluidos)
+// SALIDA:  la lista de armarMovimientos, del más nuevo al más viejo · 400 si una fecha es inválida, si "desde"
+//          es mayor que "hasta" o si hay demasiados renglones · 500
+// Ej: ?desde=2026-10-15&hasta=2026-10-15 → la compra #2 (6 insumos), el "Hecho" de 2 fideos del pedido a cocina #9
+//     (2 viandas · 2 insumos), la venta del pedido #250 (18 viandas), …
+// Solo lee. La pantalla dibuja una fila por movimiento con su Detalle (Ver / Ocultar) y filtra.
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/movimientos', requireAuth, requireRol(6, 5, 1), async (req, res) => {
+  // 1. Las fechas (opcionales): AAAA-MM-DD que existan de verdad (leerFechaPara rechaza 2026-02-30)
+  const vinoDesde = req.query.desde != null && req.query.desde !== '';
+  const vinoHasta = req.query.hasta != null && req.query.hasta !== '';
+  const desde = vinoDesde ? leerFechaPara(req.query.desde) : null;  // null = desde el principio
+  const hasta = vinoHasta ? leerFechaPara(req.query.hasta) : null;  // null = hasta ahora
+  const desdeInvalida = vinoDesde && desde === null;              // vino y no es una fecha de verdad
+  if (desdeInvalida) return res.status(400).json({ error: 'La fecha "desde" es inválida' });
+  const hastaInvalida = vinoHasta && hasta === null;
+  if (hastaInvalida) return res.status(400).json({ error: 'La fecha "hasta" es inválida' });
+  const fechasAlReves = desde && hasta && desde > hasta;          // "AAAA-MM-DD" se compara como texto
+  if (fechasAlReves) return res.status(400).json({ error: 'La fecha "desde" no puede ser mayor que "hasta"' });
+
+  // 2. Las horas: desde las 00:00 de "desde" hasta antes de las 00:00 del día después de "hasta" (en Argentina)
+  const partes = hasta ? hasta.split('-') : null;                 // ej: ['2026', '10', '15']
+  const diaSiguiente = partes                                     // el día después de "hasta" (en Date.UTC los meses van de 0 a 11)
+    ? new Date(Date.UTC(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]) + 1)).toISOString().slice(0, 10)
+    : null;                                                       // ej: '2026-10-16'
+  const desdeISO = desde ? desde + 'T00:00:00' + OFFSET_ARGENTINA : null;               // ej: '2026-10-15T00:00:00-03:00'
+  const hastaISO = diaSiguiente ? diaSiguiente + 'T00:00:00' + OFFSET_ARGENTINA : null;  // ej: '2026-10-16T00:00:00-03:00'
+
+  try {
+    // 3. Las viandas, con su plato, quién, el cliente (ventas) y el pedido a cocina con quién lo pidió (producción).
+    //    "pedidos!id_pedido" = el pedido de la columna id_pedido (se aclara la columna por si hay más de un camino).
+    const viandas = await traerTodasLasFilas('movimientos_viandas',
+      'id, tipo, cantidad, motivo, fecha, id_pedido, productos ( nombre ), usuarios ( nombre, apellido ), ' +
+      'pedidos!id_pedido ( cliente_nombre ), ' +
+      'orden_produccion_detalles ( id_orden_produccion, ordenes_produccion ( usuarios ( nombre, apellido ) ) )',
+      desdeISO, hastaISO);
+    if (viandas.error) return errorInterno(res, viandas.error);
+    if (viandas.demasiadas) return res.status(400).json({ error: 'Hay demasiados movimientos en esas fechas: elegí menos días' });
+
+    // 4. Los insumos, con su nombre y unidad, quién, y el proveedor (compras)
+    const stock = await traerTodasLasFilas('movimientos_stock',
+      'id, tipo, cantidad, unidad, motivo, fecha, fecha_vencimiento, id_compra, id_movimiento_vianda, id_pedido, ' +
+      'insumos ( nombre, unidad_medida ), usuarios ( nombre, apellido ), compras ( proveedor )',
+      desdeISO, hastaISO);
+    if (stock.error) return errorInterno(res, stock.error);
+    if (stock.demasiadas) return res.status(400).json({ error: 'Hay demasiados movimientos en esas fechas: elegí menos días' });
+
+    // 5. Se juntan en movimientos (una fila por cosa que pasó) y se mandan
+    res.json(armarMovimientos(viandas.filas, stock.filas));
+  } catch (e) {
+    errorInterno(res, e);
   }
 });
 
