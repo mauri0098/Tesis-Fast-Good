@@ -1,778 +1,747 @@
-/* ===================================================
-   INDEX-COMBOS.CSS — Página de combos (index-combos.html)
-   Usa las variables de global.css (colores, sombras, radios).
-   El encabezado y el pie toman el estilo de global.css.
-   =================================================== */
+/* ===================================================================================
+   INDEX-COMBOS.CSS — Estilos de la web nueva (index.html). Es la ÚNICA hoja de la página:
+   no usa global.css (su encabezado verde, su pie y sus botones chocan con este diseño).
 
-/* --- Generales --- */
-.contenedor {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 1.5rem;
-}
+   Es el estilos.css v5 del diseño final (docs/diseno-final-index/estilos.css), con los MISMOS valores y los nombres
+   pasados a español claro (regla "Nombres claros" del CLAUDE.md: ej. la tarjeta de un combo es .tarjeta-combo,
+   no .combo; la tabla "maqueta → nuestro" está en el INFORME, sección 13.11), sin las partes que esta página
+   no usa (ofertas del día, platos sueltos, descuentos, la ventana de iniciar sesión de la maqueta).
+   Después de esta hoja se carga index-final.css (los ajustes del diseño final y las animaciones).
+   Al final van los agregados: lo que la maqueta no dibuja (personalizar un plato, fotos de verdad,
+   el botón de sesión de auth.js, el login en ventana, etc.).
 
-.icono {
-    width: 1.2em;
-    height: 1.2em;
-    flex-shrink: 0;
-    vertical-align: middle;
-}
+   Cómo se ve todo (de la v5):
+   Fondo claro verdoso (#f3f6f1) con Categorías y Preguntas en verde clarito (#e7f1e4); tarjetas, modales y
+   controles en blanco. Verde para acción, selección y precio; naranja en el contador del pedido.
+   Radios: tarjetas 16px, fotos y campos 12px, botones en píldora.
+   Alturas: botones 44px (50px el de la portada), botones de categoría 40px en compu (52px en el celular).
+   Texto común 16px; secciones 44px arriba y abajo en celular, 72px en compu.
+   Capas: encabezado 10, WhatsApp flotante 20 (los <dialog> van en la capa de arriba del navegador).
+   =================================================================================== */
 
-/* Enlace "Saltar al contenido": solo aparece al navegar con teclado */
-.saltar {
-    position: absolute;
-    left: -9999px;
-}
-.saltar:focus {
-    left: 1rem;
-    top: 1rem;
-    z-index: 2000;
-    padding: 0.5rem 1rem;
-    background: var(--color-white);
-    color: var(--color-text);
-}
+:root {
+  color-scheme: light;
 
-/* --- Botones --- */
-.btn {
-    display: inline-block;
-    padding: 0.7rem 1.4rem;
-    border: none;
-    border-radius: var(--radius-pill);
-    font-weight: 600;
-    font-size: 1rem;
-    text-align: center;
-    text-decoration: none;
-    cursor: pointer;
-    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-}
-.btn:hover {
-    transform: translateY(-2px);
-}
-.btn--primario {
-    background: var(--color-secondary);
-    color: var(--color-white);
-}
-.btn--primario:hover {
-    box-shadow: var(--shadow-btn-hover);
-}
-.btn--grande {
-    padding: 0.9rem 2rem;
-    font-size: 1.1rem;
-}
-.btn--ancho {
-    width: 100%;
+  --verde: #2faa4b;             /* verde de marca: barras de progreso, bordes al pasar el mouse */
+  --verde-fuerte: #1d7a34;      /* botones y textos en verde (5.4:1 con blanco) */
+  --verde-hondo: #186a2c;       /* hover de los botones */
+  --verde-claro: #e7f1e4;       /* fondo de íconos y de lo elegido, en elementos chicos */
+  --naranja: #ff9800;
+  --error: #c0261b;
+
+  --fondo: #f3f6f1;             /* fondo general, igual que la original */
+  --tinte: #e7f1e4;             /* secciones alternas (categorías y preguntas), igual que la original */
+  --blanco: #ffffff;
+  --texto: #16201a;
+  --titulo: #2b352f;            /* gris oscuro de nombres de platos y ventanas */
+  --titulo-suave: #3a4640;      /* títulos de portada y de sección, igual que la original (8.4:1 sobre el tinte, 9:1 sobre el fondo) */
+  --texto-suave: #4b574e;
+  --borde: #d9e3d6;
+  --linea: #e3eae0;
+  --gris: #eef2ec;              /* gris casi blanco: recuadros de foto y botones redondos */
+  --foto-texto: #56645a;
+
+  --sombra: 0 1px 2px rgb(22 50 30 / .06), 0 8px 24px rgb(22 50 30 / .08);
+  --sombra-foto: 0 28px 60px -24px rgb(22 60 32 / .38);
+  --sombra-alta: 0 24px 60px rgb(16 40 22 / .22);
+  --sombra-accion: 0 6px 18px rgb(29 122 52 / .3);
+
+  --fuente: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --curva: cubic-bezier(.16, 1, .3, 1);
 }
 
-/* --- Encabezado (el fondo verde viene de global.css) --- */
-.encabezado__fila {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    max-width: 1200px;
-    margin: 0 auto;
-    flex-wrap: wrap;
+/* Base */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 120px; -webkit-text-size-adjust: 100%; background: var(--fondo); }
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: var(--fuente);
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
-.logo {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    color: var(--color-white);
-    font-weight: 700;
-    font-size: 1.4rem;
-    letter-spacing: 0.04em;
-    text-decoration: none;
+/* Evita ver la página "a medio armar": el body aparece cuando terminó de cargar
+   (el script del final de index.html le pone la clase "cargada"; a los 2 s aparece igual) */
+body { visibility: hidden; opacity: 0; transition: opacity .15s ease-in; }
+body.cargada { visibility: visible; opacity: 1; }
+h1, h2, h3, h4 { font-family: var(--fuente); line-height: 1.15; margin: 0; letter-spacing: -.02em; color: var(--titulo); font-weight: 800; text-wrap: balance; }
+p { margin: 0; }
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+::selection { background: color-mix(in srgb, var(--verde) 25%, transparent); }
+:focus-visible { outline: 3px solid var(--verde); outline-offset: 2px; }
+.icono { width: 20px; height: 20px; flex: none; }
+/* La lista de íconos del principio del HTML (se dibujan una vez y se reutilizan con <use>): no ocupa lugar */
+.lista-iconos { position: absolute; }
+
+.contenedor { width: 100%; max-width: 1200px; margin-inline: auto; padding-inline: 16px; }
+@media (min-width: 768px) { .contenedor { padding-inline: 32px; } }
+
+/* "Saltar al contenido": escondido arriba; aparece al llegar con la tecla Tab */
+.saltar-al-contenido {
+  position: absolute; left: 16px; top: -60px; z-index: 40;
+  background: var(--verde-fuerte); color: #fff; padding: 10px 16px; border-radius: 999px;
 }
-.logo img {
-    height: 44px;
+.saltar-al-contenido:focus { top: 12px; }
+
+/* Botones */
+.boton {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 20px;
+  border: 0; border-radius: 999px;
+  font-weight: 700; font-size: .9375rem; text-decoration: none; white-space: nowrap; cursor: pointer;
+  transition: transform .2s var(--curva), background-color .2s, box-shadow .2s, color .2s;
 }
-.encabezado__acciones {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
+.boton .icono { width: 18px; height: 18px; }
+.boton:active:not(:disabled) { transform: scale(.97); }
+.boton-principal { background: var(--verde-fuerte); color: #fff; }
+.boton-principal:hover:not(:disabled) { background: var(--verde-hondo); box-shadow: var(--sombra-accion); }
+.boton-principal:disabled { background: var(--borde); color: var(--texto-suave); cursor: not-allowed; }
+.boton-secundario { background: var(--blanco); color: var(--texto); box-shadow: inset 0 0 0 2px var(--borde); }
+.boton-secundario:hover { box-shadow: inset 0 0 0 2px var(--verde); color: var(--verde-fuerte); }
+.boton-grande { min-height: 50px; padding: 0 28px; font-size: 1rem; }
+.boton-ancho { width: 100%; }
+.boton-mi-pedido { gap: 8px; padding: 0 6px 0 16px; background: var(--verde-fuerte); color: #fff; }
+.boton-mi-pedido:hover { background: var(--verde-hondo); }
+.contador-combos {
+  display: inline-grid; place-items: center;
+  min-width: 26px; height: 26px; padding: 0 6px; border-radius: 999px;
+  background: var(--naranja); color: var(--texto); font-size: .875rem; font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
-.btn-pedido {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.55rem 1rem;
-    border: none;
-    border-radius: var(--radius-pill);
-    background: var(--color-white);
-    color: var(--color-primary-dark);
-    font-weight: 600;
-    cursor: pointer;
-}
-.contador {
-    min-width: 1.5rem;
-    padding: 0 0.4rem;
-    border-radius: var(--radius-pill);
-    background: var(--color-secondary);
-    color: var(--color-white);
-    font-size: 0.85rem;
+/* "Salto" (la usa la ✓ grande de la confirmación) */
+@keyframes salto { 40% { transform: scale(1.35); } }
+
+/* Recuadro de foto (platos y combos) */
+.foto {
+  display: grid; place-items: center; text-align: center;
+  width: 100%; aspect-ratio: 4 / 3;
+  background: var(--gris); color: var(--foto-texto);
+  font-size: .8125rem; font-weight: 600;
+  border-radius: 12px;
 }
 
-/* --- Portada --- */
-.portada {
-    padding: 3rem 0 0;
-    background: var(--color-white);
+/* Logo (encabezado y pie) */
+.logo { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; }
+.logo-imagen { display: block; height: 40px; width: auto; }
+
+/* 1. Encabezado */
+.encabezado {
+  position: sticky; top: 0; z-index: 10;
+  background: color-mix(in srgb, var(--fondo) 88%, transparent);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--borde);
 }
-.portada__grid {
-    display: grid;
-    grid-template-columns: 1fr 1.2fr;
-    gap: 2.5rem;
-    align-items: center;
+/* En el celular: logo y botones arriba, el menú abajo. En compu (900px o más): todo en una fila */
+.encabezado-fila {
+  display: grid; align-items: center; gap: 0 8px;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas: "logo . botones" "menu menu menu";
+  padding-block: 8px 0;
 }
-.portada__texto h1 {
-    font-size: 3.2rem;
-    line-height: 1.1;
-    color: var(--color-text);
+.encabezado .logo { grid-area: logo; }
+.encabezado-botones { grid-area: botones; display: flex; align-items: center; gap: 4px; }
+.menu-principal {
+  grid-area: menu; display: flex; gap: 4px;
+  overflow-x: auto; scrollbar-width: none;
+  margin-inline: -16px; padding: 2px 16px 4px;
 }
-.portada__acento {
-    color: var(--color-primary);
+.menu-principal::-webkit-scrollbar { display: none; }
+.menu-principal a {
+  flex: none; display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 999px;
+  font-weight: 600; font-size: .9375rem; text-decoration: none; color: var(--texto-suave);
+  transition: color .2s, background-color .2s;
 }
-.portada__bajada {
-    margin: 1rem 0;
-    font-size: 1.2rem;
-    color: #555;
+.menu-principal a:hover { color: var(--texto); background: var(--tinte); }
+@media (max-width: 767px) {
+  .menu-principal a { padding: 0 10px; font-size: .875rem; }
+  .menu-principal a:first-child { margin-left: -10px; }
 }
-.portada__lugar {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    margin-bottom: 1.5rem;
-    color: var(--color-primary-dark);
-    font-weight: 600;
+@media (max-width: 400px) {
+  .boton-mi-pedido { padding-left: 12px; font-size: .9375rem; gap: 6px; }
+  .boton-mi-pedido .icono { display: none; }
 }
-.portada__foto {
-    position: relative;
-}
-.portada__foto img {
-    width: 100%;
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-md);
-}
-.portada__etiqueta {
-    position: absolute;
-    left: 1rem;
-    bottom: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.4rem 0.9rem;
-    border-radius: var(--radius-pill);
-    background: var(--color-white);
-    font-weight: 600;
-    box-shadow: var(--shadow-sm);
+@media (min-width: 900px) {
+  .encabezado-fila { grid-template-areas: "logo menu botones"; min-height: 64px; padding-block: 0; gap: 24px; }
+  .menu-principal a { min-height: 40px; }
+  .menu-principal { justify-content: center; margin: 0; padding: 0; }
 }
 
-/* Los 3 pasos */
+/* 2. Portada: en celular el texto arriba y la foto en tarjeta debajo; en compu, texto a la izquierda y foto a la derecha */
+.portada { padding: 24px 0 0; }
+.portada-columnas { display: grid; gap: 28px; }
+.portada-texto { container-type: inline-size; }
+/* "Fast Good" siempre en una línea: el tamaño sigue al ancho de la columna */
+.portada h1 {
+  color: var(--titulo-suave);
+  font-size: min(19cqi, 5.25rem); font-weight: 900; line-height: .95; letter-spacing: -.04em;
+  white-space: nowrap;
+}
+/* La palabra en verde de un título: "Good", "estamos", "frecuentes" */
+.palabra-verde { color: var(--verde-fuerte); }
+.portada-subtitulo {
+  margin: 14px 0 0; max-width: 30ch;
+  font-size: clamp(1.0625rem, 4.4vw, 1.25rem); font-weight: 500; line-height: 1.35; letter-spacing: -.01em; color: var(--texto-suave);
+}
+.portada-lugar {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
+  font-size: .9375rem; font-weight: 700; color: var(--verde-fuerte);
+}
+.portada-lugar .icono { width: 18px; height: 18px; }
+.portada-botones { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; margin-top: 20px; }
+.portada-botones .boton { width: 100%; }
+.combos-desde { font-size: .9375rem; color: var(--texto-suave); }
+.combos-desde strong { color: var(--verde-fuerte); font-weight: 800; }
+/* Contacto chico debajo del botón: no compite con "Pedir ahora" */
+.portada-contacto {
+  list-style: none; margin: 10px 0 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 0 20px;
+  font-size: .875rem; font-weight: 500; color: var(--texto-suave);
+}
+.portada-contacto li { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.portada-contacto .icono { width: 18px; height: 18px; color: var(--verde-fuerte); }
+.portada-contacto a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-decoration: none; }
+.portada-contacto a:hover { color: var(--verde-fuerte); text-decoration: underline; text-underline-offset: 3px; }
+
+/* Foto en tarjeta, encuadrada en las bandejas (lado derecho de la foto) */
+.portada-foto { position: relative; }
+.portada-marco {
+  position: relative; aspect-ratio: 4 / 3; overflow: hidden;
+  border-radius: 16px; background: var(--gris); box-shadow: var(--sombra-foto);
+}
+.portada-imagen { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; object-fit: cover; object-position: 100% 50%; }
+.portada-etiqueta {
+  position: absolute; left: 12px; bottom: 12px; margin: 0;
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px;
+  background: var(--blanco); color: var(--texto); font-size: .875rem; font-weight: 700;
+  box-shadow: 0 6px 18px -6px rgb(14 22 30 / .3);
+}
+.portada-etiqueta .icono { width: 18px; height: 18px; color: var(--verde-fuerte); }
+
+/* Los tres pasos */
+.franja-pasos { margin-top: 32px; border-block: 1px solid var(--borde); }
 .pasos {
-    display: flex;
-    justify-content: center;
-    gap: 2.5rem;
-    padding: 2rem 1.5rem;
-    list-style: none;
-    font-weight: 600;
+  list-style: none; margin: 0 auto; padding-block: 12px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
 }
 .pasos li {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+  font-size: .8125rem; font-weight: 600; line-height: 1.25; color: var(--texto-suave);
 }
-.pasos__num {
-    display: grid;
-    place-items: center;
-    width: 2rem;
-    height: 2rem;
-    border-radius: 50%;
-    background: var(--color-primary);
-    color: var(--color-white);
+.pasos-numero {
+  display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 999px;
+  background: var(--verde-fuerte); color: #fff; font-size: .8125rem; font-weight: 800;
 }
 
-/* --- Secciones --- */
-.seccion {
-    padding: 4rem 0;
+@media (min-width: 768px) {
+  .portada { padding-top: 40px; }
+  .portada-columnas { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: center; gap: clamp(40px, 5vw, 64px); }
+  .portada-marco { aspect-ratio: 3 / 2; }
+  .portada-subtitulo { margin-top: 16px; }
+  .portada-lugar { margin-top: 12px; }
+  .portada-botones { margin-top: 24px; }
+  .portada-botones .boton { width: auto; }
+  .portada-contacto { margin-top: 12px; }
+  .portada-etiqueta { left: 16px; bottom: 16px; gap: 8px; padding: 8px 14px; font-size: .875rem; }
+  .franja-pasos { margin-top: 40px; }
+  .pasos { padding-block: 14px; gap: 24px; }
+  .pasos li { flex-direction: row; justify-content: center; gap: 10px; font-size: .9375rem; text-align: left; }
+  .pasos-numero { width: 26px; height: 26px; }
 }
-.seccion--tinte {
-    background: #eef6ee;
-}
+
+/* Secciones: fondo general; Categorías y Preguntas en verde clarito, como la original */
+.seccion { padding: 44px 0; }
+.seccion-fondo-verde { background: var(--tinte); }
 .titulo-seccion {
-    margin-bottom: 2rem;
-    font-size: 2rem;
-    color: var(--color-primary);
-    text-align: center;
+  color: var(--titulo-suave);
+  font-size: clamp(1.75rem, 7vw, 2.5rem); font-weight: 800; line-height: 1.08; letter-spacing: -.03em;
 }
-.aviso-vacio {
-    padding: 2rem 0;
-    text-align: center;
-    color: var(--color-muted);
+.titulo-seccion + .lista-categorias, .titulo-seccion + .donde-columnas, .titulo-seccion + .preguntas-columnas { margin-top: 20px; }
+@media (min-width: 768px) {
+  .seccion { padding: 72px 0; }
+  .titulo-seccion + .lista-categorias, .titulo-seccion + .donde-columnas, .titulo-seccion + .preguntas-columnas { margin-top: 28px; }
 }
 
-/* --- Categorías --- */
-.categorias {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.8rem;
-    margin-bottom: 2rem;
+/* 3. Categorías: un botón por categoría; la elegida, verde y con la ✓ */
+.lista-categorias {
+  display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+  margin-inline: -16px; padding: 4px 16px 8px; scroll-padding-inline: 16px;
 }
-.categoria-btn {
-    padding: 0.6rem 1.3rem;
-    border: 2px solid var(--color-primary);
-    border-radius: var(--radius-pill);
-    background: var(--color-white);
-    color: var(--color-primary-dark);
-    font-weight: 600;
-    cursor: pointer;
+.lista-categorias::-webkit-scrollbar { display: none; }
+.boton-categoria {
+  flex: none; scroll-snap-align: start;
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 0 16px; border-radius: 999px;
+  border: 2px solid var(--borde); background: var(--blanco); color: var(--texto);
+  font-weight: 700; font-size: .9375rem; cursor: pointer;
+  transition: background-color .2s, border-color .2s, color .2s, transform .2s var(--curva);
 }
-.categoria-btn--activa {
-    background: var(--color-primary);
-    color: var(--color-white);
+.boton-categoria:hover { border-color: var(--verde); color: var(--verde-fuerte); }
+.boton-categoria:active { transform: scale(.97); }
+.boton-categoria-tilde { display: none; }
+.boton-categoria[aria-pressed="true"] {
+  background: var(--verde-fuerte); border-color: var(--verde-fuerte); color: #fff;
+  box-shadow: var(--sombra-accion);
 }
-
-/* --- Tarjetas de combos --- */
-.combos-grilla {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 1.5rem;
+.boton-categoria[aria-pressed="true"] .boton-categoria-tilde {
+  display: inline-grid; place-items: center; width: 20px; height: 20px; margin-left: -6px; border-radius: 999px;
+  background: #fff; color: var(--verde-fuerte);
 }
-.combo-tarjeta {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border-radius: var(--radius-md);
-    background: var(--color-white);
-    box-shadow: var(--shadow-md);
-}
-.combo-tarjeta__img {
-    width: 100%;
-    height: 180px;
-    object-fit: cover;
-    background: #f1f1f1;
-}
-.combo-tarjeta__cuerpo {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    flex: 1;
-    padding: 1.2rem;
-}
-.combo-tarjeta__plan {
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--color-muted);
-}
-.combo-tarjeta__nombre {
-    font-size: 1.25rem;
-}
-.combo-tarjeta__cantidad {
-    font-weight: 600;
-    color: var(--color-primary-dark);
-}
-.combo-tarjeta__menu {
-    font-size: 0.9rem;
-    color: #555;
-}
-.combo-tarjeta__precio {
-    margin: auto 0 0.6rem;   /* empuja el precio y el botón al final de la tarjeta */
-    padding-top: 0.6rem;
-    font-size: 1.5rem;
-    font-weight: 700;
+.boton-categoria-tilde .icono { width: 13px; height: 13px; }
+@media (min-width: 768px) {
+  .lista-categorias { flex-wrap: wrap; overflow: visible; margin: 0; padding: 4px 0; }
+  .lista-categorias .boton-categoria { min-height: 40px; }
 }
 
-/* --- Preguntas frecuentes --- */
-.preguntas {
-    max-width: 800px;
-    margin: 0 auto;
+/* 4. La zona de combos de la categoría elegida: título, bajada y tarjetas */
+.zona-combos { margin-top: 32px; scroll-margin-top: 120px; }
+.zona-combos h3 { color: var(--titulo-suave); font-size: clamp(1.375rem, 5vw, 1.75rem); font-weight: 800; line-height: 1.1; letter-spacing: -.025em; }
+.zona-combos > p { margin: 6px 0 20px; font-size: 1rem; color: var(--texto-suave); }
+@media (min-width: 768px) { .zona-combos { margin-top: 40px; } .zona-combos > p { margin-bottom: 24px; } }
+
+/* Tarjetas de combos (la regla .combo de la v5, con nuestros nombres). Cada tarjeta es un botón entero:
+   datos a la izquierda y foto a la derecha. index-final.css (que se carga después) las pasa a tarjetas
+   grandes con la foto arriba */
+.grilla-combos { display: grid; gap: 12px; max-width: 760px; }
+.tarjeta-combo {
+  position: relative; display: grid; grid-template-columns: 1fr 96px; gap: 16px; align-items: center;
+  width: 100%; padding: 14px 16px; text-align: left; cursor: pointer;
+  background: var(--blanco); border: 2px solid var(--borde); border-radius: 16px;
+  transition: border-color .2s, transform .25s var(--curva), box-shadow .25s;
 }
-.pregunta {
-    margin-bottom: 0.8rem;
-    padding: 1rem 1.2rem;
-    border-radius: var(--radius-sm);
-    background: var(--color-white);
-    box-shadow: var(--shadow-sm);
+.tarjeta-combo:hover { border-color: var(--verde); box-shadow: var(--sombra); }
+.tarjeta-combo:active { transform: scale(.99); }
+/* Combo destacado: borde naranja y la pastilla "Más elegido". Quedan listos pero NO se usan: hoy el sistema
+   no tiene un dato que diga cuál es el más elegido */
+.tarjeta-combo-destacada, .tarjeta-combo-destacada:hover { border-color: var(--naranja); }
+.tarjeta-combo-datos { display: grid; gap: 4px; justify-items: start; }
+.tarjeta-combo-nombre { font-size: 1.0625rem; font-weight: 700; letter-spacing: -.015em; line-height: 1.25; color: var(--titulo); }
+.tarjeta-combo-precio { font-size: 1.3125rem; font-weight: 800; letter-spacing: -.02em; color: var(--verde-fuerte); font-variant-numeric: tabular-nums; }
+.tarjeta-combo-por-vianda { color: var(--texto-suave); font-size: .9375rem; }
+.tarjeta-combo-sello {
+  margin-bottom: 4px; padding: 3px 10px; border-radius: 999px;
+  background: var(--naranja); color: var(--texto); font-size: .75rem; font-weight: 800;
 }
-.pregunta summary {
-    font-weight: 600;
-    cursor: pointer;
+.tarjeta-combo-foto { position: relative; }
+.tarjeta-combo .foto { aspect-ratio: 1; font-size: .75rem; padding: 6px; }
+@media (min-width: 768px) { .tarjeta-combo { grid-template-columns: 1fr 112px; padding: 16px 18px; } }
+
+/* Selector de cantidad (− 2 +), del mismo alto que los botones (48px) */
+.selector-cantidad {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 4px; justify-self: start;
+  padding: 3px; border-radius: 999px; background: var(--tinte);
 }
-.pregunta p {
-    margin-top: 0.6rem;
-    color: #555;
+.boton-cantidad {
+  display: grid; place-items: center; width: 38px; height: 38px; border-radius: 999px;
+  border: 0; background: var(--blanco); color: var(--texto); cursor: pointer;
+  box-shadow: 0 1px 2px rgb(22 50 30 / .12);
+  transition: transform .15s var(--curva), background-color .15s;
+}
+.boton-cantidad .icono { width: 16px; height: 16px; }
+.boton-cantidad:active:not(:disabled) { transform: scale(.9); }
+.boton-sumar { background: var(--verde-fuerte); color: #fff; }
+.boton-sumar:hover:not(:disabled) { background: var(--verde-hondo); }
+.boton-cantidad:disabled { opacity: .35; cursor: not-allowed; }
+.numero-cantidad { min-width: 26px; text-align: center; font-weight: 800; font-size: 1rem; font-variant-numeric: tabular-nums; }
+@media (max-width: 767px) { .selector-cantidad { padding: 1px; } .boton-cantidad { width: 42px; height: 42px; } }
+
+/* Modales (<dialog>): en el celular suben desde abajo; en compu, centrados */
+.modal {
+  border: 0; padding: 0; margin: auto 0 0; width: 100%; max-width: 100%; max-height: 92dvh;
+  background: var(--blanco); color: var(--texto);
+  border-radius: 20px 20px 0 0; box-shadow: var(--sombra-alta);
+  overflow: hidden;
+}
+.modal[open] { display: flex; flex-direction: column; animation: subir .38s var(--curva); }
+.modal::backdrop { background: rgb(8 18 11 / .55); animation: aparecer .3s ease; }
+@keyframes subir { from { transform: translateY(40px); opacity: 0; } }
+@keyframes aparecer { from { opacity: 0; } }
+
+.modal-encabezado {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+  padding: 20px 16px 14px;
+}
+.modal-encabezado h2 { font-size: 1.5rem; font-weight: 800; }
+.modal-categoria { font-size: .875rem; font-weight: 700; color: var(--verde-fuerte); margin-bottom: 2px; }
+.boton-cerrar {
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; border: 0; cursor: pointer;
+  background: var(--tinte); color: var(--texto); transition: background-color .2s;
+}
+.boton-cerrar:hover { background: var(--borde); }
+.modal-contenido { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 16px; }
+.modal-pie {
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--linea); background: var(--blanco);
+}
+.dos-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dos-botones .boton { padding: 0 12px; }
+
+@media (min-width: 768px) {
+  .modal { margin: auto; max-width: 600px; max-height: 86dvh; border-radius: 20px; }
+  .modal-encabezado, .modal-contenido, .modal-pie { padding-inline: 24px; }
+  /* "Mi pedido" en compu: un panel a la derecha, de todo el alto */
+  .modal-pedido {
+    margin: 0 0 0 auto; height: 100dvh; max-height: 100dvh; max-width: 440px; border-radius: 20px 0 0 20px;
+  }
+  .modal-pedido[open] { animation: deslizar .38s var(--curva); }
+  @keyframes deslizar { from { transform: translateX(40px); opacity: 0; } }
 }
 
-/* --- Dónde estamos --- */
-.donde {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1.5rem;
+/* Progreso del combo: "3 de 10", "Te faltan 7" y la barra */
+.progreso { padding: 0 16px 14px; border-bottom: 1px solid var(--linea); }
+.progreso-texto { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.progreso-texto strong { font-size: 1.125rem; font-variant-numeric: tabular-nums; }
+.progreso-texto span { color: var(--texto-suave); font-size: .9375rem; }
+.progreso-barra { height: 10px; border-radius: 999px; background: var(--tinte); overflow: hidden; }
+.progreso-barra span {
+  display: block; height: 100%; border-radius: inherit; background: var(--verde);
+  transform-origin: left; transform: scaleX(0); transition: transform .35s var(--curva);
 }
-.donde__item {
-    display: flex;
-    gap: 0.8rem;
-    padding: 1.2rem;
-    border-radius: var(--radius-md);
-    background: var(--color-white);
-    box-shadow: var(--shadow-sm);
-}
-.donde__item .icono {
-    width: 1.6rem;
-    height: 1.6rem;
-    color: var(--color-primary);
-}
-.donde__item a {
-    color: var(--color-primary-dark);
-    font-weight: 600;
-}
+.progreso.progreso-completo .progreso-texto span { color: var(--verde-fuerte); font-weight: 700; }
+@media (min-width: 768px) { .progreso { padding-inline: 24px; } }
 
-/* --- Pie --- */
-.pie__grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.5rem;
-    text-align: left;
-}
-.pie__col {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-}
-.pie a {
-    color: var(--color-white);
-}
-.pie__copia {
-    margin-top: 1.5rem;
-    font-size: 0.85rem;
-    opacity: 0.85;
-}
+/* Aviso al salir del armado con platos elegidos (reemplaza al botón "Agregar al pedido") */
+.aviso-salir[hidden], #boton-agregar-combo[hidden] { display: none; }
+.aviso-salir p { margin-bottom: 12px; color: var(--texto-suave); font-size: .9375rem; }
 
-/* --- WhatsApp flotante --- */
-.wa-flotante {
-    position: fixed;
-    right: 1.2rem;
-    bottom: 1.2rem;
-    z-index: 900;
-    display: grid;
-    place-items: center;
-    width: 3.4rem;
-    height: 3.4rem;
-    border-radius: 50%;
-    background: #25d366;
-    color: var(--color-white);
-    box-shadow: var(--shadow-md);
-}
-.wa-flotante .icono {
-    width: 1.8rem;
-    height: 1.8rem;
-}
-
-/* --- Ventanas (dialog): base común --- */
-.hoja {
-    width: min(560px, 94vw);
-    max-height: 90vh;
-    margin: auto;
-    padding: 0;                     /* sin relleno: así un clic en el fondo es "afuera" */
-    border: none;
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
-    color: var(--color-text);
-}
-.hoja[open] {
-    display: flex;
-    flex-direction: column;
-}
-.hoja::backdrop {
-    background: var(--color-overlay);
-}
-.hoja__cab {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 1rem;
-    padding: 1.2rem 1.4rem 0.6rem;
-}
-.hoja__sup {
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: var(--color-muted);
-}
-.hoja__cuerpo {
-    flex: 1;
-    overflow-y: auto;               /* solo la lista se desplaza; el encabezado y el pie quedan fijos */
-    padding: 0.5rem 1.4rem;
-}
-.hoja__pie {
-    padding: 1rem 1.4rem 1.2rem;
-    border-top: 1px solid #eee;
-}
-.hoja__botones {
-    display: flex;
-    gap: 0.8rem;
-    justify-content: flex-end;
-}
-.btn-cerrar {
-    border: none;
-    background: none;
-    font-size: 1.3rem;
-    cursor: pointer;
-    color: var(--color-muted);
-}
-.btn--secundario {
-    background: #eee;
-    color: var(--color-text);
-}
-.btn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
-
-/* --- Progreso "X de N" --- */
-.progreso {
-    padding: 0 1.4rem 0.8rem;
-}
-.progreso__texto {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 0.4rem;
-}
-.progreso__barra {
-    height: 8px;
-    border-radius: var(--radius-pill);
-    background: #e9ecef;
-    overflow: hidden;
-}
-.progreso__barra span {
-    display: block;
-    height: 100%;
-    width: 0;
-    background: var(--color-primary);
-    transition: width 0.25s ease;
-}
-
-/* --- Platos del menú dentro de la ventana --- */
-.platos {
-    list-style: none;
-}
+/* Platos dentro del combo */
+.lista-platos { list-style: none; margin: 0; display: grid; gap: 10px; padding-top: 14px; }
 .plato {
-    display: grid;
-    grid-template-columns: 64px 1fr auto;
-    gap: 0.8rem;
-    align-items: center;
-    padding: 0.7rem 0;
-    border-bottom: 1px solid #f0f0f0;
+  display: grid; grid-template-columns: 72px 1fr; gap: 12px; align-items: start;
+  padding: 10px; border-radius: 16px; border: 2px solid var(--borde);
+  transition: border-color .2s, background-color .2s;
 }
-.plato--elegido .plato__nombre {
-    color: var(--color-primary-dark);
-}
-.plato__img {
-    width: 64px;
-    height: 64px;
-    object-fit: cover;
-    border-radius: var(--radius-sm);
-    background: #f1f1f1;
-}
-.plato__nombre {
-    font-weight: 600;
-}
-.plato__desc {
-    font-size: 0.85rem;
-    color: #666;
-}
-.plato__aviso {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #c0392b;
-}
-.plato__contador {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-.plato__btn {
-    width: 2rem;
-    height: 2rem;
-    border: 2px solid var(--color-primary);
-    border-radius: 50%;
-    background: var(--color-white);
-    color: var(--color-primary-dark);
-    font-size: 1.1rem;
-    font-weight: 700;
-    cursor: pointer;
-}
-.plato__btn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-}
-.plato__cantidad {
-    min-width: 1.5rem;
-    text-align: center;
-    font-weight: 700;
-}
-.salir p {
-    margin-bottom: 0.8rem;
+.plato.plato-elegido { border-color: var(--verde); background: color-mix(in srgb, var(--verde) 6%, var(--blanco)); }
+.plato .foto { aspect-ratio: 1; font-size: .6875rem; padding: 4px; }
+.plato-datos { display: grid; gap: 4px; }
+.plato h3 { font-size: 1rem; font-weight: 700; letter-spacing: -.01em; line-height: 1.3; }
+.plato p { color: var(--texto-suave); font-size: .875rem; line-height: 1.4; }
+.plato .selector-cantidad { margin-top: 6px; }
+@media (min-width: 520px) {
+  .plato { grid-template-columns: 80px 1fr auto; align-items: center; }
+  .plato .selector-cantidad { margin-top: 0; }
 }
 
-/* --- Personalizar un plato --- */
-.plato__extra {
-    grid-column: 1 / -1;            /* ocupa todo el ancho, debajo de la fila del plato */
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
+/* Mi pedido: un renglón por combo */
+.combo-del-pedido { display: grid; gap: 8px; padding: 16px 0; border-bottom: 1px solid var(--linea); }
+.combo-del-pedido:last-child { border-bottom: 0; }
+.nombre-y-precio { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.combo-nombre { font-weight: 700; }
+.combo-precio { font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.combo-platos { margin: 0; padding: 0; list-style: none; color: var(--texto-suave); font-size: .875rem; display: grid; gap: 2px; }
+.combo-acciones { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.combo-precio-vianda { color: var(--texto-suave); font-size: .875rem; }
+.boton-quitar {
+  min-height: 44px; border: 0; background: none; padding: 0 4px; cursor: pointer;
+  color: var(--texto-suave); font-weight: 600; font-size: .875rem; text-decoration: underline; text-underline-offset: 3px;
 }
-.enlace-personalizar {
-    align-self: flex-start;
-    border: none;
-    background: none;
-    color: var(--color-primary-dark);
-    font-weight: 600;
-    cursor: pointer;
+.boton-quitar:hover { color: var(--error); }
+.total { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+.total span { font-weight: 600; color: var(--texto-suave); }
+.total strong { font-size: 1.5rem; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+
+/* Mi pedido vacío: el ícono de la bolsa y "Todavía no agregaste combos." */
+.pedido-vacio { display: grid; gap: 10px; justify-items: center; text-align: center; padding: 48px 8px; }
+.pedido-vacio-icono {
+  display: grid; place-items: center; width: 64px; height: 64px; border-radius: 999px;
+  background: var(--verde-claro); color: var(--verde-fuerte);
 }
-.enlace-personalizar:disabled {
-    color: var(--color-muted);
-    cursor: not-allowed;
-}
-.personalizado {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.8rem;
-    padding: 0.4rem 0.6rem;
-    border-radius: var(--radius-sm);
-    background: #fff8e6;
-}
-.personalizado__texto {
-    font-size: 0.9rem;
-    font-weight: 600;
-    overflow-wrap: anywhere;        /* un texto largo sin espacios no rompe la ventana */
-}
-.personalizar {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-.personalizar__input {
-    flex: 1;
-    min-width: 160px;
-    padding: 0.5rem 0.8rem;
-    border: 1px solid #ccc;
-    border-radius: var(--radius-sm);
-    font-size: 0.95rem;
-}
-.personalizar .btn {
-    padding: 0.45rem 1rem;
-    font-size: 0.9rem;
-}
-.aviso-personalizado {
-    margin-top: 0.8rem;
-    padding: 0.6rem 0.8rem;
-    border-radius: var(--radius-sm);
-    background: #fff3cd;
-    font-size: 0.9rem;
+.pedido-vacio-icono .icono { width: 28px; height: 28px; }
+.pedido-vacio p { color: var(--texto-suave); max-width: 30ch; }
+
+/* Finalizar pedido: en el celular ocupa toda la pantalla */
+.modal-finalizar { margin: 0; width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+.vista { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.vista[hidden] { display: none; }
+.vista > form { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.finalizar-contenido { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 28px; }
+.finalizar-columnas { display: grid; gap: 28px; }
+.campos { display: grid; gap: 36px; }
+.finalizar-pie { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 16px; }
+.finalizar-total { display: grid; line-height: 1.2; }
+.finalizar-total > span:first-child { font-size: .875rem; font-weight: 600; color: var(--texto-suave); }
+.finalizar-total strong { font-size: 1.375rem; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.finalizar-pie .boton { padding: 0 24px; }
+
+/* En compu: los campos a la izquierda y el resumen fijo a la derecha */
+@media (min-width: 900px) {
+  .modal-finalizar { margin: auto; max-width: 1040px; height: min(880px, 94dvh); max-height: 94dvh; border-radius: 20px; }
+  .finalizar-contenido { padding: 4px 32px 32px; }
+  .finalizar-columnas { grid-template-columns: 1fr 360px; gap: 48px; align-items: start; }
+  .campos { grid-column: 1; grid-row: 1; }
+  .finalizar-columnas > .resumen { grid-column: 2; grid-row: 1; position: sticky; top: 0; }
+  .finalizar-columnas > .resumen > summary { cursor: default; }
+  .resumen-flecha { display: none; }
+  .finalizar-pie { padding-inline: 32px; grid-template-columns: auto auto; justify-content: end; gap: 28px; }
 }
 
-/* --- Mi pedido (carrito) --- */
-.carrito__combo {
-    padding: 0.9rem 0;
-    border-bottom: 1px solid #f0f0f0;
+/* Resumen del pedido (plegable en el celular, abierto fijo en compu). También lo usa la confirmación */
+.resumen { border-radius: 16px; background: var(--tinte); }
+.resumen > summary {
+  list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  min-height: 60px; padding: 12px 16px; cursor: pointer; font-weight: 700;
 }
-.carrito__cab {
-    display: grid;
-    grid-template-columns: 1fr auto auto;
-    gap: 0.8rem;
-    align-items: center;
+.resumen > summary::-webkit-details-marker { display: none; }
+.resumen-titulo { display: grid; line-height: 1.25; }
+/* "(1 combo)" debajo del título, y los platos de cada combo: letra chica y gris */
+.resumen-cantidad, .resumen-platos { font-size: .8125rem; font-weight: 500; color: var(--texto-suave); }
+.resumen-derecha { display: inline-flex; align-items: center; gap: 10px; }
+.resumen-derecha strong { color: var(--verde-fuerte); font-variant-numeric: tabular-nums; }
+.resumen-flecha { width: 18px; height: 18px; color: var(--texto-suave); transform: rotate(90deg); transition: transform .25s var(--curva); }
+.resumen[open] .resumen-flecha { transform: rotate(-90deg); }
+.resumen-contenido { padding: 0 16px 16px; }
+.resumen-lista { list-style: none; margin: 0; padding: 0; }
+.resumen-combo { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid var(--borde); font-size: .9375rem; }
+.resumen-combo .nombre-y-precio span:last-child { font-weight: 700; white-space: nowrap; }
+.resumen-cuentas { margin: 0; padding-top: 12px; border-top: 1px solid var(--borde); display: grid; gap: 6px; }
+.resumen-cuentas div { display: flex; justify-content: space-between; gap: 12px; }
+.resumen-cuentas dt { color: var(--texto-suave); }
+.resumen-cuentas dd { margin: 0; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.resumen-renglon-total { margin-top: 4px; }
+.resumen-renglon-total dt { color: var(--texto); font-weight: 700; }
+.resumen-renglon-total dd { font-size: 1.25rem; font-weight: 800; color: var(--verde-fuerte); }
+
+/* Formulario */
+.grupo-campos { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 14px; }
+.grupo-campos > legend { padding: 0; margin-bottom: 14px; font-size: 1.25rem; font-weight: 800; letter-spacing: -.015em; }
+.campo { display: grid; gap: 6px; }
+.campo > label { font-weight: 700; font-size: .9375rem; }
+.opcional { font-weight: 500; color: var(--texto-suave); }
+/* Casillero: donde se escribe o se elige (inputs, el select del barrio y el de observaciones) */
+.casillero {
+  width: 100%; min-height: 46px; padding: 10px 14px;
+  font: inherit; font-size: 1rem; color: var(--texto); caret-color: var(--verde-fuerte);
+  background: var(--blanco); border: 2px solid var(--borde); border-radius: 12px;
+  transition: border-color .15s, box-shadow .15s;
 }
-.carrito__cab h3 {
-    font-size: 1.05rem;
+textarea.casillero { resize: vertical; min-height: 96px; }
+.casillero::placeholder { color: var(--texto-suave); }
+.casillero:hover { border-color: #c3d0bf; }
+.casillero:focus { outline: none; border-color: var(--verde-fuerte); box-shadow: 0 0 0 4px rgb(47 170 75 / .22); }
+.campo-ayuda { font-size: .875rem; color: var(--texto-suave); }
+.campo-error { font-size: .875rem; font-weight: 600; color: var(--error); }
+.campo-error:empty { display: none; }
+.campo-error::before { content: "! "; font-weight: 800; }
+.grupo-barrio { display: grid; gap: 14px; padding: 16px; border-radius: 16px; background: var(--tinte); }
+.grupo-barrio[hidden], .nota[hidden] { display: none; }
+.nota { padding: 12px 14px; border-radius: 12px; background: var(--tinte); color: var(--texto); font-size: .9375rem; }
+
+/* Opciones tipo tarjeta (Envío / Retiro, Efectivo / Transferencia): el radio de verdad está escondido
+   y se pinta la tarjeta de al lado (opcion-tarjeta) cuando está elegido */
+.opciones { display: grid; gap: 10px; }
+@media (min-width: 520px) { .opciones-dos-columnas { grid-template-columns: 1fr 1fr; } }
+.opcion { position: relative; display: block; cursor: pointer; }
+.opcion-radio { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+.opcion-tarjeta {
+  display: flex; align-items: flex-start; gap: 12px; height: 100%;
+  padding: 14px; border: 2px solid var(--borde); border-radius: 16px; background: var(--blanco);
+  transition: border-color .15s, background-color .15s;
 }
-.carrito__precio {
-    font-weight: 700;
+.opcion:hover .opcion-tarjeta { border-color: var(--verde); }
+.opcion-circulo {
+  flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 999px;
+  border: 2px solid var(--borde); background: var(--blanco); transition: box-shadow .15s, background-color .15s;
 }
-.carrito__platos {
-    margin-top: 0.3rem;
-    padding-left: 1.2rem;
-    font-size: 0.9rem;
-    color: #555;
+.opcion-textos { display: grid; gap: 4px; justify-items: start; }
+.opcion-titulo { font-weight: 700; }
+.opcion-detalle { font-size: .875rem; color: var(--texto-suave); }
+.opcion-radio:checked + .opcion-tarjeta { border-color: var(--verde-fuerte); background: var(--verde-claro); }
+.opcion-radio:checked + .opcion-tarjeta .opcion-circulo { border-color: var(--verde-fuerte); background: var(--verde-fuerte); box-shadow: inset 0 0 0 4px var(--blanco); }
+.opcion-radio:focus-visible + .opcion-tarjeta { outline: 3px solid var(--naranja); outline-offset: 2px; }
+
+/* Confirmación: la ✓ grande, "¡Recibimos tu pedido #N!", los datos, el resumen y WhatsApp */
+.confirmacion { display: grid; gap: 18px; max-width: 620px; margin-inline: auto; padding-top: 12px; }
+.confirmacion-tilde {
+  display: grid; place-items: center; width: 64px; height: 64px; border-radius: 999px;
+  background: var(--verde-fuerte); color: #fff;
+  animation: salto .6s var(--curva);
 }
-.carrito__personalizado {
-    font-weight: 600;
-    color: #b7791f;
-    overflow-wrap: anywhere;
-}
-.total {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 0.8rem;
-    font-size: 1.2rem;
+.confirmacion-tilde .icono { width: 30px; height: 30px; }
+.confirmacion h3 { font-size: clamp(1.625rem, 6vw, 2.125rem); font-weight: 800; }
+.confirmacion > p { color: var(--texto-suave); font-size: 1.0625rem; }
+.confirmacion-datos { margin: 0; display: grid; gap: 12px; padding: 16px; border-radius: 16px; border: 2px solid var(--borde); }
+.confirmacion-datos div { display: grid; gap: 2px; }
+.confirmacion-datos dt { font-size: .8125rem; font-weight: 700; color: var(--texto-suave); }
+.confirmacion-datos dd { margin: 0; font-weight: 600; }
+.confirmacion .resumen { padding: 4px 16px 16px; }
+@media (min-width: 640px) { .confirmacion-datos { grid-template-columns: repeat(3, 1fr); } }
+
+/* Botón con forma de enlace (lo usa "✎ Personalizar" en el armado del combo) */
+.boton-enlace {
+  justify-self: start; min-height: 44px; border: 0; background: none; padding: 0; cursor: pointer;
+  color: var(--verde-fuerte); font-weight: 700; font-size: .9375rem; text-decoration: underline; text-underline-offset: 3px;
 }
 
-/* --- Finalizar pedido (formulario) --- */
-.hoja--completa {
-    width: min(640px, 96vw);
+/* Dónde estamos: los datos a la izquierda y el recuadro del mapa a la derecha (debajo, en el celular) */
+.donde-columnas { display: grid; gap: 28px; }
+.donde-lista { margin: 0; display: grid; gap: 18px; align-content: start; }
+.donde-dato { display: grid; grid-template-columns: 40px 1fr; gap: 14px; align-items: start; }
+.donde-dato .icono {
+  width: 40px; height: 40px; padding: 10px; border-radius: 999px;
+  background: var(--blanco); color: var(--verde-fuerte); box-shadow: inset 0 0 0 1px var(--borde);
 }
-/* Cada vista y el formulario ocupan el alto de la ventana: solo el cuerpo se desplaza */
-.vista,
-.vista form {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
+.donde-columnas dt { font-size: .875rem; font-weight: 700; color: var(--texto-suave); }
+.donde-columnas dd { margin: 2px 0 0; font-size: 1rem; font-weight: 600; }
+.donde-columnas .boton { margin-top: 10px; }
+.enlace-subrayado { display: inline-flex; align-items: center; min-height: 44px; margin-top: -10px; color: inherit; text-decoration: underline; text-decoration-color: var(--borde); text-underline-offset: 4px; }
+.enlace-subrayado:hover { color: var(--verde-fuerte); text-decoration-color: currentColor; }
+/* El recuadro gris del mapa (todavía sin mapa de verdad: dice "mapa") */
+.mapa {
+  position: relative; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 16px;
+  background: var(--gris); box-shadow: var(--sombra-foto);
 }
-.vista[hidden] {
-    display: none;                  /* sin esto, el display:flex de arriba le ganaría a "hidden" */
+.mapa .foto { position: absolute; inset: 0; aspect-ratio: auto; border-radius: 0; font-size: .9375rem; }
+@media (min-width: 768px) { .donde-columnas { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 48px; align-items: start; } }
+
+/* Preguntas frecuentes: acordeón con <details> (anda sin JavaScript).
+   name="preguntas" en cada <details> hace que se abra una a la vez */
+.preguntas-columnas { display: grid; }
+.acordeon { border-top: 1px solid var(--borde); align-self: start; }
+.acordeon + .acordeon { border-top: 0; }
+@media (min-width: 900px) {
+  .preguntas-columnas { grid-template-columns: 1fr 1fr; column-gap: 48px; }
+  .acordeon + .acordeon { border-top: 1px solid var(--borde); }
 }
-.resumen {
-    margin-bottom: 1rem;
-    padding: 0.7rem 0.9rem;
-    border-radius: var(--radius-sm);
-    background: #f4f8f4;
+.pregunta { border-bottom: 1px solid var(--borde); }
+.pregunta > summary { list-style: none; }
+.pregunta > summary::-webkit-details-marker { display: none; }
+.pregunta-titulo {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  width: 100%; min-height: 56px; padding: 14px 0; border: 0; background: none; cursor: pointer;
+  text-align: left; font-size: 1rem; font-weight: 700; color: var(--texto);
+  transition: color .2s;
 }
-.resumen summary {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    font-weight: 600;
-    cursor: pointer;
+.pregunta-titulo:hover { color: var(--verde-fuerte); }
+.pregunta-signo {
+  flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px;
+  background: var(--blanco); color: var(--verde-fuerte); box-shadow: inset 0 0 0 1px var(--borde);
+  transition: transform .25s var(--curva), background-color .2s, color .2s;
 }
-.resumen__cant {
-    font-weight: 400;
-    color: var(--color-muted);
-}
-.resumen__combo {
-    margin-top: 0.6rem;
-}
-.resumen__platos {
-    font-size: 0.85rem;
-    color: #555;
-    overflow-wrap: anywhere;
-}
-.bloque {
-    margin-bottom: 1rem;
-    padding: 0;
-    border: none;
-}
-.bloque legend {
-    margin-bottom: 0.4rem;
-    font-weight: 700;
-}
-.campo {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    margin-bottom: 0.7rem;
-}
-.campo[hidden] {
-    display: none;                  /* sin esto, el display:flex de arriba le ganaría a "hidden" (barrio con retiro) */
-}
-.campo label,
-.campo legend {
-    font-weight: 600;
-    font-size: 0.95rem;
-}
-fieldset.campo {
-    padding: 0;
-    border: none;
-}
-.input {
-    padding: 0.6rem 0.8rem;
-    border: 1px solid #ccc;
-    border-radius: var(--radius-sm);
-    font-size: 1rem;
-    font-family: var(--font-main);
-}
-.campo__ayuda {
-    font-size: 0.8rem;
-    color: var(--color-muted);
-}
-.campo__error {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #c0392b;
-}
-.campo__error:empty {
-    display: none;                  /* sin error no ocupa lugar */
-}
-.opcional {
-    font-weight: 400;
-    color: var(--color-muted);
-}
-.opciones {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-    margin-bottom: 0.4rem;
-}
-.opcion {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.55rem 0.9rem;
-    border: 2px solid #e0e0e0;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-}
-.opcion:has(input:checked) {
-    border-color: var(--color-primary);
-    background: #f4f8f4;
-}
-.nota {
-    padding: 0.5rem 0.8rem;
-    border-radius: var(--radius-sm);
-    background: #fff3cd;
-    font-size: 0.9rem;
-}
-/* --- Confirmación del pedido --- */
-.confirmacion {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-.confirmacion__titulo {
-    font-size: 1.3rem;
-    color: var(--color-primary-dark);
-}
-.confirmacion__combo {
-    padding: 0.6rem 0.8rem;
-    border-radius: var(--radius-sm);
-    background: #f4f8f4;
-}
-.confirmacion__combo ul {
-    padding-left: 1.2rem;
-    font-size: 0.9rem;
-    color: #555;
-    overflow-wrap: anywhere;
-}
-.confirmacion__total {
-    font-size: 1.15rem;
-}
-.btn--whatsapp {
-    margin-top: 0.5rem;
-    background: #25d366;
-    color: var(--color-white);
-}
-#err-envio {
-    margin-bottom: 0.6rem;
+.pregunta-signo .icono { width: 16px; height: 16px; }
+/* La pregunta abierta: el título en verde y el + girado (queda una ×) */
+.pregunta[open] > .pregunta-titulo { color: var(--verde-fuerte); }
+.pregunta[open] .pregunta-signo { transform: rotate(45deg); background: var(--verde-fuerte); color: #fff; }
+.pregunta-respuesta { padding: 0 44px 16px 0; color: var(--texto-suave); max-width: 65ch; }
+
+/* Pie de página */
+.pie-de-pagina { padding: 44px 0 calc(32px + env(safe-area-inset-bottom)); border-top: 1px solid var(--borde); }
+.pie-columnas { display: grid; gap: 28px; }
+.pie-marca { display: grid; gap: 12px; justify-items: start; align-content: start; max-width: 34ch; }
+.pie-marca p, .pie-columna p { color: var(--texto-suave); }
+.pie-columna { display: grid; gap: 8px; align-content: start; }
+.pie-columna h2 { font-size: .9375rem; font-weight: 800; letter-spacing: 0; margin-bottom: 4px; }
+.pie-columna a { color: var(--texto-suave); text-decoration: none; padding: 2px 0; }
+.pie-columna a:hover { color: var(--verde-fuerte); text-decoration: underline; text-underline-offset: 3px; }
+@media (min-width: 640px) { .pie-columnas { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1024px) { .pie-columnas { grid-template-columns: 1.6fr 1fr 1fr 1fr; } }
+@media (max-width: 767px) {
+  /* Aire abajo para el botón flotante de WhatsApp; links de 44px en dos columnas */
+  .pie-de-pagina { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .pie-de-pagina nav.pie-columna { grid-template-columns: 1fr 1fr; column-gap: 16px; row-gap: 0; }
+  .pie-de-pagina nav.pie-columna h2 { grid-column: 1 / -1; }
+  .pie-columna a { display: flex; align-items: center; min-height: 44px; padding: 0; }
 }
 
-/* --- Celular --- */
-@media (max-width: 768px) {
-    .nav {
-        display: none;            /* en celular alcanza con el logo, la sesión y Mi pedido */
-    }
-    .portada__grid {
-        grid-template-columns: 1fr;
-    }
-    .portada__texto h1 {
-        font-size: 2.4rem;
-    }
-    .pasos {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.8rem;
-    }
+/* WhatsApp flotante (capa 20: sobre el contenido; los modales abiertos lo tapan) */
+.whatsapp-flotante {
+  position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 20;
+  display: grid; place-items: center; width: 52px; height: 52px; border-radius: 999px;
+  background: var(--verde-fuerte); color: #fff; box-shadow: 0 8px 24px rgb(16 40 22 / .3);
+  transition: transform .25s var(--curva), box-shadow .2s, opacity .25s;
 }
+.whatsapp-flotante .icono { width: 26px; height: 26px; }
+.whatsapp-flotante:hover { transform: translateY(-2px); }
+.whatsapp-flotante:active { transform: scale(.95); }
+@media (min-width: 768px) { .whatsapp-flotante { right: 24px; bottom: 24px; } }
+
+/* Animaciones de la v5 (solo si se permite movimiento). "js" lo pone animaciones-index.js en <html>; las animaciones
+   del diseño final (demoras de las tarjetas, el salto del contador, las respuestas) están en index-final.css */
+@media (prefers-reduced-motion: no-preference) {
+  .js .revelar { opacity: 0; transform: translateY(18px); transition: opacity .6s var(--curva), transform .6s var(--curva); }
+  .js .revelar.visible { opacity: 1; transform: none; }
+  .portada-texto > * { animation: entrar .7s var(--curva) both; }
+  .portada-texto > :nth-child(2) { animation-delay: .06s; }
+  .portada-texto > :nth-child(3) { animation-delay: .12s; }
+  .portada-texto > :nth-child(4) { animation-delay: .18s; }
+  @keyframes entrar { from { opacity: 0; transform: translateY(16px); } }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ===================================================================================
+   AGREGADOS DE ESTA PÁGINA
+   =================================================================================== */
+
+/* Fotos de verdad (la maqueta usa un recuadro gris): la imagen llena su recuadro sin deformarse.
+   Si un plato no tiene foto se muestra el logo, entero y con aire alrededor (foto-logo).
+   En la tarjeta de un combo, si su foto no carga, también el logo entero (le gana al "cover" de index-final.css) */
+img.foto { display: block; object-fit: cover; }
+img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
+.grilla-combos .tarjeta-combo-foto img.foto-logo { object-fit: contain; }
+
+/* Mensajes de la zona de combos: "Cargando combos...", "Por ahora no hay combos disponibles." */
+.aviso-combos { padding: 24px 0; color: var(--texto-suave); }
+
+/* El botón de sesión lo arma auth.js (lo comparten otras pantallas) con estilos escritos en la etiqueta,
+   pensados para el encabezado verde viejo (letra blanca). Acá se pisan para que se vea como un botón de
+   texto. !important = "esta regla gana aunque haya un estilo escrito en la etiqueta".
+   Los nombres (auth-btn-container, login-btn-header) son de auth.js: se arreglan en la Pantalla 2 (Login). */
+#auth-btn-container { position: relative; }
+#auth-btn-container .login-btn-header {
+  display: inline-flex !important; align-items: center; min-height: 44px; padding: 0 12px !important;
+  border: 0 !important; border-radius: 999px !important; background: transparent !important;
+  color: var(--texto) !important; font-family: var(--fuente) !important; font-size: .9375rem !important;
+  font-weight: 600 !important; text-decoration: none; white-space: nowrap; cursor: pointer;
+}
+#auth-btn-container .login-btn-header:hover { color: var(--verde-fuerte) !important; background: var(--tinte) !important; }
+@media (max-width: 400px) { #auth-btn-container .login-btn-header { padding: 0 8px !important; font-size: .875rem !important; } }
+
+/* "Quedan 3" o "Sin stock" debajo del nombre del plato (la maqueta lo escribe con estilo en la etiqueta).
+   Va con ".plato" adelante para ganarle a ".plato p" (el gris de la descripción) */
+.plato .plato-quedan { font-size: .8125rem; font-weight: 700; color: var(--verde-fuerte); }
+.plato .plato-sin-stock { color: var(--error); }
+
+/* Personalizar un plato ("sin sal"): va debajo del plato, a todo su ancho */
+.plato-personalizados { grid-column: 1 / -1; display: grid; gap: 8px; }
+.renglon-personalizado {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 6px 6px 6px 12px; border-radius: 12px; background: var(--tinte);
+}
+.renglon-personalizado-texto { font-size: .875rem; font-weight: 700; color: var(--texto); overflow-wrap: anywhere; }
+.renglon-personalizado .selector-cantidad { margin-top: 0; background: var(--blanco); }
+.personalizar-plato { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; }
+@media (max-width: 519px) {
+  .personalizar-plato { grid-template-columns: 1fr 1fr; }
+  .personalizar-plato .casillero { grid-column: 1 / -1; }
+}
+.boton-enlace:disabled { color: var(--texto-suave); cursor: not-allowed; text-decoration: none; }
+
+/* Formulario: Nombre y Apellido lado a lado (la maqueta lo hace con estilo en la etiqueta) */
+.campos-lado-a-lado { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+/* El error al enviar ocupa todo el ancho del pie, arriba del total y del botón */
+.finalizar-error { grid-column: 1 / -1; }
+/* En compu el resumen queda abierto fijo: no se cierra al tocar su título */
+@media (min-width: 900px) { .finalizar-columnas > .resumen > summary { pointer-events: none; } }
+
+/* Confirmación: el ícono del botón de WhatsApp, y el alias de la transferencia con letra oscura (como en el formulario) */
+.confirmacion .boton .icono { width: 22px; height: 22px; }
+.confirmacion > .nota { color: var(--texto); font-size: .9375rem; }
+/* En la confirmación el resumen no tiene título arriba: el primer combo va sin la raya de separación */
+.confirmacion .resumen-combo:first-child { border-top: 0; }
+
+/* El renglón del copyright, abajo del pie */
+.pie-derechos { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--borde); font-size: .875rem; color: var(--texto-suave); }
+
+/* Modal "Iniciar sesión": usa el mismo login de login.html (manejarLogin, de auth.js), que muestra y esconde
+   sus avisos con la clase "show"; por eso los avisos arrancan escondidos */
+.formulario-login { display: grid; gap: 16px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+.aviso-login, .cargando-login { display: none; font-size: .875rem; font-weight: 600; }
+.aviso-login { color: var(--error); }
+.cargando-login { color: var(--texto-suave); }
+.aviso-login.show, .cargando-login.show { display: block; }
+.login-otros { display: grid; gap: 10px; justify-items: center; padding-top: 16px; border-top: 1px solid var(--linea); color: var(--texto-suave); }
+@media (min-width: 768px) { .modal-login { max-width: 440px; } }

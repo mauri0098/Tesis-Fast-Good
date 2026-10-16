@@ -1,0 +1,77 @@
+/* ==========================================================================
+   index-final.css — Diseño final del index (versión 5), igual al canvas.
+   Se carga DESPUÉS de estilos.css. Solo estilos: no cambia nada del funcionamiento.
+   ========================================================================== */
+
+/* ---------- 1. Combos: tarjetas grandes ----------
+   3 por fila en compu. Si se agregan más combos, se achican solas (mínimo 260px)
+   y pasan a la fila de abajo. En celu, una por fila. */
+.combos { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; max-width: none; align-items: stretch; }
+.combos .combo { grid-template-columns: 1fr; gap: 0; padding: 0; overflow: hidden; align-items: stretch; align-content: start; }
+.combos .combo__media { order: -1; }
+.combos .combo .foto { aspect-ratio: 16 / 10; border-radius: 0; font-size: .9375rem; }
+.combos .combo__media img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 0; }
+.combos .combo__mas { display: none; }
+.combos .combo__info { padding: 18px 20px 20px; gap: 6px; }
+.combos .combo__nombre { font-size: 1.25rem; }
+.combos .combo__precio { font-size: 1.75rem; }
+.combos .combo--destacado .combo__sello { position: absolute; top: 14px; left: 14px; z-index: 1; margin: 0; }
+.combos .combo__cta {
+  display: flex; align-items: center; justify-content: center; gap: 6px; justify-self: stretch;
+  min-height: 48px; margin-top: 10px; border-radius: 12px;
+  background: var(--verde-fuerte); color: #fff; font-weight: 700; font-size: 1rem;
+  transition: background-color .2s;
+}
+.combos .combo__cta .icono { width: 18px; height: 18px; }
+.combos .combo:hover .combo__cta { background: var(--verde-hondo); }
+
+/* ---------- 1b. Encabezado en celu: que entre todo sin scroll de costado ---------- */
+.encabezado__fila { grid-template-columns: auto minmax(0, 1fr) auto; }
+.encabezado .nav { min-width: 0; }
+@media (max-width: 400px) {
+  .encabezado__fila { gap: 0 4px; }
+  .encabezado .btn--texto { padding: 0 4px; }
+  .encabezado .btn--pedido { padding-left: 10px; }
+  .encabezado__acciones { gap: 2px; }
+  .encabezado .logo__vacio { font-size: 1.125rem; }
+}
+
+/* ---------- 2. Categorías: en celu una abajo de la otra ---------- */
+@media (max-width: 767px) {
+  .categorias { flex-direction: column; overflow: visible; margin: 0; padding: 4px 0; }
+  .categorias .chip { width: 100%; justify-content: center; min-height: 52px; font-size: 1rem; }
+}
+
+/* ---------- 3. Platos dentro de "Armar combo" ----------
+   Compu: foto | nombre + descripción (centrado) | − cantidad +
+   Celu:  foto | nombre + descripción, y el − cantidad + abajo del texto (no abajo de la foto) */
+.plato__info { align-self: center; min-width: 0; }
+.plato p { overflow-wrap: anywhere; }
+@media (max-width: 519px) {
+  .plato .foto, .plato > img { grid-row: span 2; }
+  .plato .cantidad { grid-column: 2; justify-self: start; }
+}
+
+/* ---------- 4. Animaciones ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  /* Portada: el texto entra subiendo, uno atrás del otro */
+  .portada__texto > * { animation: entrar .7s var(--curva) both; }
+  .portada__texto > :nth-child(2) { animation-delay: .06s; }
+  .portada__texto > :nth-child(3) { animation-delay: .12s; }
+  .portada__texto > :nth-child(4) { animation-delay: .18s; }
+  @keyframes entrar { from { opacity: 0; transform: translateY(16px); } }
+
+  /* Secciones que aparecen al bajar con el scroll (las activa animaciones-index.js).
+     --d = demora, para que las tarjetas aparezcan de a una */
+  .js .revelar { opacity: 0; }
+  .js .revelar.visible { opacity: 1; animation: revelar .6s var(--curva) backwards; animation-delay: var(--d, 0s); }
+  @keyframes revelar { from { opacity: 0; transform: translateY(18px); } }
+
+  /* Contador de "Mi pedido": salta cuando se agrega algo */
+  .contador.salta { animation: salto .45s var(--curva); }
+  @keyframes salto { 40% { transform: scale(1.35); } }
+
+  /* Preguntas: la respuesta aparece suave (el + ya gira 45° con estilos.css) */
+  .acordeon__respuesta:not([hidden]) { animation: abrir-respuesta .3s var(--curva); }
+  @keyframes abrir-respuesta { from { opacity: 0; transform: translateY(-6px); } }
+}

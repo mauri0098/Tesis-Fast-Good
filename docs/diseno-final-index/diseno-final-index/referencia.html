@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fast Good · Referencia del diseño final</title>
+
+<link rel="stylesheet" href="estilos.css">
+<link rel="stylesheet" href="index-final.css">
+</head>
+<body>
+
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet">
+<div>
+
+  <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+    <symbol id="icono-whatsapp" viewBox="0 0 24 24"><path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.870 9.870 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.860 9.860 0 0 1-1.510-5.260c.001-5.450 4.436-9.884 9.888-9.884 2.640 0 5.122 1.030 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.450-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.050 0C5.495 0 .160 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.890-5.335 11.893-11.893a11.821 11.821 0 0 0-3.480-8.413z"></path></symbol>
+    <symbol id="icono-instagram" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"></rect><circle cx="12" cy="12" r="4"></circle><circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none"></circle></symbol>
+    <symbol id="icono-reloj" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></symbol>
+    <symbol id="icono-ubicacion" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle></symbol>
+    <symbol id="icono-entregas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="2" y="6" width="12" height="10" rx="1"></rect><path d="M14 9h4l3 3.5V16h-7z"></path><circle cx="7" cy="17.5" r="1.8"></circle><circle cx="17" cy="17.5" r="1.8"></circle></symbol>
+    <symbol id="icono-izq" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></symbol>
+    <symbol id="icono-der" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></symbol>
+    <symbol id="icono-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></symbol>
+    <symbol id="icono-mas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></symbol>
+    <symbol id="icono-bolsa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"></path><path d="M9 8V6.5a3 3 0 0 1 6 0V8"></path></symbol>
+      <symbol id="icono-cerrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></symbol>
+    <symbol id="icono-menos" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path></symbol>
+  </svg>
+
+  <header class="encabezado">
+    <div class="contenedor encabezado__fila">
+      <a href="#inicio" class="logo" aria-label="Fast Good, volver al inicio"><span class="logo__vacio">Fast <span>Good</span></span></a>
+      <nav class="nav" aria-label="Principal">
+        <a href="#categorias" class="activo">Categorías</a>
+        <a href="#combos">Combos</a>
+        <a href="#donde-estamos">Contacto</a>
+      </nav>
+      <div class="encabezado__acciones">
+        <button class="btn btn--texto" type="button">Iniciar sesión</button>
+        <button class="btn btn--pedido" type="button" aria-haspopup="dialog">
+          <svg class="icono" aria-hidden="true"><use href="#icono-bolsa"></use></svg>Mi pedido <span class="contador" aria-label="0 combos">0</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="contenido">
+    <section class="portada" id="inicio">
+      <div class="contenedor portada__grid">
+        <div class="portada__texto">
+          <h1>Fast <span class="portada__acento">Good</span></h1>
+          <p class="portada__bajada">Viandas caseras congeladas, hechas con ingredientes frescos.</p>
+          <p class="portada__lugar"><svg class="icono" aria-hidden="true"><use href="#icono-ubicacion"></use></svg>Sierras Chicas, Córdoba</p>
+          <div class="portada__acciones">
+            <a class="btn btn--primario btn--grande" href="#categorias">Pedir ahora</a>
+            <p class="portada__dato">Combos desde <strong>[precio]</strong></p>
+          </div>
+          <ul class="portada__contacto">
+            <li><svg class="icono" aria-hidden="true"><use href="#icono-whatsapp"></use></svg><a href="#donde-estamos">[número de WhatsApp]</a></li>
+            <li><svg class="icono" aria-hidden="true"><use href="#icono-instagram"></use></svg><a href="#donde-estamos">[@usuario]</a></li>
+            <li><svg class="icono" aria-hidden="true"><use href="#icono-entregas"></use></svg><span>[días y zonas de entrega]</span></li>
+          </ul>
+        </div>
+        <div class="portada__foto">
+          <div class="portada__media">
+            <div class="foto portada__vacia" aria-hidden="true">foto de las viandas</div>
+          </div>
+          <p class="portada__etiqueta"><svg class="icono" aria-hidden="true"><use href="#icono-reloj"></use></svg>Listas en 5 minutos</p>
+        </div>
+      </div>
+      <div class="pasos-franja">
+        <ol class="contenedor pasos">
+          <li><span class="pasos__num" aria-hidden="true">1</span>Elegí tu combo</li>
+          <li><span class="pasos__num" aria-hidden="true">2</span>Armá tus platos</li>
+          <li><span class="pasos__num" aria-hidden="true">3</span>Te lo llevamos</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="seccion seccion--tinte" id="categorias" aria-labelledby="t-categorias" style="position: relative">
+      <div class="contenedor">
+        <h2 id="t-categorias" class="titulo-seccion revelar">Categorías</h2>
+        <div class="categorias revelar" style="--d: .05s"  role="group" aria-label="Elegí una categoría">
+          
+          <button class="chip" type="button" aria-pressed="true"><span class="chip__marca" aria-hidden="true"><svg class="icono"><use href="#icono-check"></use></svg></span>Mantenimiento</button>
+          
+          <button class="chip" type="button" aria-pressed="false"><span class="chip__marca" aria-hidden="true"><svg class="icono"><use href="#icono-check"></use></svg></span>Promo semanal</button>
+          
+          <button class="chip" type="button" aria-pressed="false"><span class="chip__marca" aria-hidden="true"><svg class="icono"><use href="#icono-check"></use></svg></span>Viandas individuales</button>
+          
+          <button class="chip" type="button" aria-pressed="false"><span class="chip__marca" aria-hidden="true"><svg class="icono"><use href="#icono-check"></use></svg></span>Pastelería saludable</button>
+          
+        </div>
+
+        <div class="combos-zona" id="combos">
+          <h3 class="revelar" >Combos Mantenimiento</h3>
+          <p class="revelar" style="--d: .05s">Elegís la cantidad y después armás tus platos. Podés repetir.</p>
+          <div class="combos">
+            
+            <button class="combo revelar " type="button" style="--d: 0.00s">
+              <span class="combo__info">
+                <span class="combo__nombre">10 viandas Mantenimiento</span>
+                <span class="combo__precio">[precio]</span>
+                <span class="combo__unidad">[precio por vianda] por vianda</span>
+                <span class="combo__cta" aria-hidden="true">Armar combo<svg class="icono"><use href="#icono-der"></use></svg></span>
+              </span>
+              <span class="combo__media">
+                <span class="foto">foto del combo</span>
+                <span class="combo__mas" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span>
+              </span>
+            </button>
+            
+            <button class="combo revelar combo--destacado" type="button" style="--d: 0.08s">
+              <span class="combo__info">
+                <span class="combo__sello">Más elegido</span>
+                <span class="combo__nombre">20 viandas Mantenimiento</span>
+                <span class="combo__precio">[precio]</span>
+                <span class="combo__unidad">[precio por vianda] por vianda</span>
+                <span class="combo__cta" aria-hidden="true">Armar combo<svg class="icono"><use href="#icono-der"></use></svg></span>
+              </span>
+              <span class="combo__media">
+                <span class="foto">foto del combo</span>
+                <span class="combo__mas" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span>
+              </span>
+            </button>
+            
+            <button class="combo revelar " type="button" style="--d: 0.16s">
+              <span class="combo__info">
+                <span class="combo__nombre">30 viandas Mantenimiento</span>
+                <span class="combo__precio">[precio]</span>
+                <span class="combo__unidad">[precio por vianda] por vianda</span>
+                <span class="combo__cta" aria-hidden="true">Armar combo<svg class="icono"><use href="#icono-der"></use></svg></span>
+              </span>
+              <span class="combo__media">
+                <span class="foto">foto del combo</span>
+                <span class="combo__mas" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span>
+              </span>
+            </button>
+            
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="seccion" id="donde-estamos" aria-labelledby="t-donde">
+      <div class="contenedor">
+        <h2 id="t-donde" class="titulo-seccion revelar">Dónde <span class="clave">estamos</span></h2>
+        <div class="donde revelar" style="--d: .08s">
+          <dl class="donde__datos">
+            <div class="donde__item">
+              <svg class="icono" aria-hidden="true"><use href="#icono-ubicacion"></use></svg>
+              <div><dt>Dirección</dt><dd>[dirección del local]</dd></div>
+            </div>
+            <div class="donde__item">
+              <svg class="icono" aria-hidden="true"><use href="#icono-entregas"></use></svg>
+              <div><dt>Zona de entrega</dt><dd>[zonas de entrega]</dd></div>
+            </div>
+            <div class="donde__item">
+              <svg class="icono" aria-hidden="true"><use href="#icono-reloj"></use></svg>
+              <div><dt>Días y horarios</dt><dd>[días y horarios]</dd></div>
+            </div>
+            <div class="donde__item">
+              <svg class="icono" aria-hidden="true"><use href="#icono-whatsapp"></use></svg>
+              <div>
+                <dt>WhatsApp</dt>
+                <dd>[número de WhatsApp]</dd>
+                <dd><a class="btn btn--secundario" href="#donde-estamos">Escribinos por WhatsApp</a></dd>
+              </div>
+            </div>
+            <div class="donde__item">
+              <svg class="icono" aria-hidden="true"><use href="#icono-instagram"></use></svg>
+              <div><dt>Instagram</dt><dd><a class="enlace-dato" href="#donde-estamos">[@usuario]</a></dd></div>
+            </div>
+          </dl>
+          <div class="donde__mapa">
+            <div class="mapa"><div class="foto">mapa</div></div>
+            <p class="donde__llegar"><a href="#donde-estamos">Cómo llegar <svg class="icono" aria-hidden="true"><use href="#icono-der"></use></svg></a></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="seccion seccion--tinte" id="preguntas" aria-labelledby="t-preguntas">
+      <div class="contenedor">
+        <h2 id="t-preguntas" class="titulo-seccion revelar">Preguntas <span class="clave">frecuentes</span></h2>
+        <div class="preguntas revelar" style="--d: .08s">
+          <div class="acordeon">
+            
+            <div class="acordeon__item">
+              <h3 class="acordeon__pregunta"><button class="acordeon__boton" type="button" aria-expanded="true">¿Cuánto duran en el freezer?<span class="acordeon__signo" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span></button></h3>
+              <div class="acordeon__respuesta">[respuesta]</div>
+            </div>
+            
+            <div class="acordeon__item">
+              <h3 class="acordeon__pregunta"><button class="acordeon__boton" type="button" aria-expanded="false">¿Cómo se calientan?<span class="acordeon__signo" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span></button></h3>
+              <div class="acordeon__respuesta" hidden>[respuesta]</div>
+            </div>
+            
+            <div class="acordeon__item">
+              <h3 class="acordeon__pregunta"><button class="acordeon__boton" type="button" aria-expanded="false">¿Puedo personalizar un plato?<span class="acordeon__signo" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span></button></h3>
+              <div class="acordeon__respuesta" hidden>[respuesta]</div>
+            </div>
+            
+          </div>
+          <div class="acordeon">
+            
+            <div class="acordeon__item">
+              <h3 class="acordeon__pregunta"><button class="acordeon__boton" type="button" aria-expanded="false">¿Qué días entregan?<span class="acordeon__signo" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span></button></h3>
+              <div class="acordeon__respuesta" hidden>[respuesta]</div>
+            </div>
+            
+            <div class="acordeon__item">
+              <h3 class="acordeon__pregunta"><button class="acordeon__boton" type="button" aria-expanded="false">¿Cómo pago?<span class="acordeon__signo" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span></button></h3>
+              <div class="acordeon__respuesta" hidden>[respuesta]</div>
+            </div>
+            
+            <div class="acordeon__item">
+              <h3 class="acordeon__pregunta"><button class="acordeon__boton" type="button" aria-expanded="false">¿Con cuánta anticipación pido?<span class="acordeon__signo" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span></button></h3>
+              <div class="acordeon__respuesta" hidden>[respuesta]</div>
+            </div>
+            
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor pie__grid">
+      <div class="pie__marca">
+        <span class="logo logo--pie"><span class="logo__vacio">Fast <span>Good</span></span></span>
+        <p>Viandas caseras congeladas, hechas con ingredientes frescos en las Sierras Chicas, Córdoba.</p>
+      </div>
+      <nav class="pie__col" aria-label="Pie de página">
+        <h2>Navegación</h2>
+        <a href="#categorias">Categorías</a>
+        <a href="#combos">Combos</a>
+        <a href="#donde-estamos">Dónde estamos</a>
+        <a href="#preguntas">Preguntas frecuentes</a>
+      </nav>
+      <div class="pie__col">
+        <h2>Contacto</h2>
+        <p>WhatsApp [número de WhatsApp]</p>
+        <p>Instagram [@usuario]</p>
+      </div>
+      <div class="pie__col">
+        <h2>Entregas</h2>
+        <p>Días: [días de entrega]</p>
+        <p>Zonas: [zonas de entrega]</p>
+      </div>
+    </div>
+  </footer>
+
+  <a class="wa-flotante" href="#donde-estamos" aria-label="Escribinos por WhatsApp"><svg class="icono-wa" aria-hidden="true"><use href="#icono-whatsapp"></use></svg></a>
+</div>
+
+
+<script src="animaciones-index.js"></script>
+</body>
+</html>

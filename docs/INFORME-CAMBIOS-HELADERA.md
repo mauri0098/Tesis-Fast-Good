@@ -7,6 +7,10 @@
 > por las rutas, contra la base real (pedidos de prueba #11 y #12, anulados; la heladera quedó igual). Falta mirar las pantallas.
 > **H9** (Parte 2: el estilo nuevo del CLAUDE.md en todo lo de H8, en las rutas y en las funciones de la base, **sin cambiar
 > lo que hacen**): escrito, comparado (lo viejo contra lo nuevo, miles de casos, ver la sección 9) y con el SQL corrido.
+> **Pantalla 1, paso 1** (16/10): la web nueva (`index-combos.html`) con el diseño de la maqueta y nombres claros en español
+> (sección 13). Comprobado que se ve igual con los nombres nuevos y test HELADERA 40/40. Falta el recorrido a mano.
+> **Pantalla 1, paso 2 y diseño final** (16/10): la web nueva es `index.html` (`/`) (13.9) y quedó igual al diseño final v5,
+> con animaciones y login en ventana (13.10 y 13.11). Test HELADERA 40/40 en cada cambio. Falta el recorrido a mano.
 > **Este informe se actualiza con cada cambio nuevo** (código, SQL, pantallas), con el mismo formato (regla del 15/10).
 > Los ejemplos usan tus datos: **fideos con 71 viandas**, el combo de prueba "PRUEBA Mantenimiento x10" y la
 > receta de fideos que mostró la prueba de H3: **300 g de harina integral y 2 huevos por vianda**.
@@ -1971,3 +1975,870 @@ texto). **Sin SQL. Sin cambios en el servidor.**
 
 **Se conecta con:** Tareas de Cocina ("Para stock", `cocinero.html`) y Producción ("Pendientes de cocina" y "Hecho hoy",
 `heladera.html`), con las rutas `GET /api/ordenes-produccion/pendientes` y `…/hechos-hoy`, que no cambiaron.
+
+---
+
+## 13. Pantalla 1 (Index, la web nueva) — paso 1: cómo se ve (16/10)
+
+**Qué se pidió.** Cambiar SOLO cómo se ve `index-combos.html`, con el diseño de `docs/diseno-index/`. No cambia nada de
+los datos, las rutas, las validaciones ni lo que se manda al servidor. El index viejo todavía no se reemplaza (eso es el paso 2).
+Decisiones del 16/10: 1) el logo de siempre (`logo.webp`) · 2) los textos de hoy; los de la maqueta solo donde hoy no hay
+nada · 3) el formulario en el orden de la maqueta · 4) la tarjeta del combo sin "Menú: …". Sin "Ofertas del día"; combos en
+tarjetas (2 por fila en el celu, 4 en la compu); categorías una debajo de la otra en el celu.
+Y las reglas nuevas del CLAUDE.md (16/10, 10:17): **nombres claros en español** en ids, clases, funciones y variables
+(un combo es `tarjeta-combo`, no `oferta`), el mismo nombre en HTML, JS y CSS, y **CSS solo en su archivo** (nada de `<style>`
+ni `style=""` en el HTML).
+
+### 13.1 Qué archivos cambiaron
+| Archivo | Qué cambió |
+|---|---|
+| `frontend/index-combos.html` | El marcado de la maqueta con nombres claros: encabezado, portada con la foto en tarjeta, los 3 pasos, categorías, combos, Dónde estamos, Preguntas (`<details>`), pie y los 3 modales. Mismos campos del formulario (mismos `name`, `value`, `maxlength`, `inputmode`). Letra Figtree. Ya no carga `global.css`. Sin `<style>` ni `style=""` |
+| `frontend/src/css/index-combos.css` | Reescrito: la hoja de la maqueta (`estilos.css` v5) con los nombres en español, sin las partes que la página no usa, y al final los agregados (personalizar un plato, fotos de verdad, el botón de sesión de `auth.js`, etc.) |
+| `frontend/src/js/combosCatalogo.js` | `cargarCombos` (+ "Combos desde $…"), `renderizarCategorias`, `renderizarCombos` |
+| `frontend/src/js/armarCombo.js` | `renderizarMenuCombo` (y los ids que usan `abrirModalCombo`, `cerrarModalCombo` y los clics) |
+| `frontend/src/js/carritoCombos.js` | `renderizarCarrito` (y los ids de los clics) |
+| `frontend/src/js/pedidoCombos.js` | `abrirFinalizarPedido` (antes `abrirCheckout`) y `mostrarConfirmacion`; `cargarBarrios` y `validarFormulario` solo cambian nombres |
+
+**No se tocó:** `server.js`, `sql/`, `auth.js` (es de la Pantalla 2), `api.js`, `fechas.js`, `escape.js`, ni lo que arma y
+manda el pedido (`armarPedido`, `enviarPedido`, `armarMensajeWhatsApp` quedan iguales). Ninguna función nueva.
+
+### 13.2 Las funciones: antes y ahora
+Ejemplos con el combo de prueba «PRUEBA Mantenimiento x10» ($ 137.000, de MANTENIMIENTO, categoría "Viandas Saludables").
+
+**`cargarCombos(mantenerCategoria)`** (combosCatalogo.js) — trae los combos del servidor y dibuja categorías y tarjetas.
+- ENTRADA: `false` al abrir la página, `true` al recargar porque no alcanzaron las viandas. SALIDA: nada (dibuja).
+- Cambió: escribe "Combos desde $…" en la portada con el precio más bajo (solo para mostrar). El texto viene de la maqueta
+  (hoy no había nada ahí, decisión 2).
+```js
+const precios = combosDisponibles.map(combo => Number(combo.precio));          // [137000, 100000, 160000]
+const precioMasBajo = Math.min(...precios);                                       // 100000
+document.getElementById('combos-desde-precio').textContent = '$ ' + precioMasBajo.toLocaleString('es-AR');
+document.getElementById('combos-desde').hidden = false;                           // estaba escondido
+```
+- Se conecta: la llama el arranque de la página y `confirmarPedido` (cuando "No quedan suficientes viandas…"); llama a
+  `GET /api/v1/combos`, `renderizarCategorias` y `renderizarCombos`.
+
+**`renderizarCategorias()`** — un botón por categoría; la elegida, verde con la ✓.
+- ENTRADA: nada (usa `combosDisponibles` y `categoriaElegida`). SALIDA: nada (dibuja en `#lista-categorias`).
+- ANTES: `let claseActiva = ''; if (esLaElegida) claseActiva = ' categoria-btn--activa';` y `class="categoria-btn${claseActiva}"`.
+- AHORA: `class="boton-categoria"` con `aria-pressed="true"` en la elegida (el CSS la pinta y muestra la ✓, y los lectores de
+  pantalla dicen "presionado"). Se fue el `let` + `if`.
+- Se conecta: la llaman `cargarCombos` y el clic en una categoría; ese clic llama a `renderizarCombos`.
+
+**`renderizarCombos()`** — el título de la categoría y una tarjeta por combo.
+- ENTRADA: nada. SALIDA: nada (dibuja en `#combos`).
+- ANTES: `let imagen = IMAGEN_POR_DEFECTO; if (platoConImagen) { imagen = … }`, la línea "Menú: fideos · canelones" y la
+  tarjeta `combo-tarjeta`.
+- AHORA: título (`<h3>` con la categoría) + la bajada de la maqueta ("Elegí la cantidad y armá tus platos. **Mismo precio**
+  aunque personalices.") + `grilla-combos` con tarjetas `tarjeta-combo`: foto, "MANTENIMIENTO · 10 viandas", el nombre,
+  "$ 137.000  $ 13.700 c/u" y "Armar combo". Sin "Menú:" (decisión 4).
+```js
+const imagen = platoConImagen?.imagen || IMAGEN_POR_DEFECTO;                      // la foto de un plato, o el logo
+const claseLogo = imagen === IMAGEN_POR_DEFECTO ? ' foto-logo' : '';              // el logo se ve entero
+const precioPorVianda = Math.round(precio / combo.cantidad);                      // 137000 / 10 = 13700
+```
+- Si una categoría quedara sin combos, sale temprano (`return`). Se conecta: el botón "Armar combo" lo escucha `armarCombo.js`.
+
+**`renderizarMenuCombo()`** (armarCombo.js) — dibuja los platos del combo, "3 de 10", "Te faltan 7" y la barra.
+- ENTRADA: nada (usa lo que se está armando). SALIDA: nada (dibuja y prende o apaga "Agregar al pedido").
+- Lo que hace es igual (mismos topes, mismos textos: "Quedan 6", "Sin stock · podés pedirlo personalizado", "¡Combo completo!",
+  la nota de los personalizados). Cambió cómo se dibuja y cómo está escrito:
+
+| ANTES | AHORA |
+|---|---|
+| `let apagadoSumar = ''; if (!puedeSumar) apagadoSumar = 'disabled';` (5 veces, con `let` + `if`) | `const apagadoSumar = puedeSumar ? '' : 'disabled';` |
+| Aviso de stock con `if … else if` | Dos variables con nombre: `sinStock` y `quedanPocas`, cada una con su ternario |
+| `personalizados.forEach` **adentro** del `forEach` de los platos | Primero un objeto `{ idPlato: html }` con los renglones personalizados, después un solo recorrido |
+| Campo "Personalizar" con `if / else` | `const personalizar = estaPersonalizando ? campoPersonalizar : botonPersonalizar;` |
+| Botones `−` `+` de texto | Botones redondos de la maqueta con ícono (el `+` verde) |
+| La barra: `style.width = '70%'` | `style.transform = 'scaleX(0.7)'` (así la anima el CSS de la maqueta) y la clase `progreso-completo` con el combo justo |
+
+- Se conecta: la llaman `abrirModalCombo`, `cambiarCantidadPlato`, `agregarPlatoPersonalizado`, `cambiarCantidadPersonalizado`,
+  los clics de "Personalizar" / "Cancelar" y la tecla Escape.
+
+**`renderizarCarrito()`** (carritoCombos.js) — dibuja "Mi pedido", el total, el número del botón y "Finalizar pedido".
+- ENTRADA: nada (usa `carritoCombos`). SALIDA: nada.
+- ANTES: un `forEach` de platos adentro del `forEach` de combos, con `let` + `if`; el combo con un ✕ para quitarlo.
+- AHORA: los platos con `map` + `join` (como en `pedidoCombos.js`), cada combo como `combo-del-pedido`: nombre y precio,
+  un plato por renglón ("1 × canelones · ⚠ sin sal"), "$ 13.700 c/u" y "Quitar". Carrito vacío: el ícono de la bolsa y el texto
+  de siempre ("Todavía no agregaste combos.").
+```js
+const viandas = Number(combo.cantidad) || 0;                       // si alguien tocó el carrito guardado y no está: 0
+const tieneViandas = viandas > 0;
+const textoPorVianda = tieneViandas ? '$ ' + Math.round(precio / viandas).toLocaleString('es-AR') + ' c/u' : '';
+```
+- Se conecta: la llaman `cargarCarrito`, `quitarDelCarrito`, `abrirMiPedido` y `confirmarPedido` (al vaciar el carrito).
+
+**`abrirFinalizarPedido()`** (pedidoCombos.js, antes `abrirCheckout`: "checkout" es inglés) — prepara y abre "Finalizar pedido".
+- ENTRADA: nada. SALIDA: nada (el modal abierto con resumen, total, fecha mínima y los datos de la sesión).
+- Igual que antes en todo lo que hace (fecha mínima, datos de la sesión, barrio). Cambió el resumen: cada combo es un
+  `resumen-combo` (nombre y precio arriba, los platos abajo), el total se escribe en los 3 lugares donde se ve, y el resumen
+  va **abierto en compu** (fijo a la derecha) y **cerrado en el celu** (se abre al tocarlo):
+```js
+document.getElementById('resumen-pedido').open = window.matchMedia('(min-width: 900px)').matches;   // compu → true
+```
+- Se conecta: la llama el botón "Finalizar pedido" de "Mi pedido"; llama a `cargarBarrios` y a `fechas.js`.
+
+**`mostrarConfirmacion(respuesta, datos)`** — dibuja "¡Recibimos tu pedido #N!".
+- ENTRADA: lo que devolvió el servidor y los datos del formulario. SALIDA: nada (la vista de confirmación).
+- Mismos textos. AHORA con el diseño de la maqueta: la ✓ grande, el título, "Para terminar, mandanos el resumen por WhatsApp
+  y te confirmamos.", Fecha de entrega / Entrega / Forma de pago (en compu, en 3 columnas), el alias si es transferencia,
+  el resumen con el total y el botón verde "Enviar por WhatsApp" con su ícono. El enlace de WhatsApp se sigue poniendo aparte
+  (`.href`), igual que antes.
+- Se conecta: la llama `confirmarPedido`; llama a `armarMensajeWhatsApp`.
+
+**`cargarBarrios()` y `validarFormulario()`** — solo nombres: `select` → `campoBarrio`, `inputFecha` → `campoFecha` y los ids
+(`ck-…` → `campo-…`, `err-…` → `error-…`). Los mismos controles, en el mismo orden, con los mismos mensajes.
+
+### 13.3 Los nombres: antes → ahora
+Regla del CLAUDE.md: todo en español y diciendo qué es; el mismo nombre en los 3 lados. Se cambió en **todos** los archivos que
+los usan (el HTML, el CSS y los 4 JS; ningún otro archivo los usa). Quedan como estaban, a propósito:
+- `auth-btn-container`, `auth-dropdown` y `login-btn-header`: los arma `auth.js`, que comparten otras pantallas → Pantalla 2.
+- Los que ya eran claros: `contenedor`, `icono`, `foto`, `logo`, `encabezado`, `portada`, `pasos`, `seccion`, `titulo-seccion`,
+  `progreso`, `plato`, `nota`, `total`, `vista`, `campos`, `campo`, `opcional`, `opciones`, `opcion`, `resumen`, `acordeon`;
+  los ids `modal-combo`, `modal-pedido`, `lista-categorias`, los de las secciones (`inicio`, `categorias`, `combos`,
+  `donde-estamos`, `preguntas`, `contenido`) y los de los íconos (`icono-…`).
+- Los `data-accion` (`armar-combo`, `sumar`, `restar`, `quitar-combo`…): ya eran claros.
+
+Funciones y variables: `abrirCheckout` → `abrirFinalizarPedido` · `inputFecha` → `campoFecha` · `select` → `campoBarrio`.
+
+**Ids:**
+
+| id antes | id ahora |
+|---|---|
+| `btn-mi-pedido` | `boton-mi-pedido` |
+| `contador` | `contador-combos` |
+| `portada-desde` | `combos-desde` |
+| `portada-precio` | `combos-desde-precio` |
+| `t-categorias` | `titulo-categorias` |
+| `t-donde` | `titulo-donde` |
+| `t-preguntas` | `titulo-preguntas` |
+| `mc-cat` | `modal-combo-categoria` |
+| `mc-titulo` | `modal-combo-titulo` |
+| `mc-progreso` | `modal-combo-progreso` |
+| `mc-cuenta` | `modal-combo-cuenta` |
+| `mc-falta` | `modal-combo-falta` |
+| `mc-barra` | `modal-combo-barra` |
+| `mc-relleno` | `modal-combo-relleno` |
+| `mc-platos` | `lista-platos` |
+| `mc-agregar` | `boton-agregar-combo` |
+| `mc-salir` | `aviso-salir` |
+| `mc-salir-texto` | `aviso-salir-texto` |
+| `mc-texto-personalizado` | `texto-personalizado` |
+| `mp-titulo` | `modal-pedido-titulo` |
+| `mp-cuerpo` | `modal-pedido-combos` |
+| `mp-total` | `modal-pedido-total` |
+| `mp-finalizar` | `boton-finalizar-pedido` |
+| `modal-checkout` | `modal-finalizar` |
+| `ck-titulo` | `modal-finalizar-titulo` |
+| `ck-vista-form` | `vista-formulario` |
+| `form-pedido` | `formulario-pedido` |
+| `ck-resumen` | `resumen-pedido` |
+| `ck-resumen-cant` | `resumen-cantidad` |
+| `ck-resumen-total` | `resumen-total-titulo` |
+| `ck-resumen-lista` | `resumen-lista` |
+| `ck-resumen-cuenta` | `resumen-total` |
+| `ck-nombre` | `campo-nombre` |
+| `ck-apellido` | `campo-apellido` |
+| `ck-telefono` | `campo-telefono` |
+| `ck-email` | `campo-email` |
+| `ck-direccion` | `campo-direccion` |
+| `ck-grupo-barrio` | `grupo-barrio` |
+| `ck-barrio` | `campo-barrio` |
+| `ck-fecha` | `campo-fecha` |
+| `ck-fecha-aviso` | `fecha-aviso` |
+| `ck-fecha-ayuda` | `fecha-primera-posible` |
+| `ck-transf` | `alias-transferencia` |
+| `ck-observaciones` | `campo-observaciones` |
+| `ck-total` | `total-a-pagar` |
+| `ck-confirmar` | `boton-confirmar-pedido` |
+| `ck-vista-ok` | `vista-confirmacion` |
+| `ok-cuerpo` | `confirmacion-contenido` |
+| `ok-whatsapp` | `boton-whatsapp` |
+| `err-nombre` | `error-nombre` |
+| `err-apellido` | `error-apellido` |
+| `err-telefono` | `error-telefono` |
+| `err-email` | `error-email` |
+| `err-direccion` | `error-direccion` |
+| `err-entrega` | `error-entrega` |
+| `err-barrio` | `error-barrio` |
+| `err-fecha` | `error-fecha` |
+| `err-pago` | `error-pago` |
+| `err-observaciones` | `error-observaciones` |
+| `err-envio` | `error-envio` |
+
+**Clases:**
+
+| Clase antes | Clase ahora |
+|---|---|
+| **Encabezado, portada y pasos** | |
+| `.saltar` | `.saltar-al-contenido` |
+| `.btn` | `.boton` |
+| `.btn--primario` | `.boton-principal` |
+| `.btn--secundario` | `.boton-secundario` |
+| `.btn--grande` | `.boton-grande` |
+| `.btn--ancho` | `.boton-ancho` |
+| `.btn--pedido` | `.boton-mi-pedido` |
+| `.btn-cerrar` | `.boton-cerrar` |
+| `.contador` | `.contador-combos` |
+| `.logo__img` | `.logo-imagen` |
+| `.encabezado__fila` | `.encabezado-fila` |
+| `.encabezado__acciones` | `.encabezado-botones` |
+| `.nav` | `.menu-principal` |
+| `.portada__grid` | `.portada-columnas` |
+| `.portada__texto` | `.portada-texto` |
+| `.portada__acento` | `.palabra-verde` |
+| `.clave` | `.palabra-verde` |
+| `.portada__bajada` | `.portada-subtitulo` |
+| `.portada__lugar` | `.portada-lugar` |
+| `.portada__acciones` | `.portada-botones` |
+| `.portada__dato` | `.combos-desde` |
+| `.portada__contacto` | `.portada-contacto` |
+| `.portada__foto` | `.portada-foto` |
+| `.portada__media` | `.portada-marco` |
+| `.portada__img` | `.portada-imagen` |
+| `.portada__etiqueta` | `.portada-etiqueta` |
+| `.pasos-franja` | `.franja-pasos` |
+| `.pasos__num` | `.pasos-numero` |
+| `.seccion--tinte` | `.seccion-fondo-verde` |
+| `.icono-wa` | `.icono` |
+| **Categorías y tarjetas de combos** | |
+| `.categorias` | `.lista-categorias` |
+| `.chip` | `.boton-categoria` |
+| `.chip__marca` | `.boton-categoria-tilde` |
+| `.combos-zona` | `.zona-combos` |
+| `.combos-grid` | `.grilla-combos` |
+| `.oferta` | `.tarjeta-combo` |
+| `.oferta__media` | `.tarjeta-combo-foto` |
+| `.oferta__texto` | `.tarjeta-combo-datos` |
+| `.oferta__plan` | `.tarjeta-combo-plan` |
+| `.oferta__precios` | `.tarjeta-combo-precios` |
+| `.oferta__acciones` | `.tarjeta-combo-boton` |
+| `.aviso-vacio` | `.aviso-combos` |
+| `.foto--logo` | `.foto-logo` |
+| **Modales y armar combo** | |
+| `.hoja` | `.modal` |
+| `.hoja--pedido` | `.modal-pedido` |
+| `.hoja--completa` | `.modal-finalizar` |
+| `.hoja__cab` | `.modal-encabezado` |
+| `.hoja__sup` | `.modal-categoria` |
+| `.hoja__cuerpo` | `.modal-contenido` |
+| `.hoja__pie` | `.modal-pie` |
+| `.hoja__botones` | `.dos-botones` |
+| `.progreso__texto` | `.progreso-texto` |
+| `.progreso__barra` | `.progreso-barra` |
+| `.completo` | `.progreso-completo` |
+| `.salir` | `.aviso-salir` |
+| `.platos` | `.lista-platos` |
+| `.elegido` | `.plato-elegido` |
+| `.plato__info` | `.plato-datos` |
+| `.plato__quedan` | `.plato-quedan` |
+| `.plato__quedan--sin` | `.plato-sin-stock` |
+| `.plato__extra` | `.plato-personalizados` |
+| `.personalizado` | `.renglon-personalizado` |
+| `.personalizado__texto` | `.renglon-personalizado-texto` |
+| `.personalizar` | `.personalizar-plato` |
+| `.enlace` | `.boton-enlace` |
+| `.cantidad` | `.selector-cantidad` |
+| `.cantidad__btn` | `.boton-cantidad` |
+| `.cantidad__btn--mas` | `.boton-sumar` |
+| `.cantidad__num` | `.numero-cantidad` |
+| **Mi pedido** | |
+| `.item` | `.combo-del-pedido` |
+| `.item__fila` | `.nombre-y-precio` |
+| `.item__nombre` | `.combo-nombre` |
+| `.item__precio` | `.combo-precio` |
+| `.item__detalle` | `.combo-platos` |
+| `.item__acciones` | `.combo-acciones` |
+| `.item__unidad` | `.combo-precio-vianda` |
+| `.quitar` | `.boton-quitar` |
+| `.vacio` | `.pedido-vacio` |
+| `.vacio__icono` | `.pedido-vacio-icono` |
+| **Finalizar pedido y confirmación** | |
+| `.checkout__cuerpo` | `.finalizar-contenido` |
+| `.checkout__grid` | `.finalizar-columnas` |
+| `.checkout__pie` | `.finalizar-pie` |
+| `.checkout__total` | `.finalizar-total` |
+| `.checkout__error` | `.finalizar-error` |
+| `.resumen__cab` | `.resumen-titulo` |
+| `.resumen__cant` | `.resumen-cantidad` |
+| `.resumen__lado` | `.resumen-derecha` |
+| `.resumen__flecha` | `.resumen-flecha` |
+| `.resumen__contenido` | `.resumen-contenido` |
+| `.resumen__items` | `.resumen-lista` |
+| `.resumen__item` | `.resumen-combo` |
+| `.resumen__cuentas` | `.resumen-cuentas` |
+| `.resumen__total` | `.resumen-renglon-total` |
+| `.bloque` | `.grupo-campos` |
+| `.campo__ayuda` | `.campo-ayuda` |
+| `.campo__error` | `.campo-error` |
+| `.campos-dos` | `.campos-lado-a-lado` |
+| `.input` | `.casillero` |
+| `.subcampos` | `.grupo-barrio` |
+| `.opciones--2` | `.opciones-dos-columnas` |
+| `.opcion__input` | `.opcion-radio` |
+| `.opcion__caja` | `.opcion-tarjeta` |
+| `.opcion__marca` | `.opcion-circulo` |
+| `.opcion__cuerpo` | `.opcion-textos` |
+| `.opcion__titulo` | `.opcion-titulo` |
+| `.opcion__texto` | `.opcion-detalle` |
+| `.ok` | `.confirmacion` |
+| `.ok__marca` | `.confirmacion-tilde` |
+| `.ok__datos` | `.confirmacion-datos` |
+| **Dónde estamos, preguntas, pie y WhatsApp** | |
+| `.donde` | `.donde-columnas` |
+| `.donde__datos` | `.donde-lista` |
+| `.donde__item` | `.donde-dato` |
+| `.enlace-dato` | `.enlace-subrayado` |
+| `.preguntas` | `.preguntas-columnas` |
+| `.acordeon__item` | `.pregunta` |
+| `.acordeon__boton` | `.pregunta-titulo` |
+| `.acordeon__signo` | `.pregunta-signo` |
+| `.acordeon__respuesta` | `.pregunta-respuesta` |
+| `.pie` | `.pie-de-pagina` |
+| `.pie__grid` | `.pie-columnas` |
+| `.pie__marca` | `.pie-marca` |
+| `.pie__col` | `.pie-columna` |
+| `.pie__copia` | `.pie-derechos` |
+| `.wa-flotante` | `.whatsapp-flotante` |
+
+**Se sacaron del HTML:** el `<style>` del encabezado (pasó al CSS: el `body` escondido hasta que carga), `style="position:absolute"`
+de la lista de íconos (ahora clase `lista-iconos`), `style="position:relative;"` de `#auth-btn-container` (ahora en el CSS),
+el texto "Fast Good" escondido al lado del logo (`logo__vacio`: nunca se veía) y el id `mp-pie` (nadie lo usaba).
+
+**Se sacaron del CSS (nadie las usaba en esta página):** `.solo-lector`, `.btn--texto`, `.contador.salta`, `.logo__vacio`,
+`.nav a.activo`, `.portada__vacia`, `.bajada-seccion`, `.tarjeta…` (platos sueltos), `.oferta__desc` (sello), los precios
+tachados (`s`), `.opcion__input:checked + .chip`, `.bloque.invalido`, `.input[aria-invalid]`, `.acordeon__pregunta`,
+`[aria-expanded]` del acordeón viejo, `.acordeon__respuesta[hidden]`, `h2:focus` / `h3:focus`, `.ok h4`, `.vacio h3`,
+`.vacio .btn`, `.salir p strong` y `.oferta h3` (estaba pisada por `.zona-combos h3`: no hacía nada).
+
+### 13.4 Cómo se comprobó que se ve igual y que anda igual
+- **Se ve igual:** un script abre la página en un Chrome sin ventana (perfil temporal, sin tocar el tuyo) y recorre 14 pasos en
+  celu (390 px) y 13 en compu (1440 px): portada, Mi pedido vacío, armar el combo (vacío, personalizando, 8 de 10, completo,
+  "¿Salir?"), Mi pedido, Finalizar (vacío, con errores, Retiro + Transferencia, resumen abierto en el celu) y la confirmación
+  **dibujada con datos de mentira**. En cada paso guarda la captura y, de cada elemento visible, su posición, tamaño y ~60
+  estilos. Se corrió con los nombres de la maqueta y con los nuevos: **todo igual**. Lo único distinto: el nombre de 2 zonas
+  de la grilla del encabezado (`nav` → `menu`, `acciones` → `botones`, mismo lugar) y ruido de la propia captura, comprobado
+  repitiendo (las dos corridas del "antes" también difieren entre sí en esas capturas; la barra de progreso terminando su
+  animación: con 3 segundos más de espera, idéntica).
+- **No se manda nada:** el script nunca toca "Confirmar pedido" y además corta cualquier pedido a `/api/pedidos-combos`.
+  Errores en la consola del navegador: ninguno.
+- `node --check` en los 4 JS: bien. Lo nuevo sin `if` adentro de otro `if`.
+- **Test HELADERA: 40/40, dos veces** (10:33 con los nombres de la maqueta y 13:44 con los nuevos): pedidos de prueba
+  "PRUEBA – NO PREPARAR" #15 y #16 en la primera y dos más en la segunda, todos anulados; la heladera quedó igual.
+
+### 13.5 Seguridad (qué protege cada cosa)
+- **`escHtml` en todo lo que viene de la base** antes del `innerHTML`: nombres de combos, planes, categorías y platos,
+  descripciones, el texto personalizado, la dirección… Protege de **XSS**: si alguien carga un plato llamado
+  `<img src=x onerror=…>`, se ve como texto y no se ejecuta.
+- **`textContent`** para "Combos desde", los totales, "3 de 10" y "Te faltan 7": se muestran como texto, nunca como HTML.
+- **"$… c/u" y "Combos desde" son solo para mostrar:** el total que se cobra lo calcula el servidor desde la base. Protege de
+  que alguien **cambie precios en el navegador** (en el carrito guardado): vería otro número, pero paga el del servidor.
+- **El carrito guardado se lee igual que antes** (`cargarCarrito` no cambió) y el "c/u" se calcula solo si la cantidad es un
+  número mayor a 0: un carrito tocado a mano no rompe la página (nada de "NaN" ni división por cero).
+- **Lo que se manda al servidor no cambió** (`armarPedido` y `enviarPedido` iguales): el servidor sigue controlando todo
+  (precios, cantidades, que el combo sume justo, límite de pedidos por IP).
+- El enlace de WhatsApp se sigue poniendo con `.href` aparte: ningún texto del mensaje puede romper el HTML.
+
+### 13.6 Qué quedó para después
+- `if` adentro de `if` y `else` viejos, **fuera de lo que dibuja**: `agregarPlatoPersonalizado` y los clics de `armarCombo.js`,
+  y los clics de `carritoCombos.js`. Se pasan al estilo nuevo cuando digas (este paso es solo cómo se ve).
+- `auth.js` (Pantalla 2): el nombre del usuario sin `escHtml`, sus estilos escritos en la etiqueta (acá se pisan con
+  `!important`) y sus nombres en inglés (`auth-btn-container`, `login-btn-header`, `auth-dropdown`).
+- **Pregunta abierta:** el nombre del combo en la tarjeta sale grande, como en la maqueta (lo agarra `.zona-combos h3`). En el
+  celular, con nombres largos como "MANTENIMIENTO - PRUEBA 20", la palabra se parte en dos renglones (antes quedaba cortada en
+  el borde; se arregló con `overflow-wrap: anywhere`). Opción: 16 px, la medida que la maqueta tenía escrita para las tarjetas
+  (`.oferta h3`) y que quedaba pisada.
+
+### 13.7 Arreglo visual (16/10, tarde): tarjetas de combos y foto de la portada
+**Qué se pidió:** solo lo visual (regla del CLAUDE.md), dos cosas. 1) Las tarjetas de combos como las de la referencia
+(`docs/diseno-index/estilos.css`, que ahora es la versión v4, regla `.combo` en compu). 2) La foto de la portada:
+`viandaprincipal2` (las viandas sobre la mesa de madera) con `srcset` de 900, 1600 y la original. Esto también responde la
+pregunta abierta de 13.6: el nombre va a 18 px.
+
+**1) Las tarjetas.** Cambió solo el HTML que arma `renderizarCombos` (combosCatalogo.js) y el CSS de las tarjetas.
+
+| | ANTES | AHORA |
+|---|---|---|
+| Arriba del nombre | "MANTENIMIENTO · 20 viandas" en verde | No está (se sacó) |
+| Nombre | El tamaño grande del título de la zona (`.zona-combos h3` también lo agarraba) | 18 px, peso 700, texto oscuro (`tarjeta-combo-nombre`). `.zona-combos h3` pasó a `.zona-combos > h3`: solo el título de la zona |
+| Precio | 19 px, con "$ 13.700 c/u" al lado | 26 px, peso 800, verde (`tarjeta-combo-precio`) y abajo, en gris chico, "$ 13.700 por vianda" (`tarjeta-combo-por-vianda`) |
+| Botón | "Armar combo" | "Armar combo ›" (con la flechita `icono-der`), a todo el ancho y abajo de todo: las tarjetas de una fila tienen el mismo alto y los botones quedan alineados |
+| Borde y mouse | Al pasar el mouse, borde verde y sombra | Borde finito gris; al pasar el mouse, sombra suave (como la referencia) |
+| Por fila | 2 en celu, 4 en compu | 1 en celu (a lo ancho), 2 en tablet (640 px o más), 3 como máximo en compu (900 px o más) |
+| Destacado | — | Listas pero sin usar (no hay un dato que diga cuál es): `tarjeta-combo-destacada` (borde naranja de 2 px) y la pastilla `tarjeta-combo-sello` ("Más elegido", arriba a la izquierda sobre la foto) |
+
+```js
+// renderizarCombos: lo que cambió del HTML de cada tarjeta
+<h3 class="tarjeta-combo-nombre">${escHtml(combo.nombre)}</h3>
+<p class="tarjeta-combo-precios">
+  <strong class="tarjeta-combo-precio">$ ${escHtml(precio.toLocaleString('es-AR'))}</strong>
+  <span class="tarjeta-combo-por-vianda">$ ${escHtml(precioPorVianda.toLocaleString('es-AR'))} por vianda</span>
+</p>
+<button … data-accion="armar-combo" …>Armar combo <svg class="icono" aria-hidden="true"><use href="#icono-der"></use></svg></button>
+```
+- `renderizarCombos`: ENTRADA nada (usa `combosDisponibles` y `categoriaElegida`) → SALIDA nada (dibuja en `#combos`).
+  Se conecta igual que antes: la llaman `cargarCombos` y el clic en una categoría; el botón lo escucha `armarCombo.js`
+  (el clic en la flechita también sirve: se busca el botón con `closest`).
+- **Nombres:** no se renombró nada que use el JS. Clases nuevas: `tarjeta-combo-nombre`, `tarjeta-combo-precio`,
+  `tarjeta-combo-por-vianda`, `tarjeta-combo-destacada` y `tarjeta-combo-sello`. Se fue `tarjeta-combo-plan` (la línea
+  verde). El "c/u" de "Mi pedido" no cambió (no es la tarjeta).
+
+**2) La foto de la portada** (`index-combos.html`, solo la `<img>`): antes `bannerpro4.png` (7,4 MB); ahora
+`viandaprincipal2-1600.jpg` con `srcset` de `viandaprincipal2-900.jpg 900w`, `-1600.jpg 1600w` y `viandaprincipal2.jpg 3168w`
+(la original, 4,3 MB) y `sizes="(min-width: 768px) 55vw, 100vw"`. El navegador baja la que le alcanza: comprobado, el celu
+(1x) baja la de 900 px (0,1 MB) y uno de alta densidad (3x) la de 1600 px (0,3 MB); la compu, la de 900 px, y con pantalla
+retina la de 1600 px. El encuadre (lado derecho de la foto) y el texto alternativo son los de antes.
+
+**Cómo se comprobó:**
+- Las capturas de las tarjetas: 3 por fila en compu, 2 en tablet, 1 en celu, con los botones alineados.
+- El mismo recorrido de 27 pasos de 13.4, comparado por zonas contra cómo estaba antes del cambio: los modales, el encabezado,
+  la portada y todo lo que está después de las tarjetas, **iguales**. Lo único distinto fuera de las tarjetas fueron
+  números de captura (la página quedó más alta).
+- Errores en la consola: ninguno. `node --check`: bien. Sin `if` anidados.
+- **Test HELADERA: 40/40** (pedidos de prueba #19 y #20, anulados; la heladera quedó igual).
+
+**Seguridad:** el nombre del combo y los precios siguen pasando por `escHtml` (protege de XSS: un nombre con `<script>` se ve
+como texto). "Por vianda" es solo para mostrar: el precio que se cobra lo calcula el servidor desde la base.
+
+### 13.8 La web nueva con el estilo general de la v4 (16/10, tarde)
+**Qué se pidió:** solo HTML y CSS, con la referencia `docs/diseno-index-v4/diseno-index-v4/` (`index.html` y `estilos.css`),
+sin renombrar nada que use el JS y sin "Ofertas del día".
+
+| # | Pedido | Qué se hizo |
+|---|---|---|
+| 1 | Estilo general v4 | `index-combos.css` con los colores, sombras y tamaños de la v4 (comparado regla por regla con un script: quedan solo las diferencias nuestras a propósito). Fondo blanco, una línea finita entre secciones, botones de 48 px (56 px el de la portada), casilleros de 50 px, bordes de 1,5 px, foco naranja con Tab, encabezado blanco sin desenfoque, − / + blanco con borde. Las secciones ya no llevan `seccion-fondo-verde` (se sacó del HTML y del CSS) |
+| 2 | "Fast Good" y los pasos | "Fast Good" más grande (hasta 96 px) y los 3 pasos con el número en un círculo de 44 px (48 px en compu) |
+| 3 | Arriba de las tarjetas | "Combos Viandas Saludables" y "Elegís la cantidad y después armás tus platos. Podés repetir." (en el HTML que arma `renderizarCombos`) |
+| 4 | Descripción del plato | **No hizo falta tocar nada:** el dato llega (`descripcion` en `/api/v1/combos`) y `renderizarMenuCombo` ya la muestra debajo del nombre cuando tiene texto. Hoy los 4 platos la tienen vacía |
+| 5 | Mapa | Dónde estamos: los datos en una sola lista a la izquierda y un recuadro gris que dice "mapa" a la derecha (debajo, en el celular) |
+| 6 | Las 8 preguntas de la v4 | **No se pudo:** la v4 las arma desde `app.js`, que no está en la carpeta (solo están `index.html` y `estilos.css`). Quedan las 4 de hoy, en 2 columnas en compu |
+
+La foto de la portada quedó como en la `index.html` de la v4: `sizes` con 56vw, `width`/`height` reales y `fetchpriority="high"`.
+**Comprobado:** los 27 pasos del recorrido sin errores en la consola, las capturas en celu y en compu, y **test HELADERA 40/40**
+(pedidos de prueba #21 y #22, anulados). **Seguridad:** el nombre de la categoría del título pasa por `escHtml`.
+
+### 13.9 Pantalla 1, paso 2: la web nueva es LA web (16/10)
+| Qué | ANTES | AHORA |
+|---|---|---|
+| `localhost:3000/` | El index viejo (platos sueltos y carrito viejo) | La web nueva: `index-combos.html` pasó a llamarse `index.html`. El viejo quedó guardado como `index-viejo.html` (sin usar, no se borró). `server.js` no cambió: ya mandaba `/` a `index.html` |
+| Personal con sesión que entra a la web | (solo en el viejo) roles 6, 5 y 1 saltaban a su pantalla | Igual en la web nueva: el mismo bloque, copiado tal cual al script del final de `index.html` |
+| `cerrarSesion()` (`auth.js`) | `location.href = 'index.html'` (desde `/pages/` buscaba `/pages/index.html`) | `location.href = '/'`: la web, desde cualquier pantalla |
+| Cerrar sesión en las pantallas de `/pages/` (`adminSidebar.js`) | Sin `auth.js` en la página: borraba la sesión e iba a `login.html` | Borra la sesión y va a `/` (la web) |
+| Comentarios | "index-combos.html" | "index.html" (en `index-combos.css` y los 4 JS; los nombres de archivo de CSS y JS no cambiaron) |
+
+El login no cambió: `login.html` y `auth.js` mandan a cada rol a su pantalla con la tabla de `roles.js`
+(6 y 5 → `admin.html`, 1 → Consultar Pedidos, 2 → Tareas de Cocina, 3 → Envíos, 4 → `index.html`, que ahora es la web nueva).
+El ✕ y el fondo de `login.html` ya apuntaban a `index.html`: ahora muestran la web nueva.
+
+**Comprobado:** recorrido en Chrome sin ventana, 13/13: `/` abre la web nueva y arma un combo (sin confirmar la compra);
+`index-combos.html` da 404; "Iniciar Sesión" → login; login admin → panel; admin con sesión en `/` → panel; cerrar sesión
+desde el panel y desde `/pages/ConsultarPedidos.html` → la web; cliente (sesión simulada: no hay usuario cliente en el `.env`)
+se queda en la web con su nombre y al cerrar sesión vuelve a "Iniciar Sesión"; cocinero (simulado) en `/` se queda en la web.
+Sin errores en la consola. **Test HELADERA 40/40** (pedidos de prueba #23 y #24, anulados).
+
+**Archivos del index viejo que quedan sin usar (no se borraron, esperan el OK):** `index-viejo.html`, `src/js/index.js`,
+`src/js/carrito.js`, `src/js/animations.js`, `pages/formulario.html` + `src/js/formulario.js` (los abría el carrito viejo),
+`src/js/funciones.js` (solo lo usaban el viejo y `formulario.html`) y las imágenes `vianda 1.png`, `sinGluten.png`,
+`pastel.png` y `combo.png`. Siguen en uso: `global.css`, `global.js`, `index.css` y `carrito.css` (los carga el panel).
+
+### 13.10 Ajustes visuales (v5), animaciones y login en ventana (16/10)
+- **Letra y títulos (v5):** "Fast Good" min(19cqi, 5.25rem) en #3a4640 con "Good" en #1d7a34; el texto de abajo en #4b574e, peso 500;
+  títulos de sección clamp(1.75rem, 7vw, 2.5rem), -0.03em, #3a4640, con la palabra destacada en #1d7a34; textos comunes
+  (`--texto-suave`) en #4b574e; botones de 44 px y letra de 15 px (el de la portada, 50 px).
+- **Fondo verde clarito** (#e7f1e4, de borde a borde) solo en Categorías y en Preguntas: vuelve la clase `seccion-fondo-verde`
+  en esas dos secciones. Las tarjetas y las categorías no elegidas van en blanco; la elegida sigue verde.
+- **Tarjetas (v5):** 2 por fila en el celu, 3 en tablet (768 px o más), 4 en compu (1024 px o más); borde #d9e3d6, radio 16 px,
+  foto 16/10; padding 12/14/14; nombre de 16 px; precio de 19 px en #1d7a34; "por vianda" de 14 px; botón de 44 px; hover con
+  borde #2faa4b y sombra.
+- **Animaciones:** la portada entra de a uno (0,06 s entre cada uno); las secciones aparecen al bajar (`revelar` / `visible`,
+  con IntersectionObserver, en el script del final de `index.html`); el contador de "Mi pedido" salta al agregar un combo
+  (`contador-salta`, en `agregarAlCarrito`). Las ventanas que suben, "Mi pedido" de costado, los botones que se achican y el +
+  que gira ya estaban. Con `prefers-reduced-motion` no se anima nada (el script tampoco esconde las secciones).
+  (En 13.11 esto pasó a `animaciones-index.js`: salieron el IntersectionObserver del script y el `contador-salta`.)
+- **Iniciar sesión en ventana** (`modal-login` en `index.html`): Email, Contraseña e "Ingresar". Usa **la misma función** de
+  `login.html` (`manejarLogin`, de `auth.js`, sin cambios): por eso los campos tienen sus ids (`username`, `password`,
+  `loginError`, `loadingSpinner`) y el botón la clase `login-btn`. El botón "Iniciar Sesión" (lo arma `auth.js` como link a
+  `login.html`) ahora abre la ventana; sin JavaScript sigue yendo a `login.html`. Clave mal → "Usuario o contraseña
+  incorrectos" en rojo (el texto lo manda el servidor). "Olvidé mi contraseña" y "Crear cuenta" llevan a `login.html#recuperar` y
+  `login.html#registro`: se agregaron 2 líneas a `login.html` que abren esa parte según el `#` (sin `#`, igual que siempre).
+- **Comprobado:** recorrido 8/8 (las secciones aparecen, el fondo verde solo en las dos, el contador salta, la ventana abre con el
+  foco en Email, la clave mal muestra el error en rojo, el admin entra al panel, los dos links abren su parte de `login.html`
+  y `login.html` sola sigue entrando al panel). Sin errores en la consola. **Test HELADERA 40/40** (pedidos de prueba #25 y #26,
+  anulados).
+
+### 13.11 Pantalla 1: el diseño final (v5) de `docs/diseno-final-index/`, con animaciones (16/10)
+**Qué se pidió:** seguir al pie de la letra `docs/diseno-final-index/diseno-final-index/PROMPT.md`. La web tiene que quedar
+igual a `referencia.html` (capturas a 1440 y 390 px), con sus animaciones. **Es solo visual:** no cambia cómo funciona nada,
+ni los campos del formulario, ni los datos que vienen del servidor. Nada de SQL y sin commit.
+
+**Tus decisiones del Paso 0 (16/10):**
+| # | La duda | Lo que decidiste |
+|---|---|---|
+| 1 | El PROMPT dice "copiar tal cual", con los nombres de la maqueta (`combo`, `combo__cta`, `hoja`…), y el CLAUDE.md pide nombres claros en español | **A:** los mismos valores, con nuestros nombres. La tabla "maqueta → nuestro" está en 13.11.8 |
+| 2 | Las demoras `style="--d: …"` que pide el PROMPT (el CLAUDE.md no deja poner `style=""` sueltos) | **A:** van en el CSS (`index-final.css`, parte 5) |
+| 3 | El nombre de la tarjeta: el PROMPT pide "{cantidad} viandas {categoría}" | **A:** queda el nombre del combo que viene de la base (`combo.nombre`) |
+| 4 | Qué foto lleva cada tarjeta. No hay ninguna categoría "Mantenimiento": es el **plan** de los 3 combos | **A:** 1) plan Mantenimiento → COMBO MANTENIMIENTO · 2) categoría con "saludable" → COMBO SALUDABLE · 3) la foto de hoy. Y versiones livianas de 1200 px, en archivos aparte |
+| 5 | `index-combos.css` tenía cambios nuestros encima de la v5 (los de 13.10) | **Sí:** volver a la v5, igual a la referencia |
+| 6 | El pedido de prueba completo (Paso 6.7) | **Sí:** retiro, efectivo y sin personalizados; después anularlo y comprobar que la heladera quede igual |
+| — | Mi IntersectionObserver de 13.10 y el salto del contador en `agregarAlCarrito` | **OK a sacarlos:** ahora los hace `animaciones-index.js` |
+
+#### 13.11.1 Qué hice | archivo | resultado (lo que pide el Paso 6.8 del PROMPT)
+| Paso del PROMPT | Qué hice | Archivo | Resultado |
+|---|---|---|---|
+| 1. CSS y letra | Copié `index-final.css` con los mismos valores y nuestros nombres, y lo linkeé como el **último** CSS. Figtree ya estaba (línea 10) y no se duplicó | `src/css/index-final.css` (nuevo), `index.html` | Se carga último y gana sobre `index-combos.css` |
+| 1b. Volver a la v5 (decisión 5) | `index-combos.css` volvió a ser la v5 de `estilos.css`, con nuestros nombres: 78 reglas con los valores de la v5 y 23 retoques a mano. Salieron los agregados de 13.10 que la v5 no tiene (como el bloque verde) y los que ahora trae `index-final.css` | `src/css/index-combos.css` | Comparado regla por regla con `estilos.css`: quedan 3 diferencias, a propósito (13.11.3) |
+| 2. Estructura y títulos | Ya estaba igual que la referencia: el orden de las secciones, sin Ofertas, los mismos títulos y "Combos {categoría}" con su texto. El orden es encabezado, portada con los 3 pasos, Categorías con fondo verde, Dónde estamos, Preguntas con fondo verde, pie y WhatsApp | `index.html` (sin cambios en este paso) | Igual a `referencia.html` |
+| 3. Tarjeta de combo | Template nuevo. La tarjeta entera es el botón, con los mismos `data-accion="armar-combo"` y `data-id-combo`. Adentro van los datos (nombre, precio, "por vianda" y "Armar combo ›") y la foto. Todas van en `<div class="grilla-combos">` | `src/js/combosCatalogo.js` (`renderizarCombos`) | 3 por fila en compu y 1 en celu. El clic abre "Armar combo" igual que antes |
+| 3. "Más elegido" | No marqué ninguno: el sistema no tiene un dato para saber cuál es | — | Lo aviso en 13.11.7. El estilo queda listo |
+| 3b. Fotos | Las fotos están en `frontend/src/assets/img/` como `COMBO MANTENIMIENTO.jpeg` y `COMBO SALUDABLE.jpeg` (no se renombraron ni se tocaron). Hice `combo-mantenimiento-1200.jpg` y `combo-saludable-1200.jpg`. La tarjeta elige la foto con la regla de la decisión 4 | `src/js/combosCatalogo.js`, `src/assets/img/` | Hoy los 3 combos son del plan MANTENIMIENTO, así que los 3 muestran COMBO MANTENIMIENTO. La web baja 178 KB en lugar de 3,2 MB (las 3 tarjetas usan la misma foto) |
+| 4. Platos de "Armar combo" | Ya estaban en ese orden (foto → `plato-datos` con nombre y descripción → `selector-cantidad`), así que no toqué el JS | — | En compu, el nombre queda centrado entre la foto y el − / +. En celu, el − / + va abajo de la descripción |
+| 5. Animaciones | Copié `animaciones-index.js` (solo cambia `.contador` → `.contador-combos`) y lo cargué al final, después de los otros scripts. Puse la clase `revelar` en los 9 lugares que dice el PROMPT. Saqué mi IntersectionObserver del script del final de `index.html` y el salto de `agregarAlCarrito` | `src/js/animaciones-index.js` (nuevo), `index.html`, `combosCatalogo.js`, `carritoCombos.js` | Las secciones aparecen al bajar y el contador salta cuando cambia el número |
+| 5. Ventanas | Revisé las ventanas: "Armar combo" y "Finalizar pedido" son `<dialog class="modal">` y "Mi pedido" es `<dialog class="modal modal-pedido">`. Son `hoja` y `hoja hoja--pedido` con nuestros nombres | `index.html` (sin cambios) | Suben al abrirse y, en compu, "Mi pedido" entra de costado, como la referencia |
+| 6.1 Igual a las capturas | Saqué capturas a 1440 y 390 px y las comparé con `ref-compu.png`, `ref-celu.png`, `armar-compu.png` y `armar-celu.png` | — | Iguales, salvo los datos del sistema (13.11.7) |
+| 6.2 Scroll de costado | Medí el ancho de la página | — | 390 de 390 y 1440 de 1440: no hay scroll de costado |
+| 6.3 Aparecer al bajar | Probé los 11 elementos `revelar` (3 son tarjetas) | — | Al cargar esperan y al bajar aparecen todos. Al cambiar de categoría, las tarjetas nuevas también aparecen de a una |
+| 6.4 Sin movimiento | Probé con `prefers-reduced-motion: reduce` | — | No hay clase `js`, no queda nada escondido y las animaciones duran 0,01 ms (o sea, no se mueve nada) |
+| 6.5 Consola | Miré los errores al cargar y al usar la página | — | Ninguno. Solo aparecen los 2 de la prueba de la clave mal, que son a propósito |
+| 6.6 Test | Corrí `node tests/test_e2e.js heladera` | — | **40/40** (pedidos de prueba #28 y #29, anulados; la heladera quedó igual) |
+| 6.7 Pedido de prueba | Hice un pedido completo desde la web: combo → 10 fideos → Mi pedido → Finalizar → Confirmar | — | Pedido **#27**, "PRUEBA – NO PREPARAR". Lo anulé y la heladera quedó igual (13.11.5) |
+| Lo que pediste además | Probé el login en ventana, "✎ Personalizar" y el carrito | — | Andan los tres (13.11.5) |
+
+No se tocaron `server.js`, `sql/`, `armarCombo.js`, `pedidoCombos.js` ni `auth.js`. Tampoco los campos del formulario ni lo que
+se manda al servidor.
+
+#### 13.11.2 Las funciones: antes y ahora
+**`renderizarCombos`** (`combosCatalogo.js`). Cambió solo el HTML que arma.
+- **Qué hace:** dibuja el título "Combos {categoría}", el texto de abajo y una tarjeta por cada combo de la categoría elegida.
+- **ENTRADA:** nada (usa `combosDisponibles` y `categoriaElegida`). **SALIDA:** nada (escribe el HTML en `#combos`).
+
+| | ANTES (13.10) | AHORA |
+|---|---|---|
+| La tarjeta | `<article class="tarjeta-combo">`, con un botón "Armar combo" adentro | `<button class="tarjeta-combo revelar">`: **la tarjeta entera es el botón** (como la referencia), con los mismos `data-accion="armar-combo"` y `data-id-combo` |
+| Lo de adentro | Foto, nombre, precios y botón | Primero los datos (nombre, precio, "por vianda" y "Armar combo ›") y después la foto. `index-final.css` sube la foto arriba de todo |
+| "Armar combo ›" | Un `<button class="boton boton-principal">` aparte | Un `<span class="tarjeta-combo-boton" aria-hidden="true">`: se ve como un botón, pero lo que se toca es la tarjeta entera |
+| La foto | La del primer plato con foto. Si ninguno tenía, el logo | La regla de la decisión 4: plan Mantenimiento → COMBO MANTENIMIENTO, categoría "saludable" → COMBO SALUDABLE, después la del primer plato y, si no hay ninguna, el recuadro gris "foto del combo" (lo pide el PROMPT) |
+| Texto de la foto para los lectores de pantalla (`alt`) | `alt=""` | `alt="Combo {categoría}"` (lo pide el PROMPT) |
+| Animación | — | `revelar` en el título, en el texto y en cada tarjeta |
+
+```js
+// AHORA: la foto (la primera que corresponda) y la tarjeta
+const esPlanMantenimiento = String(combo.plan || '').toLowerCase().includes('mantenimiento');
+const esCategoriaSaludable = String(combo.categoria.nombre || '').toLowerCase().includes('saludable');
+const platoConImagen = combo.menu.find(plato => plato.imagen);   // el primer plato con foto, o undefined
+const fotosPosibles = [
+  esPlanMantenimiento ? FOTO_COMBO_MANTENIMIENTO : '',
+  esCategoriaSaludable ? FOTO_COMBO_SALUDABLE : '',
+  platoConImagen?.imagen || ''
+];
+const foto = fotosPosibles.find(posible => posible !== '');   // la primera que no está vacía; undefined si no hay ninguna
+const tieneFoto = foto !== undefined;
+const fotoHtml = tieneFoto ? imagenHtml : recuadroHtml;        // la <img> o el recuadro "foto del combo"
+
+html += `
+  <button type="button" class="tarjeta-combo revelar" data-accion="armar-combo" data-id-combo="${escHtml(combo.id)}">
+    <span class="tarjeta-combo-datos">
+      <span class="tarjeta-combo-nombre">${escHtml(combo.nombre)}</span>
+      <span class="tarjeta-combo-precio">$ ${escHtml(precio.toLocaleString('es-AR'))}</span>
+      <span class="tarjeta-combo-por-vianda">$ ${escHtml(precioPorVianda.toLocaleString('es-AR'))} por vianda</span>
+      <span class="tarjeta-combo-boton" aria-hidden="true">Armar combo<svg class="icono"><use href="#icono-der"></use></svg></span>
+    </span>
+    <span class="tarjeta-combo-foto">${fotoHtml}</span>
+  </button>`;
+```
+- **Por qué así:** en la referencia la tarjeta entera es el botón, así que se puede tocar en cualquier lado. Las fotos posibles
+  van en una lista ordenada y `find` se queda con la primera que no está vacía. Así no hace falta un `if` adentro de otro `if`
+  (regla del CLAUDE.md), y para cambiar el orden alcanza con mover un renglón.
+- **Ejemplo:** "PRUEBA Mantenimiento x10" es del plan MANTENIMIENTO, de la categoría "Viandas Saludables", cuesta $ 137.000 y
+  trae 10 viandas. Entonces `fotosPosibles` = [mantenimiento, saludable, la foto del plato] y gana COMBO MANTENIMIENTO. La
+  tarjeta dice "$ 137.000" y "$ 13.700 por vianda".
+- **Cómo se conecta:**
+  - La llaman `cargarCombos` (al abrir la página y al recargar) y el clic en una categoría (en `renderizarCategorias`).
+  - El clic en la tarjeta lo escucha `armarCombo.js` con `closest('[data-accion="armar-combo"]')`, sin cambios: encuentra la
+    tarjeta aunque se toque la foto o el precio.
+  - `animaciones-index.js` ve las tarjetas nuevas y les pone `visible` cuando entran en la pantalla.
+
+**`iniciarAnimacionesIndex`** (nuevo, en `animaciones-index.js`). Es el de la carpeta, copiado tal cual.
+- **Qué hace:** prende las animaciones de la página. Los `revelar` aparecen cuando llegan a la pantalla y el contador de
+  "Mi pedido" salta cuando cambia.
+- **ENTRADA:** nada. **SALIDA:** nada (pone la clase `js` en `<html>`, `visible` en cada `revelar` que entra en la pantalla y
+  `salta` en el contador cuando cambia su número).
+- Adentro tiene **`observarNuevos`**, que empieza a mirar los `revelar` que todavía no se vieron, también los que se dibujan
+  después.
+- **Cómo funciona, paso a paso:**
+  1. Si la persona pidió "sin movimiento" en su equipo (`prefers-reduced-motion`) o el navegador es muy viejo, sale sin hacer
+     nada y todo se ve quieto.
+  2. Pone la clase `js` en `<html>`. Recién ahí el CSS esconde los `revelar` (`.js .revelar { opacity: 0 }`), así que sin
+     JavaScript nunca quedan escondidos.
+  3. Un **IntersectionObserver** (un "vigía de la pantalla") avisa cuando un `revelar` entra en la pantalla. Ahí le pone
+     `visible` y lo deja de mirar.
+  4. Un **MutationObserver** (un "vigía de cambios") avisa cuando se dibuja algo nuevo, por ejemplo las tarjetas al tocar
+     otra categoría, y vuelve a llamar a `observarNuevos`.
+  5. Otro MutationObserver mira el número de `.contador-combos`. Si cambió, saca y vuelve a poner `salta`. El
+     `void contador.offsetWidth` del medio hace que la animación arranque de nuevo cada vez.
+- **Ejemplo:** abrís la página y bajás hasta "Dónde estamos": el título recibe `visible` y aparece suave. Tocás "Agregar al
+  pedido": el contador pasa de 0 a 1 y salta.
+- **Por qué así:** el PROMPT dice "copialo tal cual". Solo cambié el nombre del contador (`.contador` → `.contador-combos`,
+  por la regla "Nombres claros") y agregué arriba la lista de funciones (regla del CLAUDE.md).
+- **Cómo se conecta:**
+  - Se carga al final de `index.html`, después de los otros scripts.
+  - No llama a ninguna función nuestra y no toca datos: solo pone clases.
+  - Lo que hace cada clase está en `index-final.css` (parte 4) y en `index-combos.css`.
+
+**`agregarAlCarrito`** (`carritoCombos.js`). Volvió a como era antes de 13.10.
+- **Qué hace:** suma un combo armado al carrito.
+- **ENTRADA:** `comboArmado`. **SALIDA:** nada (lo agrega a `carritoCombos`, lo guarda y abre "Mi pedido").
+- **ANTES (13.10):** después de abrir "Mi pedido", le ponía la clase `contador-salta` al contador.
+  **AHORA:** `carritoCombos.push(comboArmado); guardarCarrito(); abrirMiPedido();`, como siempre.
+- **Por qué:** el salto ahora lo hace `animaciones-index.js` cada vez que cambia el número, así que también salta al quitar
+  un combo. Si quedaban los dos, había dos códigos para lo mismo.
+- **Cómo se conecta:** igual que siempre. La llama `confirmarCombo` (de `armarCombo.js`) y ella llama a `guardarCarrito` y
+  `abrirMiPedido`.
+
+**El script del final de `index.html`.** Salió el bloque del IntersectionObserver de 13.10, que hacía lo mismo que
+`animaciones-index.js`: con los dos, cada `revelar` se miraba dos veces. El resto del script no cambió (el botón de sesión,
+el salto del personal a su panel, el menú de sesión, el login en ventana y `cargada`).
+
+**Nombres nuestros que cambiaron en este paso (antes → ahora):**
+| Antes (13.10) | Ahora | Archivos |
+|---|---|---|
+| `contador-salta` (la ponía `agregarAlCarrito`) | `salta` (la pone `animaciones-index.js`) | `index-final.css`, `animaciones-index.js`, `carritoCombos.js` (salió) |
+| `<article class="tarjeta-combo">` | `<button class="tarjeta-combo revelar">` (el mismo nombre; ahora la tarjeta es el botón) | `combosCatalogo.js` y los dos CSS |
+| `div.tarjeta-combo-boton` con un `button.boton.boton-principal` adentro | `span.tarjeta-combo-boton` (el mismo nombre; ya no es un botón aparte) | `combosCatalogo.js` y los dos CSS |
+| `p.tarjeta-combo-precios` | Ya no está: el precio y "por vianda" van directo en `tarjeta-combo-datos` | `combosCatalogo.js` y `index-combos.css` |
+| `h3.tarjeta-combo-nombre`, `strong.tarjeta-combo-precio`, `div.tarjeta-combo-datos`, `div.tarjeta-combo-foto` | `span.` con los mismos nombres (dentro de un botón solo puede ir texto y cosas como `span`) | `combosCatalogo.js` |
+
+Revisado en todos los archivos de `frontend/`: no queda ningún `contador-salta` ni `tarjeta-combo-precios`.
+
+#### 13.11.3 Los CSS
+**`index-final.css`** (nuevo, se carga último):
+| Parte | Qué hace |
+|---|---|
+| 1. Tarjetas grandes | 3 por fila en compu. Si se agregan combos, se achican solas (mínimo 260 px) y bajan a la fila de abajo. En celu, 1 por fila. Foto arriba en 16/10, nombre de 20 px, precio de 28 px y el botón verde "Armar combo ›" de 48 px |
+| 1b. Encabezado en celu | En 400 px o menos se achican los espacios para que entren el logo, "Iniciar Sesión" y "Mi pedido" sin scroll de costado |
+| 2. Categorías en celu | Una debajo de la otra, a todo el ancho y de 52 px de alto |
+| 3. Platos de "Armar combo" | Nombre y descripción centrados. En el celu (menos de 520 px), el − / + va abajo del texto y no abajo de la foto |
+| 4. Animaciones | Solo si no se pidió "sin movimiento": la portada entra de a uno, los `revelar` aparecen subiendo (0,6 s), el contador salta y la respuesta de una pregunta se abre suave |
+| 5. Demoras (`--d`) | Las que la referencia pone en el HTML: 0,05 s para las categorías y el texto de los combos, 0,08 s para Dónde estamos y Preguntas, y cada tarjeta 0,08 s más que la anterior |
+
+```css
+/* Parte 5: la referencia lo escribe en el HTML (style="--d: .08s"); acá va en el CSS, con los mismos valores */
+.lista-categorias.revelar, .zona-combos > p.revelar { --d: .05s; }
+.donde-columnas.revelar, .preguntas-columnas.revelar { --d: .08s; }
+.grilla-combos > :nth-child(2) { --d: .08s; }    /* la 2.ª tarjeta */
+.grilla-combos > :nth-child(3) { --d: .16s; }    /* la 3.ª, y así hasta la 12.ª (.88s) */
+.grilla-combos > :nth-child(n+13) { --d: .96s; } /* de la 13.ª en adelante */
+```
+`:nth-child(3)` quiere decir "el tercer hijo". Por ejemplo, en una categoría con 3 combos, la 1.ª tarjeta aparece enseguida,
+la 2.ª a los 0,08 s y la 3.ª a los 0,16 s.
+
+**`index-combos.css`** volvió a la v5. Comparado regla por regla con `estilos.css` (pasado a nuestros nombres), quedan 3
+diferencias, las tres a propósito:
+1. `body` empieza escondido hasta que carga todo el CSS, y el script del final le pone `cargada`. Es de la Pantalla 1, paso 1:
+   evita ver la página "desarmada" un instante.
+2. `.portada-imagen` tiene los mismos valores que la v5, pero en una regla sola. En la v5 está junto con `portada__vacia`, que
+   nosotros no tenemos.
+3. En compu, el resumen de "Finalizar pedido" tiene `pointer-events: none`. Nuestro resumen es un `<details>` que en compu va
+   siempre abierto, y esto evita que un clic lo cierre.
+
+Las demás diferencias que marca el script son de escritura: la misma regla con los selectores juntos o separados, con el mismo
+resultado (comprobado con las capturas). También hay una regla de la v5 que no usamos (`.zona-combos > p strong`). Se agregó
+una regla nuestra, `.grilla-combos .tarjeta-combo-foto img.foto-logo { object-fit: contain; }`: si una foto no carga, aparece
+el logo entero y no recortado.
+
+#### 13.11.4 Las fotos livianas
+| Archivo | Medida | Peso | ¿La usa la web? |
+|---|---|---|---|
+| `COMBO MANTENIMIENTO.jpeg` (la original, sin tocar) | 2752 × 1536 | 3,2 MB | No |
+| `combo-mantenimiento-1200.jpg` (nueva) | 1200 × 670 | 178 KB | Sí |
+| `COMBO SALUDABLE.jpeg` (la original, sin tocar) | 2752 × 1536 | 2,9 MB | No |
+| `combo-saludable-1200.jpg` (nueva) | 1200 × 670 | 158 KB | Sí, cuando haya un combo de una categoría "saludable" que no sea del plan Mantenimiento |
+
+Las hice con un script de PowerShell: achica a 1200 px de ancho, mantiene la proporción y guarda en JPEG con calidad 82. Si
+el archivo nuevo ya existe, no lo pisa. 1200 px alcanza para la tarjeta más grande en una pantalla de alta densidad, y cada
+foto pesa unas 18 veces menos. Las dos constantes de arriba de `combosCatalogo.js` (`FOTO_COMBO_MANTENIMIENTO` y
+`FOTO_COMBO_SALUDABLE`) dicen qué archivo se usa.
+
+#### 13.11.5 Cómo se comprobó
+Usé un Chrome sin ventana, con un perfil temporal (sin tocar el tuyo), a 1440 y a 390 px. Estas pruebas **no mandan pedidos**:
+cortan cualquier envío a `/api/pedidos-combos`.
+- **Capturas:** la página, "Armar combo", las tarjetas y "Mi pedido", en compu y en celu. Iguales a las de la carpeta, salvo
+  los datos del sistema (13.11.7).
+- **Scroll de costado:** 390 de 390 y 1440 de 1440.
+- **`revelar`:**
+  - Al cargar, `js` está en `<html>` y los 11 esperan. Al bajar aparecen todos (ninguno queda sin aparecer).
+  - Al tocar otra categoría, en compu las 3 tarjetas aparecen de a una (0 / 0,08 / 0,16 s).
+  - En el celu va una por fila. La primera prueba automática dio ❌ porque miraba sin bajar: la 2.ª y la 3.ª estaban debajo
+    de la pantalla y por eso esperaban, que es lo correcto. Una segunda prueba que baja hasta cada tarjeta lo confirmó: cada
+    una aparece cuando llega a la pantalla (sí/sí/no → sí/sí/sí).
+- **Sin movimiento** (`prefers-reduced-motion: reduce`): sin la clase `js`, 0 escondidos y la portada en 0,01 ms.
+- **Ventanas:** "Armar combo" abre (es un `dialog.modal`, con la animación de subir).
+- **"✎ Personalizar":** "sin sal (prueba)" agrega su renglón "⚠ sin sal (prueba)" y cuenta "2 de 10".
+- **Carrito:**
+  - Al agregar, el contador pasa a 1 y salta.
+  - "Mi pedido" muestra "PRUEBA Mantenimiento x10 · $ 137.000 · 9 × fideos · 1 × berenjenas rellenas · ⚠ sin sal (prueba) ·
+    $ 13.700 c/u · Quitar".
+  - "Quitar" lo saca ("Todavía no agregaste combos.").
+- **Login en ventana:** con la clave mal aparece "Usuario o contraseña incorrectos" en rojo. Como admin, entra a `/admin.html`.
+- **Fotos:** las 3 tarjetas muestran `combo-mantenimiento-1200.jpg`.
+- **Consola:** sin errores al cargar ni al usar la página. Solo aparecen los 2 avisos de la prueba de la clave mal, a propósito:
+  el 401 de `/api/login` y el `console.error` de `manejarLogin`.
+- **Nombres de los 3 lados** (un script que cruza HTML, JS y CSS):
+  - No falta en el HTML ningún id que busque el JS.
+  - Las únicas clases del CSS sin usar son `tarjeta-combo-destacada` y `tarjeta-combo-sello`, que están listas para "Más
+    elegido".
+  - `cargada` y `show` también aparecen sin usar, pero no es cierto: las ponen el script del final y `auth.js`, que el script
+    no lee.
+- **`node --check`** en los 7 JS que se tocaron en la Pantalla 1: bien.
+
+**El pedido de prueba #27** (Paso 6.7), hecho desde la web como un cliente:
+| # | Qué se hizo | Qué pasó |
+|---|---|---|
+| 1 | Tocar la tarjeta "PRUEBA Mantenimiento x10" | Se abre "Armar combo" con ese nombre |
+| 2 | 10 × fideos con el + (de la heladera, sin personalizar) | "10 de 10 · ¡Combo completo!" |
+| 3 | "Agregar al pedido" | Mi pedido: "PRUEBA Mantenimiento x10 · $ 137.000 · 10 × fideos · $ 13.700 c/u" |
+| 4 | "Finalizar pedido" con nombre "PRUEBA –", apellido "NO PREPARAR", Retiro en local, Efectivo y la primera fecha posible | Fecha 20/10/2026 y total $ 137.000 |
+| 5 | "Confirmar pedido" | "¡Recibimos tu pedido #27!" |
+| 6 | Mirar la heladera con el pedido hecho | fideos: de 40 libres / 11 reservadas a 30 libres / 21 reservadas |
+| 7 | Anular el #27 (con el PIN del `.env`, sin mostrarlo) | 200: "Pedido anulado. Volvieron 10 viandas a la heladera." |
+| 8 | Mirar la heladera al final | **Igual que al empezar** ✅, y sin errores en la consola |
+
+**Test HELADERA: 40/40** (pedidos de prueba #28 y #29, anulados). La heladera quedó igual: fideos 40 libres / 11 reservadas y
+canelones 6 / 0.
+
+#### 13.11.6 Seguridad (qué protege cada cosa)
+- **`escHtml` en todo lo que va al `innerHTML` de la tarjeta:** el nombre del combo, el de la categoría (en el título y en el
+  `alt` de la foto), el id y la dirección de la foto. La dirección puede venir de la base, porque es la imagen de un plato.
+  Protege de **XSS**, que es cuando alguien mete código en un dato para que se ejecute en el navegador del cliente. Por ejemplo,
+  un plato llamado `<img src=x onerror=…>` se ve como texto y no se ejecuta.
+- **Los precios de la tarjeta son solo para mostrar** ("$ 137.000" y "por vianda"): el total que se cobra lo calcula el
+  servidor desde la base. Protege de que alguien **cambie el precio en el navegador**: vería otro número, pero paga el del
+  servidor.
+- **Lo que se manda al servidor no cambió:** `armarPedido`, `enviarPedido`, el formulario y sus controles quedaron iguales. El
+  servidor sigue revisando todo: precios, cantidades, que el combo sume justo y el límite de pedidos por IP.
+- **`animaciones-index.js` solo pone clases:** no lee ni manda datos y no usa `innerHTML`, así que no abre ninguna puerta nueva.
+- **El pedido de prueba** se anuló con el usuario y el PIN del `.env`, que no se mostraron en ningún lado.
+
+#### 13.11.7 Lo que NO quedó igual a la referencia, y por qué
+| Qué | En la referencia | En la nuestra | Por qué |
+|---|---|---|---|
+| Los nombres | `combo`, `combo__cta`, `hoja`, `chip`, `.contador`… | `tarjeta-combo`, `tarjeta-combo-boton`, `modal`, `boton-categoria`, `.contador-combos`… (tabla 13.11.8) | Decisión 1, por la regla "Nombres claros". Los valores son los mismos |
+| Las demoras de las tarjetas | `style="--d: …"` en cada tarjeta, sin tope | En el CSS con `:nth-child`. Iguales hasta la 12.ª; de la 13.ª en adelante, todas 0,96 s | Decisión 2: el CLAUDE.md no deja usar `style=""`. Hoy hay 3 combos por categoría |
+| El nombre de la tarjeta | "10 viandas Mantenimiento" ({cantidad} viandas {categoría}) | El nombre del combo que viene de la base ("PRUEBA Mantenimiento x10") | Decisión 3 |
+| "Más elegido" | Un combo con borde naranja y la pastilla "Más elegido" | No se marca ninguno (el estilo está listo) | El sistema no tiene un dato para saber cuál es, y no se inventó |
+| "Seguir armando" | — | No hace falta | No hay combos a medio armar: si se cierra "Armar combo", lo elegido se pierde (con aviso) |
+| Las fotos | El recuadro gris "foto del combo" y un + redondo | Hoy las 3 tarjetas muestran COMBO MANTENIMIENTO | Decisión 4: los 3 combos son del plan MANTENIMIENTO. COMBO SALUDABLE queda lista |
+| El logo | Un recuadro con el texto "Fast Good" (`logo__vacio`) | La imagen del logo | Es el logo de la marca |
+| Los textos de la portada | "Viandas caseras congeladas, hechas con ingredientes frescos." | Los nuestros: "Viandas caseras y saludables, hechas con ingredientes frescos.", el lugar, el contacto (WhatsApp e Instagram) y "Entregamos a las 48 hs hábiles" | Son los textos de hoy, y el PROMPT dice que se quedan como están |
+| El menú de arriba | 3 links (Categorías, Combos y Contacto), con "Categorías" marcado como `activo` | 4 links (también "Preguntas") y ninguno marcado | El link "Preguntas" ya estaba. Marcar el link de la sección que se está viendo es algo nuevo (hay que seguir el scroll) |
+| Dónde estamos | Un solo "Cómo llegar", debajo del mapa | Cada sucursal tiene su "Cómo llegar", y el mapa es el recuadro gris | Son los datos de hoy. El mapa de verdad está en "Ideas para después" |
+| Preguntas frecuentes | 6 preguntas ("¿Cuánto duran en el freezer?", "¿Cómo se calientan?", "¿Qué días entregan?"…) con la respuesta sin escribir ("[respuesta]") | Las 4 nuestras, con sus respuestas, en `<details>` (se abren aunque no haya JavaScript) | Son las de hoy y el PROMPT dice que se quedan como están. Además, las de la referencia no traen respuesta |
+| El pie | De ejemplo | El nuestro, con el copyright | Son datos del sistema |
+| Lo nuestro que la referencia no tiene | — | "✎ Personalizar", el login en ventana, la página escondida hasta que carga el CSS (`cargada`) y el resumen fijo de "Finalizar pedido" en compu | Ya existían. Se dejaron como estaban |
+| Reglas que no van | `.combo__mas` (el + redondo) y `.logo__vacio` | No están | Nuestra tarjeta no tiene el + y nuestro logo es la imagen |
+| Un `!important` | — | En el relleno de "Iniciar Sesión" en celus chicos (400 px o menos) | `auth.js` le escribe estilos en la etiqueta (`style=""`), y solo así se pisan. Lleva el mismo valor que la referencia. Se arregla en la Pantalla 2 (Login) |
+| La consola | Sin errores | Sin errores al cargar. Solo los 2 de la prueba de la clave mal | Son a propósito: el servidor contesta 401 y `manejarLogin` lo anota |
+
+#### 13.11.8 Nombres: maqueta → nuestro (las clases de `referencia.html`, `referencia-armar-combo.html`, `index-final.css` y `animaciones-index.js`)
+"Igual" quiere decir que la clase ya se llamaba así en la nuestra. "No va" quiere decir que la nuestra no tiene esa parte (está
+explicado en 13.11.7). La tabla completa de la v5 (124 clases y 60 ids) está en 13.3.
+
+| Maqueta (diseño final) | Nuestro |
+|---|---|
+| `acordeon` | igual (`acordeon`) |
+| `acordeon__boton` | `pregunta-titulo` (el `<summary>`) |
+| `acordeon__item` | `pregunta` |
+| `acordeon__pregunta` | no va: las preguntas son `<details>` |
+| `acordeon__respuesta` | `pregunta-respuesta` |
+| `acordeon__signo` | `pregunta-signo` |
+| `activo` | no va: ningún link del menú se marca (haría falta seguir el scroll) |
+| `btn` | `boton` |
+| `btn--ancho` | `boton-ancho` |
+| `btn--grande` | `boton-grande` |
+| `btn--pedido` | `boton-mi-pedido` |
+| `btn--primario` | `boton-principal` |
+| `btn--secundario` | `boton-secundario` |
+| `btn--texto` | `#auth-btn-container .login-btn-header` (lo arma auth.js) |
+| `btn-cerrar` | `boton-cerrar` |
+| `cantidad` | `selector-cantidad` |
+| `cantidad__btn` | `boton-cantidad` |
+| `cantidad__btn--mas` | `boton-sumar` |
+| `cantidad__num` | `numero-cantidad` |
+| `categorias` | `lista-categorias` |
+| `chip` | `boton-categoria` |
+| `chip__marca` | `boton-categoria-tilde` |
+| `clave` | `palabra-verde` |
+| `combo` | `tarjeta-combo` |
+| `combo--destacado` | `tarjeta-combo-destacada` |
+| `combo__cta` | `tarjeta-combo-boton` |
+| `combo__info` | `tarjeta-combo-datos` |
+| `combo__mas` | no va: nuestra tarjeta no tiene el + redondo |
+| `combo__media` | `tarjeta-combo-foto` |
+| `combo__nombre` | `tarjeta-combo-nombre` |
+| `combo__precio` | `tarjeta-combo-precio` |
+| `combo__sello` | `tarjeta-combo-sello` |
+| `combo__unidad` | `tarjeta-combo-por-vianda` |
+| `combos` | `grilla-combos` |
+| `combos-zona` | `zona-combos` |
+| `contador` | `contador-combos` |
+| `contenedor` | igual (`contenedor`) |
+| `donde` | `donde-columnas` |
+| `donde__datos` | `donde-lista` |
+| `donde__item` | `donde-dato` |
+| `donde__llegar` | no va: cada sucursal tiene su "Cómo llegar" |
+| `donde__mapa` | no hace falta: el recuadro `.mapa` va directo en `.donde-columnas` |
+| `elegido` | `plato-elegido` |
+| `encabezado` | igual (`encabezado`) |
+| `encabezado__acciones` | `encabezado-botones` |
+| `encabezado__fila` | `encabezado-fila` |
+| `enlace-dato` | `enlace-subrayado` |
+| `foto` | igual (`foto`) |
+| `hoja` | `modal` |
+| `hoja--completa` | `modal-finalizar` ("Finalizar pedido") |
+| `hoja--pedido` | `modal-pedido` ("Mi pedido") |
+| `hoja__cab` | `modal-encabezado` |
+| `hoja__cuerpo` | `modal-contenido` |
+| `hoja__pie` | `modal-pie` |
+| `hoja__sup` | `modal-categoria` |
+| `icono` | igual (`icono`) |
+| `icono-wa` | `icono` |
+| `js` | igual (`js`) |
+| `logo` | igual (`logo`) |
+| `logo--pie` | no hace falta (no tenía estilo) |
+| `logo__vacio` | no va: el logo es la imagen |
+| `mapa` | igual (`mapa`) |
+| `nav` | `menu-principal` |
+| `pasos` | igual (`pasos`) |
+| `pasos-franja` | `franja-pasos` |
+| `pasos__num` | `pasos-numero` |
+| `pie` | `pie-de-pagina` |
+| `pie__col` | `pie-columna` |
+| `pie__grid` | `pie-columnas` |
+| `pie__marca` | `pie-marca` |
+| `plato` | igual (`plato`) |
+| `plato__info` | `plato-datos` |
+| `platos` | `lista-platos` |
+| `portada` | igual (`portada`) |
+| `portada__acciones` | `portada-botones` |
+| `portada__acento` | `palabra-verde` |
+| `portada__bajada` | `portada-subtitulo` |
+| `portada__contacto` | `portada-contacto` |
+| `portada__dato` | `combos-desde` |
+| `portada__etiqueta` | `portada-etiqueta` |
+| `portada__foto` | `portada-foto` |
+| `portada__grid` | `portada-columnas` |
+| `portada__lugar` | `portada-lugar` |
+| `portada__media` | `portada-marco` |
+| `portada__texto` | `portada-texto` |
+| `portada__vacia` | no va: la portada tiene foto |
+| `preguntas` | `preguntas-columnas` |
+| `progreso` | igual (`progreso`) |
+| `progreso__barra` | `progreso-barra` |
+| `progreso__texto` | `progreso-texto` |
+| `revelar` | igual (`revelar`) |
+| `salta` | igual (`salta`) |
+| `seccion` | igual (`seccion`) |
+| `seccion--tinte` | `seccion-fondo-verde` |
+| `titulo-seccion` | igual (`titulo-seccion`) |
+| `visible` | igual (`visible`) |
+| `wa-flotante` | `whatsapp-flotante` |

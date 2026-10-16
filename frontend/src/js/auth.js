@@ -233,5 +233,6 @@ function cerrarSesion() {
   localStorage.removeItem('usuario_telefono');
   localStorage.removeItem('usuario_direccion');
 
-  window.location.href = 'index.html';
+  // '/' = la web (el servidor manda la raíz a index.html). Con 'index.html' suelto, desde /pages/ buscaba /pages/index.html
+  window.location.href = '/';
 }

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es-AR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fast Good · Referencia Armar combo</title>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilos.css"><link rel="stylesheet" href="index-final.css">
+</head><body style="background:#f3f6f1;padding:0 12px">
+<div class="hoja" style="display:flex;flex-direction:column;position:static;margin:24px auto;max-width:600px;max-height:none;border-radius:20px">
+  <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+    <symbol id="ac-cerrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></symbol>
+    <symbol id="ac-mas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></symbol>
+    <symbol id="ac-menos" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path></symbol>
+  </svg>
+  <div class="hoja__cab">
+    <div>
+      <p class="hoja__sup">Mantenimiento</p>
+      <h2>Combo x10 viandas</h2>
+    </div>
+    <button class="btn-cerrar" type="button" aria-label="Cerrar"><svg class="icono" aria-hidden="true"><use href="#ac-cerrar"></use></svg></button>
+  </div>
+  <div class="progreso ">
+    <div class="progreso__texto">
+      <strong>4 de 10</strong>
+      <span>Te faltan 6</span>
+    </div>
+    <div class="progreso__barra" role="progressbar" aria-valuemin="0" aria-valuemax="10" aria-valuenow="4">
+      <span style="transform: scaleX(0.4)"></span>
+    </div>
+  </div>
+  <ul class="platos hoja__cuerpo">
+    
+      <li class="plato elegido">
+        <div class="foto">foto</div>
+        <div class="plato__info">
+          <h3>Fideos</h3>
+          <p>[descripción del plato]</p>
+        </div>
+        <div class="cantidad">
+          <button class="cantidad__btn" type="button" aria-label="Quitar uno"><svg class="icono" aria-hidden="true"><use href="#ac-menos"></use></svg></button>
+          <span class="cantidad__num">4</span>
+          <button class="cantidad__btn cantidad__btn--mas" type="button" aria-label="Agregar uno"><svg class="icono" aria-hidden="true"><use href="#ac-mas"></use></svg></button>
+        </div>
+      </li>
+    
+      <li class="plato ">
+        <div class="foto">foto</div>
+        <div class="plato__info">
+          <h3>Canelones</h3>
+          <p>[descripción del plato]</p>
+        </div>
+        <div class="cantidad">
+          <button class="cantidad__btn" type="button" aria-label="Quitar uno"><svg class="icono" aria-hidden="true"><use href="#ac-menos"></use></svg></button>
+          <span class="cantidad__num">0</span>
+          <button class="cantidad__btn cantidad__btn--mas" type="button" aria-label="Agregar uno"><svg class="icono" aria-hidden="true"><use href="#ac-mas"></use></svg></button>
+        </div>
+      </li>
+    
+      <li class="plato ">
+        <div class="foto">foto</div>
+        <div class="plato__info">
+          <h3>Berenjenas rellenas</h3>
+          <p>[descripción del plato]</p>
+        </div>
+        <div class="cantidad">
+          <button class="cantidad__btn" type="button" aria-label="Quitar uno"><svg class="icono" aria-hidden="true"><use href="#ac-menos"></use></svg></button>
+          <span class="cantidad__num">0</span>
+          <button class="cantidad__btn cantidad__btn--mas" type="button" aria-label="Agregar uno"><svg class="icono" aria-hidden="true"><use href="#ac-mas"></use></svg></button>
+        </div>
+      </li>
+    
+      <li class="plato ">
+        <div class="foto">foto</div>
+        <div class="plato__info">
+          <h3>Tarta de espinaca</h3>
+          <p>[descripción del plato]</p>
+        </div>
+        <div class="cantidad">
+          <button class="cantidad__btn" type="button" aria-label="Quitar uno"><svg class="icono" aria-hidden="true"><use href="#ac-menos"></use></svg></button>
+          <span class="cantidad__num">0</span>
+          <button class="cantidad__btn cantidad__btn--mas" type="button" aria-label="Agregar uno"><svg class="icono" aria-hidden="true"><use href="#ac-mas"></use></svg></button>
+        </div>
+      </li>
+    
+      <li class="plato ">
+        <div class="foto">foto</div>
+        <div class="plato__info">
+          <h3>Pollo con arroz</h3>
+          <p>[descripción del plato]</p>
+        </div>
+        <div class="cantidad">
+          <button class="cantidad__btn" type="button" aria-label="Quitar uno"><svg class="icono" aria-hidden="true"><use href="#ac-menos"></use></svg></button>
+          <span class="cantidad__num">0</span>
+          <button class="cantidad__btn cantidad__btn--mas" type="button" aria-label="Agregar uno"><svg class="icono" aria-hidden="true"><use href="#ac-mas"></use></svg></button>
+        </div>
+      </li>
+    
+  </ul>
+  <div class="hoja__pie"><button class="btn btn--primario btn--ancho" type="button" disabled>Agregar al pedido</button></div>
+</div>
+</body></html>

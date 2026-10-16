@@ -257,7 +257,17 @@ Nota: cada caso de mentira gasta números de id que no vuelven (H2: renglón 17 
 - **Consultar Pedidos trae como mucho 1000 pedidos** (límite de Supabase por consulta): `GET /api/pedidos` los ordena del más nuevo al más viejo, así que cuando haya más, los más viejos no se ven (salvo filtrando por fechas). Hace falta paginación más adelante (que el servidor mande de a una página). Lo mismo, mucho más lejos, para las reservadas de Producción: se suman como mucho 1000 renglones de pedidos sin entregar.
 
 ## Próximo prompt para Claude Code (🔴 MODO POTENTE, Effort Max)
-El SQL está corrido y el test dio 40/40 (16/10). Después de mirar las pantallas (lista de "Después del SQL", punto 3), mandar:
+**Pantalla 1 (16/10): paso 1, paso 2 y diseño final, escritos y comprobados.** Después de tu recorrido a mano ("Recorrido a
+mano", más abajo, con la compra de prueba y el cocinero), mandar:
+```
+Miré la web (Pantalla 1: diseño final v5, animaciones y login en ventana) en celu y compu: [qué se vio bien y qué no].
+Recorrido a mano: [compra de prueba y cocinero: cómo salió].
+Archivos del index viejo (lista de la sección 13.9 del INFORME): [OK a borrarlos / todavía no].
+Si algo falló, decime la causa y el plan, sin tocar nada sin mi OK. Si está todo bien, cerrá la Pantalla 1 en
+docs/HELADERA-AVANCE.md y en el INFORME, decime qué commiteo y pasá al plan de la Pantalla 2 (Login). No hagas commit.
+```
+
+(Anterior, de H8 + H9.) El SQL está corrido y el test dio 40/40 (16/10). Después de mirar las pantallas (lista de "Después del SQL", punto 3), mandar:
 ```
 Miré las pantallas de H8 + H9: [qué se vio bien y qué no, pantalla por pantalla].
 Si algo falló, decime qué y por qué, y el plan para arreglarlo, sin tocar nada sin mi OK. Si está todo bien, cerrá H8 y
@@ -270,7 +280,116 @@ Estamos en H8 (paradas 1, 2 y 3) + H9: ya está todo escrito y comparado (ver do
 buscando errores y decime qué encontraste sin arreglar nada sin mi OK. No corras nada contra la base. No hagas commit.
 ```
 
+## FORMA DE TRABAJAR DESDE EL 16/10: pantalla por pantalla, hasta dejar cada una terminada
+En cada pantalla: 1) revisar · 2) plan · 3) arreglar de a un punto, con freno · 4) probar (test HELADERA 40/40 + recorrido a
+mano) · 5) que quede UNA sola pantalla (la nueva reemplaza a la vieja; la vieja sale del menú y del código) · 6) commit (lo hace
+el usuario). Recién ahí se pasa a la siguiente.
+
+| # | Pantalla | Pendientes ya anotados que se hacen ahí | Estado |
+|---|---|---|---|
+| 1 | Index (web nueva) | Paso 1: cambiar solo cómo se ve `index-combos.html` con el diseño de `docs/diseno-index/`. Paso 2: reemplazar el index viejo. Diseño final: `docs/diseno-final-index/` | ✍ **Paso 1, paso 2 y diseño final hechos (16/10)**: la web nueva es `index.html` (`/`), igual al diseño final v5, con animaciones y login en ventana (INFORME 13.9 a 13.11). Login y cerrar sesión llevan a donde corresponde. Pedido de prueba #27 desde la web (anulado, la heladera quedó igual) y test 40/40. Falta: tu recorrido a mano (compra y cocinero) y el OK para borrar los archivos del viejo (lista en la sección 13.9 del INFORME) |
+| 2 | Login | `auth.js` muestra el nombre del usuario sin `escHtml` (en el botón de sesión del encabezado) y trae estilos fijos de letra blanca (para el encabezado verde viejo), que en la web nueva se pisan desde `index-combos.css`. Sus nombres están en inglés (`auth-btn-container`, `login-btn-header`, `auth-dropdown`): pasarlos a español en todos los archivos que los usan | ⏭ |
+| 3 | Consultar Pedidos | | ⏭ |
+| 4 | Tareas de Cocina | (el punto 8 ya está escrito: el plato primero y el plan entre paréntesis) | ⏭ |
+| 5 | Pedir a cocina + Producción | Cancelar un pedido a cocina pendiente (y limpiar los 9 de prueba del 08/10) | ⏭ |
+| 6 | Movimientos de Stock + Compras | Puntos 1 a 6 de "Ajustes después de probar a mano" (salidas, orden, repetidos, hora real, columnas, filtro de fecha) | ⏭ |
+| 7 | Combos | Punto 7 (filtros por plan y por nombre) | ⏭ |
+| 8 | Productos y Recetas | | ⏭ |
+| 9 | Envíos | | ⏭ |
+| 10 | El resto | | ⏭ |
+
+### Ideas para después (web nueva): están en la maqueta pero hoy no existen
+Se dejaron afuera del paso 1 de la Pantalla 1 porque serían comportamiento nuevo o datos que no tenemos (decisión del 16/10):
+- "Ofertas del día" (la tira de ofertas que se desliza).
+- El sello "El más elegido" en un combo (habría que decidir cómo se elige: ¿el más vendido?).
+- "Seguir armando · 4 de 10" en la tarjeta de un combo empezado (hoy, si se cierra el armado, se pierde).
+- El mapa en "Dónde estamos".
+- "Días y horarios" y "Zonas de entrega" (no están cargados en ningún lado).
+- El botón flotante de WhatsApp que en el celular se esconde mientras se ven los botones de la portada.
+- (Del diseño final, 16/10) Marcar en el menú de arriba la sección que se está viendo (el link "activo" de la referencia).
+- (Del diseño final, 16/10) Las 6 preguntas frecuentes de la referencia ("¿Cuánto duran en el freezer?", "¿Cómo se
+  calientan?", "¿Qué días entregan?"…): vienen sin respuesta, hay que escribirlas.
+
+### Pantalla 1, paso 1 — qué se hizo y cómo mirarlo (16/10)
+Detalle completo (funciones antes/ahora, lista de nombres "antes → ahora", prueba y seguridad) en la sección 13 de
+`INFORME-CAMBIOS-HELADERA.md`.
+- `index-combos.html` y `index-combos.css` con el diseño de la maqueta; los 4 JS cambian solo lo que dibujan
+  (`cargarCombos`, `renderizarCategorias`, `renderizarCombos`, `renderizarMenuCombo`, `renderizarCarrito`,
+  `abrirFinalizarPedido` —antes `abrirCheckout`— y `mostrarConfirmacion`). No se tocó `server.js`, `sql/` ni `auth.js`.
+- **Nombres claros** (CLAUDE.md, 16/10 10:17): 124 clases y 60 ids pasados a español (ej. `oferta` → `tarjeta-combo`,
+  `hoja__pie` → `modal-pie`, `ck-nombre` → `campo-nombre`, `err-fecha` → `error-fecha`). CSS solo en su archivo.
+- **Comprobado:** capturas automáticas en 27 pasos (celu 390 px y compu 1440 px), con los nombres de la maqueta y con los
+  nuevos: se ve igual. Test HELADERA 40/40 dos veces (10:33: pedidos de prueba #15 y #16; 13:44: dos más), todos anulados.
+- **Pendiente:** `if` adentro de `if` y `else` viejos fuera de lo que dibuja (`agregarPlatoPersonalizado` y los clics de
+  `armarCombo.js` y `carritoCombos.js`).
+- ~~Pregunta abierta: el tamaño del nombre en la tarjeta~~ → resuelta con el arreglo visual de abajo (18 px).
+- **Arreglo visual (16/10, tarde)** — detalle en la sección 13.7 del INFORME:
+  - Tarjetas de combos como la referencia v4 (`docs/diseno-index/estilos.css`):
+    - foto arriba en 16/10;
+    - nombre de 18 px oscuro, sin la línea "MANTENIMIENTO · 20 viandas";
+    - precio de 26 px en verde y "$ … por vianda" en gris;
+    - "Armar combo ›" abajo de todo, alineado entre tarjetas;
+    - 1 por fila en celu, 2 en tablet y 3 en compu;
+    - destacado (`tarjeta-combo-destacada` + `tarjeta-combo-sello`) listo, sin usar.
+  - Foto de la portada: `viandaprincipal2` con `srcset` 900 / 1600 / original.
+  - Comprobado por zonas: fuera de las tarjetas y la foto, la página quedó igual.
+  - Test 40/40 (pedidos de prueba #19 y #20, anulados).
+- **Estilo general v4 (16/10, tarde)** — sección 13.8 del INFORME:
+  - fondo blanco y líneas finitas entre secciones;
+  - "Fast Good" grande y los 3 pasos en círculos;
+  - "Combos [categoría]" con su texto arriba de las tarjetas;
+  - el recuadro gris "mapa" en Dónde estamos;
+  - test 40/40 (pedidos de prueba #21 y #22, anulados).
+  - **Pendientes:** las 8 preguntas de la v4 (falta su `app.js`) y cargar las descripciones de los platos (hoy vacías).
+- **Ajustes v5, animaciones y login en ventana (16/10)** — sección 13.10 del INFORME.
+- **Diseño final v5 (16/10)** — sección 13.11 del INFORME, con la tabla "maqueta → nuestro":
+  - `index-final.css` (nuevo, va último) y `index-combos.css` de vuelta a la v5;
+  - tarjetas grandes: la tarjeta entera es el botón, 3 por fila en compu y 1 en celu, con la foto "combo mantenimiento"
+    (versión liviana de 1200 px; las originales no se tocaron);
+  - animaciones con `animaciones-index.js`: las secciones aparecen al bajar y el contador de "Mi pedido" salta;
+  - comprobado a 1440 y 390 px: sin scroll de costado, bien con "sin movimiento", y andan el login en ventana,
+    "✎ Personalizar" y el carrito;
+  - pedido de prueba #27 desde la web (anulado, la heladera quedó igual) y test 40/40 (#28 y #29, anulados).
+  - **Pendientes:** "Más elegido" (no hay un dato), las 6 preguntas de la referencia (vienen sin respuesta) y las
+    descripciones de los platos (hoy vacías).
+
+**Recorrido a mano.** Ctrl+F5 en `http://localhost:3000/` (desde el paso 2, la web nueva es `index.html`). Para el celu: F12 → ícono del celular
+(Ctrl+Shift+M) → ancho 390, o el celu de verdad en la misma red Wi-Fi con la IP de la compu en lugar de `localhost`.
+
+En el celu (390 px):
+| # | Qué hacés | Qué tiene que pasar |
+|---|---|---|
+| 1 | Abrís la página | Logo, "Iniciar Sesión" y "Mi pedido 0" arriba, el menú debajo. "Fast Good" grande, "Pedir ahora" a todo el ancho, "Combos desde $ 100.000", WhatsApp e Instagram, la foto con "Entregamos a las 48 hs hábiles" y los 3 pasos |
+| 2 | Bajás a Categorías | Las secciones aparecen suaves al bajar. Un botón por categoría, a todo el ancho; la elegida verde con ✓. Combos uno debajo del otro, a lo ancho: la foto "combo mantenimiento", nombre, precio grande en verde, "$ 13.700 por vianda" y "Armar combo ›". Se puede tocar en cualquier parte de la tarjeta |
+| 3 | "Mi pedido" (vacío) | Sube desde abajo: bolsa + "Todavía no agregaste combos.", "Finalizar pedido" gris |
+| 4 | "Armar combo" en «PRUEBA Mantenimiento x10» | Sube desde abajo: "0 de 10 · Te faltan 10", canelones con "Quedan 6", botones − / + redondos (el + verde) |
+| 5 | Sumás platos | El plato se pone verde, la barra avanza, "Te faltan N" baja |
+| 6 | "✎ Personalizar" en canelones, escribís "sin sal" y "Agregar" | Renglón "⚠ sin sal − 1 +" y la nota "Los platos personalizados se cocinan aparte…" |
+| 7 | Completás 10 | "¡Combo completo!" en verde, los + se apagan, "Agregar al pedido" se prende |
+| 8 | ✕ (o Escape) con platos elegidos | "Elegiste 10 de 10. Si salís, se pierde lo que elegiste." con "Salir" y "Seguir armando" → Seguir armando |
+| 9 | "Agregar al pedido" | Mi pedido: nombre y precio, un plato por renglón ("1 × canelones · ⚠ sin sal"), "$ 13.700 c/u", "Quitar", total, y "Mi pedido 1" |
+| 10 | "Finalizar pedido" | Pantalla completa. Resumen cerrado "(1 combo) $ 137.000": al tocarlo se abre. Tus datos (Nombre y Apellido lado a lado), Tipo de Entrega en tarjetas, Barrio, Fecha (primera posible un día hábil más por el "sin sal"), Método de Pago, Observaciones. Abajo, fijos: Total y "Confirmar pedido" |
+| 11 | "Confirmar pedido" con todo vacío | Los errores en rojo debajo de cada campo (no se manda nada) |
+| 12 | Retiro en el local + Transferencia | Se esconde el barrio; aparece "Alias: FAST.GOOD.VA (cuenta a nombre de Fast and Good VA SRL)." |
+| 13 | (Opcional, cuando tu prima no esté cargando) Un pedido "PRUEBA – NO PREPARAR" de verdad, Retiro y Efectivo | La confirmación: ✓ grande, "¡Recibimos tu pedido #N!", fecha / entrega / pago, el resumen con el total y el botón verde "Enviar por WhatsApp" (abre WhatsApp con el mensaje; no hace falta mandarlo). **Después anulás #N en Consultar Pedidos** |
+| 14 | Preguntas, Dónde estamos, pie | Una pregunta abierta a la vez (el + gira); sucursales con "Cómo llegar"; el pie en una columna; el botón flotante de WhatsApp |
+| 15 | "Iniciar Sesión" | Se abre una ventana con Email y Contraseña. Con la clave mal, "Usuario o contraseña incorrectos" en rojo; con tu usuario, tu pantalla (admin → panel, cocinero → Tareas de Cocina) |
+
+En la compu (pantalla completa):
+| # | Qué mirás | Qué tiene que pasar |
+|---|---|---|
+| 1 | Encabezado | Una sola fila: logo, menú al medio, "Iniciar Sesión" y "Mi pedido" |
+| 2 | Portada | Texto a la izquierda y foto a la derecha; "Pedir ahora" y "Combos desde" en la misma línea; los 3 pasos en fila |
+| 3 | Categorías y combos | Categorías en fila; combos de a 3 por fila (2 si achicás la ventana a tamaño tablet), con los botones "Armar combo ›" a la misma altura; al pasar el mouse, borde verde, sombra y el botón más oscuro. Al tocar otra categoría, las tarjetas aparecen de a una |
+| 4 | Armar combo | Modal centrado; el − N + a la derecha de cada plato |
+| 5 | Mi pedido | Panel a la derecha, de todo el alto |
+| 6 | Finalizar pedido | Modal grande: campos a la izquierda y resumen fijo a la derecha (no se cierra); Envío / Retiro y Efectivo / Transferencia de a dos |
+| 7 | Confirmación (si hiciste el 13) | Fecha, entrega y pago en 3 columnas |
+| 8 | Dónde estamos, Preguntas y pie | Dos columnas; preguntas en dos columnas; pie en 4 columnas |
+| 9 | Iniciar sesión | Se abre en una ventana (como el 15 del celu). Después de entrar como cliente, el botón muestra tu nombre; el menú que abre lo dibuja `auth.js` (Pantalla 2) |
+
 ## Ajustes después de probar a mano (16/10) — de a uno, con freno
+(Desde el 16/10 se hacen cuando se llega a su pantalla: ver la tabla de arriba.)
 Detalle de cada uno en la sección 12 de `INFORME-CAMBIOS-HELADERA.md`. Decisiones del usuario (16/10): motivo de las salidas
 con lista fija (Vencido / Roto / Se perdió / Otro, con detalle obligatorio si es Otro); compras viejas: mostrar la hora de carga
 sin tocar datos (con `sql/revisar_compras.sql`, que corre el usuario); el filtro de fecha arranca en "Últimos 7 días"; "keto": olvidarlo.

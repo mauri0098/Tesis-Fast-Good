@@ -1,5 +1,5 @@
 // ====================================================================
-// ARMARCOMBO.JS — Ventana "X de N" para armar un combo (index-combos.html)
+// ARMARCOMBO.JS — Ventana "X de N" para armar un combo (index.html)
 //
 // Funciones:
 //   abrirModalCombo              → abre la ventana con el menú de un combo, con todo en 0, y calcula
@@ -89,27 +89,56 @@ function abrirModalCombo(idCombo) {
   });
 
   // Encabezado (textContent muestra el texto tal cual, no hace falta escHtml)
-  document.getElementById('mc-cat').textContent = combo.categoria.nombre + ' · ' + combo.plan;
-  document.getElementById('mc-titulo').textContent = combo.nombre;
+  document.getElementById('modal-combo-categoria').textContent = combo.categoria.nombre + ' · ' + combo.plan;
+  document.getElementById('modal-combo-titulo').textContent = combo.nombre;
 
   // Pie: se ve el botón "Agregar", no el "¿Salir?"
-  document.getElementById('mc-agregar').hidden = false;
-  document.getElementById('mc-salir').hidden = true;
+  document.getElementById('boton-agregar-combo').hidden = false;
+  document.getElementById('aviso-salir').hidden = true;
 
   renderizarMenuCombo();
   document.getElementById('modal-combo').showModal();
 }
 
 // ── Dibuja los platos, el progreso y el botón de agregar ──────────────────
+// ENTRADA: nada (usa comboEnArmado, cantidadesElegidas, personalizados, platoPersonalizando, topePorPlato y totalElegido)
+// SALIDA:  nada (dibuja la lista de platos, escribe "3 de 10" y "Te faltan 7", llena la barra
+//          y prende o apaga "Agregar al pedido")
+// Ej: combo x10 con 4 fideos elegidos y 3 tartas en la heladera → fideos resaltado con un 4, la tarta con
+//     "Quedan 3", "4 de 10", "Te faltan 6" y la barra llena al 40 %
 function renderizarMenuCombo() {
-  const lista = document.getElementById('mc-platos');
+  const lista = document.getElementById('lista-platos');
   const cantidadDelCombo = comboEnArmado.cantidad;
   const completo = totalElegido === cantidadDelCombo;
 
   // Con el combo completo se apagan los botones que suman (+ personalizado, Agregar, Personalizar)
-  let apagadoSiCompleto = '';
-  if (completo) apagadoSiCompleto = 'disabled';
+  const apagadoSiCompleto = completo ? 'disabled' : '';
 
+  // 1. Los renglones personalizados ya dibujados, juntos por plato: { idPlato: html }.
+  //    Así no hace falta recorrer "personalizados" adentro del recorrido de los platos.
+  //    El índice es la posición del renglón en "personalizados" (lo usan sus botones − y +).
+  //    Ej: [{ idPlato: 5, texto: 'sin sal', cantidad: 2 }] → { 5: '<div class="renglon-personalizado">⚠ sin sal … 2 …</div>' }
+  const personalizadosPorPlato = {};
+  personalizados.forEach((renglon, indice) => {
+    const yaDibujados = personalizadosPorPlato[renglon.idPlato] || '';   // los de antes de ese plato (o nada)
+    personalizadosPorPlato[renglon.idPlato] = yaDibujados + `
+          <div class="renglon-personalizado">
+            <span class="renglon-personalizado-texto">⚠ ${escHtml(renglon.texto)}</span>
+            <div class="selector-cantidad">
+              <button type="button" class="boton-cantidad" data-accion="personalizado-restar" data-indice="${indice}"
+                      aria-label="Sacar una personalizada">
+                <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-menos"></use></svg>
+              </button>
+              <span class="numero-cantidad">${renglon.cantidad}</span>
+              <button type="button" class="boton-cantidad boton-sumar" data-accion="personalizado-sumar" data-indice="${indice}"
+                      aria-label="Sumar una personalizada" ${apagadoSiCompleto}>
+                <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-mas"></use></svg>
+              </button>
+            </div>
+          </div>`;
+  });
+
+  // 2. Un renglón por plato del menú
   let html = '';
   comboEnArmado.menu.forEach(plato => {
     const cantidad = cantidadesElegidas[plato.id] || 0;
@@ -119,122 +148,103 @@ function renderizarMenuCombo() {
     const puedeSumar = !completo && cantidad < tope;
     const puedeRestar = cantidad > 0;
 
-    // Clase del plato: resaltado si ya tiene viandas elegidas
-    let claseElegido = '';
-    if (cantidad > 0) claseElegido = ' plato--elegido';
+    // Plato resaltado si ya tiene viandas elegidas; − y + apagados cuando no se pueden usar
+    const claseElegido = cantidad > 0 ? ' plato-elegido' : '';
+    const apagadoRestar = puedeRestar ? '' : 'disabled';
+    const apagadoSumar = puedeSumar ? '' : 'disabled';
 
-    // Botones − y +: se apagan cuando no se pueden usar
-    let apagadoRestar = '';
-    if (!puedeRestar) apagadoRestar = 'disabled';
-    let apagadoSumar = '';
-    if (!puedeSumar) apagadoSumar = 'disabled';
-
-    // Aviso de stock: solo si hay menos viandas que las del combo
-    let avisoStock = '';
-    if (tope === 0) {
-      avisoStock = '<span class="plato__aviso">Sin stock · podés pedirlo personalizado</span>';
-    } else if (tope < cantidadDelCombo) {
-      avisoStock = `<span class="plato__aviso">Quedan ${escHtml(tope)}</span>`;
-    }
+    // Aviso de stock, solo si hay menos viandas que las del combo: "Sin stock…" (en rojo) o "Quedan N"
+    const sinStock = tope === 0;
+    const quedanPocas = tope > 0 && tope < cantidadDelCombo;
+    const avisoSinStock = sinStock ? '<p class="plato-quedan plato-sin-stock">Sin stock · podés pedirlo personalizado</p>' : '';
+    const avisoQuedan = quedanPocas ? `<p class="plato-quedan">Quedan ${escHtml(tope)}</p>` : '';
 
     // Descripción solo si tiene
-    let descripcion = '';
-    if (plato.descripcion) {
-      descripcion = `<p class="plato__desc">${escHtml(plato.descripcion)}</p>`;
-    }
+    const descripcion = plato.descripcion ? `<p>${escHtml(plato.descripcion)}</p>` : '';
 
-    // Imagen del plato o la de por defecto (también si no carga)
+    // Foto del plato, o el logo si no tiene (con foto-logo se ve entero, sin recortar). Si la foto no carga, también el logo.
     const imagen = plato.imagen || IMAGEN_POR_DEFECTO;
+    const claseLogo = plato.imagen ? '' : ' foto-logo';
+
+    // Sus renglones personalizados (los del paso 1), o nada
+    const personalizadosDelPlato = personalizadosPorPlato[plato.id] || '';
+
+    // Debajo del plato: el campo para escribir cómo lo quiere (si es el que se está personalizando)
+    // o el botón "✎ Personalizar" que abre ese campo
+    const campoPersonalizar = `
+          <div class="personalizar-plato">
+            <input type="text" class="casillero" id="texto-personalizado"
+                   maxlength="${LARGO_MAXIMO_PERSONALIZADO}" placeholder="Ej: sin sal"
+                   aria-label="Cómo querés ${escHtml(plato.nombre)}">
+            <button type="button" class="boton boton-principal" data-accion="personalizado-agregar"
+                    data-id-plato="${escHtml(plato.id)}" ${apagadoSiCompleto}>Agregar</button>
+            <button type="button" class="boton boton-secundario" data-accion="personalizado-cancelar">Cancelar</button>
+          </div>`;
+    const botonPersonalizar = `
+          <button type="button" class="boton-enlace" data-accion="personalizado-abrir"
+                  data-id-plato="${escHtml(plato.id)}" ${apagadoSiCompleto}>✎ Personalizar</button>`;
+    const estaPersonalizando = platoPersonalizando === plato.id;
+    const personalizar = estaPersonalizando ? campoPersonalizar : botonPersonalizar;
 
     html += `
       <li class="plato${claseElegido}">
-        <img class="plato__img" src="${escHtml(imagen)}" alt="" loading="lazy"
-             onerror="this.onerror = null; this.src = '${IMAGEN_POR_DEFECTO}';">
-        <div class="plato__info">
-          <p class="plato__nombre">${escHtml(plato.nombre)}</p>
+        <img class="foto${claseLogo}" src="${escHtml(imagen)}" alt="" loading="lazy"
+             onerror="this.onerror = null; this.src = '${IMAGEN_POR_DEFECTO}'; this.classList.add('foto-logo');">
+        <div class="plato-datos">
+          <h3>${escHtml(plato.nombre)}</h3>
           ${descripcion}
-          ${avisoStock}
+          ${avisoSinStock}${avisoQuedan}
         </div>
-        <div class="plato__contador">
-          <button type="button" class="plato__btn" data-accion="restar" data-id-plato="${escHtml(plato.id)}"
-                  aria-label="Sacar una de ${escHtml(plato.nombre)}" ${apagadoRestar}>−</button>
-          <span class="plato__cantidad">${cantidad}</span>
-          <button type="button" class="plato__btn" data-accion="sumar" data-id-plato="${escHtml(plato.id)}"
-                  aria-label="Sumar una de ${escHtml(plato.nombre)}" ${apagadoSumar}>+</button>
+        <div class="selector-cantidad">
+          <button type="button" class="boton-cantidad" data-accion="restar" data-id-plato="${escHtml(plato.id)}"
+                  aria-label="Sacar una de ${escHtml(plato.nombre)}" ${apagadoRestar}>
+            <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-menos"></use></svg>
+          </button>
+          <span class="numero-cantidad">${cantidad}</span>
+          <button type="button" class="boton-cantidad boton-sumar" data-accion="sumar" data-id-plato="${escHtml(plato.id)}"
+                  aria-label="Sumar una de ${escHtml(plato.nombre)}" ${apagadoSumar}>
+            <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-mas"></use></svg>
+          </button>
         </div>
-        <div class="plato__extra">`;
-
-    // Renglones personalizados de este plato. El índice es su posición en "personalizados".
-    personalizados.forEach((renglon, indice) => {
-      // Si el renglón es de otro plato: return = saltear este y seguir con el siguiente
-      if (renglon.idPlato !== plato.id) return;
-      html += `
-          <div class="personalizado">
-            <span class="personalizado__texto">⚠ ${escHtml(renglon.texto)}</span>
-            <div class="plato__contador">
-              <button type="button" class="plato__btn" data-accion="personalizado-restar" data-indice="${indice}"
-                      aria-label="Sacar una personalizada">−</button>
-              <span class="plato__cantidad">${renglon.cantidad}</span>
-              <button type="button" class="plato__btn" data-accion="personalizado-sumar" data-indice="${indice}"
-                      aria-label="Sumar una personalizada" ${apagadoSiCompleto}>+</button>
-            </div>
-          </div>`;
-    });
-
-    // Campo de texto (solo en el plato que se está personalizando) o el botón para abrirlo
-    if (platoPersonalizando === plato.id) {
-      html += `
-          <div class="personalizar">
-            <input type="text" class="personalizar__input" id="mc-texto-personalizado"
-                   maxlength="${LARGO_MAXIMO_PERSONALIZADO}" placeholder="Ej: sin sal"
-                   aria-label="Cómo querés ${escHtml(plato.nombre)}">
-            <button type="button" class="btn btn--primario" data-accion="personalizado-agregar"
-                    data-id-plato="${escHtml(plato.id)}" ${apagadoSiCompleto}>Agregar</button>
-            <button type="button" class="btn btn--secundario" data-accion="personalizado-cancelar">Cancelar</button>
-          </div>`;
-    } else {
-      html += `
-          <button type="button" class="enlace-personalizar" data-accion="personalizado-abrir"
-                  data-id-plato="${escHtml(plato.id)}" ${apagadoSiCompleto}>✎ Personalizar</button>`;
-    }
-
-    html += `
+        <div class="plato-personalizados">
+          ${personalizadosDelPlato}
+          ${personalizar}
         </div>
       </li>`;
   });
 
-  // Aviso de entrega: solo si hay algún plato personalizado
+  // Aviso de entrega: solo si hay algún plato personalizado (con el estilo "nota": recuadro verde clarito)
   if (personalizados.length > 0) {
     html += `
-      <li class="aviso-personalizado">
+      <li class="nota">
         Los platos personalizados se cocinan aparte: se entregan 1 día hábil más tarde.
       </li>`;
   }
   lista.innerHTML = html;
 
   // Si el campo de texto está abierto, el cursor va directo ahí
-  const campoTexto = document.getElementById('mc-texto-personalizado');
+  const campoTexto = document.getElementById('texto-personalizado');
   if (campoTexto) {
     campoTexto.focus();
   }
 
-  // Progreso: "3 de 10" y "Te faltan 7"
+  // Progreso: "3 de 10" y "Te faltan 7" (o "¡Combo completo!")
   const faltan = cantidadDelCombo - totalElegido;
-  document.getElementById('mc-cuenta').textContent = `${totalElegido} de ${cantidadDelCombo}`;
-  if (faltan > 0) {
-    document.getElementById('mc-falta').textContent = `Te faltan ${faltan}`;
-  } else {
-    document.getElementById('mc-falta').textContent = '¡Combo completo!';
-  }
+  const textoFalta = faltan > 0 ? `Te faltan ${faltan}` : '¡Combo completo!';
+  document.getElementById('modal-combo-cuenta').textContent = `${totalElegido} de ${cantidadDelCombo}`;
+  document.getElementById('modal-combo-falta').textContent = textoFalta;
+  // Con el combo completo, el progreso lleva la clase "progreso-completo" (el texto se pone verde).
+  // toggle(clase, true) la pone y toggle(clase, false) la saca. Ej: 10 de 10 → la pone · 4 de 10 → la saca
+  document.getElementById('modal-combo-progreso').classList.toggle('progreso-completo', completo);
 
-  // Barra: el ancho del relleno es el porcentaje elegido
-  const barra = document.getElementById('mc-barra');
+  // Barra: el relleno se estira según lo elegido. scaleX(0) = vacía, scaleX(0.4) = 40 %, scaleX(1) = llena
+  const barra = document.getElementById('modal-combo-barra');
   barra.setAttribute('aria-valuemax', cantidadDelCombo);
   barra.setAttribute('aria-valuenow', totalElegido);
-  document.getElementById('mc-relleno').style.width = (totalElegido / cantidadDelCombo * 100) + '%';
+  document.getElementById('modal-combo-relleno').style.transform = 'scaleX(' + (totalElegido / cantidadDelCombo) + ')';
 
   // "Agregar al pedido" se activa solo con el combo justo
-  document.getElementById('mc-agregar').disabled = !completo;
+  document.getElementById('boton-agregar-combo').disabled = !completo;
 }
 
 // ── Suma (cambio = 1) o resta (cambio = -1) una vianda de un plato ────────
@@ -265,7 +275,7 @@ function agregarPlatoPersonalizado(idPlato, texto) {
   // Texto sin espacios de más, no vacío y no más largo que el máximo
   const textoLimpio = String(texto || '').trim();
   if (textoLimpio === '' || textoLimpio.length > LARGO_MAXIMO_PERSONALIZADO) {
-    const campoTexto = document.getElementById('mc-texto-personalizado');
+    const campoTexto = document.getElementById('texto-personalizado');
     if (campoTexto) campoTexto.focus();
     return;
   }
@@ -346,12 +356,12 @@ function confirmarCombo() {
 
 // ── Cierra la ventana; con platos elegidos, primero pregunta ──────────────
 function cerrarModalCombo(forzar) {
-  const botonAgregar = document.getElementById('mc-agregar');
-  const bloqueSalir = document.getElementById('mc-salir');
+  const botonAgregar = document.getElementById('boton-agregar-combo');
+  const bloqueSalir = document.getElementById('aviso-salir');
 
   // Hay platos elegidos y no se pidió cerrar igual: se pregunta "¿Salir?"
   if (!forzar && totalElegido > 0) {
-    document.getElementById('mc-salir-texto').textContent =
+    document.getElementById('aviso-salir-texto').textContent =
       `Elegiste ${totalElegido} de ${comboEnArmado.cantidad}. Si salís, se pierde lo que elegiste.`;
     botonAgregar.hidden = true;
     bloqueSalir.hidden = false;
@@ -406,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
       platoPersonalizando = null;
       renderizarMenuCombo();
     } else if (accion === 'personalizado-agregar') {
-      agregarPlatoPersonalizado(Number(boton.dataset.idPlato), document.getElementById('mc-texto-personalizado').value);
+      agregarPlatoPersonalizado(Number(boton.dataset.idPlato), document.getElementById('texto-personalizado').value);
     } else if (accion === 'personalizado-sumar') {
       cambiarCantidadPersonalizado(Number(boton.dataset.indice), 1);
     } else if (accion === 'personalizado-restar') {
@@ -419,8 +429,8 @@ document.addEventListener('DOMContentLoaded', () => {
       cerrarModalCombo(true);
     } else if (accion === 'combo-seguir') {
       // Vuelve a armar: se esconde el "¿Salir?" y vuelve el botón de agregar
-      document.getElementById('mc-salir').hidden = true;
-      document.getElementById('mc-agregar').hidden = false;
+      document.getElementById('aviso-salir').hidden = true;
+      document.getElementById('boton-agregar-combo').hidden = false;
     }
   });
 
@@ -438,7 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Enter en el campo de texto = tocar "Agregar"
   modal.addEventListener('keydown', evento => {
-    if (evento.key === 'Enter' && evento.target.id === 'mc-texto-personalizado') {
+    if (evento.key === 'Enter' && evento.target.id === 'texto-personalizado') {
       evento.preventDefault();
       agregarPlatoPersonalizado(platoPersonalizando, evento.target.value);
     }

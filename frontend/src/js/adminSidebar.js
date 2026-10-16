@@ -79,7 +79,7 @@
       cerrarSesion();
     } else {
       localStorage.clear();
-      window.location.replace(base + 'login.html');
+      window.location.replace('/');   // a la web, igual que cerrarSesion() de auth.js
     }
   });
 

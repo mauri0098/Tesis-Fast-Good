@@ -1,10 +1,10 @@
 
 // ====================================================================
-// PEDIDOCOMBOS.JS — Ventana "Finalizar pedido" de index-combos.html
+// PEDIDOCOMBOS.JS — Ventana "Finalizar pedido" de index.html
 //
 // Funciones:
-//   abrirCheckout     → arma el resumen, pone la fecha mínima, completa los datos de la sesión
-//                       y abre la ventana con el formulario
+//   abrirFinalizarPedido → arma el resumen, pone la fecha mínima, completa los datos de la sesión
+//                          y abre el modal "Finalizar pedido" con el formulario
 //   cargarBarrios     → pide la lista de barrios al servidor (una sola vez) y llena el select
 //   validarFormulario → controla cada campo, escribe los errores debajo y devuelve los datos limpios (o null)
 //   armarPedido       → junta el carrito y los datos del formulario en el pedido que se manda al servidor
@@ -54,17 +54,18 @@ let barriosCargados = false;
 
 // ── Prepara y abre la ventana del formulario ──────────────────────────────
 // ENTRADA: nada (usa carritoCombos, el carrito de carritoCombos.js)
-// SALIDA:  nada (la ventana "Finalizar pedido" abierta: resumen, total, fecha mínima y los datos de la sesión)
+// SALIDA:  nada (la ventana "Finalizar pedido" abierta: resumen, total, fecha mínima y los datos de la sesión).
+//          El resumen va abierto en compu (a la derecha) y cerrado en el celular (se abre al tocarlo).
 // Ej: carrito con "Mantenimiento x10" (8 fideos + 2 fideos "sin sal") → "(1 combo)", total $ 137.000
 //     y la primera fecha posible a 3 días hábiles (uno más por el "sin sal")
-function abrirCheckout() {
+function abrirFinalizarPedido() {
   // Sin combos no hay nada que finalizar
   if (carritoCombos.length === 0) return;
 
   // Se cierra "Mi pedido" (la ventana del carrito)
   document.getElementById('modal-pedido').close();
 
-  // 1. Resumen: cada combo con sus platos, y el total (solo para mostrar)
+  // 1. Resumen: cada combo con su precio y sus platos, y el total (solo para mostrar)
   let total = 0;
   let html = '';
   carritoCombos.forEach(combo => {
@@ -79,18 +80,30 @@ function abrirCheckout() {
       return escHtml(plato.cantidad) + ' × ' + escHtml(plato.nombre) + aclaracion;
     }).join(', ');
 
+    // Un renglón por combo: nombre y precio arriba, los platos debajo
     html += `
-      <div class="resumen__combo">
-        <p><strong>${escHtml(combo.nombre)}</strong> · $ ${escHtml(precio.toLocaleString('es-AR'))}</p>
-        <p class="resumen__platos">${platosTexto}</p>
-      </div>`;
+      <li class="resumen-combo">
+        <div class="nombre-y-precio">
+          <span>${escHtml(combo.nombre)}</span>
+          <span>$ ${escHtml(precio.toLocaleString('es-AR'))}</span>
+        </div>
+        <span class="resumen-platos">${platosTexto}</span>
+      </li>`;
   });
-  document.getElementById('ck-resumen-lista').innerHTML = html;
+  document.getElementById('resumen-lista').innerHTML = html;
 
+  // La cantidad de combos y el total, en los 3 lugares donde se ven: el título del resumen,
+  // el renglón "Total" del resumen y el pie, al lado de "Confirmar pedido"
   const textoCantidad = carritoCombos.length === 1 ? '1 combo' : carritoCombos.length + ' combos';  // ej: "3 combos"
-  document.getElementById('ck-resumen-cant').textContent = '(' + textoCantidad + ')';
-  document.getElementById('ck-resumen-total').textContent = '$ ' + total.toLocaleString('es-AR');
-  document.getElementById('ck-total').textContent = '$ ' + total.toLocaleString('es-AR');
+  const textoTotal = '$ ' + total.toLocaleString('es-AR');                                           // ej: "$ 137.000"
+  document.getElementById('resumen-cantidad').textContent = '(' + textoCantidad + ')';
+  document.getElementById('resumen-total-titulo').textContent = textoTotal;
+  document.getElementById('resumen-total').textContent = textoTotal;
+  document.getElementById('total-a-pagar').textContent = textoTotal;
+
+  // En compu el resumen va abierto (fijo, a la derecha); en el celular arranca cerrado y se abre al tocarlo.
+  // matchMedia pregunta si la pantalla cumple esa medida. Ej: compu de 1440 px → true · celular de 390 px → false
+  document.getElementById('resumen-pedido').open = window.matchMedia('(min-width: 900px)').matches;
 
   // 2. Fecha mínima: 2 días hábiles, o 3 si hay algún plato personalizado.
   //    flatMap junta en una sola lista los platos de todos los combos.
@@ -101,26 +114,26 @@ function abrirCheckout() {
   const diasHabiles = hayPersonalizado ? DIAS_HABILES_CON_PERSONALIZADO : DIAS_HABILES_ENTREGA;
   const aclaracionPersonalizado = hayPersonalizado ? ' (un día hábil más por los platos personalizados)' : '';
 
-  const inputFecha = document.getElementById('ck-fecha');
-  inputFecha.min = fechaLocalISO(sumarDiasHabiles(new Date(), diasHabiles));
+  const campoFecha = document.getElementById('campo-fecha');
+  campoFecha.min = fechaLocalISO(sumarDiasHabiles(new Date(), diasHabiles));
   // Si había una fecha elegida que ya no alcanza, se borra
-  const fechaQueNoAlcanza = inputFecha.value !== '' && inputFecha.value < inputFecha.min;
-  if (fechaQueNoAlcanza) inputFecha.value = '';
-  document.getElementById('ck-fecha-ayuda').textContent =
-    'La primera fecha posible es el ' + fechaDDMMAAAA(parseFechaLocal(inputFecha.min)) + aclaracionPersonalizado + '.';
+  const fechaQueNoAlcanza = campoFecha.value !== '' && campoFecha.value < campoFecha.min;
+  if (fechaQueNoAlcanza) campoFecha.value = '';
+  document.getElementById('fecha-primera-posible').textContent =
+    'La primera fecha posible es el ' + fechaDDMMAAAA(parseFechaLocal(campoFecha.min)) + aclaracionPersonalizado + '.';
 
   // 3. Si el cliente inició sesión, se completan solos los campos vacíos con sus datos.
   //    Los mismos 5 campos que completa el formulario viejo (preLlenarFormulario).
   const usuarioId = localStorage.getItem('usuario_id');     // lo guarda el login (null si no inició sesión)
   const datosDeSesion = {
-    'ck-nombre':    localStorage.getItem('usuario_nombre') || '',
-    'ck-apellido':  localStorage.getItem('usuario_apellido') || '',
-    'ck-email':     localStorage.getItem('usuario_email') || '',
-    'ck-telefono':  localStorage.getItem('usuario_telefono') || '',
-    'ck-direccion': localStorage.getItem('usuario_direccion') || ''
+    'campo-nombre':    localStorage.getItem('usuario_nombre') || '',
+    'campo-apellido':  localStorage.getItem('usuario_apellido') || '',
+    'campo-email':     localStorage.getItem('usuario_email') || '',
+    'campo-telefono':  localStorage.getItem('usuario_telefono') || '',
+    'campo-direccion': localStorage.getItem('usuario_direccion') || ''
   };
   // Object.keys da la lista de nombres de un objeto. Sin sesión, la lista queda vacía y no se completa nada.
-  // Ejemplo: { 'ck-nombre': 'Ana', 'ck-email': '' } → ['ck-nombre', 'ck-email']
+  // Ejemplo: { 'campo-nombre': 'Ana', 'campo-email': '' } → ['campo-nombre', 'campo-email']
   const camposACompletar = usuarioId ? Object.keys(datosDeSesion) : [];
   camposACompletar.forEach(idCampo => {
     const campo = document.getElementById(idCampo);
@@ -130,19 +143,19 @@ function abrirCheckout() {
   });
 
   // 4. Errores limpios, el barrio visible solo si está elegido el envío, y la lista de barrios
-  document.querySelectorAll('#form-pedido .campo__error').forEach(parrafo => {
+  document.querySelectorAll('#formulario-pedido .campo-error').forEach(parrafo => {
     parrafo.textContent = '';
   });
   // ?. = "si hay una opción marcada, su valor" (sin ninguna marcada da undefined: no es envío)
-  const entregaElegida = document.querySelector('#form-pedido input[name="entrega"]:checked');
+  const entregaElegida = document.querySelector('#formulario-pedido input[name="entrega"]:checked');
   const conEnvio = entregaElegida?.value === ENTREGA_ENVIO;
-  document.getElementById('ck-grupo-barrio').hidden = !conEnvio;
+  document.getElementById('grupo-barrio').hidden = !conEnvio;
   cargarBarrios();
 
   // 5. Se muestra el formulario (no la confirmación) y se abre la ventana
-  document.getElementById('ck-vista-form').hidden = false;
-  document.getElementById('ck-vista-ok').hidden = true;
-  document.getElementById('modal-checkout').showModal();
+  document.getElementById('vista-formulario').hidden = false;
+  document.getElementById('vista-confirmacion').hidden = true;
+  document.getElementById('modal-finalizar').showModal();
 }
 
 // ── Pide los barrios al servidor y llena el select (una sola vez) ─────────
@@ -153,7 +166,7 @@ function abrirCheckout() {
 async function cargarBarrios() {
   if (barriosCargados) return;
 
-  const select = document.getElementById('ck-barrio');
+  const campoBarrio = document.getElementById('campo-barrio');
   try {
     const respuesta = await fetch('/api/barrios');
     if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
@@ -164,13 +177,13 @@ async function cargarBarrios() {
       const opcion = document.createElement('option');
       opcion.value = barrio.id;
       opcion.textContent = barrio.nombre;
-      select.appendChild(opcion);
+      campoBarrio.appendChild(opcion);
     });
     barriosCargados = true;
   } catch (error) {
     // Al cliente, un mensaje simple; el detalle queda en la consola
     console.error('Error al cargar los barrios:', error);
-    document.getElementById('err-barrio').textContent = 'No pudimos cargar los barrios. Probá de nuevo en un momento.';
+    document.getElementById('error-barrio').textContent = 'No pudimos cargar los barrios. Probá de nuevo en un momento.';
   }
 }
 
@@ -181,21 +194,21 @@ async function cargarBarrios() {
 // Ej: Nombre "Ana", Apellido vacío y un sábado de fecha → null, y debajo: "Escribí tu apellido."
 //     y "Ese día no entregamos (feriado o fin de semana). Elegí otro."
 function validarFormulario() {
-  const formulario = document.getElementById('form-pedido');
+  const formulario = document.getElementById('formulario-pedido');
 
   // 1. Se lee cada campo (Nombre, Apellido, Dirección, Teléfono y Email sin espacios de más, como en el viejo)
-  const nombre = document.getElementById('ck-nombre').value.trim();
-  const apellido = document.getElementById('ck-apellido').value.trim();
-  const direccion = document.getElementById('ck-direccion').value.trim();
-  const telefono = document.getElementById('ck-telefono').value.trim();
-  const email = document.getElementById('ck-email').value.trim();            // opcional: si no se escribe va ''
-  const inputFecha = document.getElementById('ck-fecha');
-  const fecha = inputFecha.value;                                            // 'AAAA-MM-DD', o '' si no eligió
+  const nombre = document.getElementById('campo-nombre').value.trim();
+  const apellido = document.getElementById('campo-apellido').value.trim();
+  const direccion = document.getElementById('campo-direccion').value.trim();
+  const telefono = document.getElementById('campo-telefono').value.trim();
+  const email = document.getElementById('campo-email').value.trim();            // opcional: si no se escribe va ''
+  const campoFecha = document.getElementById('campo-fecha');
+  const fecha = campoFecha.value;                                            // 'AAAA-MM-DD', o '' si no eligió
   // Método de Pago y Tipo de Entrega: la opción marcada (vienen elegidos Efectivo y Delivery, como en el viejo).
   // ?. = "si hay una marcada, su valor"; || '' = si no hay ninguna, vacío
   const metodoPago = formulario.querySelector('input[name="pago"]:checked')?.value || '';
   const tipoEntrega = formulario.querySelector('input[name="entrega"]:checked')?.value || '';
-  const observaciones = document.getElementById('ck-observaciones').value;   // opcional: va tal cual se escribió
+  const observaciones = document.getElementById('campo-observaciones').value;   // opcional: va tal cual se escribió
 
   // 2. Las cuentas que usan los controles de abajo
   // Email: si se escribe, tiene que tener la forma algo@algo.algo (el viejo también lo controla:
@@ -204,66 +217,66 @@ function validarFormulario() {
   const emailMalEscrito = email !== '' && !emailConForma;
   // Barrio: obligatorio SOLO con envío a domicilio. Con retiro va null.
   const conEnvio = tipoEntrega === ENTREGA_ENVIO;
-  const barrioElegido = Number(document.getElementById('ck-barrio').value);   // sin elegir: '' → 0
+  const barrioElegido = Number(document.getElementById('campo-barrio').value);   // sin elegir: '' → 0
   const barrioValido = Number.isInteger(barrioElegido) && barrioElegido > 0;
   const faltaBarrio = conEnvio && !barrioValido;
   const vaConBarrio = conEnvio && barrioValido;
   const barrioId = vaConBarrio ? barrioElegido : null;
-  // La primera fecha posible (la puso abrirCheckout), para el mensaje. Ej: '2026-10-20' → '20/10/2026'
-  const primeraFecha = fechaDDMMAAAA(parseFechaLocal(inputFecha.min));
+  // La primera fecha posible (la puso abrirFinalizarPedido), para el mensaje. Ej: '2026-10-20' → '20/10/2026'
+  const primeraFecha = fechaDDMMAAAA(parseFechaLocal(campoFecha.min));
 
   // 3. Los controles de cada campo, en orden: { estaMal, mensaje }.
   //    De cada campo vale el PRIMERO que está mal (como un "si no, si no").
   //    Ej: Apellido vacío → 'Escribí tu apellido.' (el del largo ya no cuenta)
   const controles = {
-    'err-nombre': [
+    'error-nombre': [
       { estaMal: nombre === '', mensaje: 'Escribí tu nombre.' }
     ],
     // Nombre y Apellido juntos ("Nombre Apellido") son cliente_nombre: entre los dos, hasta 100 caracteres
-    'err-apellido': [
+    'error-apellido': [
       { estaMal: apellido === '', mensaje: 'Escribí tu apellido.' },
       { estaMal: (nombre + ' ' + apellido).length > LARGO_MAXIMO.nombreCompleto,
         mensaje: 'Nombre y apellido juntos: hasta ' + LARGO_MAXIMO.nombreCompleto + ' caracteres.' }
     ],
     // Dirección: obligatoria siempre, como en el viejo (aunque sea retiro en el local)
-    'err-direccion': [
+    'error-direccion': [
       { estaMal: direccion === '', mensaje: 'Escribí tu dirección.' },
       { estaMal: direccion.length > LARGO_MAXIMO.direccion, mensaje: 'Hasta ' + LARGO_MAXIMO.direccion + ' caracteres.' }
     ],
     // Teléfono: obligatorio, como en el viejo
-    'err-telefono': [
+    'error-telefono': [
       { estaMal: telefono === '', mensaje: 'Escribí tu teléfono.' },
       { estaMal: telefono.length > LARGO_MAXIMO.telefono, mensaje: 'Hasta ' + LARGO_MAXIMO.telefono + ' caracteres.' }
     ],
-    'err-email': [
+    'error-email': [
       { estaMal: emailMalEscrito, mensaje: 'Revisá el email (o dejalo vacío).' }
     ],
     // Fecha: obligatoria, día hábil y no antes de la fecha mínima
-    'err-fecha': [
+    'error-fecha': [
       { estaMal: fecha === '', mensaje: 'Elegí la fecha de entrega.' },
       { estaMal: !esDiaHabil(parseFechaLocal(fecha)), mensaje: 'Ese día no entregamos (feriado o fin de semana). Elegí otro.' },
-      { estaMal: fecha < inputFecha.min, mensaje: 'La primera fecha posible es el ' + primeraFecha + '.' }
+      { estaMal: fecha < campoFecha.min, mensaje: 'La primera fecha posible es el ' + primeraFecha + '.' }
     ],
-    'err-pago': [
+    'error-pago': [
       { estaMal: metodoPago === '', mensaje: 'Elegí el método de pago.' }
     ],
-    'err-entrega': [
+    'error-entrega': [
       { estaMal: tipoEntrega === '', mensaje: 'Elegí el tipo de entrega.' }
     ],
-    'err-barrio': [
+    'error-barrio': [
       { estaMal: faltaBarrio, mensaje: 'Seleccioná tu barrio.' }
     ],
-    'err-observaciones': [
+    'error-observaciones': [
       { estaMal: observaciones.length > LARGO_MAXIMO.observaciones, mensaje: 'Hasta ' + LARGO_MAXIMO.observaciones + ' caracteres.' }
     ]
   };
 
   // 4. Se borran los errores anteriores y se escribe, debajo de cada campo, su primer control que falla
-  formulario.querySelectorAll('.campo__error').forEach(parrafo => {
+  formulario.querySelectorAll('.campo-error').forEach(parrafo => {
     parrafo.textContent = '';
   });
   let hayErrores = false;
-  // Object.keys da la lista de nombres del objeto. Ej: { 'err-nombre': [...], 'err-pago': [...] } → ['err-nombre', 'err-pago']
+  // Object.keys da la lista de nombres del objeto. Ej: { 'error-nombre': [...], 'error-pago': [...] } → ['error-nombre', 'error-pago']
   Object.keys(controles).forEach(idError => {
     // find = el primer control que está mal (o undefined si están todos bien).
     // Ej: [{ estaMal: true, mensaje: 'Escribí tu apellido.' }, { estaMal: false, … }] → el primero
@@ -326,7 +339,7 @@ async function confirmarPedido(evento) {
   evento.preventDefault();
 
   // Se borra el error de un envío anterior (validarFormulario también lo borra con los demás)
-  const errorEnvio = document.getElementById('err-envio');
+  const errorEnvio = document.getElementById('error-envio');
   errorEnvio.textContent = '';
 
   const datos = validarFormulario();
@@ -335,7 +348,7 @@ async function confirmarPedido(evento) {
   const pedido = armarPedido(datos);
 
   // El botón se apaga mientras se envía: así un doble clic no crea dos pedidos
-  const boton = document.getElementById('ck-confirmar');
+  const boton = document.getElementById('boton-confirmar-pedido');
   boton.disabled = true;
   boton.textContent = 'Enviando pedido...';
 
@@ -362,7 +375,7 @@ async function confirmarPedido(evento) {
   carritoCombos = [];
   guardarCarrito();
   renderizarCarrito();
-  document.getElementById('form-pedido').reset();
+  document.getElementById('formulario-pedido').reset();
 
   mostrarConfirmacion(resultado.respuesta, datos);
 }
@@ -406,9 +419,10 @@ async function enviarPedido(pedido) {
 // ── Dibuja la confirmación con lo que devolvió el servidor ────────────────
 // ENTRADA: respuesta = lo que devolvió el servidor (id_pedido, total, combos con sus platos)
 //          datos     = lo que devolvió validarFormulario
-// SALIDA:  nada (la vista "¡Recibimos tu pedido #N!" con el botón de WhatsApp)
+// SALIDA:  nada (la vista "¡Recibimos tu pedido #N!": la ✓ grande, fecha, entrega y pago, el resumen
+//          y el botón de WhatsApp)
 // Ej: { id_pedido: 251, total: 137000, combos: [Mantenimiento x10: 8 fideos + 2 fideos (sin sal)] }
-//     → "¡Recibimos tu pedido #251!", "Total: $ 137.000"
+//     → "¡Recibimos tu pedido #251!" y en el resumen "Total  $ 137.000"
 function mostrarConfirmacion(respuesta, datos) {
   // Combos con sus platos: nombres y precios que guardó el servidor (los de la base)
   let combosHtml = '';
@@ -423,11 +437,15 @@ function mostrarConfirmacion(respuesta, datos) {
       return '<li>' + escHtml(plato.cantidad) + ' × ' + escHtml(plato.nombre) + aclaracion + '</li>';
     }).join('');
 
+    // Un renglón por combo: nombre y precio arriba, los platos debajo (uno por renglón)
     combosHtml += `
-      <div class="confirmacion__combo">
-        <p><strong>${escHtml(combo.nombre)}</strong> · $ ${escHtml(precio)}</p>
-        <ul>${platosHtml}</ul>
-      </div>`;
+        <li class="resumen-combo">
+          <div class="nombre-y-precio">
+            <span>${escHtml(combo.nombre)}</span>
+            <span>$ ${escHtml(precio)}</span>
+          </div>
+          <ul class="combo-platos">${platosHtml}</ul>
+        </li>`;
   });
 
   // Entrega, fecha, total y (si es transferencia) el alias
@@ -438,25 +456,37 @@ function mostrarConfirmacion(respuesta, datos) {
   const conTransferencia = datos.metodoPago === 'Transferencia';
   const notaTransferencia = conTransferencia ? '<p class="nota">Alias: ' + escHtml(ALIAS_TRANSFERENCIA) + '</p>' : '';
 
-  document.getElementById('ok-cuerpo').innerHTML = `
+  // confirmacion-datos: fecha, entrega y pago (en compu, en 3 columnas). El resumen, con el estilo del de "Finalizar pedido".
+  document.getElementById('confirmacion-contenido').innerHTML = `
     <div class="confirmacion">
-      <p class="confirmacion__titulo">¡Recibimos tu pedido <strong>#${escHtml(respuesta.id_pedido)}</strong>!</p>
+      <span class="confirmacion-tilde" aria-hidden="true"><svg class="icono"><use href="#icono-check"></use></svg></span>
+      <h3>¡Recibimos tu pedido #${escHtml(respuesta.id_pedido)}!</h3>
       <p>Para terminar, mandanos el resumen por WhatsApp y te confirmamos.</p>
-      ${combosHtml}
-      <p class="confirmacion__total">Total: <strong>$ ${escHtml(total)}</strong></p>
-      <p>Fecha de entrega: <strong>${escHtml(fechaEntrega)}</strong></p>
-      <p>${escHtml(textoEntrega)}</p>
-      <p>Forma de pago: ${escHtml(datos.metodoPago)}</p>
+      <dl class="confirmacion-datos">
+        <div><dt>Fecha de entrega</dt><dd>${escHtml(fechaEntrega)}</dd></div>
+        <div><dt>Entrega</dt><dd>${escHtml(textoEntrega)}</dd></div>
+        <div><dt>Forma de pago</dt><dd>${escHtml(datos.metodoPago)}</dd></div>
+      </dl>
       ${notaTransferencia}
-      <a class="btn btn--whatsapp btn--ancho" id="ok-whatsapp" target="_blank" rel="noopener">Enviar por WhatsApp</a>
+      <div class="resumen">
+        <ul class="resumen-lista">${combosHtml}
+        </ul>
+        <dl class="resumen-cuentas">
+          <div class="resumen-renglon-total"><dt>Total</dt><dd>$ ${escHtml(total)}</dd></div>
+        </dl>
+      </div>
+      <a class="boton boton-principal boton-grande" id="boton-whatsapp" target="_blank" rel="noopener">
+        <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-whatsapp"></use></svg>
+        Enviar por WhatsApp
+      </a>
     </div>`;
 
   // El enlace se pone aparte (no dentro del HTML de arriba): así ningún texto del mensaje puede romperlo
-  document.getElementById('ok-whatsapp').href = armarMensajeWhatsApp(respuesta, datos);
+  document.getElementById('boton-whatsapp').href = armarMensajeWhatsApp(respuesta, datos);
 
   // Se pasa a la vista de confirmación
-  document.getElementById('ck-vista-form').hidden = true;
-  document.getElementById('ck-vista-ok').hidden = false;
+  document.getElementById('vista-formulario').hidden = true;
+  document.getElementById('vista-confirmacion').hidden = false;
 }
 
 // ── Arma el mensaje de WhatsApp (mismo formato que redirigirAWhatsApp del formulario viejo) ──
@@ -527,11 +557,11 @@ Espero tu respuesta para confirmar mi pedido`;
 
 // ── Al cargar la página: quién escucha qué ────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  const ventana = document.getElementById('modal-checkout');
-  const formulario = document.getElementById('form-pedido');
+  const ventana = document.getElementById('modal-finalizar');
+  const formulario = document.getElementById('formulario-pedido');
 
   // Botón "Finalizar pedido" de la ventana "Mi pedido" (carritoCombos.js)
-  document.getElementById('mp-finalizar').addEventListener('click', abrirCheckout);
+  document.getElementById('boton-finalizar-pedido').addEventListener('click', abrirFinalizarPedido);
 
   // "Confirmar pedido"
   formulario.addEventListener('submit', confirmarPedido);
@@ -539,24 +569,24 @@ document.addEventListener('DOMContentLoaded', () => {
   // Tipo de Entrega: con envío se ve el barrio; con retiro se oculta (como en el viejo)
   formulario.querySelectorAll('input[name="entrega"]').forEach(opcion => {
     opcion.addEventListener('change', () => {
-      document.getElementById('ck-grupo-barrio').hidden = opcion.value !== ENTREGA_ENVIO;
+      document.getElementById('grupo-barrio').hidden = opcion.value !== ENTREGA_ENVIO;
     });
   });
 
   // Pago: con transferencia se muestra el alias
   formulario.querySelectorAll('input[name="pago"]').forEach(opcion => {
     opcion.addEventListener('change', () => {
-      document.getElementById('ck-transf').hidden = opcion.value !== 'Transferencia';
+      document.getElementById('alias-transferencia').hidden = opcion.value !== 'Transferencia';
     });
   });
 
   // Fecha: si se elige un feriado o un fin de semana, se avisa y se borra
-  document.getElementById('ck-fecha').addEventListener('change', evento => {
+  document.getElementById('campo-fecha').addEventListener('change', evento => {
     const campoFecha = evento.target;
-    document.getElementById('err-fecha').textContent = '';
+    document.getElementById('error-fecha').textContent = '';
     const diaSinEntrega = campoFecha.value !== '' && !esDiaHabil(parseFechaLocal(campoFecha.value));
     if (diaSinEntrega) {
-      document.getElementById('err-fecha').textContent = 'Ese día no entregamos (feriado o fin de semana). Elegí otro.';
+      document.getElementById('error-fecha').textContent = 'Ese día no entregamos (feriado o fin de semana). Elegí otro.';
       campoFecha.value = '';
     }
   });

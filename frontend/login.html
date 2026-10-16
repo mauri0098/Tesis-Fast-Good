@@ -145,6 +145,13 @@
     document.getElementById('loginForm').addEventListener('submit', manejarLogin);
     document.getElementById('registroForm').addEventListener('submit', manejarRegistro);
 
+    // Si llega desde el modal de la web con #registro o #recuperar, abre esa parte (sin # queda todo igual).
+    // setTimeout 0 = después de que se lean las funciones de abajo
+    setTimeout(function () {
+      if (location.hash === '#registro') mostrarTab('registro');
+      if (location.hash === '#recuperar') abrirModalRecuperar();
+    }, 0);
+
     function mostrarTab(tab) {
       const esLogin = tab === 'login';
       document.getElementById('tabLogin').classList.toggle('active', esLogin);

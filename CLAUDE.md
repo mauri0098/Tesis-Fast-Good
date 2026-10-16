@@ -42,6 +42,19 @@
 - Cuando uses algo que no sea básico (flatMap, some, reduce, etc.), poné un comentario con un ejemplo
   de qué entra y qué sale.
 
+## Cambios de pantalla: SOLO lo visual
+- En un cambio de pantalla se toca SOLO: el HTML, el CSS y las animaciones. Si un JS arma HTML (innerHTML),
+  se cambia SOLO el HTML que arma, nada más.
+- NUNCA cambia el funcionamiento: ni datos, ni rutas, ni validaciones, ni lo que se manda al servidor,
+  ni server.js, ni sql/.
+- NO se renombra nada que ya exista: ni funciones, ni variables, ni ids, ni clases que use el JS.
+  Si el JS busca 'pedidosBody', el HTML sigue teniendo id="pedidosBody".
+- Lo NUEVO (clases o ids que agregues para el diseño) va en español y diciendo qué es
+  (ej: "tarjeta-combo", no "oferta"; "boton-anular", no "btn-x").
+- CSS siempre en su archivo .css: nada de <style> en el HTML ni style="" sueltos.
+- Si para el diseño hace falta cambiar algo del JS o un nombre, PREGUNTAME antes.
+- Al terminar: node tests/test_e2e.js heladera tiene que dar 40/40, y me pasás el recorrido a mano (celu y compu).
+
 ## Seguridad y cuidado
 - NUNCA hagas commit ni push. Los hago yo.
 - NUNCA trabajes en la rama Rodriguez (es producción). Siempre en mejoras-fastgood.
@@ -55,9 +68,11 @@
 - El menú de cada combo está en combo_productos. Un plato puede estar en muchos combos, de cualquier plan.
 - El cliente elige platos del menú, repitiendo, hasta llegar justo a la cantidad del combo.
 - Un pedido puede tener varios combos (pedido_combos). Los platos elegidos van en pedido_detalles con id_pedido_combo.
-- Las viandas salen de la HELADERA (productos.stock_heladera) y se descuentan AL CREAR el pedido. No se descuentan insumos.
+- Las viandas salen de la HELADERA (productos.stock_heladera) y se descuentan AL CREAR el pedido. Esas no descuentan insumos
+  (ya los gastaron cuando la cocina tocó "Hecho").
 - Personalizado (ej: "sin sal"): se escribe en la web, mismo precio, NO sale de la heladera, va a cocina, +1 día hábil.
-- Cancelar un pedido devuelve las viandas a la heladera.
+  Sus insumos se descuentan cuando el pedido pasa a 3 (Listo para entregar).
+- Anular un pedido en estado 1, 2 o 3 devuelve las viandas a la heladera. Un pedido anulado (5) no cambia más de estado.
 - Las cosas se DESACTIVAN, no se borran.
 
 ## Seguridad (siempre, aunque el código sea simple)

@@ -1,5 +1,5 @@
 // ====================================================================
-// CARRITOCOMBOS.JS — Carrito de combos ("Mi pedido") de index-combos.html
+// CARRITOCOMBOS.JS — Carrito de combos ("Mi pedido") de index.html
 //
 // Funciones:
 //   cargarCarrito    → lee el carrito guardado en el navegador (localStorage) y descarta lo que esté roto
@@ -83,47 +83,65 @@ function quitarDelCarrito(indice) {
 }
 
 // ── Dibuja "Mi pedido" y el número del ícono ──────────────────────────────
+// ENTRADA: nada (usa carritoCombos)
+// SALIDA:  nada (dibuja en #modal-pedido-combos un renglón por combo, o el aviso de vacío; escribe el total,
+//          el número del ícono y prende o apaga "Finalizar pedido")
+// Ej: [Mantenimiento x10 de $ 137.000 con 8 fideos y 2 fideos "sin sal"] → "Mantenimiento x10 · $ 137.000",
+//     "8 × fideos", "2 × fideos · ⚠ sin sal", "$ 13.700 c/u" y "Quitar"; total $ 137.000 y el ícono en 1
 function renderizarCarrito() {
-  const cuerpo = document.getElementById('mp-cuerpo');
+  const cuerpo = document.getElementById('modal-pedido-combos');
   let total = 0;
   let html = '';
 
+  // Carrito vacío: el aviso de siempre, con el ícono de la bolsa
   if (carritoCombos.length === 0) {
-    html = '<p class="aviso-vacio">Todavía no agregaste combos.</p>';
+    html = `
+      <div class="pedido-vacio">
+        <span class="pedido-vacio-icono" aria-hidden="true"><svg class="icono"><use href="#icono-bolsa"></use></svg></span>
+        <p>Todavía no agregaste combos.</p>
+      </div>`;
   }
 
   carritoCombos.forEach((combo, indice) => {
     const precio = Number(combo.precio) || 0;
     total = total + precio;
 
-    // Los platos del combo; los personalizados con ⚠ y su texto
-    let platosHtml = '';
-    combo.platos.forEach(plato => {
-      let textoPersonalizado = '';
-      if (plato.personalizado) {
-        textoPersonalizado = ` <span class="carrito__personalizado">⚠ ${escHtml(plato.personalizado)}</span>`;
-      }
-      platosHtml += `<li>${escHtml(plato.cantidad)} × ${escHtml(plato.nombre)}${textoPersonalizado}</li>`;
-    });
+    // Precio de cada vianda (ej: $ 137.000 / 10 = $ 13.700 c/u). Si el combo guardado no trae
+    // su cantidad (alguien tocó lo guardado en el navegador), no se muestra.
+    const viandas = Number(combo.cantidad) || 0;
+    const tieneViandas = viandas > 0;
+    const textoPorVianda = tieneViandas ? '$ ' + Math.round(precio / viandas).toLocaleString('es-AR') + ' c/u' : '';
+
+    // Los platos del combo, uno por renglón; los personalizados con " · ⚠ " y su texto.
+    // map arma una lista nueva con un <li> por plato y join la une en un solo texto.
+    // Ej: entra [{ cantidad: 8, nombre: 'fideos' }, { cantidad: 2, nombre: 'fideos', personalizado: 'sin sal' }]
+    //     sale  '<li>8 × fideos</li><li>2 × fideos · ⚠ sin sal</li>'
+    const platosHtml = combo.platos.map(plato => {
+      const textoPersonalizado = plato.personalizado ? ' · ⚠ ' + escHtml(plato.personalizado) : '';  // solo el personalizado
+      return '<li>' + escHtml(plato.cantidad) + ' × ' + escHtml(plato.nombre) + textoPersonalizado + '</li>';
+    }).join('');
 
     html += `
-      <article class="carrito__combo">
-        <div class="carrito__cab">
-          <h3>${escHtml(combo.nombre)}</h3>
-          <span class="carrito__precio">$ ${escHtml(precio.toLocaleString('es-AR'))}</span>
-          <button type="button" class="btn-cerrar" data-accion="quitar-combo" data-indice="${indice}"
-                  aria-label="Quitar ${escHtml(combo.nombre)} del pedido">✕</button>
+      <div class="combo-del-pedido">
+        <div class="nombre-y-precio">
+          <span class="combo-nombre">${escHtml(combo.nombre)}</span>
+          <span class="combo-precio">$ ${escHtml(precio.toLocaleString('es-AR'))}</span>
         </div>
-        <ul class="carrito__platos">${platosHtml}</ul>
-      </article>`;
+        <ul class="combo-platos">${platosHtml}</ul>
+        <div class="combo-acciones">
+          <span class="combo-precio-vianda">${escHtml(textoPorVianda)}</span>
+          <button type="button" class="boton-quitar" data-accion="quitar-combo" data-indice="${indice}"
+                  aria-label="Quitar ${escHtml(combo.nombre)} del pedido">Quitar</button>
+        </div>
+      </div>`;
   });
 
   cuerpo.innerHTML = html;
 
   // Total, número del ícono (cuenta combos) y botón Finalizar (apagado con el carrito vacío)
-  document.getElementById('mp-total').textContent = '$ ' + total.toLocaleString('es-AR');
-  document.getElementById('contador').textContent = carritoCombos.length;
-  document.getElementById('mp-finalizar').disabled = carritoCombos.length === 0;
+  document.getElementById('modal-pedido-total').textContent = '$ ' + total.toLocaleString('es-AR');
+  document.getElementById('contador-combos').textContent = carritoCombos.length;
+  document.getElementById('boton-finalizar-pedido').disabled = carritoCombos.length === 0;
 }
 
 // ── Abre la ventana "Mi pedido" ───────────────────────────────────────────
@@ -143,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
   cargarCarrito();
 
   // Botón "Mi pedido" del encabezado
-  document.getElementById('btn-mi-pedido').addEventListener('click', abrirMiPedido);
+  document.getElementById('boton-mi-pedido').addEventListener('click', abrirMiPedido);
 
   // Botones de la ventana
   ventana.addEventListener('click', evento => {

@@ -1,211 +1,574 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es-AR">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fast Good - Combos de viandas</title>
+  <meta name="description" content="Viandas caseras saludables. Elegí tu combo, armá tus platos y te lo llevamos.">
 
-  <title>Fast Good - Viandas Saludables</title>
-
-  <!-- Fuente -->
-  <!-- Evita el flash de contenido sin estilos (FOUC): el body se muestra cuando la página terminó de cargar -->
-  <style>
-    body { visibility: hidden; opacity: 0; transition: opacity 0.15s ease-in; }
-    body.cargada { visibility: visible; opacity: 1; }
-  </style>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet" />
-
-  <!-- Favicon -->
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/webp" href="./src/assets/img/logo.webp">
 
-  <!-- CSS Global (Fuente de Verdad) -->
-  <link rel="stylesheet" href="./src/css/global.css">
-  <!-- CSS del Carrito -->
-  <link rel="stylesheet" href="./src/css/carrito.css">
-  <!-- CSS específico de la página -->
-  <link rel="stylesheet" href="./src/css/index.css">
-
-  <style>
-    .login-btn-header {
-      padding: 0.6rem 1.2rem;
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.9rem;
-      transition: all var(--transition-fast);
-      text-decoration: none;
-    }
-
-    .login-btn-header:hover {
-      background: rgba(255, 255, 255, 0.15) !important;
-    }
-  </style>
+  <!-- CSS de esta página: el diseño aprobado (docs/diseno-index). Es la única hoja: no usa global.css.
+       Todos los estilos están ahí (también el que esconde la página hasta que termina de cargar) -->
+  <link rel="stylesheet" href="./src/css/index-combos.css">
+  <!-- Ajustes y animaciones del diseño final (docs/diseno-final-index): va ÚLTIMO, para que gane -->
+  <link rel="stylesheet" href="./src/css/index-final.css">
 </head>
 
-
 <body>
+  <!-- Íconos: se dibujan una vez acá y se reutilizan con <use> -->
+  <svg class="lista-iconos" width="0" height="0" aria-hidden="true">
+    <symbol id="icono-whatsapp" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
+    </symbol>
+    <symbol id="icono-instagram" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <rect x="3" y="3" width="18" height="18" rx="5"/>
+      <circle cx="12" cy="12" r="4"/>
+      <circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none"/>
+    </symbol>
+    <symbol id="icono-reloj" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M12 7v5l3 2"/>
+    </symbol>
+    <symbol id="icono-ubicacion" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+      <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/>
+      <circle cx="12" cy="9.5" r="2.5"/>
+    </symbol>
+    <symbol id="icono-entregas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+      <rect x="2" y="6" width="12" height="10" rx="1"/>
+      <path d="M14 9h4l3 3.5V16h-7z"/>
+      <circle cx="7" cy="17.5" r="1.8"/>
+      <circle cx="17" cy="17.5" r="1.8"/>
+    </symbol>
+    <symbol id="icono-der" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 5l7 7-7 7"/>
+    </symbol>
+    <symbol id="icono-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 12.5l4.5 4.5L19 7.5"/>
+    </symbol>
+    <symbol id="icono-mas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+      <path d="M12 5v14M5 12h14"/>
+    </symbol>
+    <symbol id="icono-menos" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+      <path d="M5 12h14"/>
+    </symbol>
+    <symbol id="icono-cerrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+      <path d="M6 6l12 12M18 6L6 18"/>
+    </symbol>
+    <symbol id="icono-bolsa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 8h14l-1 12H6z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>
+    </symbol>
+  </svg>
 
-  <!-- Carrito Lateral -->
-  <div id="carrito" class="carrito-lateral">
-    <h3>🛒 Tu Carrito</h3>
-    <ul id="carrito-items" style="list-style: none; padding: 0; margin-top: 1rem;"></ul>
-    <button onclick="confirmarPedido()" class="btn-cerrar-carrito" style="background-color: #2196F3;">Confirmar
-      Pedido</button>
-    <button onclick="cerrarCarrito()" class="btn-cerrar-carrito">Cerrar</button>
-  </div>
+  <a class="saltar-al-contenido" href="#contenido">Saltar al contenido</a>
 
-  <header>
-    <div class="container-centrado">
-      <div style="display: flex; align-items: center;">
-        <img src="src/assets/img/logo.webp" alt="Fast Good Logo" style="height: 50px; margin: 0 1rem;" />
-        <h1>FAST GOOD</h1>
-      </div>
+  <!-- 1. Encabezado -->
+  <header class="encabezado">
+    <div class="contenedor encabezado-fila">
+      <!-- El logo: lleva al principio de la página -->
+      <a href="#inicio" class="logo" aria-label="Fast Good, volver al inicio">
+        <img class="logo-imagen" src="./src/assets/img/logo.webp" alt="">
+      </a>
 
-      <nav style="display: flex; align-items: center; gap: 1.5rem;">
-        <a href="#menu">Categorías</a>
-        <a onclick="openContactModal()">Contacto</a>
-        <a onclick="openModal()">Sucursales</a>
-
-        <!-- Ícono de Carrito -->
-        <div style="position: relative; cursor: pointer;" onclick="toggleCarrito()">
-          <img src="https://cdn-icons-png.flaticon.com/512/107/107831.png" alt="Carrito" style="height: 27px;" />
-          <span id="cart-count"
-            style="position: absolute; top: -8px; right: -8px; background: red; color: white; font-size: 12px; padding: 2px 6px; border-radius: 50%;">0</span>
-        </div>
-
-        <!-- Botón auth dinámico -->
-        <div id="auth-btn-container" style="position:relative;"></div>
+      <nav class="menu-principal" aria-label="Principal">
+        <a href="#categorias">Categorías</a>
+        <a href="#combos">Combos</a>
+        <a href="#preguntas">Preguntas</a>
+        <a href="#donde-estamos">Contacto</a>
       </nav>
+
+      <div class="encabezado-botones">
+        <!-- Botón de sesión: lo arma actualizarBotonAuth() de auth.js (el nombre del id es de auth.js) -->
+        <div id="auth-btn-container"></div>
+
+        <!-- Mi pedido: abre la ventana del carrito (carritoCombos.js) -->
+        <button class="boton boton-mi-pedido" type="button" id="boton-mi-pedido" aria-haspopup="dialog">
+          <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-bolsa"></use></svg>Mi pedido
+          <span class="contador-combos" id="contador-combos">0</span>
+        </button>
+      </div>
     </div>
   </header>
 
-  <div class="announcement-bar" id="barra-anuncio">
-    🕒 Hacé tu pedido con anticipación: Elaboramos en el día y entregamos a las <strong>48&nbsp;hs&nbsp;hábiles</strong>.
-  </div>
+  <main id="contenido">
 
-  <section class="hero" id="seccion-hero">
-    
-  </section>
-
-  <!-- MINI DESCRIPCIÓN DE LA EMPRESA -->
-  <section class="section" id="seccion-descripcion" style="text-align: center;">
-    <p style="font-size: 1.2rem; max-width: 1000px; margin: 0 auto; color: #555;">
-      Fast Good  te ofrece viandas saludables, frescas y caseras, ideales para acompañarte en tu día a día.
-      Diseñamos planes adaptados a cada necesidad: saludable, deportivo, keto, veggie y más. ¡Comé rico, sano y práctico
-      con nosotros!
-    </p>
-  </section>
-
-  <!-- SECCIÓN PRINCIPAL — Catálogo SPA (Categorías → Planes → Productos) -->
-  <section class="section" id="menu">
-
-    <!-- ── VISTA 1: GRILLA DE CATEGORÍAS (por defecto) ── -->
-    <div id="vista-categorias" class="spa-view">
-      <h2>Categorías</h2>
-      <div class="grid">
-
-        <div class="card">
-          <img src="./src/assets/img/vianda 1.png" alt="Viandas Saludables" />
-          <h3>Viandas Saludables</h3>
-          <button class="btn" onclick="mostrarPlanes('Viandas Saludables')">Mostrar</button>
+    <!-- 2. Portada: en el celular el texto arriba y la foto debajo; en compu, uno al lado del otro -->
+    <section class="portada" id="inicio">
+      <div class="contenedor portada-columnas">
+        <div class="portada-texto">
+          <h1>Fast <span class="palabra-verde">Good</span></h1>
+          <p class="portada-subtitulo">Viandas caseras y saludables, hechas con ingredientes frescos.</p>
+          <p class="portada-lugar">
+            <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-ubicacion"></use></svg>
+            Nueva Córdoba y Villa Allende, Córdoba
+          </p>
+          <div class="portada-botones">
+            <a class="boton boton-principal boton-grande" href="#categorias">Pedir ahora</a>
+            <!-- "Combos desde $…": lo completa combosCatalogo.js con el precio más bajo (se ve cuando llegan los combos) -->
+            <p class="combos-desde" id="combos-desde" hidden>Combos desde <strong id="combos-desde-precio"></strong></p>
+          </div>
+          <ul class="portada-contacto">
+            <li>
+              <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-whatsapp"></use></svg>
+              <a href="https://wa.me/5493512294243" target="_blank" rel="noopener">0351 229-4243</a>
+            </li>
+            <li>
+              <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-instagram"></use></svg>
+              <a href="https://www.instagram.com/fastgood.va/" target="_blank" rel="noopener">fastgood.va</a>
+            </li>
+          </ul>
         </div>
-
-        <div class="card">
-          <img src="./src/assets/img/sinGluten.png" alt="Viandas Sin Gluten" />
-          <h3>Viandas Sin Gluten</h3>
-          <button class="btn" onclick="mostrarPlanes('Viandas Sin Gluten')">Mostrar</button>
+        <div class="portada-foto">
+          <div class="portada-marco">
+            <!-- Las viandas sobre la mesa de madera. srcset = las 3 medidas de la misma foto (900 px, 1600 px y la
+                 original de 3168 px); el navegador baja la que le alcanza para el ancho de la pantalla (sizes: en compu
+                 la foto ocupa más o menos la mitad del ancho, en el celu todo el ancho). Así el celu no baja 4 MB.
+                 width/height: la medida real de la foto · fetchpriority="high": se pide primero (es lo primero que se ve) -->
+            <img class="portada-imagen" src="./src/assets/img/viandaprincipal2-1600.jpg"
+                 srcset="./src/assets/img/viandaprincipal2-900.jpg 900w,
+                         ./src/assets/img/viandaprincipal2-1600.jpg 1600w,
+                         ./src/assets/img/viandaprincipal2.jpg 3168w"
+                 sizes="(min-width: 768px) 56vw, 100vw" width="3168" height="1344" fetchpriority="high"
+                 alt="Viandas caseras de Fast Good">
+          </div>
+          <p class="portada-etiqueta">
+            <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-reloj"></use></svg>
+            Entregamos a las 48 hs hábiles
+          </p>
         </div>
+      </div>
 
-        <div class="card">
-          <img src="./src/assets/img/pastel.png" alt="Pastelería Saludable" />
-          <h3>Pastelería Saludable</h3>
-          <button class="btn" onclick="mostrarPlanes('Pastelería Saludable')">Mostrar</button>
+      <!-- Los 3 pasos para pedir -->
+      <div class="franja-pasos">
+        <ol class="contenedor pasos">
+          <li><span class="pasos-numero" aria-hidden="true">1</span>Elegí tu combo</li>
+          <li><span class="pasos-numero" aria-hidden="true">2</span>Armá tus platos</li>
+          <li><span class="pasos-numero" aria-hidden="true">3</span>Te lo llevamos</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- 3. Categorías + Combos (los llena combosCatalogo.js con los datos del servidor) -->
+    <section class="seccion seccion-fondo-verde" id="categorias" aria-labelledby="titulo-categorias">
+      <div class="contenedor">
+        <h2 id="titulo-categorias" class="titulo-seccion revelar">Categorías</h2>
+        <div class="lista-categorias revelar" id="lista-categorias" role="group" aria-label="Elegí una categoría"></div>
+
+        <!-- Los combos de la categoría elegida -->
+        <div class="zona-combos" id="combos">
+          <p class="aviso-combos">Cargando combos...</p>
         </div>
+      </div>
+    </section>
 
-        <div class="card">
-          <img src="./src/assets/img/combo.png" alt="Combos Saludables" />
-          <h3>Combos Saludables</h3>
-          <button class="btn" onclick="mostrarPlanes('Combos Saludables')">Mostrar</button>
+    <!-- 4. Dónde estamos (texto fijo): los datos a la izquierda y el recuadro del mapa a la derecha (debajo en el celular) -->
+    <section class="seccion" id="donde-estamos" aria-labelledby="titulo-donde">
+      <div class="contenedor">
+        <h2 id="titulo-donde" class="titulo-seccion revelar">Dónde <span class="palabra-verde">estamos</span></h2>
+        <div class="donde-columnas revelar">
+          <!-- Las dos sucursales, WhatsApp y redes -->
+          <dl class="donde-lista">
+            <div class="donde-dato">
+              <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-ubicacion"></use></svg>
+              <div>
+                <dt>Nueva Córdoba</dt>
+                <dd>Ituzaingó 431</dd>
+                <dd>WhatsApp: 0351 206-7895</dd>
+                <dd><a class="enlace-subrayado" href="https://www.google.com/maps/search/?api=1&query=Ituzaing%C3%B3+431+C%C3%B3rdoba" target="_blank" rel="noopener">Cómo llegar</a></dd>
+              </div>
+            </div>
+            <div class="donde-dato">
+              <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-ubicacion"></use></svg>
+              <div>
+                <dt>Villa Allende</dt>
+                <dd>9 de Julio 179</dd>
+                <dd>WhatsApp: 0351 229-4243</dd>
+                <dd><a class="enlace-subrayado" href="https://www.google.com/maps/search/?api=1&query=9+de+Julio+179+Villa+Allende" target="_blank" rel="noopener">Cómo llegar</a></dd>
+              </div>
+            </div>
+            <div class="donde-dato">
+              <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-whatsapp"></use></svg>
+              <div>
+                <dt>WhatsApp</dt>
+                <dd>0351 229-4243</dd>
+                <dd><a class="boton boton-secundario" href="https://wa.me/5493512294243" target="_blank" rel="noopener">Escribinos por WhatsApp</a></dd>
+              </div>
+            </div>
+            <div class="donde-dato">
+              <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-instagram"></use></svg>
+              <div>
+                <dt>Redes</dt>
+                <dd><a class="enlace-subrayado" href="https://www.instagram.com/fastgood.va/" target="_blank" rel="noopener">Instagram: fastgood.va</a></dd>
+                <dd><a class="enlace-subrayado" href="https://www.facebook.com/fastgood.va/" target="_blank" rel="noopener">Facebook: Fast Good</a></dd>
+              </div>
+            </div>
+          </dl>
+          <!-- El recuadro del mapa (todavía sin mapa de verdad) -->
+          <div class="mapa" aria-hidden="true"><div class="foto">mapa</div></div>
         </div>
+      </div>
+    </section>
 
+    <!-- 5. Preguntas frecuentes: <details> (anda sin JavaScript). name="preguntas" = se abre una a la vez -->
+    <section class="seccion seccion-fondo-verde" id="preguntas" aria-labelledby="titulo-preguntas">
+      <div class="contenedor">
+        <h2 id="titulo-preguntas" class="titulo-seccion revelar">Preguntas <span class="palabra-verde">frecuentes</span></h2>
+        <div class="preguntas-columnas revelar">
+          <div class="acordeon">
+            <details class="pregunta" name="preguntas">
+              <summary class="pregunta-titulo">¿Cuándo llega mi pedido?<span class="pregunta-signo" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span></summary>
+              <p class="pregunta-respuesta">Lo cocinamos el día hábil siguiente al que lo hacés y te lo entregamos al otro día hábil (48 hs hábiles).
+                Por ejemplo: si pedís un martes, se cocina el miércoles y te llega el jueves.</p>
+            </details>
+            <details class="pregunta" name="preguntas">
+              <summary class="pregunta-titulo">¿Cómo armo mi combo?<span class="pregunta-signo" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span></summary>
+              <p class="pregunta-respuesta">Elegí un combo y, de su menú, sumá los platos que quieras (podés repetir) hasta completar la cantidad del combo.
+                Por ejemplo, en un combo de 10 viandas podés llevar 4 de un plato, 3 de otro y 3 de otro.</p>
+            </details>
+          </div>
+          <div class="acordeon">
+            <details class="pregunta" name="preguntas">
+              <summary class="pregunta-titulo">¿Puedo pedir un plato con algún cambio?<span class="pregunta-signo" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span></summary>
+              <p class="pregunta-respuesta">Sí. Al armar el combo podés escribir lo que necesites (por ejemplo, "sin sal"). Tiene el mismo precio,
+                pero como lo cocinamos aparte, se entrega un día hábil más tarde.</p>
+            </details>
+            <details class="pregunta" name="preguntas">
+              <summary class="pregunta-titulo">¿Cómo pago?<span class="pregunta-signo" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span></summary>
+              <p class="pregunta-respuesta">En efectivo o por transferencia. Al finalizar el pedido elegís la forma de pago.</p>
+            </details>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 6. Pie de página -->
+  <footer class="pie-de-pagina">
+    <div class="contenedor pie-columnas">
+      <div class="pie-marca">
+        <span class="logo">
+          <img class="logo-imagen" src="./src/assets/img/logo.webp" alt="">
+        </span>
+        <p>Viandas caseras y saludables.</p>
+      </div>
+      <nav class="pie-columna" aria-label="Pie de página">
+        <h2>Navegación</h2>
+        <a href="#categorias">Categorías</a>
+        <a href="#combos">Combos</a>
+        <a href="#donde-estamos">Dónde estamos</a>
+        <a href="#preguntas">Preguntas frecuentes</a>
+      </nav>
+      <div class="pie-columna">
+        <h2>Contacto</h2>
+        <p>WhatsApp 0351 229-4243</p>
+        <p>Instagram fastgood.va</p>
+      </div>
+      <div class="pie-columna">
+        <h2>Entregas</h2>
+        <p>Entregamos a las 48 hs hábiles</p>
       </div>
     </div>
-
-    <!-- ── VISTA 2: PLANES (oculta por defecto) ── -->
-    <div id="vista-planes" class="spa-view spa-view--oculta">
-      <div class="planes-topbar">
-        <button class="btn-volver" onclick="volverACategorias()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="15 18 9 12 15 6"/>
-          </svg>
-          Volver a Categorías
-        </button>
-        <h2 id="titulo-planes-vista">Planes</h2>
-      </div>
-      <div id="planes-container" class="planes-container"></div>
+    <div class="contenedor">
+      <p class="pie-derechos">&copy; 2025 Fast Good - Viandas Saludables</p>
     </div>
-
-  </section>
-
-  <footer id="contacto">
-    <p>&copy; 2025 Fast Good - Viandas Saludables</p>
   </footer>
 
-  <!-- MODAL SUCURSALES -->
-  <div id="sucursalesModal" class="modal">
-    <div class="modal-content">
-      <span class="close" onclick="closeModal()">&times;</span>
-      <h3>NUEVA CÓRDOBA</h3>
-      <p>Whatsapp: 0351 206-7895</p>
-      <p>Dirección: Ituzaingó 431</p>
-      <hr>
-      <h3>VILLA ALLENDE</h3>
-      <p>Whatsapp: 0351 229-4243</p>
-      <p>Dirección: 9 de Julio 179</p>
+  <!-- 7. Modal para armar un combo (lo maneja armarCombo.js) -->
+  <dialog class="modal" id="modal-combo" aria-labelledby="modal-combo-titulo">
+    <div class="modal-encabezado">
+      <div>
+        <p class="modal-categoria" id="modal-combo-categoria"></p>
+        <h2 id="modal-combo-titulo"></h2>
+      </div>
+      <button class="boton-cerrar" type="button" data-accion="cerrar" aria-label="Cerrar">
+        <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-cerrar"></use></svg>
+      </button>
     </div>
-  </div>
 
-  <!-- MODAL CONTACTO -->
-  <div id="contactModal" class="modal">
-    <div class="modal-content">
-      <span class="close" onclick="closeContactModal()">&times;</span>
-      <h3>Contacto</h3>
-      <p>
-        <img src="https://cdn-icons-png.flaticon.com/512/733/733547.png" alt="Facebook" class="icon">
-        <a href="https://www.facebook.com/fastgood.va/?locale=es_LA" target="_blank">Fast Good - Viandas saludables</a>
-      </p>
-      <p>
-        <img src="https://cdn-icons-png.flaticon.com/512/2111/2111463.png" alt="Instagram" class="icon">
-        <a href="https://www.instagram.com/fastgood.va/?hl=es" target="_blank">fastgood.va</a>
-      </p>
-      <p>
-        <img src="https://cdn-icons-png.flaticon.com/512/724/724664.png" alt="Teléfono" class="icon">
-        <a href="tel:03512294243">0351 229-4243</a>
-      </p>
+    <!-- Progreso: "3 de 10", "Te faltan 7" y la barra (con el combo completo se pone en verde: clase "progreso-completo") -->
+    <div class="progreso" id="modal-combo-progreso">
+      <div class="progreso-texto">
+        <strong id="modal-combo-cuenta"></strong>
+        <span id="modal-combo-falta"></span>
+      </div>
+      <div class="progreso-barra" id="modal-combo-barra" role="progressbar" aria-valuemin="0">
+        <span id="modal-combo-relleno"></span>
+      </div>
     </div>
-  </div>
+
+    <!-- Platos del menú del combo -->
+    <ul class="lista-platos modal-contenido" id="lista-platos"></ul>
+
+    <div class="modal-pie">
+      <button class="boton boton-principal boton-ancho" type="button" id="boton-agregar-combo" data-accion="agregar-combo" disabled>Agregar al pedido</button>
+      <!-- Se muestra en lugar del botón cuando se intenta salir con platos elegidos -->
+      <div class="aviso-salir" id="aviso-salir" role="group" aria-labelledby="aviso-salir-texto" hidden>
+        <p id="aviso-salir-texto"></p>
+        <div class="dos-botones">
+          <button class="boton boton-secundario" type="button" data-accion="combo-salir">Salir</button>
+          <button class="boton boton-principal" type="button" data-accion="combo-seguir">Seguir armando</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 8. Modal "Mi pedido" (lo maneja carritoCombos.js): en compu, un panel a la derecha -->
+  <dialog class="modal modal-pedido" id="modal-pedido" aria-labelledby="modal-pedido-titulo">
+    <div class="modal-encabezado">
+      <h2 id="modal-pedido-titulo">Mi pedido</h2>
+      <button class="boton-cerrar" type="button" data-accion="cerrar" aria-label="Cerrar">
+        <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-cerrar"></use></svg>
+      </button>
+    </div>
+    <!-- Los combos del pedido: los dibuja renderizarCarrito -->
+    <div class="modal-contenido" id="modal-pedido-combos"></div>
+    <div class="modal-pie">
+      <div class="total">
+        <span>Total</span>
+        <strong id="modal-pedido-total">$ 0</strong>
+      </div>
+      <div class="dos-botones">
+        <button class="boton boton-secundario" type="button" data-accion="cerrar">Seguir eligiendo</button>
+        <button class="boton boton-principal" type="button" id="boton-finalizar-pedido" data-accion="finalizar" disabled>Finalizar pedido</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 9. Modal "Finalizar pedido": formulario y confirmación (lo maneja pedidoCombos.js) -->
+  <dialog class="modal modal-finalizar" id="modal-finalizar" aria-labelledby="modal-finalizar-titulo">
+    <div class="modal-encabezado">
+      <h2 id="modal-finalizar-titulo">Finalizar pedido</h2>
+      <button class="boton-cerrar" type="button" data-accion="cerrar" aria-label="Cerrar">
+        <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-cerrar"></use></svg>
+      </button>
+    </div>
+
+    <!-- Vista 1: el formulario -->
+    <div class="vista" id="vista-formulario">
+      <!-- novalidate: los controles los hace pedidoCombos.js y muestra el error debajo de cada campo -->
+      <form id="formulario-pedido" novalidate>
+        <div class="finalizar-contenido">
+          <div class="finalizar-columnas">
+
+            <!-- Resumen del pedido: plegable en el celular, abierto fijo en compu (lo abre pedidoCombos.js) -->
+            <details class="resumen" id="resumen-pedido">
+              <summary>
+                <span class="resumen-titulo">
+                  <span>Resumen del pedido</span>
+                  <span class="resumen-cantidad" id="resumen-cantidad"></span>
+                </span>
+                <span class="resumen-derecha">
+                  <strong id="resumen-total-titulo"></strong>
+                  <svg class="resumen-flecha" aria-hidden="true" focusable="false"><use href="#icono-der"></use></svg>
+                </span>
+              </summary>
+              <div class="resumen-contenido">
+                <ul class="resumen-lista" id="resumen-lista"></ul>
+                <dl class="resumen-cuentas">
+                  <div class="resumen-renglon-total"><dt>Total</dt><dd id="resumen-total"></dd></div>
+                </dl>
+              </div>
+            </details>
+
+            <!-- Los mismos campos y validaciones de siempre, agrupados como en la maqueta -->
+            <div class="campos">
+              <fieldset class="grupo-campos">
+                <legend>Tus datos</legend>
+                <div class="campos-lado-a-lado">
+                  <div class="campo">
+                    <label for="campo-nombre">Nombre</label>
+                    <input class="casillero" id="campo-nombre" type="text" autocomplete="given-name" aria-describedby="error-nombre">
+                    <p class="campo-error" id="error-nombre"></p>
+                  </div>
+                  <div class="campo">
+                    <label for="campo-apellido">Apellido</label>
+                    <input class="casillero" id="campo-apellido" type="text" autocomplete="family-name" aria-describedby="error-apellido">
+                    <p class="campo-error" id="error-apellido"></p>
+                  </div>
+                </div>
+                <div class="campo">
+                  <label for="campo-telefono">Teléfono</label>
+                  <input class="casillero" id="campo-telefono" type="tel" maxlength="30" inputmode="tel" autocomplete="tel" aria-describedby="error-telefono">
+                  <p class="campo-error" id="error-telefono"></p>
+                </div>
+                <div class="campo">
+                  <label for="campo-email">Email <span class="opcional">(opcional)</span></label>
+                  <input class="casillero" id="campo-email" type="email" maxlength="100" inputmode="email" autocomplete="email" aria-describedby="error-email">
+                  <p class="campo-error" id="error-email"></p>
+                </div>
+                <div class="campo">
+                  <label for="campo-direccion">Dirección</label>
+                  <input class="casillero" id="campo-direccion" type="text" maxlength="200" autocomplete="street-address" placeholder="Calle y número" aria-describedby="error-direccion">
+                  <p class="campo-error" id="error-direccion"></p>
+                </div>
+              </fieldset>
+
+              <!-- Tipo de Entrega: viene elegido Delivery. Los valores son EXACTAMENTE los que acepta el servidor:
+                   'Delivery' y 'Retiro en local' -->
+              <fieldset class="grupo-campos" aria-describedby="error-entrega">
+                <legend>Tipo de Entrega</legend>
+                <div class="opciones opciones-dos-columnas">
+                  <label class="opcion">
+                    <input class="opcion-radio" type="radio" name="entrega" value="Delivery" checked>
+                    <span class="opcion-tarjeta">
+                      <span class="opcion-circulo" aria-hidden="true"></span>
+                      <span class="opcion-textos">
+                        <span class="opcion-titulo">Envío a domicilio</span>
+                        <span class="opcion-detalle">Te lo llevamos a tu dirección.</span>
+                      </span>
+                    </span>
+                  </label>
+                  <label class="opcion">
+                    <input class="opcion-radio" type="radio" name="entrega" value="Retiro en local">
+                    <span class="opcion-tarjeta">
+                      <span class="opcion-circulo" aria-hidden="true"></span>
+                      <span class="opcion-textos">
+                        <span class="opcion-titulo">Retiro en el local</span>
+                        <span class="opcion-detalle">Ituzaingó 431 (Nueva Córdoba) o 9 de Julio 179 (Villa Allende)</span>
+                      </span>
+                    </span>
+                  </label>
+                </div>
+                <p class="campo-error" id="error-entrega"></p>
+
+                <!-- Barrio de entrega: solo se ve (y solo es obligatorio) con envío a domicilio -->
+                <div class="grupo-barrio" id="grupo-barrio">
+                  <div class="campo">
+                    <label for="campo-barrio">Barrio de entrega</label>
+                    <select class="casillero" id="campo-barrio" aria-describedby="error-barrio">
+                      <option value="">Seleccioná tu barrio...</option>
+                    </select>
+                    <p class="campo-error" id="error-barrio"></p>
+                  </div>
+                </div>
+
+                <div class="campo">
+                  <label for="campo-fecha">Fecha de entrega</label>
+                  <input class="casillero" id="campo-fecha" type="date" aria-describedby="fecha-aviso fecha-primera-posible error-fecha">
+                  <!-- Mismo aviso que el formulario viejo -->
+                  <p class="campo-ayuda" id="fecha-aviso">
+                    🕒 Tu pedido se elabora el día hábil siguiente al que lo hacés y se entrega al otro día hábil (48 hs hábiles).
+                    Ejemplo: si pedís un martes, se cocina el miércoles y te llega el jueves.
+                  </p>
+                  <p class="campo-ayuda" id="fecha-primera-posible"></p>
+                  <p class="campo-error" id="error-fecha"></p>
+                </div>
+              </fieldset>
+
+              <!-- Método de Pago: viene elegido Efectivo. Los valores son EXACTAMENTE los que acepta el servidor:
+                   'Efectivo' y 'Transferencia' -->
+              <fieldset class="grupo-campos" aria-describedby="error-pago">
+                <legend>Método de Pago</legend>
+                <div class="opciones opciones-dos-columnas">
+                  <label class="opcion">
+                    <input class="opcion-radio" type="radio" name="pago" value="Efectivo" checked>
+                    <span class="opcion-tarjeta">
+                      <span class="opcion-circulo" aria-hidden="true"></span>
+                      <span class="opcion-textos"><span class="opcion-titulo">Efectivo</span></span>
+                    </span>
+                  </label>
+                  <label class="opcion">
+                    <input class="opcion-radio" type="radio" name="pago" value="Transferencia">
+                    <span class="opcion-tarjeta">
+                      <span class="opcion-circulo" aria-hidden="true"></span>
+                      <span class="opcion-textos">
+                        <span class="opcion-titulo">Transferencia</span>
+                        <span class="opcion-detalle">Alias FAST.GOOD.VA</span>
+                      </span>
+                    </span>
+                  </label>
+                </div>
+                <p class="campo-error" id="error-pago"></p>
+                <p class="nota" id="alias-transferencia" hidden>Alias: FAST.GOOD.VA (cuenta a nombre de Fast and Good VA SRL).</p>
+              </fieldset>
+
+              <div class="campo">
+                <label for="campo-observaciones">Observaciones <span class="opcional">(opcional)</span></label>
+                <textarea class="casillero" id="campo-observaciones" rows="3" maxlength="500"
+                          placeholder="Ej: Que el pollo al disco no tenga cebolla" aria-describedby="error-observaciones"></textarea>
+                <p class="campo-error" id="error-observaciones"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-pie finalizar-pie">
+          <!-- Error al enviar (dato mal, demasiados pedidos, sin internet): lo escribe pedidoCombos.js -->
+          <p class="campo-error finalizar-error" id="error-envio" role="alert"></p>
+          <div class="finalizar-total">
+            <span>Total</span>
+            <span><strong id="total-a-pagar"></strong></span>
+          </div>
+          <button class="boton boton-principal boton-grande" type="submit" id="boton-confirmar-pedido">Confirmar pedido</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Vista 2: confirmación (la dibuja mostrarConfirmacion, de pedidoCombos.js) -->
+    <div class="vista" id="vista-confirmacion" hidden>
+      <div class="modal-contenido" id="confirmacion-contenido"></div>
+      <div class="modal-pie">
+        <button class="boton boton-principal boton-ancho" type="button" data-accion="cerrar">Volver al inicio</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 10. Modal "Iniciar sesión": usa EL MISMO login de login.html (manejarLogin, de auth.js). Por eso los ids
+       (username, password, loginError, loadingSpinner…) y la clase login-btn son los que esa función busca -->
+  <dialog class="modal modal-login" id="modal-login" aria-labelledby="modal-login-titulo">
+    <div class="modal-encabezado">
+      <h2 id="modal-login-titulo">Iniciar sesión</h2>
+      <button class="boton-cerrar" type="button" data-accion="cerrar" aria-label="Cerrar">
+        <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-cerrar"></use></svg>
+      </button>
+    </div>
+    <form class="modal-contenido formulario-login" id="formulario-login" novalidate>
+      <div class="campo">
+        <label for="username">Email</label>
+        <input class="casillero" id="username" type="text" inputmode="email" autocomplete="username" autofocus>
+        <p class="aviso-login" id="usernameError"></p>
+      </div>
+      <div class="campo">
+        <label for="password">Contraseña</label>
+        <input class="casillero" id="password" type="password" autocomplete="current-password">
+        <p class="aviso-login" id="passwordError"></p>
+      </div>
+      <!-- Acá aparece "Usuario o contraseña incorrectos" (el mensaje lo manda el servidor) -->
+      <p class="aviso-login" id="loginError" role="alert"></p>
+      <p class="cargando-login" id="loadingSpinner">Iniciando sesión...</p>
+      <button class="boton boton-principal boton-ancho boton-grande login-btn" type="submit">Ingresar</button>
+      <!-- Las dos pantallas existen dentro de login.html: el #… le dice cuál abrir -->
+      <div class="login-otros">
+        <a class="boton-enlace" href="login.html#recuperar">Olvidé mi contraseña</a>
+        <span>¿Todavía no tenés cuenta?</span>
+        <a class="boton boton-secundario boton-ancho" href="login.html#registro">Crear cuenta</a>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- WhatsApp flotante, visible en toda la página -->
+  <a class="whatsapp-flotante" href="https://wa.me/5493512294243" target="_blank" rel="noopener" aria-label="Escribinos por WhatsApp">
+    <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-whatsapp"></use></svg>
+  </a>
 
   <!-- SCRIPTS -->
   <script src="./src/js/roles.js"></script>
   <script src="./src/js/auth.js"></script>
-  <script src="./src/js/global.js"></script>
-  <script src="./src/js/funciones.js"></script>
-  <script src="./src/js/carrito.js"></script>
   <script src="./src/js/escape.js"></script>
-  <script src="./src/js/index.js"></script>
-  <script src="./src/js/animations.js"></script>
+  <script src="./src/js/api.js"></script>
+  <script src="./src/js/fechas.js"></script>
+  <script src="./src/js/combosCatalogo.js"></script>
+  <script src="./src/js/carritoCombos.js"></script>
+  <script src="./src/js/armarCombo.js"></script>
+  <script src="./src/js/pedidoCombos.js"></script>
   <script>
-    // Actualizar botón del header según estado de sesión
+    // Botón de sesión del encabezado (auth.js): "Iniciar sesión" o el nombre del usuario
     actualizarBotonAuth();
 
-    // Cerrar dropdown al hacer click fuera de él
-    document.addEventListener('click', function () {
-      var dropdown = document.getElementById('auth-dropdown');
-      if (dropdown) dropdown.style.display = 'none';
-    });
-
     // Si el personal de administración (6, 5 o 1) ya tiene sesión activa, va a su pantalla principal
+    // (igual que el index viejo)
     (function () {
       var id  = localStorage.getItem('usuario_id');
       var rol = parseInt(localStorage.getItem('usuario_rol') || '0');
@@ -214,107 +577,36 @@
       }
     })();
 
-    // Funciones de modal de login
-    function abrirModalLogin() {
-      document.getElementById('loginModal').classList.add('show');
-    }
-
-    function cerrarModalLogin() {
-      document.getElementById('loginModal').classList.remove('show');
-      document.getElementById('formLoginModal').reset();
-      document.getElementById('loginErrorMsg').classList.remove('show');
-      document.getElementById('loginLoading').classList.remove('show');
-    }
-
-    async function manejarLoginModal(e) {
-      e.preventDefault();
-
-      const username = document.getElementById('loginUsername').value.trim();
-      const password = document.getElementById('loginPassword').value;
-      const errorMsg = document.getElementById('loginErrorMsg');
-      const loading = document.getElementById('loginLoading');
-
-      errorMsg.classList.remove('show');
-      loading.classList.add('show');
-
-      try {
-        const response = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nombre: username, contraseña: password })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Error al iniciar sesión');
-        }
-
-        // Guardar datos
-        localStorage.setItem('usuario_id', data.usuario.id);
-        localStorage.setItem('usuario_nombre', data.usuario.nombre);
-        localStorage.setItem('usuario_rol', data.usuario.id_rol);
-        localStorage.setItem('usuario_email', data.usuario.email);
-
-        // Redirigir según rol
-        if (data.usuario.id_rol === 1) {
-          window.location.href = 'index-admin.html';
-        } else {
-          cerrarModalLogin();
-          // Recargar página para actualizar UI
-          window.location.reload();
-        }
-
-      } catch (error) {
-        console.error('Error:', error);
-        errorMsg.textContent = error.message;
-        errorMsg.classList.add('show');
-        loading.classList.remove('show');
-      }
-    }
-
-    function actualizarUILogin() {
-      const authContainer = document.getElementById('authContainer');
-      const usuarioId = localStorage.getItem('usuario_id');
-      const usuarioNombre = localStorage.getItem('usuario_nombre');
-
-      if (usuarioId) {
-        // Usuario logueado
-        authContainer.innerHTML = `
-          <div class="header-user-info">
-            <span>👤 ${usuarioNombre}</span>
-            <button class="logout-btn-header" onclick="cerrarSesion()">Salir</button>
-          </div>
-        `;
-        // Mantener sidebar cerrado (el usuario lo abre presionando el botón hamburguesa)
-        document.getElementById('sidebar').style.display = 'none';
-      } else {
-        // Sin loguear
-        authContainer.innerHTML = `
-          <button class="login-btn-header" onclick="abrirModalLogin()">🔐 Iniciar Sesión</button>
-        `;
-        // Ocultar sidebar
-        document.getElementById('sidebar').style.display = 'none';
-      }
-    }
-
-    // Cerrar modal al hacer click afuera
-    document.addEventListener('click', (e) => {
-      const modal = document.getElementById('loginModal');
-      if (e.target === modal) {
-        cerrarModalLogin();
-      }
+    // Cerrar el menú del botón de sesión al hacer click fuera de él
+    document.addEventListener('click', function () {
+      var menuSesion = document.getElementById('auth-dropdown');
+      if (menuSesion) menuSesion.style.display = 'none';
     });
 
-    
- 
-  </script>
+    // Modal "Iniciar sesión". El botón lo arma auth.js como link a login.html: acá, en vez de ir a esa página,
+    // se abre el modal (sin JavaScript, el link sigue llevando a login.html)
+    var modalLogin = document.getElementById('modal-login');
+    document.getElementById('auth-btn-container').addEventListener('click', function (evento) {
+      var linkLogin = evento.target.closest('a.login-btn-header');
+      if (!linkLogin) return;   // es el botón con el nombre del usuario (sesión abierta): no es el login
+      evento.preventDefault();
+      modalLogin.showModal();
+    });
+    // Ingresar = el MISMO login de login.html (manejarLogin, de auth.js): misma ruta, misma sesión, mismo destino por rol
+    document.getElementById('formulario-login').addEventListener('submit', manejarLogin);
+    // Cerrar con la ✕ o tocando el fondo oscuro
+    modalLogin.addEventListener('click', function (evento) {
+      var tocoCerrar = evento.target.closest('[data-accion="cerrar"]') !== null;
+      var tocoFondo = evento.target === modalLogin;
+      if (tocoCerrar || tocoFondo) modalLogin.close();
+    });
 
-<script>
-  // Muestra el body apenas están el HTML y el CSS; a los 2 s se muestra igual, como respaldo
-  document.addEventListener('DOMContentLoaded', () => document.body.classList.add('cargada'));
-  setTimeout(() => document.body.classList.add('cargada'), 2000);
-</script>
+    // Muestra el body apenas están el HTML y el CSS; a los 2 s se muestra igual, como respaldo
+    document.addEventListener('DOMContentLoaded', () => document.body.classList.add('cargada'));
+    setTimeout(() => document.body.classList.add('cargada'), 2000);
+  </script>
+  <!-- Animaciones del diseño final: las secciones que aparecen al bajar y el salto del contador (va último) -->
+  <script src="./src/js/animaciones-index.js"></script>
 </body>
 
 </html>
