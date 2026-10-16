@@ -2437,45 +2437,65 @@ function leerCantidadViandas(valor, permitirCero) {
   return cantidad;
 }
 
-// Lista de platos de un pedido a cocina: [{ id_producto, cantidad }], con cantidad entera >= 0 y al menos una > 0.
-// Suma los platos repetidos y saca los que quedan en 0.
-// Devuelve { items } (ordenados por id_producto) o { error }.
+// ─────────────────────────────────────────────────────────────────────────────
+// leerItemsViandas → controla la lista de platos de un pedido a cocina y la deja limpia
+// ENTRADA: items, lo que mandó el navegador: [{ id_producto, cantidad }] (hasta 100 renglones),
+//          con cantidades enteras mayores o iguales a 0 y al menos una mayor a 0
+// SALIDA:  { items } limpia (platos repetidos sumados, sin los que quedan en 0, ordenada por id_producto)
+//          o { error } con un mensaje para mostrar (la ruta responde 400)
+// Ej: [{ id_producto: 7, cantidad: 2 }, { id_producto: 3, cantidad: 0 }, { id_producto: 7, cantidad: 1 }]
+//     → { items: [{ id_producto: 7, cantidad: 3 }] }
+// La usa solo POST /api/ordenes-produccion.
+// ─────────────────────────────────────────────────────────────────────────────
 function leerItemsViandas(items) {
-  if (!Array.isArray(items) || items.length === 0) {
-    return { error: 'La lista de platos está vacía' };
+  if (!Array.isArray(items) || items.length === 0) {              // tiene que ser una lista con algo adentro
+    return { error: 'La lista de platos está vacía' };            // si no: error
   }
-  if (items.length > MAXIMO_PLATOS_PEDIDO) {
-    return { error: `Un pedido admite hasta ${MAXIMO_PLATOS_PEDIDO} platos` };
-  }
-
-  const cantidadPorPlato = {};
-  for (const item of items) {
-    if (!item || typeof item !== 'object') {
-      return { error: 'La lista de platos es inválida' };
-    }
-    const idProducto = Number(item.id_producto);
-    if (!Number.isInteger(idProducto) || idProducto <= 0) {
-      return { error: 'Hay un plato con un identificador inválido' };
-    }
-    const cantidad = leerCantidadViandas(item.cantidad, true);
-    if (cantidad === null) {
-      return { error: 'Cada cantidad tiene que ser un número entero mayor o igual a 0' };
-    }
-    cantidadPorPlato[idProducto] = (cantidadPorPlato[idProducto] || 0) + cantidad;
-    if (cantidadPorPlato[idProducto] > ENTERO_MAXIMO_BASE) {
-      return { error: 'La cantidad de un plato es demasiado grande' };
-    }
+  if (items.length > MAXIMO_PLATOS_PEDIDO) {                      // hasta 100 renglones
+    return { error: `Un pedido admite hasta ${MAXIMO_PLATOS_PEDIDO} platos` };  // si no: error
   }
 
-  const limpios = Object.entries(cantidadPorPlato)
-    .map(([id, cantidad]) => ({ id_producto: Number(id), cantidad }))
-    .filter(i => i.cantidad > 0)
-    .sort((a, b) => a.id_producto - b.id_producto);
+  const cantidadPorPlato = {};                                    // { id_producto: cantidad sumada }
+  let error = null;                                               // el primer error que se encuentre (null = ninguno)
+  items.forEach(item => {                                         // por cada renglón...
+    if (error) return;                                            // (return = saltear: ya hubo un error, los demás no se miran)
+    if (!item || typeof item !== 'object') {                      // ...tiene que ser un objeto
+      error = 'La lista de platos es inválida';                   // si no: se anota el error
+      return;                                                     // (return = saltear este renglón)
+    }
+    const idProducto = Number(item.id_producto);                  // ...el número de plato
+    if (!Number.isInteger(idProducto) || idProducto <= 0) {       // ...entero mayor a 0
+      error = 'Hay un plato con un identificador inválido';       // si no: se anota el error
+      return;                                                     // (return = saltear este renglón)
+    }
+    const cantidad = leerCantidadViandas(item.cantidad, true);    // ...la cantidad: entero mayor o igual a 0 (null si no)
+    if (cantidad === null) {                                      // si no es válida...
+      error = 'Cada cantidad tiene que ser un número entero mayor o igual a 0';  // ...se anota el error
+      return;                                                     // (return = saltear este renglón)
+    }
+    const sumada = (cantidadPorPlato[idProducto] || 0) + cantidad;  // ...se suma a lo que ya tenía ese plato
+    if (sumada > ENTERO_MAXIMO_BASE) {                            // no puede pasar el tope de la base
+      error = 'La cantidad de un plato es demasiado grande';      // si pasa: se anota el error
+      return;                                                     // (return = saltear este renglón)
+    }
+    cantidadPorPlato[idProducto] = sumada;                        // se guarda la suma
+  });
+  if (error) return { error };                                    // hubo un error: se devuelve ese
 
-  if (limpios.length === 0) {
-    return { error: 'Cargá al menos un plato con cantidad mayor a 0' };
+  // La lista limpia: un renglón por plato con cantidad mayor a 0.
+  // Object.keys da los números de plato que tiene el objeto. Ej: { 7: 3, 3: 0 } → ['3', '7']
+  const limpios = [];                                             // arranca vacía
+  Object.keys(cantidadPorPlato).forEach(id => {                   // por cada plato...
+    const cantidad = cantidadPorPlato[id];                        // ...su cantidad sumada
+    if (cantidad === 0) return;                                   // (return = saltear este plato: quedó en 0)
+    limpios.push({ id_producto: Number(id), cantidad: cantidad }); // ...se agrega a la lista
+  });
+  limpios.sort((a, b) => a.id_producto - b.id_producto);          // ordenada por número de plato, de menor a mayor
+
+  if (limpios.length === 0) {                                     // si todos quedaron en 0...
+    return { error: 'Cargá al menos un plato con cantidad mayor a 0' };  // ...error
   }
-  return { items: limpios };
+  return { items: limpios };                                      // la lista limpia
 }
 
 // Motivo: texto opcional de hasta 200 caracteres. Devuelve { motivo } o { error }.
@@ -2490,38 +2510,114 @@ function leerMotivoVianda(valor, obligatorio) {
   return { motivo: valor.trim() };
 }
 
-// GET /api/viandas-stock → platos activos con las viandas que hay en stock, su plan y si tienen receta.
-// La ventana de pedir arma el select de planes con estos datos (plan_activo), así no hace falta
-// permiso sobre /api/planes.
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/viandas-stock → los platos activos con sus viandas (pantalla Producción)
+// ENTRADA: nada (solo el usuario logueado, con rol 6, 5, 1 o 2)
+// SALIDA:  una lista con un objeto por plato activo:
+//          { id, nombre, stock_heladera, reservadas, en_heladera, stock_minimo, id_plan, plan_nombre, plan_activo, tiene_receta }
+//            stock_heladera = las LIBRES: las que se pueden vender
+//            reservadas     = las que ya son de un pedido en 1, 2 o 3 (todavía no se entregó)
+//            en_heladera    = libres + reservadas: lo que hay de verdad en la heladera
+//          Ej: fideos con 61 libres y un pedido de 10 fideos en estado 2 →
+//              { nombre: 'fideos', stock_heladera: 61, reservadas: 10, en_heladera: 71, stock_minimo: 5, ... }
+// La ventana "Pedir a cocina" arma su lista de planes con plan_nombre y plan_activo (así no necesita /api/planes).
+// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/viandas-stock', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
-  const { data, error } = await supabase
-    .from('productos')
-    .select('id, nombre, stock_heladera, stock_minimo, id_plan, planes ( nombre, activo ), producto_insumo ( id_insumo )')
-    .eq('activo', true)
-    .order('nombre', { ascending: true });
+  try {
+    // 1. Los platos activos, con su plan y los insumos de su receta
+    const { data: platos, error: errPlatos } = await supabase     // pide a la base...
+      .from('productos')                                          // ...la tabla de platos
+      .select('id, nombre, stock_heladera, stock_minimo, id_plan, planes ( nombre, activo ), producto_insumo ( id_insumo )')  // el plato, su plan y su receta
+      .eq('activo', true)                                         // solo los activos
+      .order('nombre', { ascending: true });                      // ordenados por nombre
+    if (errPlatos) return errorInterno(res, errPlatos);           // si falló la base: 500 con un mensaje simple
 
-  if (error) return errorInterno(res, error);
+    // 2. Las reservadas: los platos de pedidos en 1, 2 o 3 que salieron de la heladera.
+    //    Se suma cantidad_de_heladera (NO cantidad): un personalizado tiene 0, porque no salió de la heladera.
+    //    "pedidos!inner" = trae solo los renglones cuyo pedido cumple el filtro de estado de abajo.
+    const { data: renglones, error: errRenglones } = await supabase  // pide a la base...
+      .from('pedido_detalles')                                    // ...los platos de los pedidos
+      .select('id_producto, cantidad_de_heladera, pedidos!inner ( id_estado )')  // el plato, cuántas salieron de la heladera y el estado de su pedido
+      .gt('cantidad_de_heladera', 0)                              // solo los renglones que sacaron viandas de la heladera
+      .in('pedidos.id_estado', [1, 2, 3]);                        // de pedidos que todavía no se entregaron ni se anularon
+    if (errRenglones) return errorInterno(res, errRenglones);     // si falló la base: 500
 
-  const resultado = (data || []).map(p => {
-    let planNombre = null;
-    let planActivo = false;
-    if (p.planes) {
-      planNombre = p.planes.nombre;
-      planActivo = Boolean(p.planes.activo);
-    }
-    return {
-      id:             p.id,
-      nombre:         p.nombre,
-      stock_heladera: Number(p.stock_heladera || 0),
-      stock_minimo:   Number(p.stock_minimo || 0),
-      id_plan:        p.id_plan,
-      plan_nombre:    planNombre,
-      plan_activo:    planActivo,
-      tiene_receta:   Array.isArray(p.producto_insumo) && p.producto_insumo.length > 0
-    };
-  });
+    // 3. Las reservadas de cada plato, en un objeto { id_producto: viandas }.
+    //    Ej: [{ id_producto: 7, cantidad_de_heladera: 8 }, { id_producto: 7, cantidad_de_heladera: 10 }] → { 7: 18 }
+    const reservadasPorPlato = {};                                // arranca vacío
+    (renglones || []).forEach(renglon => {                        // por cada renglón...
+      const yaSumadas = reservadasPorPlato[renglon.id_producto] || 0;  // ...lo que ya tenía ese plato (0 la primera vez)
+      reservadasPorPlato[renglon.id_producto] = yaSumadas + Number(renglon.cantidad_de_heladera);  // ...más las de este renglón
+    });
 
-  res.json(resultado);
+    // 4. La respuesta: un objeto por plato
+    const resultado = [];                                         // la lista que se devuelve
+    (platos || []).forEach(plato => {                             // por cada plato activo...
+      let planNombre = null;                                      // el nombre de su plan (vacío si no tiene)
+      let planActivo = false;                                     // si su plan está activo
+      if (plato.planes) {                                         // si tiene plan...
+        planNombre = plato.planes.nombre;                         // ...su nombre
+        planActivo = Boolean(plato.planes.activo);                // ...y si está activo
+      }
+      const libres = Number(plato.stock_heladera || 0);           // las que se pueden vender
+      const reservadas = reservadasPorPlato[plato.id] || 0;       // las de pedidos sin entregar (0 si no hay)
+      const tieneReceta = Array.isArray(plato.producto_insumo) && plato.producto_insumo.length > 0;  // si tiene al menos un insumo
+      resultado.push({                                            // se agrega a la respuesta:
+        id:             plato.id,                                 // número del plato
+        nombre:         plato.nombre,                             // su nombre
+        stock_heladera: libres,                                   // las libres
+        reservadas:     reservadas,                               // las reservadas
+        en_heladera:    libres + reservadas,                      // lo que hay de verdad en la heladera
+        stock_minimo:   Number(plato.stock_minimo || 0),          // el mínimo (0 = sin control)
+        id_plan:        plato.id_plan,                            // número de su plan
+        plan_nombre:    planNombre,                               // nombre de su plan
+        plan_activo:    planActivo,                               // si su plan está activo
+        tiene_receta:   tieneReceta                               // si tiene receta
+      });
+    });
+
+    res.json(resultado);                                          // se manda la lista
+  } catch (e) {                                                   // si algo falló de golpe...
+    errorInterno(res, e);                                         // ...500 con un mensaje simple (el detalle va al log)
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/viandas-stock/:id/minimo → cambia el stock mínimo de un plato (pantalla Producción)
+// ENTRADA: el número de plato en la ruta y { stock_minimo } en el body: un entero de 0 a 9999 (0 = "sin control")
+// SALIDA:  { mensaje, id, stock_minimo } · 400 si un dato es inválido · 404 si el plato no existe o está desactivado · 500
+// Ej: PUT /api/viandas-stock/7/minimo con { stock_minimo: 20 } → { mensaje: 'Mínimo actualizado', id: 7, stock_minimo: 20 }
+// Solo lo cambian administradores y dueño (roles 6, 5 y 1). El cocinero lo ve, pero no lo puede cambiar.
+// ─────────────────────────────────────────────────────────────────────────────
+const ROLES_CAMBIAN_MINIMO = [6, 5, 1];                           // quiénes pueden cambiar el mínimo
+const MINIMO_MAXIMO = 9999;                                       // el mínimo más alto que se acepta
+
+app.put('/api/viandas-stock/:id/minimo', requireAuth, requireRol(...ROLES_CAMBIAN_MINIMO), async (req, res) => {
+  const idProducto = Number(req.params.id);                       // el número de plato, de la ruta
+  if (!Number.isInteger(idProducto) || idProducto <= 0 || idProducto > ENTERO_MAXIMO_BASE) {  // tiene que ser un entero mayor a 0
+    return res.status(400).json({ error: 'ID de plato inválido' });  // si no: 400
+  }
+
+  const minimo = leerCantidadViandas(req.body?.stock_minimo, true);  // el mínimo nuevo: entero mayor o igual a 0 (null si no es válido)
+  if (minimo === null || minimo > MINIMO_MAXIMO) {                // vacío, con decimales, negativo o más de 9999...
+    return res.status(400).json({ error: `El mínimo tiene que ser un número entero de 0 a ${MINIMO_MAXIMO}` });  // ...400
+  }
+
+  try {
+    const { data, error } = await supabase                        // pide a la base...
+      .from('productos')                                          // ...en la tabla de platos...
+      .update({ stock_minimo: minimo })                           // ...que cambie el mínimo...
+      .eq('id', idProducto)                                       // ...de este plato...
+      .eq('activo', true)                                         // ...solo si está activo (los desactivados no se tocan)...
+      .select('id, stock_minimo')                                 // ...y devuelva cómo quedó
+      .maybeSingle();                                             // una fila o ninguna (ninguna = no existe o está desactivado)
+    if (error) return errorInterno(res, error);                   // si falló la base: 500
+    if (!data) return res.status(404).json({ error: 'El plato no existe o está desactivado' });  // no cambió ninguna fila: 404
+
+    res.json({ mensaje: 'Mínimo actualizado', id: data.id, stock_minimo: data.stock_minimo });  // listo: cómo quedó
+  } catch (e) {                                                   // si algo falló de golpe...
+    errorInterno(res, e);                                         // ...500 con un mensaje simple
+  }
 });
 
 // POST /api/viandas-stock/descarte → descarta viandas de la heladera (descartar_viandas, en sql/heladera.sql).
@@ -2590,35 +2686,40 @@ function platoVisibleParaCocinero(producto, idCocinero) {
   return platoEsDelCocinero(producto, idCocinero) || platoSinCocinero(producto);
 }
 
-// POST /api/ordenes-produccion → crea un pedido a cocina (crear_orden_produccion).
-// Body: { fecha_para: 'AAAA-MM-DD', items: [{ id_producto, cantidad }] }. El usuario sale del token.
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/ordenes-produccion → crea un pedido a cocina (botón "Enviar a cocina" de Producción)
+// ENTRADA: body { fecha_para: 'AAAA-MM-DD', items: [{ id_producto, cantidad }] }. El usuario sale del token.
+// SALIDA:  { mensaje, id_orden } · 400 si un dato está mal o la base no lo acepta (fecha pasada, plato inactivo…) · 500
+// Ej: { fecha_para: '2026-10-16', items: [{ id_producto: 7, cantidad: 10 }] } → { mensaje: 'Pedido a cocina creado', id_orden: 10 }
+// La base (crear_orden_produccion, en sql/Produccion.sql) guarda el pedido y sus platos todo junto o nada.
+// Solo piden administradores y dueño (roles 6, 5 y 1): el cocinero no pide, cocina.
+// ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/ordenes-produccion', requireAuth, requireRol(...ROLES_PIDEN_COCINA), async (req, res) => {
-  const fechaPara = leerFechaPara(req.body.fecha_para);
-  if (fechaPara === null) {
-    return res.status(400).json({ error: 'La fecha del pedido es inválida' });
+  const fechaPara = leerFechaPara(req.body.fecha_para);           // la fecha: "AAAA-MM-DD" que exista de verdad (null si no)
+  if (fechaPara === null) {                                       // si no es válida...
+    return res.status(400).json({ error: 'La fecha del pedido es inválida' });  // ...400
   }
-  const lectura = leerItemsViandas(req.body.items);
-  if (lectura.error) return res.status(400).json({ error: lectura.error });
+  const lectura = leerItemsViandas(req.body.items);               // la lista de platos, controlada y limpia
+  if (lectura.error) return res.status(400).json({ error: lectura.error });  // si algo está mal: 400 con el motivo
 
   try {
-    const { data, error } = await supabase.rpc('crear_orden_produccion', {
-      p_id_usuario: req.usuario.id,
-      p_fecha_para: fechaPara,
-      p_items:      lectura.items
+    const { data, error } = await supabase.rpc('crear_orden_produccion', {  // llama a la función de la base con...
+      p_id_usuario: req.usuario.id,                               // ...quién pide (del token, nunca del body)
+      p_fecha_para: fechaPara,                                    // ...para cuándo
+      p_items:      lectura.items                                 // ...qué platos y cuántos
     });
+    if (error) return errorInterno(res, error);                   // si falló la base: 500 con un mensaje simple
 
-    if (error) return errorInterno(res, error);
-
-    // ok: false = no se guardó nada (fecha pasada, plato inactivo, etc.)
-    if (!data || !data.ok) {
-      let mensaje = 'No se pudo crear el pedido a cocina';
-      if (data && data.error) mensaje = data.error;
-      return res.status(400).json({ error: mensaje });
+    // ok: false = la base no guardó nada (fecha pasada, plato inactivo, etc.)
+    if (!data || !data.ok) {                                      // si no salió...
+      let mensaje = 'No se pudo crear el pedido a cocina';        // ...un mensaje por si la base no mandó ninguno
+      if (data && data.error) mensaje = data.error;               // ...o el mensaje de la base
+      return res.status(400).json({ error: mensaje });            // ...400 con ese mensaje
     }
 
-    res.json({ mensaje: 'Pedido a cocina creado', id_orden: data.id_orden });
-  } catch (e) {
-    errorInterno(res, e);
+    res.json({ mensaje: 'Pedido a cocina creado', id_orden: data.id_orden });  // listo: el número del pedido a cocina
+  } catch (e) {                                                   // si algo falló de golpe...
+    errorInterno(res, e);                                         // ...500 con un mensaje simple
   }
 });
 
@@ -2725,99 +2826,145 @@ app.post('/api/ordenes-produccion/detalles/:id/hecho', requireAuth, requireRol(.
   }
 });
 
-// Hoy en Argentina como "AAAA-MM-DD" (en-CA da ese formato), sin importar la zona del servidor
-function hoyEnArgentina() {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date());
-}
-
-// "AAAA-MM-DD" del día siguiente
-function diaSiguiente(fechaISO) {
-  const [anio, mes, dia] = fechaISO.split('-').map(Number);
-  return new Date(Date.UTC(anio, mes - 1, dia + 1)).toISOString().slice(0, 10);
-}
-
-// GET /api/ordenes-produccion/hechos-hoy → platos de pedidos a cocina marcados hechos hoy (hora de Argentina),
-// del más reciente al más viejo. Quién lo marcó sale del movimiento de viandas que generó.
-// Un cocinero ve lo mismo que en pendientes: sus platos y los que no tienen cocinero.
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/ordenes-produccion/hechos-hoy → lo que la cocina marcó "Hecho" hoy (panel "Hecho hoy" de Producción)
+// ENTRADA: nada (el usuario logueado). Un cocinero (rol 2) ve solo sus platos y los que no tienen cocinero.
+// SALIDA:  [{ id, id_orden, plato, plan, cantidad, marcado_por, fecha_hecho }], del más nuevo al más viejo
+// Ej: [{ id: 21, id_orden: 9, plato: 'fideos', plan: 'Mantenimiento', cantidad: 2, marcado_por: 'Ana López', fecha_hecho: '2026-10-15T17:32:00+00:00' }]
+// "Hoy" es el día de Argentina (de 00:00 a 24:00 en -03:00; no hay horario de verano), sin importar la hora del servidor.
+// Quién lo marcó sale del renglón "produccion" del cuaderno que generó ese "Hecho".
+// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/ordenes-produccion/hechos-hoy', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
-  // Argentina no tiene horario de verano: el día va de 00:00 a 24:00 en -03:00
-  const hoy = hoyEnArgentina();
-  const desde = hoy + 'T00:00:00-03:00';
-  const hasta = diaSiguiente(hoy) + 'T00:00:00-03:00';
+  // 1. Hoy y mañana en Argentina, como "AAAA-MM-DD"
+  const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date());  // "en-CA" escribe AAAA-MM-DD. Ej: '2026-10-15'
+  const partes = hoy.split('-');                                  // separa año, mes y día. Ej: ['2026', '10', '15']
+  const manana = new Date(Date.UTC(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]) + 1))  // el día siguiente (en Date.UTC los meses van de 0 a 11)...
+    .toISOString().slice(0, 10);                                  // ...como "AAAA-MM-DD". Ej: '2026-10-16'
+  const desde = hoy + 'T00:00:00-03:00';                          // hoy a las 00:00 de Argentina
+  const hasta = manana + 'T00:00:00-03:00';                       // mañana a las 00:00 de Argentina
 
-  const { data, error } = await supabase
-    .from('orden_produccion_detalles')
-    .select(`
-      id, cantidad, fecha_hecho, id_orden_produccion,
-      productos ( nombre, id_cocinero, planes ( nombre, id_cocinero, id_cocinero_suplente ) ),
-      movimiento:movimientos_viandas!id_movimiento_vianda ( usuarios ( nombre, apellido ) )
-    `)
-    .eq('hecho', true)
-    .gte('fecha_hecho', desde)
-    .lt('fecha_hecho', hasta)
-    .order('fecha_hecho', { ascending: false });
+  try {
+    // 2. Los platos de pedidos a cocina marcados hechos hoy, con su plato, su plan y quién los marcó
+    const { data, error } = await supabase                        // pide a la base...
+      .from('orden_produccion_detalles')                          // ...los platos de los pedidos a cocina
+      .select(`
+        id, cantidad, fecha_hecho, id_orden_produccion,
+        productos ( nombre, id_cocinero, planes ( nombre, id_cocinero, id_cocinero_suplente ) ),
+        movimiento:movimientos_viandas!id_movimiento_vianda ( usuarios ( nombre, apellido ) )
+      `)                                                          // el renglón, su plato y plan, y el usuario del renglón "produccion"
+      .eq('hecho', true)                                          // solo los hechos
+      .gte('fecha_hecho', desde)                                  // desde hoy a las 00:00...
+      .lt('fecha_hecho', hasta)                                   // ...hasta antes de mañana a las 00:00
+      .order('fecha_hecho', { ascending: false });                // del más nuevo al más viejo
+    if (error) return errorInterno(res, error);                   // si falló la base: 500
 
-  if (error) return errorInterno(res, error);
+    // 3. La respuesta: un objeto por plato hecho
+    const esCocinero = Number(req.usuario.rol) === 2;             // si el que mira es un cocinero
+    const resultado = [];                                         // la lista que se devuelve
+    (data || []).forEach(detalle => {                             // por cada plato hecho...
+      if (esCocinero) {                                           // ...si mira un cocinero:
+        const loPuedeVer = Boolean(detalle.productos) && platoVisibleParaCocinero(detalle.productos, req.usuario.id);  // ¿es suyo o no tiene cocinero?
+        if (!loPuedeVer) return;                                  // (return = saltear este plato y seguir con el siguiente)
+      }
+      let plato = null;                                           // el nombre del plato
+      let plan = null;                                            // el nombre de su plan
+      if (detalle.productos) {                                    // si vino el plato...
+        plato = detalle.productos.nombre;                         // ...su nombre
+        if (detalle.productos.planes) plan = detalle.productos.planes.nombre;  // ...y el de su plan, si tiene
+      }
+      let marcadoPor = null;                                      // quién lo marcó
+      if (detalle.movimiento && detalle.movimiento.usuarios) {    // si vino el usuario del renglón "produccion"...
+        const nombre = detalle.movimiento.usuarios.nombre || '';  // ...su nombre (vacío si no tiene)
+        const apellido = detalle.movimiento.usuarios.apellido || '';  // ...su apellido (vacío si no tiene)
+        marcadoPor = (nombre + ' ' + apellido).trim();            // "Ana López" (trim saca el espacio que sobra si falta uno)
+      }
+      resultado.push({                                            // se agrega a la respuesta:
+        id:          detalle.id,                                  // número del renglón
+        id_orden:    detalle.id_orden_produccion,                 // número del pedido a cocina
+        plato:       plato,                                       // el plato
+        plan:        plan,                                        // su plan
+        cantidad:    detalle.cantidad,                            // cuántas viandas
+        marcado_por: marcadoPor,                                  // quién tocó "Hecho"
+        fecha_hecho: detalle.fecha_hecho                          // cuándo
+      });
+    });
 
-  let detalles = data || [];
-  if (Number(req.usuario.rol) === 2) {
-    detalles = detalles.filter(d => d.productos && platoVisibleParaCocinero(d.productos, req.usuario.id));
+    res.json(resultado);                                          // se manda la lista
+  } catch (e) {                                                   // si algo falló de golpe...
+    errorInterno(res, e);                                         // ...500 con un mensaje simple
   }
-
-  const resultado = detalles.map(d => {
-    let plato = null;
-    let plan = null;
-    if (d.productos) {
-      plato = d.productos.nombre;
-      if (d.productos.planes) plan = d.productos.planes.nombre;
-    }
-    let marcadoPor = null;
-    if (d.movimiento && d.movimiento.usuarios) {
-      marcadoPor = `${d.movimiento.usuarios.nombre || ''} ${d.movimiento.usuarios.apellido || ''}`.trim();
-    }
-
-    return {
-      id:          d.id,
-      id_orden:    d.id_orden_produccion,
-      plato,
-      plan,
-      cantidad:    d.cantidad,
-      marcado_por: marcadoPor,
-      fecha_hecho: d.fecha_hecho
-    };
-  });
-
-  res.json(resultado);
 });
 
-// GET /api/movimientos-viandas → últimos 50 movimientos de viandas, del más nuevo al más viejo.
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/movimientos-viandas → los renglones del cuaderno de la heladera, del más nuevo al más viejo, de a 50
+//                                (panel "Últimos movimientos" de Producción)
+// ENTRADA: ?tipo=  (opcional) produccion, venta, devolucion, descarte o ajuste. Sin tipo = todos.
+//          ?desde= (opcional) cuántos saltear, para "Ver más": 0, 50, 100… Sin desde = 0.
+// SALIDA:  hasta 50 renglones: [{ id, tipo, cantidad, motivo, fecha, plato_nombre, usuario_nombre }]
+//          · 400 si tipo o desde son inválidos · 500 error interno
+// Ej: ?tipo=venta → [{ id: 140, tipo: 'venta', cantidad: -10, motivo: 'Pedido #251', fecha: '…',
+//                      plato_nombre: 'fideos', usuario_nombre: 'Consumidor Final' }, …]
+// ─────────────────────────────────────────────────────────────────────────────
+const TIPOS_MOVIMIENTO_VIANDA = ['produccion', 'venta', 'devolucion', 'descarte', 'ajuste'];  // los 5 tipos que acepta el cuaderno
+const MOVIMIENTOS_POR_PAGINA = 50;                                // cuántos renglones se mandan por vez
+
 app.get('/api/movimientos-viandas', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
-  const { data, error } = await supabase
-    .from('movimientos_viandas')
-    .select('id, tipo, cantidad, motivo, fecha, productos ( nombre ), usuarios ( nombre, apellido )')
-    .order('fecha', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(50);
+  // 1. El tipo: vacío (todos) o uno de la lista cerrada. La consulta nunca se arma con el texto que llegó.
+  let tipo = '';                                                  // vacío = todos los tipos
+  if (req.query.tipo != null && req.query.tipo !== '') {          // si vino un tipo...
+    tipo = String(req.query.tipo);                                // ...como texto
+    if (!TIPOS_MOVIMIENTO_VIANDA.includes(tipo)) {                // ...tiene que ser uno de los 5 (includes = "está en la lista")
+      return res.status(400).json({ error: 'Tipo de movimiento inválido' });  // si no: 400
+    }
+  }
 
-  if (error) return errorInterno(res, error);
+  // 2. Desde: cuántos renglones saltear. Entero mayor o igual a 0 (vacío = 0)
+  let desde = 0;                                                  // sin "desde": arranca del primero
+  if (req.query.desde != null && req.query.desde !== '') {        // si vino...
+    desde = leerCantidadViandas(req.query.desde, true);           // ...entero mayor o igual a 0 (null si no)
+    if (desde === null) {                                         // si no es válido...
+      return res.status(400).json({ error: 'El valor de "desde" es inválido' });  // ...400
+    }
+  }
 
-  const resultado = (data || []).map(m => {
-    let platoNombre = '-';
-    if (m.productos) platoNombre = m.productos.nombre;
-    let usuarioNombre = '-';
-    if (m.usuarios) usuarioNombre = [m.usuarios.nombre, m.usuarios.apellido].filter(Boolean).join(' ');
-    return {
-      id:             m.id,
-      tipo:           m.tipo,
-      cantidad:       m.cantidad,
-      motivo:         m.motivo,
-      fecha:          m.fecha,
-      plato_nombre:   platoNombre,
-      usuario_nombre: usuarioNombre
-    };
-  });
+  try {
+    // 3. La consulta: los renglones con su plato y quién los anotó, del más nuevo al más viejo
+    let consulta = supabase                                       // arma el pedido a la base...
+      .from('movimientos_viandas')                                // ...el cuaderno de la heladera
+      .select('id, tipo, cantidad, motivo, fecha, productos ( nombre ), usuarios ( nombre, apellido )')  // el renglón, su plato y quién lo anotó
+      .order('fecha', { ascending: false })                       // del más nuevo al más viejo
+      .order('id', { ascending: false })                          // si dos tienen la misma fecha, primero el de número más alto
+      .range(desde, desde + MOVIMIENTOS_POR_PAGINA - 1);          // range = del renglón "desde" al "desde + 49". Ej: (50, 99) → del 51.º al 100.º
+    if (tipo) consulta = consulta.eq('tipo', tipo);               // solo ese tipo, si se eligió uno
+    const { data, error } = await consulta;                       // se hace la consulta
+    if (error) return errorInterno(res, error);                   // si falló la base: 500
 
-  res.json(resultado);
+    // 4. La respuesta: un objeto por renglón
+    const resultado = [];                                         // la lista que se devuelve
+    (data || []).forEach(movimiento => {                          // por cada renglón...
+      let platoNombre = '-';                                      // ...el nombre del plato ("-" si no vino)
+      if (movimiento.productos) platoNombre = movimiento.productos.nombre;
+      let usuarioNombre = '-';                                    // ...quién lo anotó ("-" si no vino)
+      if (movimiento.usuarios) {                                  // si vino el usuario...
+        const nombre = movimiento.usuarios.nombre || '';          // ...su nombre (vacío si no tiene)
+        const apellido = movimiento.usuarios.apellido || '';      // ...su apellido (vacío si no tiene)
+        usuarioNombre = (nombre + ' ' + apellido).trim();         // ...junto: "Consumidor Final"
+      }
+      resultado.push({                                            // se agrega a la respuesta:
+        id:             movimiento.id,                            // número del renglón
+        tipo:           movimiento.tipo,                          // produccion, venta, devolucion, descarte o ajuste
+        cantidad:       movimiento.cantidad,                      // + entran, − salen
+        motivo:         movimiento.motivo,                        // ej: "Pedido #251"
+        fecha:          movimiento.fecha,                         // cuándo
+        plato_nombre:   platoNombre,                              // el plato
+        usuario_nombre: usuarioNombre                             // quién
+      });
+    });
+
+    res.json(resultado);                                          // se manda la lista
+  } catch (e) {                                                   // si algo falló de golpe...
+    errorInterno(res, e);                                         // ...500 con un mensaje simple
+  }
 });
 
 /* ======================================================

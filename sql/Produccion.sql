@@ -196,6 +196,9 @@ commit;
 
 -- =====================================================
 -- MARCAR HECHO UN PLATO DE UN PEDIDO A COCINA — marcar_detalle_hecho
+-- ⚠ NO USAR en código nuevo (paso H7 de la heladera): la reemplaza producir_viandas (sql/heladera.sql).
+--   Queda porque la sigue usando el servidor viejo (rama Rodriguez) hasta el merge. No borrar sin preguntar.
+--   La marca también está guardada en la base ("comment on function", bloque 4 de sql/heladera.sql).
 -- Agregado después: se puede ejecutar solo este bloque (de "begin" a "commit").
 -- Antes hay que ejecutar el primer bloque de sql/stock_viandas_funciones.sql,
 -- que crea aplicar_produccion_viandas.

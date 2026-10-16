@@ -1,5 +1,9 @@
 -- =====================================================
 -- STOCK DE VIANDAS — AGRUPAR LAS CARGAS DE COMBO
+-- ⚠ NO USAR (paso H7 de la heladera): la secuencia movimientos_viandas_lote_seq y la columna
+--   movimientos_viandas.id_lote solo las usaba registrar_tanda_multiple, que no usa nadie.
+--   Quedan (no se borra nada), con la marca guardada en la base (bloque 4 de sql/heladera.sql).
+--   Acá "combo" quiere decir "varios platos cargados juntos", no los combos que se venden.
 -- Ejecutar en Supabase → SQL Editor ANTES de volver a crear
 -- registrar_tanda_multiple (bloque de combo de stock_viandas_funciones.sql),
 -- porque la función nueva usa la secuencia y la columna de acá.

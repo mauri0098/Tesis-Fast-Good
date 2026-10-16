@@ -1,12 +1,22 @@
 -- =====================================================
 -- STOCK DE VIANDAS EN HELADERA — FUNCIONES
+--
+-- ⚠ PASO H7 DE LA HELADERA: TODAS las funciones de este archivo quedan "NO USAR".
+--   Las reemplazan las de sql/heladera.sql:
+--     - producir_viandas, en vez de aplicar_produccion_viandas y de las tandas;
+--     - descartar_viandas, en vez de registrar_descarte_vianda.
+--   No se borran: el servidor viejo (rama Rodriguez) sigue usando registrar_descarte_vianda
+--   y, por dentro de marcar_detalle_hecho, aplicar_produccion_viandas, hasta el merge.
+--   La marca también está guardada en la base (bloque 4 de sql/heladera.sql).
+--   No hace falta volver a correr este archivo.
+--
 -- Ejecutar en Supabase → SQL Editor DESPUÉS de stock_viandas.sql
 -- (usa la columna productos.stock_heladera y la tabla movimientos_viandas).
 -- Se puede ejecutar más de una vez: "create or replace" pisa la versión anterior.
 --
--- Las llama el servidor con supabase.rpc(...):
---   POST /api/viandas-stock/tanda    → registrar_tanda_viandas
---   POST /api/viandas-stock/descarte → registrar_descarte_vianda
+-- Las llamaba el servidor con supabase.rpc(...):
+--   POST /api/viandas-stock/tanda    → registrar_tanda_viandas   (esa ruta ya no existe)
+--   POST /api/viandas-stock/descarte → registrar_descarte_vianda (el servidor nuevo usa descartar_viandas)
 -- aplicar_produccion_viandas es de uso interno: la llaman registrar_tanda_viandas
 -- y marcar_detalle_hecho (sql/Produccion.sql), no el servidor.
 -- Todas llevan "set search_path = public" en su definición: al reejecutar el
@@ -22,6 +32,7 @@
 begin;
 
 -- -----------------------------------------------------
+-- ⚠ NO USAR (paso H7): la reemplaza producir_viandas (sql/heladera.sql). La sigue llamando marcar_detalle_hecho (servidor viejo).
 -- aplicar_produccion_viandas  (USO INTERNO: la llaman otras funciones, no el servidor)
 -- Registra N viandas producidas de un plato: movimiento de viandas, salidas de insumos
 -- según la receta y suma al stock del plato.
@@ -166,6 +177,7 @@ end;
 $$;
 
 -- -----------------------------------------------------
+-- ⚠ NO USAR (paso H7): sin uso (la ruta /tanda ya no existe). Las viandas entran con producir_viandas.
 -- registrar_tanda_viandas
 -- Se cocinó una tanda de N viandas de un plato: descuenta los insumos de la
 -- receta y suma las viandas a la heladera.
@@ -245,6 +257,8 @@ end;
 $$;
 
 -- -----------------------------------------------------
+-- ⚠ NO USAR en código nuevo (paso H7): la reemplaza descartar_viandas (sql/heladera.sql), que exige el motivo.
+--   La sigue usando el servidor viejo (rama Rodriguez) hasta el merge.
 -- registrar_descarte_vianda
 -- Se tiran N viandas de la heladera (vencidas, rotas, etc.).
 -- Solo resta de la heladera: los insumos ya se gastaron al cocinar la tanda.
@@ -335,6 +349,8 @@ commit;
 begin;
 
 -- -----------------------------------------------------
+-- ⚠ NO USAR (paso H7): sin uso. Acá "combo" quiere decir "varios platos cargados juntos",
+--   no los combos que se venden.
 -- registrar_tanda_multiple
 -- Se cocinó un combo: varias tandas de distintos platos a la vez.
 -- p_items es una lista de { "id_producto": 12, "cantidad": 3 }.

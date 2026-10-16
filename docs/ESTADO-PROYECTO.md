@@ -40,24 +40,32 @@ Fast Good: sistema de gestión de viandas para el negocio de mi prima (Villa All
 - Web nueva `frontend/index-combos.html` (en paralelo al index viejo, que NO se tocó):
   - `combosCatalogo.js` (catálogo), `armarCombo.js` (modal X de N + personalizar), `carritoCombos.js` (carrito en localStorage), `pedidoCombos.js` (formulario igual al viejo + envío + WhatsApp).
 - Rutas: `GET /api/v1/combos` (pública), `POST /api/pedidos-combos` (pública, limitePedidos).
-- Función de base `crear_pedido_combos` (todo o nada) — SIN HELADERA todavía.
+- Función de base `crear_pedido_combos` (todo o nada) — con heladera desde el paso H6.
 - Cocina: ve personalizados (⚠), una fila por pedido con botón "Detalles".
 - Consultar Pedidos: Detalles agrupado por combo.
 - Panel "🍱 Combos" (roles 6 y 5): crear/editar/activar combos y armar el menú. Rutas `/api/combos…`.
+- **Heladera conectada (pasos H0 a H7, 15/10).** Avance en `docs/HELADERA-AVANCE.md`; cada cambio en `docs/INFORME-CAMBIOS-HELADERA.md`; cómo funciona en `docs/informe_heladera.md`.
+  - 4 acciones, una función de la base cada una (todo o nada, con candado): PRODUCIR `producir_viandas`, VENDER `crear_pedido_combos`, DEVOLVER `anular_pedido_con_devolucion`, DESCARTAR `descartar_viandas`.
+  - Crear un pedido de combos descuenta `stock_heladera` + movimiento `venta`; `cantidad_de_heladera` = cantidad (0 si personalizado). Si no alcanza: "No quedan suficientes viandas…" y no se guarda nada.
+  - Los platos de heladera nacen `listo = true` → la cocina solo ve personalizados. Un pedido sin nada para cocinar pasa solo a 3 al moverlo de 1 a 2.
+  - Anular devuelve viandas (solo en 1, 2 y 3) con movimiento `devolucion`. Un anulado (5) no cambia más de estado.
+  - Insumos de los pedidos = (cantidad − cantidad_de_heladera) × receta (sin doble descuento). Errores simples (409/500); login sin emails en el log.
+  - Funciones viejas marcadas "NO USAR" (no se borran: Render todavía usa `marcar_detalle_hecho` y `registrar_descarte_vianda` hasta el merge).
 
 ## Qué FALTA (en orden)
-1. **Heladera** (🔴): primero revisar `docs/informe_heladera.md`. Después:
-   - crear pedido descuenta `stock_heladera` + movimiento `venta`; `cantidad_de_heladera` = cantidad (0 si personalizado);
-   - platos de heladera nacen `listo = true` → cocina solo ve personalizados; pedido sin personalizados pasa directo a 3;
-   - anular devuelve viandas (solo estados 1, 2, 3) con movimiento `devolucion`;
-   - `calcularConsumoPedido`: insumos = (cantidad − cantidad_de_heladera) × receta (arregla el doble descuento);
-   - al final, cambios de pantallas para mostrar la heladera.
+1. **Heladera, lo que queda** (ver `docs/HELADERA-AVANCE.md`):
+   - H7: la prueba completa en la web (después de cargar la compra de huevos).
+   - H8: pantallas (reservadas, filtros de movimientos, mínimo editable, platos desactivados con viandas, "Volvieron N viandas", botón Pago en anulados, etc.).
+   - H9: repasar el código de la heladera con las reglas de CLAUDE.md (sin cambiar lo que hace). H10: Word con el recorrido completo y el DER.
+   - Antes de producción: pasar `descontarStockPedido` a una función de la base (hoy busca "pedido #N" en el texto y no es todo o nada).
 2. **CSS / detalles**: emprolijar web nueva, cómo se ven los personalizados en el modal, el texto que se borra al tocar otro +/−, la fecha "a. m.hs" del WhatsApp.
 3. **Reemplazar el index** por `index-combos.html` (y la redirección de admins).
 4. **Pasar a Rodriguez**: desactivar combo PRUEBA (id 1) y "Prueba no usar", anular/limpiar pedidos de prueba, backup, merge, deploy.
+   Hasta el merge, los pedidos de combos de prueba se manejan solo desde el servidor nuevo (Render anula sin devolver viandas).
 
 ## Pendientes sueltos
 - Render: el auto-deploy no anda desde el 30/9 (hacer Manual Deploy y revisar Settings → Auto-Deploy).
 - Preguntar a mi prima: 10% por transferencia, máximo de personalizados por combo, preguntas frecuentes.
-- Datos de prueba a limpiar: compras #1–3, pedido a cocina #6 (fideos), combo PRUEBA, insumo "prueba", pedidos PRUEBA.
+- Datos de prueba a limpiar: compras #1–3, pedido a cocina #6 (fideos), combo PRUEBA, insumo "prueba", pedidos PRUEBA (ya anulados).
+- Huevo estaba en −35: cargar la compra que falta (si no, un pedido con personalizados que llevan huevo no pasa a 2).
 - Más adelante: monitor de caída (UptimeRobot) y Sentry; backups; Render pago.

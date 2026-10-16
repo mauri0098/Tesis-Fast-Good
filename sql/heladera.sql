@@ -4,7 +4,7 @@
 --   Bloque 2: PRODUCIR  → producir_viandas              (paso H3)  ← ya está
 --   Bloque 3: DEVOLVER  → anular_pedido_con_devolucion  (paso H4)  ← ya está
 --   VENDER no está acá: va adentro de crear_pedido_combos (sql/pedido_combos_funciones.sql, paso H6).
---   Al final se agrega el bloque de marcas "NO USAR" (paso H7).
+--   Bloque 4: marcas "NO USAR" (las viejas) y "USAR" (las nuevas) (paso H7)  ← ya está
 --
 -- Las 4 acciones siguen las mismas reglas:
 --   - TODO O NADA: cada función corre entera en una sola transacción. Si devuelve
@@ -455,3 +455,61 @@ commit;                                                -- cierra el bloque y con
 -- Si al anular aparece "Could not find the function anular_pedido_con_devolucion", Supabase todavía
 -- no la "vio": corré solo esta línea (le avisa que recargue la lista de funciones).
 -- notify pgrst, 'reload schema';
+
+
+-- =====================================================
+-- BLOQUE 4 — MARCAS "NO USAR" y "USAR" (paso H7)
+-- Solo guarda COMENTARIOS pegados a funciones, columnas y una secuencia ("comment on ... is '...'").
+-- Un comentario no cambia lo que hace la función ni toca ningún dato: el servidor viejo de Render
+-- (rama Rodriguez) sigue andando igual. Tampoco hace falta reiniciar el servidor.
+-- En Supabase se ve al mirar la función o la columna. Lo comprobás con la parte 4A de
+-- sql/heladera_probar.sql y con sql/heladera_revisar.sql.
+-- Nada se borra: las viejas quedan, marcadas. Dos de ellas las sigue usando el servidor viejo
+-- hasta el merge (marcar_detalle_hecho y registrar_descarte_vianda), y aplicar_produccion_viandas
+-- la llama marcar_detalle_hecho por dentro.
+-- Si se vuelve a correr una función con "create or replace", su comentario NO se pierde.
+-- =====================================================
+
+begin;                                                 -- abre el bloque: todo lo de abajo se aplica junto o no se aplica nada
+
+-- ---------- LAS VIEJAS: "NO USAR" ----------
+
+comment on function marcar_detalle_hecho(integer, uuid) is  -- el "Hecho" viejo de la cocina
+  'NO USAR en código nuevo (paso H7). La reemplaza producir_viandas (sql/heladera.sql). La sigue usando el servidor viejo (rama Rodriguez) hasta el merge: no borrar.';
+
+comment on function aplicar_produccion_viandas(integer, integer, uuid, text, text, boolean) is  -- la interna de producción vieja
+  'NO USAR (paso H7). Era de uso interno de marcar_detalle_hecho y registrar_tanda_viandas. La reemplaza producir_viandas. No borrar: la sigue llamando marcar_detalle_hecho (servidor viejo).';
+
+comment on function registrar_descarte_vianda(integer, integer, uuid, text) is  -- el descarte viejo
+  'NO USAR en código nuevo (paso H7). La reemplaza descartar_viandas (sql/heladera.sql). La sigue usando el servidor viejo (rama Rodriguez) hasta el merge: no borrar.';
+
+comment on function registrar_tanda_viandas(integer, integer, uuid, text) is  -- carga de una tanda suelta (sin uso)
+  'NO USAR (paso H7). Sin uso: la ruta /api/viandas-stock/tanda ya no existe. Las viandas entran con producir_viandas (pedido a cocina). No borrar sin preguntar.';
+
+comment on function registrar_tanda_multiple(jsonb, uuid, text) is  -- carga de varias tandas juntas (sin uso)
+  'NO USAR (paso H7). Sin uso. Ojo: acá "combo" quiere decir "varios platos cargados juntos", no los combos que se venden. No borrar sin preguntar.';
+
+comment on column movimientos_viandas.id_lote is       -- el número de "lote" del cuaderno (sin uso)
+  'NO USAR (paso H7). Solo lo llenaba registrar_tanda_multiple (sin uso). Los renglones nuevos lo dejan vacío.';
+
+comment on sequence movimientos_viandas_lote_seq is    -- la secuencia que numeraba los lotes (sin uso)
+  'NO USAR (paso H7). Solo la usaba registrar_tanda_multiple (sin uso).';
+
+comment on column orden_produccion_detalles.id_pedido_detalle is  -- columna vieja de los pedidos a cocina (sin uso)
+  'NO USAR (paso H7). Ningún renglón la usa (revisado en el paso H0) y producir_viandas no la mira.';
+
+-- ---------- LAS NUEVAS: "USAR" ----------
+
+comment on function producir_viandas(integer, uuid) is  -- PRODUCIR
+  'USAR. PRODUCIR (paso H3): la cocina toca "Hecho" en un pedido a cocina. Heladera +N, insumos − receta × N (la única vez para esas viandas) y renglón "produccion". La llama POST /api/ordenes-produccion/detalles/:id/hecho.';
+
+comment on function crear_pedido_combos(uuid, text, text, text, text, date, text, text, integer, text, jsonb) is  -- VENDER
+  'USAR. VENDER (paso H6): guarda un pedido de combos. Los platos normales salen de la heladera (renglón "venta", cantidad_de_heladera = cantidad, listo = true); los personalizados no. Si no alcanza, no guarda nada. La llama POST /api/pedidos-combos.';
+
+comment on function anular_pedido_con_devolucion(integer, uuid) is  -- DEVOLVER
+  'USAR. DEVOLVER (paso H4): anula un pedido. En 1, 2 o 3 vuelven a la heladera las viandas que sacó (renglón "devolucion"); en 4 no vuelve nada. Lo pasa a 5. La llama POST /api/pedidos/:id/anular (con PIN).';
+
+comment on function descartar_viandas(integer, integer, uuid, text) is  -- DESCARTAR
+  'USAR. DESCARTAR (paso H2): se tiran viandas con motivo obligatorio. Heladera −N y renglón "descarte". No toca insumos. La llama POST /api/viandas-stock/descarte.';
+
+commit;                                                -- cierra el bloque y confirma todo

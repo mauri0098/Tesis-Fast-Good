@@ -522,3 +522,63 @@ select pro.stock_heladera                as heladera_fideos,     -- cuántas hay
                    join productos pr on pr.id = cp.id_producto  -- con su plato
                   where cp.id_combo = 1                -- del combo de prueba
                     and pr.nombre = 'fideos');         -- que se llama "fideos"
+
+
+-- =====================================================
+-- BLOQUE 4 — MARCAS "NO USAR" y "USAR" (paso H7). Correr DESPUÉS del bloque 4 de sql/heladera.sql.
+-- =====================================================
+
+-- -----------------------------------------------------
+-- 4A. COMPROBAR LAS MARCAS (solo lee)
+-- Sale una tabla de 12 filas: 9 funciones (5 viejas y 4 nuevas), 2 columnas y 1 secuencia.
+-- En la columna "esta_bien" tiene que decir "sí" en todas: las 4 nuevas empiezan con "USAR"
+-- y todas las demás con "NO USAR".
+-- Si sale alguna con "(sin comentario)", el bloque 4 no se corrió (o falló): avisame.
+-- -----------------------------------------------------
+select tipo,                                           -- función, columna o secuencia
+       nombre,                                         -- de qué cosa es la fila
+       esperado,                                       -- cómo tiene que empezar su comentario
+       comentario,                                     -- el comentario guardado en la base
+       case when comentario like esperado || '%'       -- ¿empieza como tiene que empezar? (ej: "USAR. PRODUCIR…" empieza con "USAR")
+            then 'sí' else 'NO' end as esta_bien       -- tiene que decir "sí" en todas
+  from (
+        -- las 9 funciones (5 viejas y 4 nuevas)
+        select 'función'::text                         as tipo,        -- es una función
+               fun.proname::text                       as nombre,      -- su nombre
+               case when fun.proname in ('producir_viandas', 'crear_pedido_combos',             -- si es una de las 4 nuevas...
+                                         'anular_pedido_con_devolucion', 'descartar_viandas')
+                    then 'USAR'                        -- ...tiene que decir "USAR"
+                    else 'NO USAR'                     -- las viejas, "NO USAR"
+               end                                     as esperado,    -- cómo tiene que empezar
+               coalesce(obj_description(fun.oid, 'pg_proc'), '(sin comentario)') as comentario  -- su comentario (si no tiene, lo dice)
+          from pg_proc fun                             -- el catálogo de funciones de la base
+          join pg_namespace esq on esq.oid = fun.pronamespace   -- con su carpeta (esquema)
+         where esq.nspname = 'public'                  -- solo las de la app
+           and fun.proname in ('marcar_detalle_hecho', 'aplicar_produccion_viandas',             -- las viejas...
+                               'registrar_descarte_vianda', 'registrar_tanda_viandas', 'registrar_tanda_multiple',
+                               'producir_viandas', 'crear_pedido_combos',                        -- ...y las nuevas
+                               'anular_pedido_con_devolucion', 'descartar_viandas')
+        union all                                      -- junta con las columnas
+        -- las 2 columnas sin uso
+        select 'columna',                              -- es una columna
+               tab.relname || '.' || col.attname,      -- "tabla.columna"
+               'NO USAR',                              -- tiene que decir "NO USAR"
+               coalesce(col_description(tab.oid, col.attnum), '(sin comentario)')  -- su comentario
+          from pg_attribute col                        -- el catálogo de columnas
+          join pg_class tab on tab.oid = col.attrelid  -- con su tabla
+          join pg_namespace esq on esq.oid = tab.relnamespace   -- y su carpeta
+         where esq.nspname = 'public'                  -- solo las de la app
+           and ((tab.relname = 'movimientos_viandas'       and col.attname = 'id_lote')            -- id_lote del cuaderno
+             or (tab.relname = 'orden_produccion_detalles' and col.attname = 'id_pedido_detalle'))  -- la columna vieja de los pedidos a cocina
+        union all                                      -- junta con la secuencia
+        -- la secuencia sin uso
+        select 'secuencia',                            -- es una secuencia
+               sec.relname::text,                      -- su nombre
+               'NO USAR',                              -- tiene que decir "NO USAR"
+               coalesce(obj_description(sec.oid, 'pg_class'), '(sin comentario)')  -- su comentario
+          from pg_class sec                            -- el catálogo de tablas y secuencias
+          join pg_namespace esq on esq.oid = sec.relnamespace   -- con su carpeta
+         where esq.nspname = 'public'                  -- de la app
+           and sec.relname = 'movimientos_viandas_lote_seq'      -- esta secuencia
+       ) marcas                                        -- (todas las marcas juntas)
+ order by tipo, nombre;                                -- ordenadas por tipo y nombre

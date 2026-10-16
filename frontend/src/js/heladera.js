@@ -1,251 +1,56 @@
 // ============================================================================
-// heladera.js — Pantalla Producción: stock de viandas terminadas
-// Lista los platos con cuántas viandas hay y su estado, permite pedir a cocina,
-// ver lo pendiente y lo hecho hoy, descartar viandas, y muestra los últimos
-// movimientos en un panel al costado.
-// Todo lo que viene de la base se escapa con escHtml (escape.js) antes de mostrarlo.
+// heladera.js — Pantalla Producción (pages/heladera.html)
+//
+// Funciones:
+//   iniciarProduccion      → al abrir la pantalla: engancha botones y filtros, hace la primera carga y recarga cada 60 s
+//   estadoDelPlato         → la regla única del estado de un plato: sin stock / bajo / bien / sin control
+//   cargarPlatos           → pide los platos (GET /api/viandas-stock) y dibuja la tabla
+//   renderizarTabla        → dibuja los botones de estado, la franja "Te faltan…" y la tabla (filtrada, ordenada y paginada)
+//   guardarMinimo          → manda el mínimo nuevo de un plato (PUT /api/viandas-stock/:id/minimo) y redibuja
+//   cargarMovimientos      → pide y dibuja "Últimos movimientos" con el filtro de tipo; "Ver más" agrega 50 más
+//   cargarHechosHoy        → pide y dibuja "Hecho hoy"
+//   cargarPendientesCocina → pide los pendientes de cocina (los dibuja pedidosCocina.js), pone cuántos hay en el botón
+//                            y, si se pide, abre la ventana
+//   abrirDescarte          → abre la ventana "Descartar" con los datos del plato
+//   confirmarDescarte      → controla y manda el descarte (POST /api/viandas-stock/descarte)
+//   cerrarVentana          → cierra una ventana (modal)
+//   mostrarToast           → muestra un aviso flotante que se va solo
+//
+// La ventana "Pedir a cocina" está en pedirCocina.js (usa todosPlatos y estadoDelPlato de acá).
+// Necesita antes: roles.js (FG_ROLES), api.js (apiFetch), escape.js (escHtml), paginacion.js (crearPaginacion),
+// fechas.js (fechaDeTimestamp) y pedidosCocina.js (cargarPendientes, conPlural).
+// Todo texto que viene de la base pasa por escHtml antes de ir al innerHTML.
 // ============================================================================
 
-let todosPlatos = [];       // platos activos con su stock_heladera, plan y si tienen receta
-let platoDescarte = null;   // plato que se está descartando
-let cantidadesPedido = {};  // pedir a cocina: id_producto → lo escrito en "A pedir" (sobrevive a los filtros)
-let filtroEstado = 'todos'; // filtro de la tabla: 'todos', 'sin', 'bajo', 'bien' o 'sincontrol'
+let todosPlatos = [];                // los platos que mandó el servidor (también los usa pedirCocina.js)
+let filtroEstado = 'todos';          // el filtro de la tabla: 'todos', 'sin', 'bajo', 'bien' o 'sincontrol'
+let paginacionPlatos = null;         // lo que devuelve crearPaginacion: sirve para saber en qué página está la tabla
+let puedeAdministrar = false;        // true para los roles 6, 5 y 1: piden a cocina y cambian el mínimo
+let platoDescarte = null;            // el plato que se está descartando (mientras la ventana está abierta)
+let tipoMovimientos = '';            // el filtro de "Últimos movimientos" ('' = todos los tipos)
+let movimientosMostrados = 0;        // cuántos movimientos hay en la lista (para pedir los siguientes con "Ver más")
 
-const INTERVALO_ACTUALIZACION = 60000; // cada 60 segundos se vuelven a pedir stock y pendientes
+const INTERVALO_ACTUALIZACION = 60000;  // cada 60 segundos se recargan la tabla, los pendientes y "Hecho hoy"
+const MOVIMIENTOS_POR_PAGINA = 50;      // cuántos movimientos manda el servidor por vez
 
-document.addEventListener('DOMContentLoaded', () => {
-  fetchPlatos();
-  fetchHistorial();
-  fetchPendientes();
-  fetchHechosHoy();
-  iniciarFiltro();
-  iniciarModalPedido();
-  mostrarBotonPedir();
-  iniciarActualizacionAutomatica();
-});
-
-// ==========================================
-// ESTADO DEL STOCK DE UN PLATO
-// Única regla de la pantalla (la usan tabla, filtros, aviso y ventana de pedir):
-//   mínimo 0              → 'sincontrol' (no se controla, nunca falta)
-//   0 viandas             → 'sin'   (Sin stock)
-//   menos que el mínimo   → 'bajo'
-//   el mínimo o más       → 'bien'
-// ==========================================
-
+// Los 4 estados de un plato: el texto, la clase de color y el orden en la tabla (primero los que faltan)
 const ESTADOS_STOCK = {
-  sin:        { texto: 'Sin stock',   clase: 'estado-sin',  orden: 0 },
-  bajo:       { texto: 'Bajo',        clase: 'estado-bajo', orden: 1 },
-  bien:       { texto: 'Bien',        clase: 'estado-bien', orden: 2 },
-  sincontrol: { texto: 'Sin control', clase: '',            orden: 3 }
+  sin:        { texto: 'Sin stock',   clase: 'estado-sin',  orden: 0 },   // no quedan libres
+  bajo:       { texto: 'Bajo',        clase: 'estado-bajo', orden: 1 },   // menos libres que el mínimo
+  bien:       { texto: 'Bien',        clase: 'estado-bien', orden: 2 },   // el mínimo o más
+  sincontrol: { texto: 'Sin control', clase: '',            orden: 3 }    // mínimo 0: no se controla
 };
 
-function estadoStock(plato) {
-  const minimo = Number(plato.stock_minimo);
-  const stock = Number(plato.stock_heladera);
-  if (minimo === 0) return 'sincontrol';
-  if (stock <= 0) return 'sin';
-  if (stock < minimo) return 'bajo';
-  return 'bien';
-}
+// Los botones de filtro de "Últimos movimientos" (valor = el tipo que entiende el servidor; '' = todos)
+const FILTROS_MOVIMIENTOS = [
+  { valor: '',           texto: 'Todos' },
+  { valor: 'produccion', texto: 'Producción' },
+  { valor: 'venta',      texto: 'Ventas' },
+  { valor: 'devolucion', texto: 'Devoluciones' },
+  { valor: 'descarte',   texto: 'Descartes' }
+];
 
-// "Los que faltan": los Sin stock más los Bajos
-function faltaPlato(plato) {
-  const estado = estadoStock(plato);
-  return estado === 'sin' || estado === 'bajo';
-}
-
-// Etiqueta de color del estado. "Sin control" es un guion gris, no una etiqueta.
-function etiquetaEstado(plato) {
-  const estado = estadoStock(plato);
-  if (estado === 'sincontrol') return '<span class="estado-sincontrol">— Sin control</span>';
-  const datos = ESTADOS_STOCK[estado];
-  return `<span class="etiqueta-estado ${datos.clase}">${datos.texto}</span>`;
-}
-
-// Cuántos platos hay en cada estado
-function contarEstados() {
-  const cuenta = { sin: 0, bajo: 0, bien: 0, sincontrol: 0 };
-  todosPlatos.forEach(p => { cuenta[estadoStock(p)] += 1; });
-  return cuenta;
-}
-
-// Orden por estado (Sin stock, Bajo, Bien, Sin control). 0 si los dos están en el mismo estado.
-function compararEstado(a, b) {
-  return ESTADOS_STOCK[estadoStock(a)].orden - ESTADOS_STOCK[estadoStock(b)].orden;
-}
-
-// ==========================================
-// TRAER DATOS DEL SERVIDOR
-// ==========================================
-
-// mantenerPagina: true en la recarga automática, para no volver a la página 1
-async function fetchPlatos(mantenerPagina) {
-  const tbody = document.getElementById('heladeraBody');
-
-  try {
-    const res = await apiFetch('/api/viandas-stock');
-    if (!res.ok) throw new Error();
-    todosPlatos = await res.json();
-    aplicarFiltro(mantenerPagina);
-  } catch {
-    tbody.innerHTML = '<tr><td colspan="6" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
-  }
-}
-
-async function fetchHistorial() {
-  const lista = document.getElementById('listaMovimientos');
-
-  try {
-    const res = await apiFetch('/api/movimientos-viandas');
-    if (!res.ok) throw new Error();
-    const movimientos = await res.json();
-    renderizarHistorial(movimientos);
-  } catch {
-    lista.innerHTML = '<li class="mov-vacio" style="color:red;">Error al cargar los movimientos</li>';
-  }
-}
-
-// ¿Hay alguna ventana abierta? Mientras haya una, la pantalla no se recarga sola
-function hayVentanaAbierta() {
-  return [...document.querySelectorAll('.modal')].some(m => m.style.display === 'block');
-}
-
-function iniciarActualizacionAutomatica() {
-  setInterval(() => {
-    if (hayVentanaAbierta()) return;
-    fetchPlatos(true);
-    fetchPendientes();
-    fetchHechosHoy();
-  }, INTERVALO_ACTUALIZACION);
-}
-
-// ==========================================
-// TABLA DE PLATOS (paginada de a 15)
-// ==========================================
-
-let paginacionPlatos = null; // lo que devuelve crearPaginacion: sirve para saber en qué página está
-
-function renderizarPlatos(platos, mantenerPagina) {
-  let pagina = 1;
-  if (mantenerPagina && paginacionPlatos) pagina = paginacionPlatos.paginaActual();
-
-  paginacionPlatos = crearPaginacion({
-    datos: platos,
-    porPagina: 15,
-    contenedorTabla: document.getElementById('heladeraBody'),
-    contenedorPaginacion: document.getElementById('paginacion'),
-    funcionRenderFila: crearFilaPlato,
-    filaVacia: '<tr><td colspan="6" class="loading-text">No se encontraron platos</td></tr>',
-    paginaInicial: pagina
-  });
-}
-
-function crearFilaPlato(plato) {
-  const tr = document.createElement('tr');
-
-  let plan = '-';
-  if (plato.plan_nombre) plan = plato.plan_nombre;
-
-  // Sin viandas no se puede descartar
-  let deshabilitado = '';
-  if (plato.stock_heladera <= 0) deshabilitado = 'disabled';
-
-  tr.innerHTML = `
-    <td><strong>${escHtml(plato.nombre)}</strong></td>
-    <td>${escHtml(plan)}</td>
-    <td class="celda-stock">${Number(plato.stock_heladera)}</td>
-    <td>${Number(plato.stock_minimo)}</td>
-    <td>${etiquetaEstado(plato)}</td>
-    <td class="td-acciones">
-      <div class="acciones-grupo">
-        <button class="btn-borrar" onclick="abrirModalDescarte(${Number(plato.id)})" ${deshabilitado}>✖ Descartar</button>
-      </div>
-    </td>
-  `;
-
-  return tr;
-}
-
-// ==========================================
-// FILTRO POR NOMBRE
-// ==========================================
-
-// Buscador + filtro de estado, ordenado por estado y nombre.
-// También actualiza los botones de filtro y la franja de faltantes (cambian con cada recarga).
-function aplicarFiltro(mantenerPagina) {
-  const cuenta = contarEstados();
-  renderizarFiltrosEstado(cuenta);
-  actualizarAvisoFaltantes(cuenta);
-
-  const texto = document.getElementById('filtroNombre').value.toLowerCase();
-  const filtrados = todosPlatos
-    .filter(p => (p.nombre || '').toLowerCase().includes(texto))
-    .filter(p => filtroEstado === 'todos' || estadoStock(p) === filtroEstado)
-    .sort((a, b) => compararEstado(a, b) || (a.nombre || '').localeCompare(b.nombre || '', 'es'));
-  renderizarPlatos(filtrados, mantenerPagina);
-}
-
-// Botones "Todos (20)", "Sin stock (2)", "Bajos (3)", "Bien (15)" y, si hay, "Sin control (N)"
-function renderizarFiltrosEstado(cuenta) {
-  const opciones = [
-    { valor: 'todos', texto: 'Todos',     cantidad: todosPlatos.length },
-    { valor: 'sin',   texto: 'Sin stock', cantidad: cuenta.sin },
-    { valor: 'bajo',  texto: 'Bajos',     cantidad: cuenta.bajo },
-    { valor: 'bien',  texto: 'Bien',      cantidad: cuenta.bien }
-  ];
-  if (cuenta.sincontrol > 0) {
-    opciones.push({ valor: 'sincontrol', texto: 'Sin control', cantidad: cuenta.sincontrol });
-  }
-
-  // Si el filtro elegido ya no existe (no quedan "Sin control"), vuelve a Todos
-  if (!opciones.some(o => o.valor === filtroEstado)) filtroEstado = 'todos';
-
-  const contenedor = document.getElementById('filtrosEstado');
-  contenedor.innerHTML = '';
-  opciones.forEach(opcion => {
-    const boton = document.createElement('button');
-    boton.type = 'button';
-    boton.className = 'btn-filtro-estado';
-    boton.classList.toggle('activo', opcion.valor === filtroEstado);
-    boton.textContent = opcion.texto + ' (' + opcion.cantidad + ')';
-    boton.addEventListener('click', () => {
-      filtroEstado = opcion.valor;
-      aplicarFiltro();
-    });
-    contenedor.appendChild(boton);
-  });
-}
-
-// Franja "Te faltan 5 platos: 2 sin stock y 3 bajos". Solo para quien puede pedir y solo si falta algo.
-function actualizarAvisoFaltantes(cuenta) {
-  const aviso = document.getElementById('avisoFaltantes');
-  const faltan = cuenta.sin + cuenta.bajo;
-
-  if (!puedePedir() || faltan === 0) {
-    aviso.style.display = 'none';
-    return;
-  }
-
-  const partes = [];
-  if (cuenta.sin > 0) partes.push(cuenta.sin + ' sin stock');
-  if (cuenta.bajo > 0) partes.push(conPlural(cuenta.bajo, 'bajo', 'bajos'));
-
-  document.getElementById('avisoTexto').textContent =
-    'Te faltan ' + conPlural(faltan, 'plato', 'platos') + ': ' + partes.join(' y ');
-  aviso.style.display = '';
-}
-
-function iniciarFiltro() {
-  document.getElementById('filtroNombre').addEventListener('input', aplicarFiltro);
-}
-
-// ==========================================
-// PANEL "ÚLTIMOS MOVIMIENTOS"
-// Un renglón por movimiento: cantidad con signo, plato, y debajo tipo · fecha · usuario.
-// El motivo, si hay, va en letra chica abajo de todo.
-// ==========================================
-
+// Cómo se escribe cada tipo de movimiento en la lista
 const NOMBRES_TIPO = {
   produccion: 'Producción',
   venta:      'Venta',
@@ -254,612 +59,562 @@ const NOMBRES_TIPO = {
   ajuste:     'Ajuste'
 };
 
-// Timestamp de la base (UTC) → "07/10 14:30" en hora local
-function fechaCorta(texto) {
-  const fecha = fechaDeTimestamp(texto);
-  const dd = String(fecha.getDate()).padStart(2, '0');
-  const mm = String(fecha.getMonth() + 1).padStart(2, '0');
-  const hh = String(fecha.getHours()).padStart(2, '0');
-  const mi = String(fecha.getMinutes()).padStart(2, '0');
-  return `${dd}/${mm} ${hh}:${mi}`;
+document.addEventListener('DOMContentLoaded', iniciarProduccion);   // cuando la página terminó de cargar, arranca
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// iniciarProduccion → arranca la pantalla
+// ENTRADA: nada (la llama el navegador cuando la página terminó de cargar)
+// SALIDA:  nada (engancha los botones y los filtros, hace la primera carga y programa la recarga cada 60 s)
+// ─────────────────────────────────────────────────────────────────────────────
+function iniciarProduccion() {
+  // 1. ¿Puede pedir a cocina y cambiar el mínimo? Administrador del sistema, dueño y administrador (el cocinero no)
+  const rol = parseInt(localStorage.getItem('usuario_rol') || '0', 10);                         // el rol del usuario logueado
+  const rolesQueAdministran = [FG_ROLES.ROL.SISTEMA, FG_ROLES.ROL.DUENO, FG_ROLES.ROL.ADMINISTRADOR];  // 6, 5 y 1
+  puedeAdministrar = rolesQueAdministran.includes(rol);                                         // includes = "está en la lista"
+  if (puedeAdministrar) document.getElementById('btnPedirCocina').style.display = '';           // se muestra "+ Pedir a cocina"
+
+  // 2. El buscador de la tabla: al escribir se vuelve a dibujar desde la página 1
+  document.getElementById('filtroNombre').addEventListener('input', () => renderizarTabla(false));
+
+  // 3. Los botones de filtro de "Últimos movimientos": Todos, Producción, Ventas, Devoluciones y Descartes
+  const contenedorFiltros = document.getElementById('filtrosMovimientos');   // donde van los botones
+  FILTROS_MOVIMIENTOS.forEach(filtro => {                                    // por cada filtro...
+    const boton = document.createElement('button');                         // ...un botón
+    boton.type = 'button';                                                   // no envía ningún formulario
+    boton.className = 'btn-filtro-estado';                                   // el mismo estilo que los filtros de la tabla
+    boton.dataset.tipo = filtro.valor;                                       // se guarda su tipo (para marcarlo cuando está elegido)
+    boton.textContent = filtro.texto;                                        // el texto del botón
+    boton.addEventListener('click', () => {                                  // al tocarlo...
+      tipoMovimientos = filtro.valor;                                        // ...se guarda el filtro elegido
+      cargarMovimientos(false);                                              // ...y se pide la lista desde el principio
+    });
+    contenedorFiltros.appendChild(boton);                                    // se agrega a la pantalla
+  });
+  document.getElementById('btnVerMas').addEventListener('click', () => cargarMovimientos(true));  // "Ver más": los 50 siguientes
+
+  // 4. La ventana "Pedir a cocina": al cambiar "Mostrar" se vuelve a dibujar su lista (está en pedirCocina.js)
+  document.getElementById('pPlan').addEventListener('change', renderizarListaPedido);
+
+  // 5. "Descartar" y "Pendientes" se cierran al tocar afuera ("Pedir a cocina" no, para no perder lo escrito)
+  window.addEventListener('click', evento => {                                                        // cualquier clic...
+    if (evento.target === document.getElementById('modalDescarte')) cerrarVentana('modalDescarte');      // ...en el fondo de "Descartar"
+    if (evento.target === document.getElementById('modalPendientes')) cerrarVentana('modalPendientes');  // ...en el fondo de "Pendientes"
+  });
+
+  // 6. La primera carga
+  cargarPlatos(false);                // la tabla
+  cargarMovimientos(false);           // los últimos movimientos
+  cargarPendientesCocina(false);      // los pendientes de cocina (y cuántos son, en el botón)
+  cargarHechosHoy();                  // "Hecho hoy"
+
+  // 7. Cada 60 segundos se recargan la tabla (en la misma página), los pendientes y "Hecho hoy".
+  //    No se recarga si hay una ventana abierta o si se está escribiendo un mínimo (así no se pierde lo escrito).
+  setInterval(() => {
+    let hayVentanaAbierta = false;                                             // ¿hay alguna ventana abierta?
+    document.querySelectorAll('.modal').forEach(ventana => {                   // por cada ventana de la pantalla...
+      if (ventana.style.display === 'block') hayVentanaAbierta = true;         // ...si se ve, hay una abierta
+    });
+    const enfocado = document.activeElement;                                   // el elemento que tiene el cursor (puede no haber)
+    const escribiendoMinimo = Boolean(enfocado) && enfocado.classList.contains('input-minimo');  // ¿es un casillero de mínimo?
+    if (hayVentanaAbierta || escribiendoMinimo) return;                        // (return = esta vez no se recarga)
+    cargarPlatos(true);                                                        // la tabla, sin volver a la página 1
+    cargarPendientesCocina(false);                                             // los pendientes de cocina
+    cargarHechosHoy();                                                         // "Hecho hoy"
+  }, INTERVALO_ACTUALIZACION);
 }
 
-// Cantidad con signo y su clase de color: positiva = entrada (verde), negativa = salida (rojo)
-function cantidadConSigno(cantidad) {
-  if (cantidad > 0) return { texto: '+' + cantidad, clase: 'entrada' };
-  return { texto: String(cantidad), clase: 'salida' };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// estadoDelPlato → la regla única del estado de un plato
+//                  (la usan la tabla, los filtros, la franja "Te faltan…" y la ventana "Pedir a cocina")
+// ENTRADA: plato, con stock_heladera (las libres) y stock_minimo
+// SALIDA:  'sincontrol' si el mínimo es 0 · 'sin' si no hay libres · 'bajo' si hay menos que el mínimo · 'bien' si no
+// Ej: { stock_heladera: 3, stock_minimo: 5 } → 'bajo'   ·   { stock_heladera: 0, stock_minimo: 5 } → 'sin'
+// Mira solo las LIBRES: las reservadas ya son de un pedido y no se pueden vender.
+// ─────────────────────────────────────────────────────────────────────────────
+function estadoDelPlato(plato) {
+  const minimo = Number(plato.stock_minimo);   // el mínimo del plato
+  const libres = Number(plato.stock_heladera); // las libres
+  if (minimo === 0) return 'sincontrol';       // mínimo 0: no se controla, nunca "falta"
+  if (libres <= 0) return 'sin';               // no queda ninguna libre
+  if (libres < minimo) return 'bajo';          // quedan menos que el mínimo
+  return 'bien';                               // el mínimo o más
 }
 
-function renderizarHistorial(movimientos) {
-  const lista = document.getElementById('listaMovimientos');
 
-  if (!movimientos || movimientos.length === 0) {
-    lista.innerHTML = '<li class="mov-vacio">Todavía no hay movimientos</li>';
+// ─────────────────────────────────────────────────────────────────────────────
+// cargarPlatos → pide los platos al servidor y dibuja la tabla
+// ENTRADA: mantenerPagina: true en la recarga automática (para no volver a la página 1)
+// SALIDA:  nada (guarda los platos en todosPlatos y dibuja la tabla; si falla, deja un mensaje en la tabla)
+// Ej: GET /api/viandas-stock → [{ nombre: 'fideos', stock_heladera: 61, reservadas: 10, en_heladera: 71, stock_minimo: 5, ... }]
+// ─────────────────────────────────────────────────────────────────────────────
+async function cargarPlatos(mantenerPagina) {
+  try {
+    const respuesta = await apiFetch('/api/viandas-stock');                  // pide los platos
+    if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);          // si el servidor dio error, va al catch
+    todosPlatos = await respuesta.json();                                    // la lista de platos
+    renderizarTabla(mantenerPagina);                                         // se dibuja la tabla
+  } catch (error) {                                                          // si no se pudo...
+    console.error('No se pudieron cargar los platos:', error);               // ...el detalle va a la consola
+    document.getElementById('heladeraBody').innerHTML =                      // ...y en la tabla, un mensaje simple
+      '<tr><td colspan="8" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// renderizarTabla → dibuja todo lo de la tabla de platos
+// ENTRADA: mantenerPagina: true para quedarse en la misma página (recarga automática o después de guardar un mínimo)
+// SALIDA:  nada (dibuja los botones de estado con cuántos hay, la franja "Te faltan…" y la tabla paginada de a 15)
+// Columnas: Plato · Plan · Libres · Reservadas · En heladera · Mínimo · Estado · Descartar
+// Ej: fideos con 61 libres y 10 reservadas → "fideos · Mantenimiento · 61 · 10 · 71 · [5 ✓] · Bien · ✖ Descartar"
+// ─────────────────────────────────────────────────────────────────────────────
+function renderizarTabla(mantenerPagina) {
+  // 1. Cuántos platos hay en cada estado. Ej: { sin: 2, bajo: 3, bien: 15, sincontrol: 0 }
+  const cuenta = { sin: 0, bajo: 0, bien: 0, sincontrol: 0 };                // arranca todo en 0
+  todosPlatos.forEach(plato => {                                             // por cada plato...
+    cuenta[estadoDelPlato(plato)] += 1;                                      // ...suma 1 en su estado
+  });
+
+  // 2. Los botones de filtro: "Todos (20)", "Sin stock (2)", "Bajos (3)", "Bien (15)" y, si hay, "Sin control (N)"
+  const opciones = [                                                         // los botones que siempre están
+    { valor: 'todos', texto: 'Todos',     cantidad: todosPlatos.length },
+    { valor: 'sin',   texto: 'Sin stock', cantidad: cuenta.sin },
+    { valor: 'bajo',  texto: 'Bajos',     cantidad: cuenta.bajo },
+    { valor: 'bien',  texto: 'Bien',      cantidad: cuenta.bien }
+  ];
+  if (cuenta.sincontrol > 0) {                                               // "Sin control" solo si hay alguno
+    opciones.push({ valor: 'sincontrol', texto: 'Sin control', cantidad: cuenta.sincontrol });
+  }
+  let filtroExiste = false;                                                  // ¿el filtro elegido está entre los botones?
+  opciones.forEach(opcion => {                                               // por cada botón...
+    if (opcion.valor === filtroEstado) filtroExiste = true;                  // ...si es el elegido, existe
+  });
+  if (!filtroExiste) filtroEstado = 'todos';                                 // si ya no está (no quedan "Sin control"), vuelve a "Todos"
+
+  const contenedorFiltros = document.getElementById('filtrosEstado');        // donde van los botones
+  contenedorFiltros.innerHTML = '';                                          // se borran los de antes
+  opciones.forEach(opcion => {                                               // por cada botón...
+    const boton = document.createElement('button');                         // ...se crea
+    boton.type = 'button';                                                   // no envía ningún formulario
+    boton.className = 'btn-filtro-estado';                                   // su estilo
+    if (opcion.valor === filtroEstado) boton.classList.add('activo');        // el elegido queda marcado
+    boton.textContent = opcion.texto + ' (' + opcion.cantidad + ')';         // ej: "Bajos (3)"
+    boton.addEventListener('click', () => {                                  // al tocarlo...
+      filtroEstado = opcion.valor;                                           // ...se elige ese filtro
+      renderizarTabla(false);                                                // ...y se dibuja desde la página 1
+    });
+    contenedorFiltros.appendChild(boton);                                    // se agrega a la pantalla
+  });
+
+  // 3. La franja "Te faltan 5 platos: 2 sin stock y 3 bajos" (solo para quien puede pedir, y solo si falta algo)
+  const aviso = document.getElementById('avisoFaltantes');                   // la franja
+  const faltan = cuenta.sin + cuenta.bajo;                                   // los que faltan: sin stock más bajos
+  if (!puedeAdministrar || faltan === 0) {                                   // si no puede pedir o no falta nada...
+    aviso.style.display = 'none';                                            // ...no se muestra
+  } else {                                                                   // si falta algo...
+    const partes = [];                                                       // ...se arma el texto por partes
+    if (cuenta.sin > 0) partes.push(cuenta.sin + ' sin stock');              // "2 sin stock"
+    if (cuenta.bajo > 0) partes.push(conPlural(cuenta.bajo, 'bajo', 'bajos'));  // "3 bajos"
+    document.getElementById('avisoTexto').textContent =                      // textContent: se muestra como texto
+      'Te faltan ' + conPlural(faltan, 'plato', 'platos') + ': ' + partes.join(' y ');  // join une las partes con " y "
+    aviso.style.display = '';                                                // se muestra
+  }
+
+  // 4. Los platos que se ven: los que coinciden con el buscador y con el filtro de estado
+  const texto = document.getElementById('filtroNombre').value.toLowerCase();  // lo escrito en el buscador, en minúsculas
+  const visibles = todosPlatos.filter(plato => {                             // filter = arma una lista nueva con los que cumplen
+    const coincideNombre = (plato.nombre || '').toLowerCase().includes(texto);  // el nombre tiene lo escrito
+    const coincideEstado = filtroEstado === 'todos' || estadoDelPlato(plato) === filtroEstado;  // y el estado es el elegido
+    return coincideNombre && coincideEstado;                                 // queda si cumple las dos cosas
+  });
+  visibles.sort((a, b) => {                                                  // ordenados...
+    const porEstado = ESTADOS_STOCK[estadoDelPlato(a)].orden - ESTADOS_STOCK[estadoDelPlato(b)].orden;  // ...por estado (primero los que faltan)
+    if (porEstado !== 0) return porEstado;                                   // si tienen estados distintos, ya está
+    return (a.nombre || '').localeCompare(b.nombre || '', 'es');             // ...y si es el mismo, por nombre
+  });
+
+  // 5. La tabla, de a 15 por página. crearPaginacion (paginacion.js) llama a funcionRenderFila una vez por fila.
+  let pagina = 1;                                                            // arranca en la página 1...
+  if (mantenerPagina && paginacionPlatos) pagina = paginacionPlatos.paginaActual();  // ...o se queda donde estaba
+  paginacionPlatos = crearPaginacion({
+    datos: visibles,                                                         // los platos que se ven
+    porPagina: 15,                                                           // de a 15
+    contenedorTabla: document.getElementById('heladeraBody'),                // donde van las filas
+    contenedorPaginacion: document.getElementById('paginacion'),             // donde van los números de página
+    filaVacia: '<tr><td colspan="8" class="loading-text">No se encontraron platos</td></tr>',  // si no hay ninguno
+    paginaInicial: pagina,                                                   // en qué página arranca
+    funcionRenderFila: plato => {                                            // cómo se arma la fila de un plato:
+      // a. Lo que va en cada celda, calculado antes (nada de "? :" adentro del HTML)
+      let plan = '-';                                                        // el plan ("-" si no tiene)
+      if (plato.plan_nombre) plan = plato.plan_nombre;
+      const estado = estadoDelPlato(plato);                                  // su estado
+      let etiqueta = '<span class="estado-sincontrol">— Sin control</span>';  // "Sin control" es un guion gris...
+      if (estado !== 'sincontrol') {                                         // ...los demás, una etiqueta de color
+        etiqueta = `<span class="etiqueta-estado ${ESTADOS_STOCK[estado].clase}">${ESTADOS_STOCK[estado].texto}</span>`;
+      }
+      let descarteApagado = '';                                              // sin libres no se puede descartar
+      if (Number(plato.stock_heladera) <= 0) descarteApagado = 'disabled';
+      let celdaMinimo = String(Number(plato.stock_minimo));                  // el cocinero solo ve el número...
+      if (puedeAdministrar) {                                                // ...los que administran lo pueden cambiar
+        celdaMinimo = `
+          <div class="minimo-editar">
+            <input type="number" class="input-minimo" min="0" max="9999" step="1" value="${Number(plato.stock_minimo)}"
+                   aria-label="Mínimo de ${escHtml(plato.nombre)}">
+            <button type="button" class="btn-guardar-minimo" title="Guardar el mínimo">✓</button>
+          </div>`;
+      }
+
+      // b. La fila (lo que viene de la base pasa por escHtml; los números, por Number)
+      const fila = document.createElement('tr');
+      fila.innerHTML = `
+        <td><strong>${escHtml(plato.nombre)}</strong></td>
+        <td>${escHtml(plan)}</td>
+        <td class="celda-stock">${Number(plato.stock_heladera)}</td>
+        <td class="celda-secundaria">${Number(plato.reservadas)}</td>
+        <td class="celda-secundaria">${Number(plato.en_heladera)}</td>
+        <td>${celdaMinimo}</td>
+        <td>${etiqueta}</td>
+        <td class="td-acciones">
+          <div class="acciones-grupo">
+            <button type="button" class="btn-borrar btn-descartar" ${descarteApagado}>✖ Descartar</button>
+          </div>
+        </td>`;
+
+      // c. Los botones de la fila
+      fila.querySelector('.btn-descartar').addEventListener('click', () => abrirDescarte(plato.id));  // "Descartar"
+      if (puedeAdministrar) {                                                // el mínimo: con ✓ o con Enter
+        const input = fila.querySelector('.input-minimo');                   // el casillero del mínimo
+        fila.querySelector('.btn-guardar-minimo').addEventListener('click', () => guardarMinimo(plato.id, input));
+        input.addEventListener('keydown', evento => {                        // al apretar una tecla en el casillero...
+          if (evento.key === 'Enter') guardarMinimo(plato.id, input);        // ...si es Enter, se guarda
+        });
+      }
+      return fila;                                                           // la fila terminada
+    }
+  });
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// guardarMinimo → cambia el mínimo de un plato
+// ENTRADA: idProducto (el plato) e input (el casillero donde se escribió el número)
+// SALIDA:  nada (si sale bien, guarda el mínimo en todosPlatos, redibuja la tabla en la misma página y avisa;
+//          si no, avisa el error y el casillero queda como estaba escrito)
+// Ej: fideos con 61 libres, mínimo 5 → 100: la fila pasa de "Bien" a "Bajo" y sale "Mínimo de «fideos»: 100"
+// ─────────────────────────────────────────────────────────────────────────────
+async function guardarMinimo(idProducto, input) {
+  const plato = todosPlatos.find(p => p.id === idProducto);   // find = el primer plato con ese número (o undefined)
+  if (!plato) return;                                          // si ya no está, no hace nada
+
+  // 1. Control en la pantalla (el servidor lo vuelve a controlar): un entero de 0 a 9999
+  const texto = input.value.trim();                            // lo escrito, sin espacios en los bordes
+  const minimo = Number(texto);                                // como número
+  if (texto === '' || !Number.isInteger(minimo) || minimo < 0 || minimo > 9999) {  // vacío, con decimales, negativo o muy grande
+    mostrarToast('El mínimo tiene que ser un número entero de 0 a 9999.', 'error');   // se avisa
+    input.focus();                                             // y el cursor vuelve al casillero
     return;
   }
 
-  lista.innerHTML = '';
-  movimientos.forEach(m => lista.appendChild(crearRenglonMovimiento(m)));
-}
+  // 2. Se manda al servidor
+  input.disabled = true;                                       // mientras se guarda, no se puede tocar
+  try {
+    const respuesta = await apiFetch(`/api/viandas-stock/${idProducto}/minimo`, {
+      method: 'PUT',                                           // PUT = cambiar algo que ya existe
+      headers: { 'Content-Type': 'application/json' },         // se manda un JSON
+      body: JSON.stringify({ stock_minimo: minimo })           // el mínimo nuevo
+    });
+    const datos = await respuesta.json().catch(() => ({}));    // la respuesta (si no es JSON, un objeto vacío)
 
-// Renglón de un movimiento
-function crearRenglonMovimiento(m) {
-  const li = document.createElement('li');
-  li.className = 'mov-item';
-
-  // Positivo = entraron viandas (verde con "+"), negativo = salieron (rojo)
-  const cantidad = cantidadConSigno(Number(m.cantidad));
-
-  let tipo = m.tipo;
-  if (NOMBRES_TIPO[m.tipo]) tipo = NOMBRES_TIPO[m.tipo];
-
-  let fecha = '-';
-  if (m.fecha) fecha = fechaCorta(m.fecha);
-
-  const detalle = tipo + ' · ' + fecha + ' · ' + m.usuario_nombre;
-
-  let htmlMotivo = '';
-  if (m.motivo) htmlMotivo = `<div class="mov-motivo">${escHtml(m.motivo)}</div>`;
-
-  li.innerHTML = `
-    <div class="mov-linea">
-      <span class="mov-cantidad ${cantidad.clase}">${escHtml(cantidad.texto)}</span>
-      <span class="mov-plato">${escHtml(m.plato_nombre)}</span>
-    </div>
-    <div class="mov-detalle">${escHtml(detalle)}</div>
-    ${htmlMotivo}
-  `;
-  return li;
-}
-
-// ==========================================
-// AYUDAS DE LAS VENTANAS (pedir a cocina y descartar)
-// ==========================================
-
-// Cantidad del input como entero mayor a 0, o null si no es válida
-function leerCantidad(idInput) {
-  const valor = document.getElementById(idInput).value.trim();
-  const cantidad = Number(valor);
-  if (valor === '' || !Number.isInteger(cantidad) || cantidad <= 0) return null;
-  return cantidad;
-}
-
-function mostrarErrorModal(idError, mensaje) {
-  const errEl = document.getElementById(idError);
-  errEl.textContent = mensaje;
-  errEl.style.display = 'block';
-}
-
-// Planes activos que tienen platos activos (salen de GET /api/viandas-stock), ordenados por nombre
-function planesConPlatos() {
-  const porId = {};
-  todosPlatos.forEach(p => {
-    if (p.id_plan && p.plan_activo && !porId[p.id_plan]) {
-      let nombre = 'Plan ' + p.id_plan;
-      if (p.plan_nombre) nombre = p.plan_nombre;
-      porId[p.id_plan] = { id: p.id_plan, nombre };
+    if (!respuesta.ok) {                                       // si el servidor no lo aceptó...
+      let mensaje = 'No se pudo guardar el mínimo.';           // ...un mensaje por si no mandó ninguno
+      if (datos.error) mensaje = datos.error;                  // ...o el del servidor
+      mostrarToast(mensaje, 'error');                          // ...se avisa
+      input.disabled = false;                                  // ...y se puede corregir
+      return;
     }
-  });
-  return Object.values(porId).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-}
 
-// ==========================================
-// PENDIENTES DE COCINA (ventana)
-// La lista la dibuja pedidosCocina.js (compartido con Tareas de Cocina), con "Hecho" para todos.
-// Acá solo queda el número del botón y qué se recarga después de marcar un plato.
-// ==========================================
-
-// Después de marcar un plato se recargan pendientes, stock (sin cambiar de página) y "Hecho hoy"
-const OPCIONES_PENDIENTES = {
-  conBotonHecho: true,
-  recargar: () => Promise.all([fetchPendientes(), fetchPlatos(true), fetchHechosHoy()])
-};
-
-async function fetchPendientes() {
-  const pendientes = await cargarPendientes('listaPendientes', OPCIONES_PENDIENTES);
-  // N = cantidad de platos pendientes (el servidor manda un renglón por plato de cada pedido)
-  const boton = document.getElementById('btnPendientes');
-  if (pendientes) {
-    boton.textContent = 'Pendientes de cocina (' + pendientes.length + ')';
-  } else {
-    boton.textContent = 'Pendientes de cocina';
+    // 3. Salió bien: se guarda en la lista y se redibuja (el estado del plato puede cambiar)
+    plato.stock_minimo = datos.stock_minimo;                   // el mínimo nuevo
+    renderizarTabla(true);                                     // la tabla, en la misma página
+    mostrarToast('Mínimo de «' + plato.nombre + '»: ' + datos.stock_minimo, 'exito');  // se avisa
+  } catch (error) {                                            // si no hubo respuesta...
+    console.error('No se pudo guardar el mínimo:', error);     // ...el detalle a la consola
+    mostrarToast('No se pudo conectar con el servidor.', 'error');  // ...y un aviso simple
+    input.disabled = false;                                    // ...y se puede volver a intentar
   }
 }
 
-// Al abrir se vuelve a pedir la lista, para mostrar lo último (y actualizar el número del botón)
-function abrirModalPendientes() {
-  fetchPendientes();
-  document.getElementById('modalPendientes').style.display = 'block';
-}
 
-function cerrarModalPendientes() {
-  document.getElementById('modalPendientes').style.display = 'none';
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// cargarMovimientos → pide y dibuja "Últimos movimientos" con el filtro de tipo elegido
+// ENTRADA: agregar: false = empezar de nuevo (al abrir o al cambiar de filtro) · true = "Ver más" (agrega los 50 siguientes)
+// SALIDA:  nada (dibuja los renglones, marca el filtro elegido y muestra "Ver más" solo si puede haber más)
+// Ej: filtro "Ventas" → GET /api/movimientos-viandas?desde=0&tipo=venta →
+//     "−10 fideos" / "Venta · 15/10 18:40 · Consumidor Final" / "Pedido #251"
+// ─────────────────────────────────────────────────────────────────────────────
+async function cargarMovimientos(agregar) {
+  const lista = document.getElementById('listaMovimientos');   // la lista de renglones
+  const botonVerMas = document.getElementById('btnVerMas');    // el botón "Ver más"
 
-// ==========================================
-// HECHO HOY (debajo de la tabla)
-// Platos de pedidos a cocina marcados hechos hoy, del más reciente al más viejo.
-// ==========================================
+  // 1. Queda marcado el botón del filtro elegido
+  document.querySelectorAll('#filtrosMovimientos .btn-filtro-estado').forEach(boton => {  // por cada botón de filtro...
+    boton.classList.toggle('activo', boton.dataset.tipo === tipoMovimientos);  // toggle(clase, sí/no): la pone si es el elegido, la saca si no
+  });
 
-// Timestamp de la base → "14:32" en hora local
-function horaCorta(texto) {
-  const fecha = fechaDeTimestamp(texto);
-  const hh = String(fecha.getHours()).padStart(2, '0');
-  const mi = String(fecha.getMinutes()).padStart(2, '0');
-  return `${hh}:${mi}`;
-}
-
-async function fetchHechosHoy() {
-  const lista = document.getElementById('listaHechoHoy');
+  // 2. Si se empieza de nuevo, se pide desde el primero
+  if (!agregar) movimientosMostrados = 0;
 
   try {
-    const res = await apiFetch('/api/ordenes-produccion/hechos-hoy');
-    if (!res.ok) throw new Error();
-    renderizarHechosHoy(await res.json());
-  } catch {
+    // URLSearchParams arma los datos de la dirección. Ej: { desde: '50' } + tipo 'venta' → "desde=50&tipo=venta"
+    const parametros = new URLSearchParams({ desde: String(movimientosMostrados) });  // cuántos saltear
+    if (tipoMovimientos) parametros.set('tipo', tipoMovimientos);                     // y el tipo, si se eligió uno
+    const respuesta = await apiFetch('/api/movimientos-viandas?' + parametros.toString());  // se piden
+    if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);                  // si el servidor dio error, va al catch
+    const movimientos = await respuesta.json();                                      // hasta 50 renglones
+
+    // 3. Si se empieza de nuevo, se borra la lista (y si no vino nada, se avisa)
+    if (!agregar) {
+      lista.innerHTML = '';                                                          // se borra lo de antes
+      if (movimientos.length === 0) {                                                // si no hay ninguno...
+        let textoVacio = 'Todavía no hay movimientos';                               // ...sin filtro
+        if (tipoMovimientos) textoVacio = 'No hay movimientos de este tipo';         // ...con filtro
+        lista.innerHTML = `<li class="mov-vacio">${textoVacio}</li>`;
+      }
+    }
+
+    // 4. Un renglón por movimiento: cantidad con signo y plato; abajo tipo · fecha · quién; y el motivo, si hay
+    movimientos.forEach(movimiento => {
+      const cantidad = Number(movimiento.cantidad);                                  // + entran, − salen
+      let textoCantidad = String(cantidad);                                          // negativa: tal cual (en rojo)...
+      let claseCantidad = 'salida';
+      if (cantidad > 0) {                                                            // ...positiva: con "+" (en verde)
+        textoCantidad = '+' + cantidad;
+        claseCantidad = 'entrada';
+      }
+      let tipo = movimiento.tipo;                                                    // el tipo como viene...
+      if (NOMBRES_TIPO[movimiento.tipo]) tipo = NOMBRES_TIPO[movimiento.tipo];       // ...o bien escrito: "Venta"
+      let fecha = '-';                                                               // la fecha, como "15/10 18:40"
+      if (movimiento.fecha) {
+        const momento = fechaDeTimestamp(movimiento.fecha);                          // de la base (UTC) a la hora de la computadora
+        const dia = String(momento.getDate()).padStart(2, '0');                      // padStart: completa con ceros. Ej: '7' → '07'
+        const mes = String(momento.getMonth() + 1).padStart(2, '0');                 // los meses van de 0 a 11
+        const hora = String(momento.getHours()).padStart(2, '0');
+        const minuto = String(momento.getMinutes()).padStart(2, '0');
+        fecha = dia + '/' + mes + ' ' + hora + ':' + minuto;
+      }
+      const detalle = tipo + ' · ' + fecha + ' · ' + movimiento.usuario_nombre;      // "Venta · 15/10 18:40 · Consumidor Final"
+      let htmlMotivo = '';                                                           // el motivo, solo si tiene
+      if (movimiento.motivo) htmlMotivo = `<div class="mov-motivo">${escHtml(movimiento.motivo)}</div>`;
+
+      const renglon = document.createElement('li');                                 // el renglón
+      renglon.className = 'mov-item';
+      renglon.innerHTML = `
+        <div class="mov-linea">
+          <span class="mov-cantidad ${claseCantidad}">${escHtml(textoCantidad)}</span>
+          <span class="mov-plato">${escHtml(movimiento.plato_nombre)}</span>
+        </div>
+        <div class="mov-detalle">${escHtml(detalle)}</div>
+        ${htmlMotivo}`;
+      lista.appendChild(renglon);                                                    // se agrega al final
+    });
+
+    // 5. "Ver más": si llegaron 50, puede haber más; si llegaron menos, ya no
+    movimientosMostrados = movimientosMostrados + movimientos.length;                // ya se muestran estos
+    botonVerMas.hidden = movimientos.length < MOVIMIENTOS_POR_PAGINA;                // hidden = escondido
+  } catch (error) {                                                                  // si no se pudo...
+    console.error('No se pudieron cargar los movimientos:', error);                  // ...el detalle a la consola
+    if (agregar) {                                                                   // ...si era "Ver más", un aviso
+      mostrarToast('No se pudieron cargar más movimientos.', 'error');
+    } else {                                                                         // ...si no, en la lista
+      lista.innerHTML = '<li class="mov-vacio" style="color:red;">Error al cargar los movimientos</li>';
+    }
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// cargarHechosHoy → pide y dibuja "Hecho hoy" (debajo de la tabla)
+// ENTRADA: nada
+// SALIDA:  nada (un renglón por plato que la cocina marcó hecho hoy, del más nuevo al más viejo)
+// Ej: GET /api/ordenes-produccion/hechos-hoy → "14:32 · 2 · fideos · Mantenimiento · Ana López"
+// ─────────────────────────────────────────────────────────────────────────────
+async function cargarHechosHoy() {
+  const lista = document.getElementById('listaHechoHoy');                            // la lista
+  try {
+    const respuesta = await apiFetch('/api/ordenes-produccion/hechos-hoy');          // se pide
+    if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);                  // si el servidor dio error, va al catch
+    const hechos = await respuesta.json();                                           // lo hecho hoy
+
+    if (hechos.length === 0) {                                                       // si no hay nada...
+      lista.innerHTML = '<li class="mov-vacio">Todavía no se marcó nada hoy.</li>';
+      return;
+    }
+
+    let html = '';                                                                   // se arman los renglones
+    hechos.forEach(hecho => {                                                        // por cada plato hecho...
+      let hora = '-';                                                                // ...la hora, como "14:32"
+      if (hecho.fecha_hecho) {
+        const momento = fechaDeTimestamp(hecho.fecha_hecho);                         // de la base a la hora de la computadora
+        hora = String(momento.getHours()).padStart(2, '0') + ':' + String(momento.getMinutes()).padStart(2, '0');
+      }
+      let plan = '';                                                                 // ...el plan, si tiene
+      if (hecho.plan) plan = ` <span class="hh-plan">· ${escHtml(hecho.plan)}</span>`;
+      let quien = '';                                                                // ...quién lo marcó, si se sabe
+      if (hecho.marcado_por) quien = hecho.marcado_por;
+      html += `
+        <li>
+          <span class="hh-hora">${escHtml(hora)}</span>
+          <span class="hh-cantidad">${Number(hecho.cantidad)}</span>
+          <span class="hh-plato">${escHtml(hecho.plato)}${plan}</span>
+          <span class="hh-quien">${escHtml(quien)}</span>
+        </li>`;
+    });
+    lista.innerHTML = html;                                                          // se muestran todos juntos
+  } catch (error) {                                                                  // si no se pudo...
+    console.error('No se pudo cargar lo hecho hoy:', error);                         // ...el detalle a la consola
     lista.innerHTML = '<li class="mov-vacio" style="color:red;">Error al cargar lo hecho hoy</li>';
   }
 }
 
-function renderizarHechosHoy(hechos) {
-  const lista = document.getElementById('listaHechoHoy');
 
-  if (!hechos || hechos.length === 0) {
-    lista.innerHTML = '<li class="mov-vacio">Todavía no se marcó nada hoy.</li>';
-    return;
-  }
+// ─────────────────────────────────────────────────────────────────────────────
+// cargarPendientesCocina → los pendientes de cocina: los pide, pone cuántos hay en el botón y, si se pide, abre la ventana
+// ENTRADA: abrirVentana: true al tocar el botón "Pendientes de cocina" · false en la carga y en las recargas
+// SALIDA:  nada (la lista la dibuja pedidosCocina.js en la ventana, con "Hecho" en cada plato)
+// Ej: 3 platos pendientes → el botón dice "Pendientes de cocina (3)"
+// Después de marcar un plato "Hecho" se recargan los pendientes, la tabla (en la misma página) y "Hecho hoy".
+// ─────────────────────────────────────────────────────────────────────────────
+async function cargarPendientesCocina(abrirVentana) {
+  if (abrirVentana) document.getElementById('modalPendientes').style.display = 'block';  // primero se abre (se ve "Cargando…")
 
-  lista.innerHTML = hechos.map(h => {
-    let hora = '-';
-    if (h.fecha_hecho) hora = horaCorta(h.fecha_hecho);
+  const opciones = {                                                                 // lo que necesita pedidosCocina.js:
+    conBotonHecho: true,                                                             // ...cada plato con su botón "Hecho"
+    recargar: () => Promise.all([cargarPendientesCocina(false), cargarPlatos(true), cargarHechosHoy()])  // ...qué recargar después (Promise.all = espera las tres)
+  };
+  const pendientes = await cargarPendientes('listaPendientes', opciones);           // la lista (o null si no se pudo cargar)
 
-    let plan = '';
-    if (h.plan) plan = ` <span class="hh-plan">· ${escHtml(h.plan)}</span>`;
-
-    let quien = '';
-    if (h.marcado_por) quien = h.marcado_por;
-
-    return `
-      <li>
-        <span class="hh-hora">${escHtml(hora)}</span>
-        <span class="hh-cantidad">${Number(h.cantidad)}</span>
-        <span class="hh-plato">${escHtml(h.plato)}${plan}</span>
-        <span class="hh-quien">${escHtml(quien)}</span>
-      </li>
-    `;
-  }).join('');
-}
-
-// ==========================================
-// MODAL PEDIR A COCINA
-// Una lista de platos activos con "−", un casillero y "+". El filtro (Los que faltan, Sin stock,
-// Bajos, Todos los planes o un plan) solo decide lo que se ve: lo escrito se guarda en cantidadesPedido.
-// Se piden los platos con un número mayor a 0. Acá no se calculan insumos.
-// ==========================================
-
-// Pueden pedir a cocina: administrador del sistema, dueño y administrador (el cocinero no pide)
-function puedePedir() {
-  const rol = parseInt(localStorage.getItem('usuario_rol') || '0', 10);
-  const rolesQuePiden = [FG_ROLES.ROL.SISTEMA, FG_ROLES.ROL.DUENO, FG_ROLES.ROL.ADMINISTRADOR];
-  return rolesQuePiden.includes(rol);
-}
-
-function mostrarBotonPedir() {
-  if (puedePedir()) {
-    document.getElementById('btnPedirCocina').style.display = '';
+  const boton = document.getElementById('btnPendientes');                            // el botón de la cabecera
+  if (pendientes) {                                                                  // si se cargó...
+    boton.textContent = 'Pendientes de cocina (' + pendientes.length + ')';          // ...con cuántos hay
+  } else {                                                                           // si no...
+    boton.textContent = 'Pendientes de cocina';                                      // ...sin número
   }
 }
 
-function iniciarModalPedido() {
-  document.getElementById('pPlan').addEventListener('change', alCambiarPlanPedido);
-}
 
-// Agrega una opción a un select (textContent: el texto no se interpreta como HTML)
-function agregarOpcion(select, valor, texto) {
-  const option = document.createElement('option');
-  option.value = valor;
-  option.textContent = texto;
-  select.appendChild(option);
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// abrirDescarte → abre la ventana "Descartar viandas" para un plato
+// ENTRADA: idProducto (el plato de la fila)
+// SALIDA:  nada (llena la ventana con el plato, sus libres y sus reservadas, y la abre limpia)
+// Ej: fideos con 61 libres y 10 reservadas → "fideos — libres: 61 (las 10 reservadas no se pueden descartar)"
+// ─────────────────────────────────────────────────────────────────────────────
+function abrirDescarte(idProducto) {
+  const plato = todosPlatos.find(p => p.id === idProducto);           // find = el plato con ese número (o undefined)
+  if (!plato) return;                                                  // si no está, no hace nada
 
-function abrirModalPedido() {
-  // Para cuándo: arranca en mañana y no deja elegir días pasados
-  const hoy = new Date();
-  const manana = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1);
-  const inputFecha = document.getElementById('pFecha');
-  inputFecha.min = fechaLocalISO(hoy);
-  inputFecha.value = fechaLocalISO(manana);
-
-  // Filtro: "Los que faltan (N)", "Sin stock (N)", "Bajos (N)", "Todos los planes" y cada plan activo.
-  // Las cantidades salen de contarEstados (la regla única): los "sin control" no entran en ninguna.
-  const cuenta = contarEstados();
-  const cantidadFaltan = cuenta.sin + cuenta.bajo;
-  const select = document.getElementById('pPlan');
-  select.innerHTML = '';
-
-  agregarOpcion(select, 'faltan', 'Los que faltan (' + cantidadFaltan + ')');
-  agregarOpcion(select, 'sin', 'Sin stock (' + cuenta.sin + ')');
-  agregarOpcion(select, 'bajo', 'Bajos (' + cuenta.bajo + ')');
-  agregarOpcion(select, '', 'Todos los planes');
-  planesConPlatos().forEach(plan => agregarOpcion(select, plan.id, plan.nombre));
-
-  // Si falta algo abre en "Los que faltan"; si no, en "Todos los planes"
-  select.value = '';
-  if (cantidadFaltan > 0) select.value = 'faltan';
-
-  document.getElementById('pRapidoCantidad').value = '';
-  document.getElementById('pError').style.display = 'none';
-  cantidadesPedido = {};
-
-  alCambiarPlanPedido();
-  document.getElementById('modalPedido').style.display = 'block';
-}
-
-function cerrarModalPedido() {
-  document.getElementById('modalPedido').style.display = 'none';
-}
-
-// Lo escrito para un plato: 0 si está vacío, el número si es un entero >= 0, o null si es inválido
-function cantidadAPedir(idProducto) {
-  const valor = (cantidadesPedido[idProducto] || '').trim();
-  if (valor === '') return 0;
-  const cantidad = Number(valor);
-  if (!Number.isInteger(cantidad) || cantidad < 0) return null;
-  return cantidad;
-}
-
-// Orden de la lista: por estado (Sin stock, Bajo, Bien, Sin control); después por plan (sin plan al final) y por nombre
-function compararPlatosPedido(a, b) {
-  const porEstado = compararEstado(a, b);
-  if (porEstado !== 0) return porEstado;
-
-  const planA = a.plan_nombre || '';
-  const planB = b.plan_nombre || '';
-  if (planA !== planB) {
-    if (!planA) return 1;
-    if (!planB) return -1;
-    return planA.localeCompare(planB, 'es');
+  platoDescarte = plato;                                               // el plato que se descarta
+  let info = plato.nombre + ' — libres: ' + Number(plato.stock_heladera);  // el texto de arriba...
+  if (Number(plato.reservadas) > 0) {                                  // ...y si tiene reservadas, se aclara
+    info += ' (las ' + Number(plato.reservadas) + ' reservadas no se pueden descartar)';
   }
-  return (a.nombre || '').localeCompare(b.nombre || '', 'es');
+  document.getElementById('dInfo').textContent = info;                 // textContent: el nombre se muestra como texto
+  document.getElementById('dCantidad').value = '';                     // la cantidad, vacía
+  document.getElementById('dCantidad').max = plato.stock_heladera;     // el casillero no deja pasar de las libres
+  document.getElementById('dMotivo').value = '';                       // el motivo, vacío
+  document.getElementById('dError').style.display = 'none';            // sin error
+  document.getElementById('dConfirmar').disabled = false;              // el botón, prendido
+  document.getElementById('modalDescarte').style.display = 'block';    // se abre
 }
 
-// Platos que se ven con el filtro elegido, ya ordenados.
-// slice(): copia la lista para que sort no desordene todosPlatos.
-function platosVisiblesPedido() {
-  const filtro = document.getElementById('pPlan').value;
-  let platos = todosPlatos;
-  if (filtro === 'faltan') {
-    platos = todosPlatos.filter(faltaPlato);
-  } else if (filtro === 'sin' || filtro === 'bajo') {
-    // El valor del filtro es el mismo que devuelve estadoStock
-    platos = todosPlatos.filter(p => estadoStock(p) === filtro);
-  } else if (filtro !== '') {
-    platos = todosPlatos.filter(p => p.id_plan === Number(filtro));
-  }
-  return platos.slice().sort(compararPlatosPedido);
-}
 
-// Filtros que no son un plan: los de estado y "Todos los planes"
-const FILTROS_PEDIDO_SIN_PLAN = ['faltan', 'sin', 'bajo', ''];
-
-// ¿El filtro elegido es un plan? (entonces el plan no se repite en cada renglón)
-function filtroEsPlan() {
-  const filtro = document.getElementById('pPlan').value;
-  return !FILTROS_PEDIDO_SIN_PLAN.includes(filtro);
-}
-
-function alCambiarPlanPedido() {
-  renderizarListaPedido();
-}
-
-function renderizarListaPedido() {
-  const contenedor = document.getElementById('pPlatos');
-  const platos = platosVisiblesPedido();
-  contenedor.innerHTML = '';
-
-  if (platos.length === 0) {
-    contenedor.innerHTML = '<div class="pedido-vacio">No hay platos para este filtro</div>';
-    actualizarResumenPedido();
-    return;
-  }
-
-  platos.forEach(plato => {
-    const fila = document.createElement('div');
-    fila.className = 'plato-pedido';
-
-    // Etiquetas: el estado solo si falta (Sin stock / Bajo), y "sin receta"
-    let etiquetas = '';
-    if (faltaPlato(plato)) etiquetas += etiquetaEstado(plato);
-    if (!plato.tiene_receta) {
-      etiquetas += '<span class="etiqueta-sin-receta">sin receta</span>';
-    }
-
-    // Línea gris: "En stock: N · mínimo M" (+ el plan, si el filtro no es un plan)
-    let detalle = 'En stock: ' + Number(plato.stock_heladera);
-    if (estadoStock(plato) === 'sincontrol') {
-      detalle += ' · sin control';
-    } else {
-      detalle += ' · mínimo ' + Number(plato.stock_minimo);
-    }
-    if (!filtroEsPlan()) {
-      let plan = 'Sin plan';
-      if (plato.plan_nombre) plan = plato.plan_nombre;
-      detalle += ' · ' + plan;
-    }
-
-    fila.innerHTML = `
-      <div class="pp-info">
-        <div class="pp-nombre">${escHtml(plato.nombre)}${etiquetas}</div>
-        <div class="pp-detalle">${escHtml(detalle)}</div>
-      </div>
-      <div class="pp-cantidad">
-        <button type="button" class="btn-paso" data-paso="-1" aria-label="Uno menos">−</button>
-        <input type="text" inputmode="numeric" placeholder="0" aria-label="Cantidad a pedir">
-        <button type="button" class="btn-paso" data-paso="1" aria-label="Uno más">+</button>
-      </div>
-    `;
-
-    // El valor se pone por DOM; cada cambio se guarda en cantidadesPedido
-    const input = fila.querySelector('input');
-    input.value = cantidadesPedido[plato.id] || '';
-    pintarFilaPedido(fila, input, plato.id);
-
-    input.addEventListener('input', () => {
-      cantidadesPedido[plato.id] = input.value;
-      pintarFilaPedido(fila, input, plato.id);
-      actualizarResumenPedido();
-    });
-
-    // "−" y "+": suman o restan 1 sin redibujar la lista (no se pierde el scroll)
-    fila.querySelectorAll('.btn-paso').forEach(boton => {
-      boton.addEventListener('click', () => {
-        cambiarCantidadPedido(plato.id, Number(boton.dataset.paso));
-        input.value = cantidadesPedido[plato.id];
-        pintarFilaPedido(fila, input, plato.id);
-        actualizarResumenPedido();
-      });
-    });
-
-    contenedor.appendChild(fila);
-  });
-
-  actualizarResumenPedido();
-}
-
-// Rojo si el casillero es inválido; fondo verde suave si tiene más de 0
-function pintarFilaPedido(fila, input, idProducto) {
-  const cantidad = cantidadAPedir(idProducto);
-  input.classList.toggle('invalido', cantidad === null);
-  fila.classList.toggle('con-cantidad', cantidad > 0);
-}
-
-// Suma o resta 1. Nunca baja de 0. Si había algo inválido escrito, arranca de 0.
-function cambiarCantidadPedido(idProducto, paso) {
-  let actual = cantidadAPedir(idProducto);
-  if (actual === null) actual = 0;
-  let nueva = actual + paso;
-  if (nueva < 0) nueva = 0;
-  cantidadesPedido[idProducto] = String(nueva);
-}
-
-// Reparto en partes iguales: el sobrante va de a uno a los primeros.
-// Ej.: 10 en 6 platos → [2, 2, 2, 2, 1, 1]
-function partesIguales(total, cantidadPlatos) {
-  const base = Math.floor(total / cantidadPlatos);
-  const sobrante = total % cantidadPlatos;
-  const partes = [];
-  for (let i = 0; i < cantidadPlatos; i++) {
-    let parte = base;
-    if (i < sobrante) parte = base + 1;
-    partes.push(parte);
-  }
-  return partes;
-}
-
-// "Cargar rápido": las tres acciones trabajan sobre los platos que se ven con el filtro elegido.
-// Devuelve el número del casillero, o null (y muestra el error) si está vacío o es inválido.
-function leerCargaRapida() {
-  const cantidad = leerCantidad('pRapidoCantidad');
-  if (cantidad === null) {
-    mostrarErrorModal('pError', 'Escribí un número entero mayor a 0 en "Cargar rápido".');
-  }
-  return cantidad;
-}
-
-// "A cada uno": el mismo número en cada plato visible
-function pedidoACadaUno() {
-  const cantidad = leerCargaRapida();
-  if (cantidad === null) return;
-  platosVisiblesPedido().forEach(plato => {
-    cantidadesPedido[plato.id] = String(cantidad);
-  });
-  renderizarListaPedido();
-}
-
-// "Repartir": el número en partes iguales entre los visibles (el sobrante, de a uno a los primeros)
-function pedidoRepartir() {
-  const total = leerCargaRapida();
-  if (total === null) return;
-  const visibles = platosVisiblesPedido();
-  if (visibles.length === 0) {
-    mostrarErrorModal('pError', 'No hay platos para repartir.');
-    return;
-  }
-  const partes = partesIguales(total, visibles.length);
-  visibles.forEach((plato, indice) => {
-    cantidadesPedido[plato.id] = String(partes[indice]);
-  });
-  renderizarListaPedido();
-}
-
-// "Limpiar": deja en 0 los visibles (los ocultos por el filtro no se tocan)
-function pedidoLimpiar() {
-  platosVisiblesPedido().forEach(plato => {
-    delete cantidadesPedido[plato.id];
-  });
-  renderizarListaPedido();
-}
-
-// Total de viandas pedidas, en cuántos platos, y si se puede enviar.
-// Cuenta TODOS los platos, también los que no se ven por el filtro elegido.
-function actualizarResumenPedido() {
-  let total = 0;
-  let platos = 0;
-  let hayInvalida = false;
-
-  todosPlatos.forEach(plato => {
-    const cantidad = cantidadAPedir(plato.id);
-    if (cantidad === null) {
-      hayInvalida = true;
-      return;
-    }
-    total += cantidad;
-    if (cantidad > 0) platos += 1;
-  });
-
-  document.getElementById('pTotal').textContent = 'Total: ' + conPlural(total, 'vianda', 'viandas');
-  document.getElementById('pTotalPlatos').textContent = 'en ' + conPlural(platos, 'plato', 'platos');
-
-  const errEl = document.getElementById('pError');
-  if (hayInvalida) {
-    mostrarErrorModal('pError', 'Hay una cantidad inválida: tiene que ser un número entero mayor o igual a 0.');
-  } else {
-    errEl.style.display = 'none';
-  }
-
-  document.getElementById('pEnviar').disabled = total === 0 || hayInvalida;
-}
-
-// Platos con un número mayor a 0, en el formato que espera el servidor
-function itemsDelPedido() {
-  return todosPlatos
-    .filter(plato => cantidadAPedir(plato.id) > 0)
-    .map(plato => ({ id_producto: plato.id, cantidad: cantidadAPedir(plato.id) }));
-}
-
-async function enviarPedido() {
-  const fecha = document.getElementById('pFecha').value;
-  if (!fecha) {
-    mostrarErrorModal('pError', 'Elegí para cuándo es el pedido.');
-    return;
-  }
-
-  const btn = document.getElementById('pEnviar');
-  btn.disabled = true; // evita doble click mientras se guarda
-
-  try {
-    const res = await apiFetch('/api/ordenes-produccion', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fecha_para: fecha, items: itemsDelPedido() })
-    });
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      mostrarErrorModal('pError', data.error || 'No se pudo enviar el pedido a cocina.');
-      btn.disabled = false;
-      return;
-    }
-
-    cerrarModalPedido();
-    mostrarToast('Pedido a cocina #' + data.id_orden + ' enviado.', 'exito');
-    await fetchPendientes();
-  } catch {
-    mostrarErrorModal('pError', 'No se pudo conectar con el servidor.');
-    btn.disabled = false;
-  }
-}
-
-// ==========================================
-// MODAL DESCARTAR VIANDAS
-// ==========================================
-
-function abrirModalDescarte(idProducto) {
-  const plato = todosPlatos.find(p => p.id === idProducto);
-  if (!plato) return;
-
-  platoDescarte = plato;
-  document.getElementById('dInfo').textContent =
-    plato.nombre + ' — en stock: ' + plato.stock_heladera + ' viandas';
-  document.getElementById('dCantidad').value = '';
-  document.getElementById('dCantidad').max = plato.stock_heladera;
-  document.getElementById('dMotivo').value = '';
-  document.getElementById('dError').style.display = 'none';
-  document.getElementById('dConfirmar').disabled = false;
-
-  document.getElementById('modalDescarte').style.display = 'block';
-}
-
-function cerrarModalDescarte() {
-  document.getElementById('modalDescarte').style.display = 'none';
-  platoDescarte = null;
-}
-
+// ─────────────────────────────────────────────────────────────────────────────
+// confirmarDescarte → controla lo escrito y manda el descarte
+// ENTRADA: nada (lee la cantidad y el motivo de la ventana, y platoDescarte)
+// SALIDA:  nada (si sale bien: cierra, avisa y recarga la tabla y los movimientos; si no: muestra el error en la ventana)
+// Ej: fideos con 61 libres, 2 "vencidos" → POST /api/viandas-stock/descarte → "Descarte registrado. Libres: 59."
+// ─────────────────────────────────────────────────────────────────────────────
 async function confirmarDescarte() {
-  if (!platoDescarte) return;
+  if (!platoDescarte) return;                                          // si no hay plato elegido, no hace nada
 
-  const cantidad = leerCantidad('dCantidad');
-  const motivo = document.getElementById('dMotivo').value.trim();
+  const errorVentana = document.getElementById('dError');              // donde se muestra el error
+  const textoCantidad = document.getElementById('dCantidad').value.trim();  // la cantidad escrita
+  const cantidad = Number(textoCantidad);                              // como número
+  const motivo = document.getElementById('dMotivo').value.trim();      // el motivo, sin espacios en los bordes
 
-  if (cantidad === null) {
-    mostrarErrorModal('dError', 'La cantidad tiene que ser un número entero mayor a 0.');
-    return;
+  // 1. Controles en la pantalla (el servidor y la base los vuelven a hacer)
+  let error = '';                                                      // el primer problema (vacío = ninguno)
+  if (textoCantidad === '' || !Number.isInteger(cantidad) || cantidad <= 0) {
+    error = 'La cantidad tiene que ser un número entero mayor a 0.';
+  } else if (cantidad > Number(platoDescarte.stock_heladera)) {
+    error = 'No podés descartar más viandas de las libres.';
+  } else if (!motivo) {
+    error = 'Escribí el motivo del descarte.';
   }
-  if (cantidad > platoDescarte.stock_heladera) {
-    mostrarErrorModal('dError', 'No podés descartar más viandas de las que hay en stock.');
-    return;
-  }
-  if (!motivo) {
-    mostrarErrorModal('dError', 'Escribí el motivo del descarte.');
-    return;
+  if (error) {                                                         // si hay un problema...
+    errorVentana.textContent = error;                                  // ...se muestra
+    errorVentana.style.display = 'block';
+    return;                                                            // ...y no se manda nada
   }
 
-  const btn = document.getElementById('dConfirmar');
-  btn.disabled = true;
-
+  // 2. Se manda al servidor
+  const boton = document.getElementById('dConfirmar');                 // el botón "Confirmar descarte"
+  boton.disabled = true;                                               // apagado: un doble clic no descarta dos veces
   try {
-    const res = await apiFetch('/api/viandas-stock/descarte', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id_producto: platoDescarte.id, cantidad, motivo })
+    const respuesta = await apiFetch('/api/viandas-stock/descarte', {
+      method: 'POST',                                                  // POST = registrar algo nuevo
+      headers: { 'Content-Type': 'application/json' },                 // se manda un JSON
+      body: JSON.stringify({ id_producto: platoDescarte.id, cantidad: cantidad, motivo: motivo })  // qué, cuántas y por qué
     });
-    const data = await res.json().catch(() => ({}));
+    const datos = await respuesta.json().catch(() => ({}));            // la respuesta (si no es JSON, un objeto vacío)
 
-    if (!res.ok) {
-      mostrarErrorModal('dError', data.error || 'No se pudo registrar el descarte.');
-      btn.disabled = false;
+    if (!respuesta.ok) {                                               // si no se pudo...
+      let mensaje = 'No se pudo registrar el descarte.';               // ...un mensaje por si no vino ninguno
+      if (datos.error) mensaje = datos.error;                          // ...o el del servidor
+      errorVentana.textContent = mensaje;                              // ...se muestra en la ventana
+      errorVentana.style.display = 'block';
+      boton.disabled = false;                                          // ...y se puede corregir
       return;
     }
 
-    cerrarModalDescarte();
-    mostrarToast('Descarte registrado. En stock: ' + data.stock_heladera + ' viandas.', 'exito');
-    await Promise.all([fetchPlatos(), fetchHistorial()]);
-  } catch {
-    mostrarErrorModal('dError', 'No se pudo conectar con el servidor.');
-    btn.disabled = false;
+    // 3. Salió bien
+    cerrarVentana('modalDescarte');                                    // se cierra la ventana
+    mostrarToast('Descarte registrado. Libres: ' + datos.stock_heladera + '.', 'exito');  // se avisa cuántas quedaron libres
+    await Promise.all([cargarPlatos(true), cargarMovimientos(false)]); // se recargan la tabla y los movimientos
+  } catch (error) {                                                    // si no hubo respuesta...
+    console.error('No se pudo registrar el descarte:', error);         // ...el detalle a la consola
+    errorVentana.textContent = 'No se pudo conectar con el servidor.'; // ...y un mensaje simple
+    errorVentana.style.display = 'block';
+    boton.disabled = false;
   }
 }
 
-// Cerrar los modales al hacer click afuera
-window.addEventListener('click', (e) => {
-  if (e.target === document.getElementById('modalDescarte')) cerrarModalDescarte();
-  if (e.target === document.getElementById('modalPendientes')) cerrarModalPendientes();
-});
 
-// ==========================================
-// TOAST (mismo aviso flotante que stock.js)
-// ==========================================
+// ─────────────────────────────────────────────────────────────────────────────
+// cerrarVentana → cierra una ventana (modal) de la pantalla
+// ENTRADA: idVentana: 'modalPedido', 'modalPendientes' o 'modalDescarte'
+// SALIDA:  nada (la esconde; si es la de descartar, se olvida el plato elegido)
+// ─────────────────────────────────────────────────────────────────────────────
+function cerrarVentana(idVentana) {
+  document.getElementById(idVentana).style.display = 'none';           // se esconde
+  if (idVentana === 'modalDescarte') platoDescarte = null;             // ya no hay plato para descartar
+}
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// mostrarToast → un aviso flotante que se va solo a los 3,5 segundos (el mismo de stock.js)
+// ENTRADA: mensaje (el texto) y tipo: 'exito' (verde) o 'error' (rojo)
+// SALIDA:  nada (lo muestra y lo saca solo)
+// ─────────────────────────────────────────────────────────────────────────────
 function mostrarToast(mensaje, tipo) {
-  const toast = document.createElement('div');
-  toast.className   = `toast-stock ${tipo}`;
-  toast.textContent = mensaje;
-  document.body.appendChild(toast);
-
-  requestAnimationFrame(() => toast.classList.add('visible'));
-
-  setTimeout(() => {
-    toast.classList.remove('visible');
-    setTimeout(() => toast.remove(), 300);
+  const toast = document.createElement('div');                         // el aviso
+  toast.className = 'toast-stock ' + tipo;                             // su estilo y su color
+  toast.textContent = mensaje;                                         // textContent: el texto no se interpreta como HTML
+  document.body.appendChild(toast);                                    // se agrega a la página
+  requestAnimationFrame(() => toast.classList.add('visible'));         // en el próximo dibujo aparece (con animación)
+  setTimeout(() => {                                                   // a los 3,5 segundos...
+    toast.classList.remove('visible');                                 // ...empieza a irse
+    setTimeout(() => toast.remove(), 300);                             // ...y a los 0,3 segundos se borra
   }, 3500);
 }

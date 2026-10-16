@@ -65,7 +65,7 @@ OK a todo: 1) se puede repetir el nombre; 2) límites ok; 3) "🍱 Combos" despu
 ### 🔴 Modo potente (Effort Max)
 ```
 Seguí con el paso 9: crear_pedido_combos en sql/. Pensá a fondo.
-IMPORTANTE: por ahora SIN HELADERA. No descuentes stock_heladera, no escribas en movimientos_viandas y no controles stock de heladera. Dejá cantidad_de_heladera en 0.
+IMPORTANTE: no toques el index viejo ni POST /api/pedidos.
 Sí tiene que: ser todo o nada; validar en la base (combo activo, plato en el menú de ese combo y activo, suma justa = cantidad del combo, texto personalizado no vacío y hasta 150); guardar pedidos + pedido_combos + pedido_detalles (precio_unitario = precio del combo / cantidad, personalizado, observaciones_plato); el total sale de combos.precio. Con revoke/grant.
 Mostrame el plan antes de escribir y explicame el SQL con comentarios en cada línea.
 ```
@@ -77,7 +77,7 @@ Pensá a fondo. Antes de conectar la heladera, quiero ENTENDER qué tengo hoy. N
 Escribilo en docs/informe_heladera.md, en español simple, con tablas y ejemplos. Después frená.
 ```
 
-**Patrón:** (1) qué probé y cómo salió, (2) qué paso sigue, (3) restricciones (SIN HELADERA, no tocar X), (4) "Mostrame el plan antes" o "Hacelo", (5) "frená".
+**Patrón:** (1) qué probé y cómo salió, (2) qué paso sigue, (3) restricciones (no tocar X, no hacer commit), (4) "Mostrame el plan antes" o "Hacelo", (5) "frená".
 Cuando hay que cambiar reglas: "Actualicé el CLAUDE.md: releelo completo".
 
 ## 4. Cómo trabajamos un paso (rutina)
@@ -89,7 +89,9 @@ Cuando hay que cambiar reglas: "Actualicé el CLAUDE.md: releelo completo".
 5. **Commit** en GitHub Desktop (revisar que no aparezca `.env`), en mejoras-fastgood.
 6. Siguiente paso.
 
-Pruebas con la base real: pedidos de prueba con nombre "PRUEBA – NO PREPARAR". Se **anulan** con el PIN. Nunca pasarlos a estado 3 o 4 (descuenta insumos de verdad).
+Pruebas con la base real: pedidos de prueba con nombre "PRUEBA – NO PREPARAR". Se **anulan** con el PIN (devuelve las viandas a la heladera).
+Nunca pasar a 3 uno con personalizados (descuenta insumos de verdad), ni ninguno a 4 (en 4, anular no devuelve las viandas).
+Uno todo de heladera sí puede llegar a 3: no gasta insumos.
 
 ## 5. La base de datos (Supabase, base REAL)
 
@@ -101,7 +103,7 @@ Pruebas con la base real: pedidos de prueba con nombre "PRUEBA – NO PREPARAR".
 |---|---|
 | **categorias** | id, nombre |
 | **planes** | id, nombre, activo, id_categoria → categorias, id_cocinero → usuarios (respaldo), id_cocinero_suplente → usuarios, (codigo?) |
-| **productos** (platos) | id, id_plan → planes, nombre, descripcion, imagen (URL bucket `imagenes-productos`), precio, (descuento?), activo, **id_cocinero → usuarios** (el cocinero es POR PLATO), **stock_heladera** (viandas en heladera), codigo_plato (?), (stock mínimo heladera?) |
+| **productos** (platos) | id, id_plan → planes, nombre, descripcion, imagen (URL bucket `imagenes-productos`), precio, (descuento?), activo, **id_cocinero → usuarios** (el cocinero es POR PLATO), **stock_heladera** (viandas LIBRES en la heladera: las vendidas no cuentan), codigo_plato (?), **stock_minimo** (default 5; no hay pantalla para cambiarlo) |
 | **insumos** | id, nombre, unidad_medida (`g`, `ml`, `u`), stock_actual, stock_minimo, categoría, dias_duracion (para calcular vencimiento), activo |
 | **producto_insumo** (receta) | id_producto → productos, id_insumo → insumos, cantidad necesaria |
 | **movimientos_stock** (libreta de INSUMOS) | id, id_insumo, id_usuario, tipo (ENTRADA/SALIDA…), cantidad, motivo, fecha, id_compra → compras, fecha_vencimiento, (id_pedido?) |
@@ -115,8 +117,8 @@ Pruebas con la base real: pedidos de prueba con nombre "PRUEBA – NO PREPARAR".
 | **combos** | id, id_plan → planes, nombre, cantidad (>0), precio (≥0), activo |
 | **combo_productos** (menú) | id, id_combo → combos (on delete cascade), id_producto → productos, activo, UNIQUE(id_combo, id_producto) |
 | **pedido_combos** | id, id_pedido → pedidos, id_combo → combos, precio (el que se cobró) |
-| **movimientos_viandas** (libreta de la HELADERA) | id, id_producto → productos, id_usuario → usuarios, id_pedido → pedidos (null si no es venta), id_lote (int SIN clave foránea), tipo CHECK in ('produccion','venta','devolucion','descarte','ajuste'), cantidad (≠0; + entra, − sale), motivo, fecha (default now) |
-| **orden_produccion** / **orden_produccion_detalles** ("pedidos a cocina") | detalles: id, id_orden_produccion, id_producto, cantidad, hecho, id_pedido_detalle → pedido_detalles. (Cabecera: columnas a confirmar) |
+| **movimientos_viandas** (libreta de la HELADERA) | id, id_producto → productos, id_usuario → usuarios, id_pedido → pedidos (lo llenan las ventas y devoluciones), id_lote (int SIN clave foránea; NO USAR), tipo CHECK in ('produccion','venta','devolucion','descarte','ajuste'), cantidad (≠0; + entra, − sale), motivo, fecha (default now) |
+| **ordenes_produccion** / **orden_produccion_detalles** ("pedidos a cocina") | cabecera: id, id_usuario, fecha_pedido, fecha_para. Detalles: id, id_orden_produccion, id_producto, id_cocinero, cantidad, hecho, fecha_hecho, id_movimiento_vianda → movimientos_viandas, id_pedido_detalle (NO USAR: nadie la usa) |
 
 RLS activado en todas. El servidor usa la `service_role` key.
 
@@ -138,8 +140,10 @@ RLS activado en todas. El servidor usa la `service_role` key.
 | Función | Qué hace |
 |---|---|
 | `registrar_compra` | Guarda una compra con sus renglones: compras + movimientos_stock ENTRADA + suma stock_actual. Todo o nada. |
-| `crear_pedido_combos` | Parte 1 controla todo (combo activo de plan activo, plato en el menú y activo, enteros, suma justa, personalizado 1–150). Parte 2 guarda pedidos + pedido_combos + pedido_detalles. Devuelve `{ok, id_pedido, total, combos}` o `{ok:false, error}`. **SIN HELADERA** (cantidad_de_heladera=0, listo=false). |
-| `crear_orden_produccion`, `registrar_tanda_multiple` y las de heladera | Existen (pedidos a cocina, tandas, descarte/ajuste). Detalle: ver `docs/informe_heladera.md`. |
+| `crear_pedido_combos` | Parte 1 controla todo (combo activo de plan activo, plato en el menú y activo, enteros, suma justa, personalizado 1–150, **que alcancen las viandas de la heladera**). Parte 2 guarda pedidos + pedido_combos + pedido_detalles y **vende de la heladera** los platos normales (venta −, cantidad_de_heladera = cantidad, listo = true; personalizados 0 y false). Devuelve `{ok, id_pedido, total, combos}` o `{ok:false, error}` (ej. "No quedan suficientes viandas de «fideos»: pediste 16 y quedan 12"). |
+| `producir_viandas` · `anular_pedido_con_devolucion` · `descartar_viandas` (`sql/heladera.sql`) | Las otras 3 acciones de la heladera: PRODUCIR ("Hecho" de la cocina), DEVOLVER (anular en 1, 2 o 3) y DESCARTAR (con motivo). Todo o nada, con candado. |
+| `crear_orden_produccion` | "Pedir a cocina". |
+| Viejas, marcadas "NO USAR" | `marcar_detalle_hecho`, `aplicar_produccion_viandas`, `registrar_descarte_vianda` (Render todavía usa la primera y la tercera hasta el merge), `registrar_tanda_viandas`, `registrar_tanda_multiple`. Detalle: `docs/informe_heladera.md` y `docs/INFORME-CAMBIOS-HELADERA.md`. |
 
 ### Unidades
 La base guarda g / ml / u. La pantalla muestra kg / lts (≥1000). Servidor convierte al guardar (`convertirACantidadBase`), JS al mostrar (`mostrarCantidad`).
@@ -149,10 +153,10 @@ La base guarda g / ml / u. La pantalla muestra kg / lts (≥1000). Servidor conv
 ### Servidor (`server.js`)
 - Middlewares: `requireAuth`, `requireRol(...)`, limitadores (`limitePedidos` 5 cada 10 min por IP, `limiteCatalogo` 60/min), `errorInterno`, `leerToken`, `leerFechaPara`, `hoyArgentina`, `fechas` (días hábiles y feriados).
 - Rutas nuevas de combos:
-  - `GET /api/v1/combos` (pública): combos activos de plan activo con su menú y `disponibles` (stock con tope = cantidad del combo).
-  - `POST /api/pedidos-combos` (pública + limitePedidos): valida cliente/fecha (48 hs hábiles, 72 con personalizado), usuario del token o Consumidor Final, llama `crear_pedido_combos`.
+  - `GET /api/v1/combos` (pública): combos activos de plan activo con su menú y `disponibles` (las viandas libres de la heladera, con tope = cantidad del combo).
+  - `POST /api/pedidos-combos` (pública + limitePedidos): valida cliente/fecha (48 hs hábiles, 72 con personalizado), usuario del token o Consumidor Final, llama `crear_pedido_combos` (que también vende de la heladera; si no alcanza responde 400 con el mensaje).
   - Panel (roles 6, 5): `GET/POST /api/combos`, `PUT /api/combos/:id`, `PUT /api/combos/:id/activo`, `GET/POST /api/combos/:id/menu`, `PUT /api/combos/:id/menu/:idProducto/quitar`.
-- Rutas viejas que importan: `POST /api/pedidos` (formulario viejo), `GET /api/pedidos` (Consultar Pedidos + Reportes), `GET /api/cocina/tareas`, `PUT /api/pedidos/:id/listo-cocinero` (marca listos TODOS los platos de ese cocinero en ese pedido), `POST /api/pedidos/:id/anular` (con PIN), cambio de estado (estado 2 verifica insumos, 3/4 `descontarStockPedido` descuenta insumos → el doble descuento a arreglar con la heladera), `POST /api/compras`.
+- Rutas viejas que importan: `POST /api/pedidos` (formulario viejo), `GET /api/pedidos` (Consultar Pedidos + Reportes), `GET /api/cocina/tareas`, `PUT /api/pedidos/:id/listo-cocinero` (marca listos TODOS los platos de ese cocinero en ese pedido), `POST /api/pedidos/:id/anular` (con PIN; devuelve las viandas con `anular_pedido_con_devolucion`), cambio de estado `PUT /api/pedidos/:id/estado` (estado 2 verifica insumos y 3/4 `descontarStockPedido` los descuenta, **solo de lo que cocina la cocina**: el doble descuento se arregló en H1; de 1 a 2, si no hay nada para cocinar, salta a 3; un anulado no cambia más), `POST /api/compras`.
 
 ### Web nueva del cliente (`frontend/index-combos.html`, en paralelo al index viejo)
 | Archivo | Funciones |
@@ -182,23 +186,23 @@ La base guarda g / ml / u. La pantalla muestra kg / lts (≥1000). Servidor conv
 - Retiro: sin elegir local. Pago: Efectivo/Transferencia, Efectivo y Delivery vienen elegidos.
 - Nombre de combo se puede repetir. Viandas 1–100. Precio 0–9.999.999.
 - Cocina: "Listo" es UNO por pedido (marca todos mis platos de ese pedido).
-- **Con la heladera conectada**: platos de heladera nacen `listo=true` → cocina SOLO ve personalizados; pedido sin personalizados pasa directo a 3. Esto va JUNTO con la heladera (si se hace antes, los pedidos quedan trabados).
+- **Heladera conectada (H5 + H6, 15/10)**: platos de heladera nacen `listo=true` → cocina SOLO ve personalizados; un pedido sin nada para cocinar pasa directo a 3 al moverlo de 1 a 2.
 - Tareas de Cocina sigue sirviendo para: pedidos a cocina (producir para la heladera) + personalizados.
-- Anular devuelve viandas solo en estados 1, 2, 3.
+- Anular devuelve viandas solo en estados 1, 2, 3 (hecho en H4). Un anulado (5) no cambia más de estado.
 - Personalizado SÍ descuenta insumos (se cocina). Viandas de heladera NO (ya se descontaron al producir).
 - Nunca `$$` dentro de comentarios en funciones SQL.
 
-## 8. Dónde quedé exactamente (15/10/2026 tarde)
+## 8. Dónde quedé exactamente (actualizado el 15/10/2026, noche)
 
 - Pasos 1 a 16 de combos: HECHOS y probados (paso 16 = panel Combos, 16.1 a 16.4).
-- Último prompt a Claude Code: el **informe de la heladera** (`docs/informe_heladera.md`, sección 3 de arriba). Claude Code lo estaba terminando. Hay que verificar que esté y pushearlo.
+- **Heladera: pasos H0 a H6 hechos y probados; la heladera está conectada a la web nueva.** H7 (marcas "NO USAR" + prueba completa en la web) está en curso.
+- El paso que sigue y el próximo prompt están siempre en `docs/HELADERA-AVANCE.md`. Todo lo que cambió, en `docs/INFORME-CAMBIOS-HELADERA.md`.
 - Puede haber commits sin push. **Antes de seguir: push de mejoras-fastgood** y en el Proyecto "Sync now".
-- No hay planes a medio aprobar.
 
 ## 9. Lo que falta (orden)
 
-1. Leer el informe de la heladera y revisarlo juntos (yo quería entender bien las tablas antes de tocar).
-2. Heladera 🔴 (descontar al crear, nacen listos, devolver al anular, arreglar doble descuento de insumos). Pantallas de la heladera al final.
+1. Heladera: terminar H7 (la prueba completa en la web) y después H8 (pantallas), H9 (repasar el código con las reglas) y H10 (Word del recorrido). Ver `docs/HELADERA-AVANCE.md`.
+2. Antes de producción: pasar `descontarStockPedido` a una función de la base (hoy busca "pedido #N" en el texto y no es todo o nada).
 3. CSS y detalles (personalizados en el modal, texto que se borra al tocar +/−, fecha "a. m.hs" del WhatsApp).
 4. Reemplazar el index por `index-combos.html` (+ redirección de admins).
 5. Pasar a Rodriguez: desactivar combos PRUEBA (id 1) y "Prueba no usar", limpiar pedidos/compras de prueba, backup, merge, Render (Manual Deploy; el auto-deploy no anda desde el 30/9).

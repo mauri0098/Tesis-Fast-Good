@@ -1,8 +1,11 @@
-# Informe: la heladera hoy y cómo conectarla a los combos
+# Informe: la heladera y cómo se conectó a los combos
 
-> **Solo análisis.** Para escribirlo no se cambió código ni la base.
-> Fecha: 15/10/2026 · Rama: `mejoras-fastgood`.
-> Los números de los ejemplos (71 fideos, 21 berenjenas, pedido #500) son inventados para explicar.
+> **Actualizado el 15/10/2026, después de los pasos H0 a H7: la heladera YA ESTÁ CONECTADA.**
+> Este informe empezó como un análisis, escrito antes de cambiar nada. Ahora describe cómo quedó;
+> lo que todavía falta está marcado como pendiente (casi todo son pantallas: paso H8).
+> El detalle de cada cambio (antes / ahora, ENTRADA / SALIDA, ejemplos) está en `docs/INFORME-CAMBIOS-HELADERA.md`,
+> y el avance paso a paso, en `docs/HELADERA-AVANCE.md`.
+> Rama: `mejoras-fastgood`. Los números de los ejemplos (71 fideos, 21 berenjenas, pedido #500) son para explicar.
 > Los nombres de tablas, funciones y rutas son los reales.
 
 ---
@@ -15,7 +18,7 @@
 | **Cuaderno** | La tabla `movimientos_viandas`. Cada vez que entra o sale una vianda se anota un renglón. |
 | **Todo o nada** | Una función de la base que hace varias cosas juntas. Si una falla, se deshacen todas: nunca queda algo a medias. |
 | **Candado** (`for update`) | Mientras una función usa la fila de un plato, otra que quiere ese mismo plato espera su turno. Así dos personas no pisan el mismo número. |
-| **Reservadas** | Viandas que siguen en la heladera, pero ya son de un pedido que todavía no se entregó. Hoy no existen; aparecen cuando se conecten los combos (ver 5.4). |
+| **Reservadas** | Viandas que siguen en la heladera, pero ya son de un pedido que todavía no se entregó. Existen desde H6 (ver 5.4). Todavía no se muestran en pantalla (B1, paso H8). |
 
 ---
 
@@ -25,29 +28,29 @@
 
 | Dónde | Qué guarda | Ejemplo |
 |---|---|---|
-| `productos.stock_heladera` | Cuántas viandas terminadas hay de ese plato: **un solo número por plato**. La base no deja que sea negativo (`check >= 0`). | fideos → 71 |
+| `productos.stock_heladera` | Cuántas viandas **libres** hay de ese plato: **un solo número por plato**. Desde H6, las vendidas que todavía no se entregaron ya no cuentan. La base no deja que sea negativo (`check >= 0`). | fideos → 71 |
 | `productos.stock_minimo` | Desde cuántas viandas para abajo la pantalla avisa "Bajo". Arrancó en 5 para todos los platos. Si vale 0, el plato queda "Sin control". **No hay ninguna pantalla para cambiarlo.** | fideos → 5 |
 | `movimientos_viandas` (tabla) | El cuaderno: un renglón por cada entrada o salida. Columnas: plato, tipo, cantidad (+ entra / − sale, nunca 0), quién (obligatorio), pedido (opcional), motivo (texto libre) y fecha. | ver 1.4 |
-| `movimientos_viandas.id_lote` y la secuencia `movimientos_viandas_lote_seq` | Un número para agrupar varias cargas hechas juntas. Solo lo usa `registrar_tanda_multiple`, que no llama nadie, así que hoy queda vacío. **No es una tabla de lotes.** | vacío |
+| `movimientos_viandas.id_lote` y la secuencia `movimientos_viandas_lote_seq` | Un número para agrupar varias cargas hechas juntas. Solo lo usa `registrar_tanda_multiple`, que no llama nadie, así que queda vacío. **No es una tabla de lotes.** Marcados "NO USAR" (H7). | vacío |
 | `ordenes_produccion` (tabla) | El "pedido a cocina": quién lo pidió, cuándo y para qué día. | #4 · Mauri · para el 16/10 |
 | `orden_produccion_detalles` (tabla) | Cada plato de ese pedido a cocina: cantidad, cocinero, si ya está hecho y cuándo, y qué renglón del cuaderno generó. | fideos ×10 · Ana · hecho · renglón 120 |
 | `movimientos_stock.id_movimiento_vianda` | Está en las salidas de **insumos** y dice a qué producción de viandas pertenecen. Así se sabe qué gastó cada tanda. | harina −2 kg → renglón 120 |
-| `pedido_detalles.cantidad_de_heladera` | Cuántas viandas de ese renglón del pedido salieron de la heladera. **Hoy siempre 0.** | 0 |
-| `pedido_detalles.listo` | Si el plato ya está listo. Lo marca la cocina ("✓ Listo"), o se pone solo cuando el pedido pasa a 3. | no |
+| `pedido_detalles.cantidad_de_heladera` | Cuántas viandas de ese renglón del pedido salieron de la heladera. Desde H6, en los pedidos de combos: **= cantidad** en los platos normales y **0** en los personalizados. En los pedidos de la web vieja, 0. | 8 |
+| `pedido_detalles.listo` | Si el plato ya está listo. Los platos de heladera **nacen listos** (H6); los demás los marca la cocina ("✓ Listo"), o se ponen solos cuando el pedido pasa a 3. | sí |
 | `pedido_detalles.personalizado` y `observaciones_plato` | Si el plato es personalizado, y su texto. | sí · "sin sal" |
 
 ### 1.2 Los 5 tipos de renglón del cuaderno
 
-| Tipo | Signo | ¿Quién lo escribe hoy? | Ejemplo |
+| Tipo | Signo | ¿Quién lo escribe? | Ejemplo |
 |---|---|---|---|
-| `produccion` | + | `marcar_detalle_hecho` (la cocina toca "Hecho") | +10 fideos · "Pedido a cocina #4" |
-| `descarte` | − | `registrar_descarte_vianda` (botón "Descartar") | −2 fideos · "vencidos" |
-| `venta` | − | **Nadie todavía** | (va a ser) −6 fideos · pedido 500 |
-| `devolucion` | + | **Nadie todavía** | (va a ser) +6 fideos · pedido 500 |
-| `ajuste` | + o − | **Nadie** (no hay función) | (podría ser) −1 fideos · "conteo del viernes" |
+| `produccion` | + | `producir_viandas` (la cocina toca "Hecho"; desde H3, antes `marcar_detalle_hecho`) | +10 fideos · "Pedido a cocina #4" |
+| `descarte` | − | `descartar_viandas` (botón "Descartar"; desde H2, antes `registrar_descarte_vianda`) | −2 fideos · "vencidos" |
+| `venta` | − | `crear_pedido_combos` (al crear un pedido de combos, desde H6) | −6 fideos · "Pedido #500" |
+| `devolucion` | + | `anular_pedido_con_devolucion` (al anular en 1, 2 o 3, desde H4) | +6 fideos · "Anulación del pedido #500" |
+| `ajuste` | + o − | **Nadie** (no hay función; B10, opcional) | (podría ser) −1 fideos · "conteo del viernes" |
 
-La tabla ya acepta los 5 tipos y ya tiene la columna `id_pedido`, con índice para buscar rápido.
-O sea, **el cuaderno ya está preparado para las ventas. Lo que falta es una función que las escriba.**
+La tabla acepta los 5 tipos y tiene la columna `id_pedido`, con índice para buscar rápido.
+**Desde H4 y H6, las ventas y las devoluciones se escriben solas**, con el número de pedido.
 
 ### 1.3 Cómo se relacionan (dibujo)
 
@@ -63,10 +66,10 @@ O sea, **el cuaderno ya está preparado para las ventas. Lo que falta es una fun
         │  id_movimiento_vianda = "estas salidas de insumos son de la producción 120"
  movimientos_stock           (harina −2 kg, salsa −1,5 l, ...: una por insumo de la receta)
 
- pedidos (#500)  ◄──id_pedido──  movimientos_viandas (venta −6)     ← esta flecha HOY no se usa
+ pedidos (#500)  ◄──id_pedido──  movimientos_viandas (venta −6)     ← desde H6 se usa (ventas y devoluciones)
 ```
 
-### 1.4 Ejemplo: cómo se llena y se vacía hoy
+### 1.4 Ejemplo: cómo se llena y se vacía (producir y descartar)
 
 Tu prima ve que quedan pocos fideos.
 
@@ -75,7 +78,7 @@ Tu prima ve que quedan pocos fideos.
 - `orden_produccion_detalles`: fideos ×10, cocinera Ana, hecho = no.
 - La heladera **no cambia** todavía: pedir no es cocinar.
 
-**2. Ana termina y toca "Hecho"** (función `marcar_detalle_hecho`, todo o nada)
+**2. Ana termina y toca "Hecho"** (función `producir_viandas`, todo o nada; antes era `marcar_detalle_hecho`)
 - `movimientos_viandas`: renglón 120 → `produccion`, +10, Ana, motivo "Pedido a cocina #4".
 - `movimientos_stock`: una salida por cada insumo de la receta (ej. harina −2 kg), todas con `id_movimiento_vianda = 120`.
 - `productos.stock_heladera` de fideos: 71 → **81**.
@@ -83,7 +86,7 @@ Tu prima ve que quedan pocos fideos.
 - Si un insumo no alcanzaba, se carga igual: el insumo queda en negativo y aparece un aviso.
   Si el plato no tiene receta, las viandas entran igual, con aviso.
 
-**3. Dos días después se tiran 2: "Descartar"** (motivo obligatorio)
+**3. Dos días después se tiran 2: "Descartar"** (función `descartar_viandas`, motivo obligatorio)
 - `movimientos_viandas`: `descarte`, −2, motivo "vencidos".
 - fideos: 81 → **79**. Los insumos no se tocan: ya se gastaron al cocinar.
 
@@ -100,29 +103,41 @@ Si todo pasa por las funciones, se cumple esto:
 **el `stock_heladera` de un plato es igual a la suma de todos sus renglones del cuaderno.**
 
 Si alguien cambió el número a mano (por ejemplo, desde el editor de tablas de Supabase), deja de cuadrar.
-Por eso el primer paso del plan (A0) es revisar si hoy cuadra.
+Se revisó en H0 (cuadraba) y se vuelve a revisar con `sql/heladera_revisar.sql` (H7). Ahora las ventas (−)
+y las devoluciones (+) también son renglones del cuaderno, así que la regla sigue valiendo.
 
 ### 1.6 Lo que la heladera NO guarda
 
 - **No hay tabla de lotes.** "Lote" es solo el número `id_lote` de arriba, y no se usa.
 - Cuenta por plato, no vianda por vianda: no sabe cuál es más vieja ni cuándo vence. Para los combos no hace falta.
-- No sabe de qué pedido es cada vianda, porque hoy ningún pedido saca de la heladera.
+- Desde H6 sabe **qué pedido se llevó cuántas** viandas de cada plato (el renglón `venta` tiene el número de pedido),
+  pero no cuál vianda en particular.
 
 ---
 
-## 2. Las funciones de la base que ya existen
+## 2. Las funciones de la base
+
+**Las que se usan (una por acción, más las dos de siempre):**
 
 | Función | Archivo | ¿Quién la llama? | Qué hace | Heladera | Insumos |
 |---|---|---|---|---|---|
-| `aplicar_produccion_viandas` | `stock_viandas_funciones.sql` | Solo otras funciones (es interna) | Registra N viandas cocinadas: anota un renglón `produccion`, descuenta los insumos de la receta (cada salida atada a ese renglón) y suma a la heladera. **Estricta:** si falta un insumo, no hace nada. **Flexible:** carga igual, deja el insumo en negativo y avisa. | +N | − receta × N |
-| `marcar_detalle_hecho` | `Produccion.sql` | La ruta "Hecho" (cocina) | Le pone candado al renglón del pedido a cocina: si dos personas tocan "Hecho" a la vez, la segunda ve "ya estaba hecho". Después llama a la de arriba en modo **flexible** y marca el renglón como hecho. Funciona aunque el plato ya esté desactivado. | +N | − receta × N |
+| `producir_viandas` (H3) | `heladera.sql`, bloque 2 | La ruta "Hecho" (cocina) | Candado al renglón del pedido a cocina (si dos tocan "Hecho" a la vez, la segunda ve "ya estaba hecho"), al plato y a los insumos. Anota `produccion` (+N), descuenta los insumos de la receta (cada salida atada a ese renglón; si falta, carga igual, lo deja en negativo y avisa) y marca el renglón como hecho. Funciona aunque el plato ya esté desactivado. | +N | − receta × N |
+| `crear_pedido_combos` (cambiada en H6) | `pedido_combos_funciones.sql` | `POST /api/pedidos-combos` (web nueva) | Controla todo y guarda el pedido, sus combos y sus platos. **Con heladera:** suma por plato las viandas normales de todos los combos, pone candado a todos los platos del pedido, controla que alcance ("No quedan suficientes viandas de «fideos»: pediste 16 y quedan 12"), anota `venta` (−) y resta. Platos normales: `cantidad_de_heladera` = cantidad y `listo` = sí. Personalizados: 0 y no. | − platos normales | no |
+| `anular_pedido_con_devolucion` (H4) | `heladera.sql`, bloque 3 | La ruta "Anular" (con PIN) | Candado al pedido. En 1, 2 o 3 devuelve, por plato, lo que falta devolver según el cuaderno de ese pedido (ventas + devoluciones) y anota `devolucion` (+). En 4 no devuelve. Lo pasa a 5. | + lo que se llevó | no |
+| `descartar_viandas` (H2) | `heladera.sql`, bloque 1 | La ruta "Descartar" | Candado al plato, controla motivo (obligatorio, hasta 200) y que alcance, anota `descarte` (−N) y resta. | −N | no |
 | `crear_orden_produccion` | `Produccion.sql` | La ruta "Pedir a cocina" | Crea el pedido a cocina con sus platos. Controla la fecha (no puede ser pasada), que los platos existan y estén activos, y las cantidades. El cocinero es el del plato o, si no tiene, el del plan. | no | no |
-| `registrar_descarte_vianda` | `stock_viandas_funciones.sql` | La ruta "Descartar" | Le pone candado al plato, controla que alcance, anota un renglón `descarte` (−N) y resta. | −N | no |
-| `registrar_tanda_viandas` | `stock_viandas_funciones.sql` | **Nadie** (la ruta `/tanda` ya no existe) | Carga una tanda suelta en modo **estricto**. Exige que el plato esté activo y tenga receta. | +N | − |
-| `registrar_tanda_multiple` | `stock_viandas_funciones.sql` | **Nadie** | Carga varias tandas juntas (todo o nada), agrupadas con `id_lote`. ⚠ Acá "combo" quiere decir "varios platos cargados juntos", **no** los combos que se venden ahora. | +N | − |
-| `crear_pedido_combos` | `pedido_combos_funciones.sql` | `POST /api/pedidos-combos` (web nueva) | Controla todo y guarda el pedido, sus combos y sus platos. **Hoy no toca la heladera:** deja `cantidad_de_heladera` en 0 y `listo` en no. | no (todavía) | no |
 
-Lo que **no existe**: una función para `venta`, otra para `devolucion` y otra para `ajuste`.
+**Las viejas, marcadas "NO USAR" (H7)** (no se borran; las marcas están en el `.sql` y en la base):
+
+| Función | La reemplaza | ¿Alguien la usa? |
+|---|---|---|
+| `marcar_detalle_hecho` | `producir_viandas` | Sí: el servidor viejo (Render), hasta el merge |
+| `aplicar_produccion_viandas` | `producir_viandas` | Sí, por dentro de `marcar_detalle_hecho` |
+| `registrar_descarte_vianda` | `descartar_viandas` | Sí: el servidor viejo (Render), hasta el merge |
+| `registrar_tanda_viandas` | (nada: la ruta `/tanda` ya no existe) | No |
+| `registrar_tanda_multiple` | (nada) ⚠ acá "combo" quiere decir "varios platos cargados juntos" | No |
+
+Lo que **no existe**: una función para `ajuste` (B10, opcional, siempre después de B1).
 
 Lo bueno que comparten todas:
 - Son todo o nada.
@@ -132,16 +147,17 @@ Lo bueno que comparten todas:
 
 ---
 
-## 3. Pantallas y rutas que hoy tocan la heladera
+## 3. Pantallas y rutas que tocan la heladera
 
 ### 3.1 Pantallas
 
 | Pantalla | Archivos | Qué hace con la heladera | Quién la ve |
 |---|---|---|---|
-| **Producción** | `heladera.html`, `heladera.js`, `pedidosCocina.js` | Tabla de platos activos con En stock, Mínimo y Estado (Sin stock / Bajo / Bien / Sin control), con filtros y la franja "Te faltan N platos". Botones: Pedir a cocina (y "Pedir los que faltan"), Pendientes de cocina y Descartar. Paneles "Hecho hoy" y "Últimos movimientos" (los últimos 50, sin número de pedido). Se actualiza sola cada 60 segundos. | Roles 6, 5 y 1; el 2 también entra, pero no puede pedir a cocina |
-| **Tareas de Cocina** | `cocinero.html`, `cocinero.js`, `pedidosCocina.js` | Arriba, la sección **"Para stock"** (los pedidos a cocina pendientes), con el botón **Hecho**, que suma a la heladera. Abajo, los pedidos de clientes en estado 2, que no tocan la heladera. | Rol 2 (los roles 6, 5 y 1 solo miran) |
+| **Producción** | `heladera.html`, `heladera.js`, `pedidosCocina.js` | Tabla de platos activos con En stock, Mínimo y Estado (Sin stock / Bajo / Bien / Sin control), con filtros y la franja "Te faltan N platos". Botones: Pedir a cocina (y "Pedir los que faltan"), Pendientes de cocina y Descartar. Paneles "Hecho hoy" y "Últimos movimientos" (los últimos 50; desde H6 incluyen las ventas y devoluciones, con el número de pedido en el motivo: "Pedido #N", "Anulación del pedido #N"). "En stock" muestra las **libres** (B1 agrega "Reservadas"). Se actualiza sola cada 60 segundos. | Roles 6, 5 y 1; el 2 también entra, pero no puede pedir a cocina |
+| **Tareas de Cocina** | `cocinero.html`, `cocinero.js`, `pedidosCocina.js` | Arriba, la sección **"Para stock"** (los pedidos a cocina pendientes), con el botón **Hecho**, que suma a la heladera. Abajo, los pedidos de clientes en estado 2: como los platos de heladera nacen listos, **solo se ven los personalizados**. | Rol 2 (los roles 6, 5 y 1 solo miran) |
 | **Movimientos de Stock** (insumos) | `MovimientosStock.html`, `MovimientosStock.js` | Muestra las salidas de insumos de cada producción, agrupadas ("Pedido a cocina #4", o "Producción" en las tandas viejas). Solo lee. | Roles 6, 5 y 1 |
-| **Web de combos** | `index-combos.html`, `combosCatalogo.js`, `armarCombo.js` | Solo **lee**. De cada plato del menú recibe `disponibles` = lo que hay, con tope en la cantidad del combo, y no deja elegir más (salvo personalizado). | Pública |
+| **Web de combos** | `index-combos.html`, `combosCatalogo.js`, `armarCombo.js`, `pedidoCombos.js` | De cada plato del menú recibe `disponibles` = las libres, con tope en la cantidad del combo, y no deja elegir más (salvo personalizado). **Al confirmar, el pedido saca de la heladera** (H6); si no alcanza, muestra "No quedan suficientes viandas…" y no se crea. | Pública |
+| **Consultar Pedidos** | `ConsultarPedidos.html`, `ListarPedidos.js` | Anular (con PIN) devuelve las viandas en 1, 2 o 3 (H4). Un anulado tiene el select de estado bloqueado. De 1 a 2, un pedido sin nada para cocinar salta solo a 3, con un aviso (H5). | Roles 6, 5 y 1 |
 
 Roles: 1 Administrador · 2 Cocinero · 5 Dueño · 6 Administrador del sistema.
 
@@ -150,28 +166,31 @@ Roles: 1 Administrador · 2 Cocinero · 5 Dueño · 6 Administrador del sistema.
 | Ruta | Roles | Qué hace | Función de la base |
 |---|---|---|---|
 | `GET /api/viandas-stock` | 6, 5, 1, 2 | Platos **activos** con su stock, mínimo y plan, y si tienen receta | — |
-| `POST /api/viandas-stock/descarte` | 6, 5, 1, 2 | Descarta (el motivo es obligatorio, hasta 200 letras) | `registrar_descarte_vianda` |
+| `POST /api/viandas-stock/descarte` | 6, 5, 1, 2 | Descarta (el motivo es obligatorio, hasta 200 letras) | `descartar_viandas` (H2) |
 | `POST /api/ordenes-produccion` | 6, 5, 1 | Crea un pedido a cocina | `crear_orden_produccion` |
 | `GET /api/ordenes-produccion/pendientes` | 6, 5, 1, 2 | Platos pedidos a cocina sin hacer (el cocinero ve los suyos y los que no tienen cocinero) | — |
-| `POST /api/ordenes-produccion/detalles/:id/hecho` | 6, 5, 1, 2 | Lo marca hecho: entran viandas, salen insumos | `marcar_detalle_hecho` |
+| `POST /api/ordenes-produccion/detalles/:id/hecho` | 6, 5, 1, 2 | Lo marca hecho: entran viandas, salen insumos | `producir_viandas` (H3) |
 | `GET /api/ordenes-produccion/hechos-hoy` | 6, 5, 1, 2 | Lo hecho hoy (hora de Argentina) y quién lo marcó | — |
 | `GET /api/movimientos-viandas` | 6, 5, 1, 2 | Los últimos 50 renglones del cuaderno (**no trae `id_pedido`**) | — |
 | `GET /api/movimientos-stock` | 6, 5, 1 | Los movimientos de insumos, cada uno con su producción de viandas | — |
 | `GET /api/v1/combos` | Pública (con límite por IP) | Los combos para la web, con `disponibles` por plato | — |
+| `POST /api/pedidos-combos` | Pública (con límite por IP) | Crea un pedido de combos: **saca de la heladera** los platos normales (H6) | `crear_pedido_combos` |
+| `POST /api/pedidos/:id/anular` | 6, 5, 1 (con PIN y límite de intentos) | Anula; en 1, 2 o 3 devuelve las viandas (H4) | `anular_pedido_con_devolucion` |
+| `PUT /api/pedidos/:id/estado` | 6, 5, 1, 3 | Cambia el estado. Un anulado no cambia más (H4). De 1 a 2, sin nada para cocinar, salta a 3 (H5) | — (server.js) |
 
-### 3.3 Lo que hoy NO toca la heladera (y conviene saberlo)
+### 3.3 Qué hace ahora cada cosa con la heladera
 
-| Qué | Qué hace hoy |
+| Qué | Qué hace |
 |---|---|
-| Crear un pedido de combos (`crear_pedido_combos`) | Guarda el pedido, pero la heladera no baja. Todos los platos le aparecen a la cocina. |
-| Crear un pedido viejo (`POST /api/pedidos`, la web vieja) | Lo mismo: no mira la heladera y la cocina cocina todo. |
-| Pasar a 2 "En Preparación" | `verificarStockPedido` revisa que alcancen los **insumos** de TODO el pedido (receta × cantidad). Si no alcanzan, no deja pasar. |
-| Pasar a 3 "Listo para Entregar" o a 4 "Entregado" | `descontarStockPedido` descuenta los **insumos** de TODO el pedido, una sola vez por pedido. Al pasar a 3 marca todos los platos como listos. |
-| Anular (con PIN) | Solo cambia el estado a 5. No devuelve nada. |
-| Tareas de Cocina (`/api/cocina/tareas`, `cocinero.js`) | No toca la heladera, pero **esconde los platos que tienen `listo` = sí**. Esto va a servir (ver 4 ✅ punto 9). |
+| Crear un pedido de combos (`crear_pedido_combos`) | **Saca de la heladera** los platos normales (venta −). Los personalizados no salen y le aparecen a la cocina (H6). |
+| Crear un pedido viejo (`POST /api/pedidos`, la web vieja) | No mira la heladera, igual que antes: la cocina cocina todo. |
+| Pasar a 2 "En Preparación" | `verificarStockPedido` revisa los **insumos solo de lo que cocina la cocina** (cantidad − cantidad_de_heladera, H1). Si no alcanzan, no deja pasar. Si no hay nada para cocinar, **salta a 3** (H5). |
+| Pasar a 3 "Listo para Entregar" o a 4 "Entregado" | `descontarStockPedido` descuenta los **insumos solo de lo que cocina la cocina** (H1), una sola vez por pedido. Al pasar a 3 marca todos los platos como listos. |
+| Anular (con PIN) | En 1, 2 o 3 **devuelve** las viandas a la heladera (devolucion +); en 4 no. Lo pasa a 5, y un anulado ya no cambia de estado (H4). |
+| Tareas de Cocina (`/api/cocina/tareas`, `cocinero.js`) | No toca la heladera y **esconde los platos que tienen `listo` = sí**: ve solo los personalizados. |
 
-**En resumen: hoy la heladera es una isla.** Entran viandas (producción) y salen (descarte), pero ningún pedido la toca.
-Por eso el número de Producción no baja cuando se vende.
+**En resumen: la heladera ya no es una isla.** Entran viandas (producción y devoluciones) y salen (ventas y descartes),
+cada una con su renglón en el cuaderno. El número de Producción baja cuando se vende.
 
 ---
 
@@ -189,35 +208,33 @@ Por eso el número de Producción no baja cuando se vende.
 8. La web ya limita lo que se elige con `disponibles`, y no muestra el stock real completo.
 9. La cocina ya esconde los platos con `listo` = sí, tanto en `/api/cocina/tareas` como en `cocinero.js`.
    Si los platos de heladera nacen listos, la cocina ve solo los personalizados **sin cambiar la pantalla de cocina**.
+   (Así quedó desde H6.)
 10. Ya existe el usuario Consumidor Final. Sirve para firmar las ventas de los pedidos sin login, porque en el cuaderno quién es obligatorio.
 
-### ⚠️ Está mal o sobra
+### ⚠️ Estaba mal o sobraba (y cómo quedó)
 
-| # | Qué | Por qué importa | Qué propongo |
-|---|---|---|---|
-| 1 | `verificarStockPedido` y `descontarStockPedido` (a través de `calcularConsumoPedido`) usan la cantidad **total** de cada plato | Con la heladera conectada, a las viandas de heladera se les descontarían los insumos **dos veces**: al cocinarlas y al pasar a 3. Y al pasar a 2 podrían frenar un pedido por "falta harina" aunque las viandas ya estén hechas. | **A1:** contar solo `cantidad − cantidad_de_heladera`. |
-| 2 | `descontarStockPedido` no es todo o nada | Si falla a la mitad, quedan insumos descontados sin su movimiento. Además lee el stock y recién después escribe, así que dos cambios de estado al mismo tiempo pueden pisarse. | **C1** (opcional): pasarlo a una función de la base. |
-| 3 | Para no descontar dos veces, busca el texto "pedido #100" en el motivo | Ese texto también está dentro de "pedido #1000". Si se procesa el #1000 antes que el #100, el #100 no descuenta nada. | **C1** también lo arregla. |
-| 4 | Sus mensajes de error llevan el detalle interno de la base y se le muestran a tu prima | Va contra la regla del CLAUDE.md de no mostrar errores internos. | En **A1**, de paso (si me das el OK). |
-| 5 | `console.log('[DEBUG RECETA]')` y `[STOCK DEBUG]` en `calcularConsumoPedido` | Llenan la consola del servidor en cada cambio de estado. | En **A1**, de paso (si me das el OK). |
-| 6 | Un pedido Anulado (estado 5) se puede volver a mover a otro estado: la grilla muestra el selector y el servidor lo deja | Con la heladera conectada, las viandas ya volvieron pero el pedido "revive", y los números dejan de cuadrar. | **A3:** que 5 sea final en el servidor. **B2:** que la grilla ni lo ofrezca. |
-| 7 | `GET /api/viandas-stock` solo trae platos activos | Si se desactiva un plato que tiene viandas en la heladera, desaparece de Producción y esas viandas no se pueden ni descartar. | **B5** |
-| 8 | No hay pantalla para cambiar el mínimo de cada plato (todos tienen 5) | Con combos de 10 viandas, 5 es poco: el aviso "Bajo" llega tarde. | **B4** |
-| 9 | `registrar_tanda_viandas`, `registrar_tanda_multiple`, `id_lote` y su secuencia no los usa nadie | No hacen daño (solo el servidor puede llamarlas), pero confunden, y ahí "combo" significa otra cosa. | Dejarlas: no se borra nada sin preguntarte. Marcarlas "sin uso" en los comentarios (**B9**). |
-| 10 | Un comentario viejo en `stock_viandas_funciones.sql` nombra la ruta `/tanda`, y `docs/informe_stock_viandas.md` describe rutas que ya no existen | Confunden al leer. | **B9:** actualizarlos. |
+| # | Qué | Por qué importa | Qué se propuso | Cómo quedó |
+|---|---|---|---|---|
+| 1 | `verificarStockPedido` y `descontarStockPedido` (a través de `calcularConsumoPedido`) usaban la cantidad **total** de cada plato | Con la heladera conectada, a las viandas de heladera se les descontarían los insumos **dos veces**: al cocinarlas y al pasar a 3. Y al pasar a 2 podrían frenar un pedido por "falta harina" aunque las viandas ya estén hechas. | **A1:** contar solo `cantidad − cantidad_de_heladera`. | ✅ H1 |
+| 2 | `descontarStockPedido` no es todo o nada | Si falla a la mitad, quedan insumos descontados sin su movimiento. Además lee el stock y recién después escribe, así que dos cambios de estado al mismo tiempo pueden pisarse. | **C1** (opcional): pasarlo a una función de la base. | Pendiente (anotado en HELADERA-AVANCE, antes de producción) |
+| 3 | Para no descontar dos veces, busca el texto "pedido #100" en el motivo | Ese texto también está dentro de "pedido #1000". Si se procesa el #1000 antes que el #100, el #100 no descuenta nada. | **C1** también lo arregla. | Pendiente (junto con el 2) |
+| 4 | Sus mensajes de error llevaban el detalle interno de la base y se le mostraban a tu prima | Va contra la regla del CLAUDE.md de no mostrar errores internos. | En **A1**, de paso. | ✅ H1 (409 / 500 con mensaje simple) |
+| 5 | `console.log('[DEBUG RECETA]')` y `[STOCK DEBUG]` en `calcularConsumoPedido` | Llenaban la consola del servidor en cada cambio de estado. | En **A1**, de paso. | ✅ H1 |
+| 6 | Un pedido Anulado (estado 5) se podía volver a mover a otro estado: la grilla mostraba el selector y el servidor lo dejaba | Con la heladera conectada, las viandas ya volvieron pero el pedido "revive", y los números dejan de cuadrar. | **A3:** que 5 sea final en el servidor. **B2:** que la grilla ni lo ofrezca. | ✅ H4 (servidor y grilla) |
+| 7 | `GET /api/viandas-stock` solo trae platos activos | Si se desactiva un plato que tiene viandas en la heladera, desaparece de Producción y esas viandas no se pueden ni descartar. | **B5** | Pendiente (H8) |
+| 8 | No hay pantalla para cambiar el mínimo de cada plato (todos tienen 5) | Con combos de 10 viandas, 5 es poco: el aviso "Bajo" llega tarde. | **B4** | Pendiente (H8) |
+| 9 | `registrar_tanda_viandas`, `registrar_tanda_multiple`, `id_lote` y su secuencia no los usa nadie | No hacen daño (solo el servidor puede llamarlas), pero confunden, y ahí "combo" significa otra cosa. | Dejarlas y marcarlas "sin uso" (**B9**). | ✅ H7: marcadas "NO USAR" en el `.sql` y en la base |
+| 10 | Un comentario viejo en `stock_viandas_funciones.sql` nombra la ruta `/tanda`, y `docs/informe_stock_viandas.md` describe rutas que ya no existen | Confunden al leer. | **B9:** actualizarlos. | ✅ el comentario (H7). `informe_stock_viandas.md`: pendiente (B9) |
 
-### ❌ Falta para conectar los combos
+### ✅ Lo que faltaba para conectar los combos (ya está)
 
-1. **`crear_pedido_combos`** tiene que:
-   - controlar que alcance la heladera;
-   - descontar;
-   - anotar la `venta`;
-   - en los platos de heladera, poner `cantidad_de_heladera` = cantidad y `listo` = sí.
-2. **Anular** tiene que devolver las viandas en los estados 1, 2 y 3. Va a ser una función nueva, todo o nada.
-3. **`calcularConsumoPedido`** tiene que restar `cantidad_de_heladera`.
-4. Un pedido anulado no puede cambiar más de estado.
-5. Hay que decidir quién pasa a "Listo" un pedido que es **todo de heladera**, porque la cocina no lo va a ver (**Pregunta 1**).
-6. Al final, las pantallas: ver las reservadas, las ventas y devoluciones con su pedido, etc. (sección 6).
+1. **`crear_pedido_combos`** controla que alcance la heladera, descuenta, anota la `venta` y, en los platos de heladera,
+   pone `cantidad_de_heladera` = cantidad y `listo` = sí. ✅ H6
+2. **Anular** devuelve las viandas en los estados 1, 2 y 3, con una función nueva, todo o nada. ✅ H4
+3. **`calcularConsumoPedido`** resta `cantidad_de_heladera`. ✅ H1
+4. Un pedido anulado no cambia más de estado. ✅ H4
+5. Quién pasa a "Listo" un pedido **todo de heladera** (**Pregunta 1**): **salta solo a 3** al pasar de 1 a 2. ✅ H5
+6. Las pantallas: ver las reservadas, las ventas y devoluciones con su pedido, etc. (sección 6). Pendiente: **H8**.
 
 ---
 
@@ -226,9 +243,9 @@ Por eso el número de Producción no baja cuando se vende.
 ### 5.1 Dibujo
 
 ```
-  LLENAR LA HELADERA (ya existe)
-  ──────────────────────────────
-  Producción: "Pedir a cocina" ──► Cocina: "Hecho"  (marcar_detalle_hecho)
+  LLENAR LA HELADERA
+  ──────────────────
+  Producción: "Pedir a cocina" ──► Cocina: "Hecho"  (producir_viandas)
                                      │  insumos: − receta × 10   ◄── la ÚNICA vez para estas viandas
                                      │  cuaderno: produccion +10
                                      ▼
@@ -238,9 +255,9 @@ Por eso el número de Producción no baja cuando se vende.
               └────────────────────┬─────────────────────┘
                                    │  venta (−) AL CREAR el pedido
                                    ▼
-  VENDER (lo nuevo)
+  VENDER (desde H6)
   ─────────────────
-  Web: el cliente arma el combo ──► crear_pedido_combos (todo o nada)
+  Web: el cliente arma el combo ──► crear_pedido_combos (todo o nada; si no alcanza, no guarda nada)
                                       ├─ plato normal ──► sale de la heladera
                                       │                   cantidad_de_heladera = cantidad · listo = sí
                                       └─ personalizado ─► NO sale de la heladera
@@ -255,9 +272,9 @@ Por eso el número de Producción no baja cuando se vende.
                     │ personalizados     │
                     ▼
           Tareas de Cocina ve SOLO los personalizados
-          (un pedido todo de heladera no aparece → Pregunta 1)
+          (un pedido todo de heladera, al pasar de 1 a 2, salta solo a 3: H5)
 
-  ANULAR (con PIN)
+  ANULAR (con PIN)  — anular_pedido_con_devolucion
   ────────────────
   en 1, 2 o 3  ──► las viandas vuelven a la heladera (devolución +)
   en 4         ──► no vuelve nada (ya se entregaron)
@@ -298,9 +315,9 @@ Un cliente sin login compra un **PRUEBA Mantenimiento x10** ($137.000):
 Cómo sale el "× 1" de los insumos: se toma cada renglón y se hace `cantidad − cantidad_de_heladera`.
 Da 6 − 6 = 0, 3 − 3 = 0 y 1 − 0 = **1**. Solo el fideos "sin sal" gasta insumos.
 
-**El mismo pedido, hoy (sin conectar) y conectado:**
+**El mismo pedido, antes (sin conectar) y ahora (conectado desde H6):**
 
-| | Hoy (sin conectar) | Conectado |
+| | Antes (sin conectar) | Ahora (conectado) |
 |---|---|---|
 | La heladera al crear el pedido | no baja (71 y 21) | baja (65 y 18) |
 | La cocina ve | los 10 platos | solo el personalizado |
@@ -326,8 +343,8 @@ Cada vianda gasta sus insumos **una sola vez**:
 ### 5.4 Libres y reservadas
 
 Con la regla "se descuenta al crear el pedido", el número `stock_heladera` cambia de significado:
-- **Hoy** quiere decir "cuántas hay en la heladera".
-- **Conectado** va a querer decir "cuántas hay **libres para vender**".
+- **Antes** quería decir "cuántas hay en la heladera".
+- **Ahora (conectado)** quiere decir "cuántas hay **libres para vender**".
 
 Las 6 del pedido #500 siguen en la heladera hasta que se entregan, pero ya no se cuentan:
 
@@ -347,30 +364,32 @@ Por eso, en las pantallas, **lo primero es mostrar las reservadas (B1)**, y el A
 
 | Caso | Qué pasaría |
 |---|---|
-| Dos clientes compran las últimas 3 viandas al mismo tiempo | Por el candado del plato, el segundo espera. Después ve que no alcanza y recibe un mensaje claro, sin que nada quede guardado a medias. Además la base nunca deja negativo. |
+| Dos clientes compran las últimas 3 viandas al mismo tiempo | Por el candado del plato, el segundo espera. Después ve que no alcanza y recibe un mensaje claro, sin que nada quede guardado a medias. Además la base nunca deja negativo. **Probado en H6** con dos ventanas: la segunda recibió "No quedan suficientes viandas… quedan 6". |
 | El mismo plato en dos combos del pedido (8 + 8 fideos) | Se suman (16) para controlar y para descontar. |
 | Se anula dos veces | La segunda vez dice "ya está anulado". Además, lo que se devuelve sale del cuaderno de ese pedido (ventas − devoluciones), así que nunca se puede devolver de más. |
 | Un pedido que nunca se paga | Sus viandas quedan reservadas hasta que alguien lo anule. Conviene anular los pendientes viejos; la ventana de B6 ayuda a encontrarlos. |
 | Se rompe una vianda reservada | Para el pedido se usa una libre y se registra un descarte de 1. Si no hay libres, se pide a cocina. |
-| Pedidos de la web vieja (hasta el paso 17) | No tocan la heladera, igual que hoy (`cantidad_de_heladera` = 0): la cocina hace todo y los insumos se descuentan al pasar a 3 o 4. Todo lo nuevo funciona con los dos tipos de pedido. |
-| Pedidos de combos de prueba creados antes de conectar | Quedan como "todo a cocina" (0). Si se anulan, no devuelven nada, porque nunca sacaron de la heladera. |
+| Pedidos de la web vieja (hasta el paso 17) | No tocan la heladera, igual que antes (`cantidad_de_heladera` = 0): la cocina hace todo y los insumos se descuentan al pasar a 3 o 4. Todo lo nuevo funciona con los dos tipos de pedido. |
+| Pedidos de combos de prueba creados antes de conectar | Quedan como "todo a cocina" (0). Si se anulan, no devuelven nada, porque nunca sacaron de la heladera. (Así se anularon #5 y #6 en H4.) |
 | Personalizado de un plato sin stock | Se puede (lo decidiste vos): un personalizado no mira la heladera. |
+| Un pedido con personalizados cuando falta un insumo | No puede pasar a 2: "Stock insuficiente de «Huevo»…" (lo mostró H6 con el huevo en −35). Se resuelve cargando la compra. |
+| Un insumo con 0 en la receta que ya está en negativo | `producir_viandas` no avisa "Faltaron…" (la función vieja sí avisaba, y era un aviso falso). Decidido en H3. |
 
 ---
 
-## 6. Pantallas que habría que cambiar (al final)
+## 6. Pantallas que habría que cambiar (pendiente: paso H8)
 
-Antes, una buena noticia: **el aviso de stock bajo ya va a funcionar solo.**
+Antes, una buena noticia: **el aviso de stock bajo ya funciona solo** (desde H6 las ventas bajan el número).
 Como las ventas bajan el número, "Bajo", "Sin stock" y "Te faltan N platos" van a aparecer cuando se venda.
 Lo que falta es poder cambiar el mínimo (B4).
 
 | # | Pantalla | Qué cambiar | Para qué | Qué toca | Importancia |
 |---|---|---|---|---|---|
 | B1 | Producción (tabla) | "En stock" pasa a llamarse "Libres", y se agregan las columnas "Reservadas" y el total "En heladera" | Que el conteo de la heladera de verdad cuadre con la pantalla | `/api/viandas-stock` + `heladera.js` | **Alta** |
-| B2 | Consultar Pedidos | En Detalles, cada plato con "🧊 heladera" o "👩‍🍳 cocina". Una marca "Todo de heladera". Sin selector de estado si está anulado. Al anular, un mensaje como "Volvieron 9 viandas a la heladera". | Tu prima sabe qué pedidos no esperan a la cocina y no puede revivir un anulado | `/api/pedidos` (+ `cantidad_de_heladera`) + `ListarPedidos.js` | **Alta** |
+| B2 | Consultar Pedidos | En Detalles, cada plato con "🧊 heladera" o "👩‍🍳 cocina". Una marca "Todo de heladera". Sin selector de estado si está anulado (✅ ya está: H4). Al anular, un mensaje como "Volvieron 9 viandas a la heladera" (el servidor ya manda el número). | Tu prima sabe qué pedidos no esperan a la cocina y no puede revivir un anulado | `/api/pedidos` (+ `cantidad_de_heladera`) + `ListarPedidos.js` | **Alta** |
 | B3 | Producción (Últimos movimientos) | Filtro por tipo (Producción / Ventas / Devoluciones / Descartes) y "ver más". El número de pedido ya se va a ver en el motivo (A4). | Con ventas, 50 renglones se llenan en un día | `/api/movimientos-viandas` + `heladera.js` | Media |
-| B4 | Producción | Cambiar el mínimo de cada plato | Hoy todos tienen 5 y no hay dónde cambiarlo | ruta nueva + `heladera.js` | Media |
-| B5 | Producción | Mostrar los platos desactivados que todavía tienen viandas | Hoy desaparecen de la pantalla | `/api/viandas-stock` | Media |
+| B4 | Producción | Cambiar el mínimo de cada plato | Todos tienen 5 y no hay dónde cambiarlo | ruta nueva + `heladera.js` | Media |
+| B5 | Producción | Mostrar los platos desactivados que todavía tienen viandas | Desaparecen de la pantalla | `/api/viandas-stock` | Media |
 | B6 | Producción | Al tocar "Reservadas": qué pedidos las tienen (número, cliente, estado y fecha de entrega) | Saber quién se llevó cada vianda y encontrar pedidos viejos sin pagar | ruta nueva + `heladera.js` | Media |
 | B7 | Web del cliente | Si el servidor dice "no alcanza", volver a pedir los combos para mostrar lo que queda | Si no, el armado sigue mostrando números viejos | `pedidoCombos.js` | Media |
 | B8 | Combos (panel) | En "Menú", cuántas libres tiene cada plato. En la lista, un aviso "no alcanza para armar". | Tu prima ve si un combo se puede vender | `/api/combos/:id/menu` + `gestionCombos.js` | Baja |
@@ -383,6 +402,23 @@ Lo que falta es poder cambiar el mínimo (B4).
 ---
 
 ## 7. El plan en pasos chicos
+
+> **Este plan se hizo con otros nombres de pasos (H0 a H10).** El avance real está en `docs/HELADERA-AVANCE.md`.
+>
+> | Plan de acá | Se hizo en | Estado |
+> |---|---|---|
+> | A0 Revisar la base | H0 | ✅ |
+> | A1 `calcularConsumoPedido` | H1 | ✅ |
+> | A2 + A3 Anular devuelve y anulado final | H4 | ✅ |
+> | C2 Pedido todo de heladera pasa solo a 3 | H5 | ✅ |
+> | A4 `crear_pedido_combos` con heladera (el interruptor) | H6 | ✅ |
+> | A5 Prueba completa real | H7 | pruebas en la web |
+> | B9 / C3 Marcar "sin uso" las funciones viejas | H7 | ✅ marcadas "NO USAR" |
+> | B1 a B8 y B10 Pantallas | H8 | pendiente |
+> | C1 `descontarStockPedido` a la base | — | pendiente (antes de producción) |
+>
+> Además se hicieron funciones nuevas para producir (`producir_viandas`, H3) y descartar (`descartar_viandas`, H2),
+> para que cada una de las 4 acciones tenga su función. Más abajo queda el plan como se escribió.
 
 **La idea:** primero se preparan las piezas que hoy no cambian nada.
 El último paso (A4) es el "interruptor": desde ahí, la web nueva saca de la heladera.
@@ -474,13 +510,12 @@ Todo esto tiene que estar listo **antes del paso 17** (cuando la web nueva reemp
 
 ---
 
-## 8. Preguntas para vos (antes de A1)
+## 8. Preguntas (ya contestadas)
 
-1. **Pedido todo de heladera:** nadie en la cocina lo va a ver. Si queda en 2, tampoco aparece en Envíos, que muestra solo 3 y 4. ¿Quién lo pasa a "Listo para Entregar"?
-   - **a)** Tu prima, a mano en Consultar Pedidos: lo pasa a 2 (confirmando el pago, como siempre) y después a 3.
-     **Recomendado para empezar:** no hay que programar nada, y en B2 se le marca "Todo de heladera".
-   - **b)** Automático: al pasar a 2, si no hay nada para cocinar, salta a 3 (C2).
-2. **¿Un pedido Anulado puede volver a otro estado?** Recomiendo que **no** (5 es final). Si se anuló por error, se carga de nuevo.
-3. **En A1, ¿aprovecho** para sacar los `console.log` de debug y cambiar los mensajes que muestran el detalle de la base?
-4. **Pruebas de A5 en la base real:** tocan la heladera real un rato. ¿Está bien hacerlas cuando tu prima no esté cargando?
-5. **Funciones viejas** (tanda, tanda múltiple, `id_lote`): ¿quedan como están? Recomiendo que sí, marcadas "sin uso".
+| # | Pregunta | Respuesta |
+|---|---|---|
+| 1 | **Pedido todo de heladera:** nadie en la cocina lo va a ver y, si queda en 2, tampoco aparece en Envíos (muestra solo 3 y 4). ¿Quién lo pasa a "Listo para Entregar"? | **b) Automático:** al pasar **de 1 a 2** (cuando tu prima confirma el pago), si no hay nada para cocinar, salta solo a 3. Hecho en H5 |
+| 2 | ¿Un pedido Anulado puede volver a otro estado? | **No:** 5 es final, en el servidor y en la grilla (H4). Si se anuló por error, se carga de nuevo |
+| 3 | En A1, ¿aprovecho para sacar los `console.log` de debug y los mensajes con el detalle de la base? | **Sí** (H1), y además el login dejó de guardar emails en el log |
+| 4 | Pruebas en la base real: ¿cuando tu prima no esté cargando? | **Sí.** Producir y descartar de verdad, solo con comida real (decisión de H7) |
+| 5 | Funciones viejas (tanda, tanda múltiple, `id_lote`): ¿quedan? | **Sí, quedan**, marcadas "NO USAR" (H7), junto con las que reemplazaron las 4 funciones nuevas |

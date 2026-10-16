@@ -39,7 +39,7 @@
     <!-- Aviso de faltantes: solo para quien puede pedir y solo si falta algo (lo maneja heladera.js) -->
     <div id="avisoFaltantes" class="aviso-faltantes" style="display:none">
       <span id="avisoTexto"></span>
-      <button class="btn-confirmar" onclick="abrirModalPedido()">Pedir los que faltan</button>
+      <button class="btn-confirmar" onclick="abrirPedirACocina()">Pedir los que faltan</button>
     </div>
 
     <!-- Dos columnas en escritorio: platos (ancha) y movimientos (angosta). En celular, una debajo de la otra -->
@@ -53,8 +53,8 @@
             <input type="text" id="filtroNombre" class="filtro-input" placeholder="Buscar plato...">
           </div>
           <div class="acciones-header">
-            <button id="btnPedirCocina" class="btn-nuevo-insumo btn-pedir-cocina" onclick="abrirModalPedido()" style="display:none">+ Pedir a cocina</button>
-            <button id="btnPendientes" class="btn-secundario" onclick="abrirModalPendientes()">Pendientes de cocina</button>
+            <button id="btnPedirCocina" class="btn-nuevo-insumo btn-pedir-cocina" onclick="abrirPedirACocina()" style="display:none">+ Pedir a cocina</button>
+            <button id="btnPendientes" class="btn-secundario" onclick="cargarPendientesCocina(true)">Pendientes de cocina</button>
           </div>
         </div>
 
@@ -66,15 +66,17 @@
             <tr>
               <th>Plato</th>
               <th>Plan</th>
-              <th>En stock</th>
-              <th>Mínimo</th>
+              <th title="Las que se pueden vender">Libres</th>
+              <th title="Ya son de un pedido que todavía no se entregó">Reservadas</th>
+              <th title="Libres + reservadas: lo que hay de verdad en la heladera">En heladera</th>
+              <th title="Con menos libres que esto, el plato queda Bajo (0 = sin control)">Mínimo</th>
               <th>Estado</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody id="heladeraBody">
             <tr>
-              <td colspan="6" class="loading-text">Cargando datos...</td>
+              <td colspan="8" class="loading-text">Cargando datos...</td>
             </tr>
           </tbody>
         </table>
@@ -93,9 +95,13 @@
       <!-- ÚLTIMOS MOVIMIENTOS (lista compacta con scroll propio) -->
       <aside class="table-wrapper panel-movimientos">
         <h2 class="titulo-seccion">Últimos movimientos</h2>
+        <!-- Filtros por tipo: los arma heladera.js (Todos, Producción, Ventas, Devoluciones, Descartes) -->
+        <div id="filtrosMovimientos" class="filtros-estado filtros-movimientos"></div>
         <ul id="listaMovimientos" class="lista-movimientos">
           <li class="mov-vacio">Cargando...</li>
         </ul>
+        <!-- "Ver más": trae los 50 siguientes (heladera.js lo muestra solo si puede haber más) -->
+        <button id="btnVerMas" type="button" class="btn-secundario btn-ver-mas" hidden>Ver más</button>
       </aside>
 
     </div>
@@ -108,7 +114,7 @@
   <!-- MODAL: Pedir a cocina (se elige para cuándo y cuántas viandas de cada plato) -->
   <div id="modalPedido" class="modal">
     <div class="modal-content modal-stock modal-pedido">
-      <span class="close" onclick="cerrarModalPedido()">&times;</span>
+      <span class="close" onclick="cerrarVentana('modalPedido')">&times;</span>
       <h3>Pedir a cocina</h3>
 
       <!-- Una línea: para cuándo, filtro y cargar rápido -->
@@ -124,9 +130,9 @@
           <span>Cargar rápido</span>
           <div class="carga-rapida">
             <input id="pRapidoCantidad" type="number" min="1" step="1" placeholder="Ej: 5">
-            <button type="button" class="btn-rapido" onclick="pedidoACadaUno()">A cada uno</button>
-            <button type="button" class="btn-rapido" onclick="pedidoRepartir()">Repartir</button>
-            <button type="button" class="btn-rapido btn-limpiar" onclick="pedidoLimpiar()">Limpiar</button>
+            <button type="button" class="btn-rapido" onclick="cargaRapida('cada')">A cada uno</button>
+            <button type="button" class="btn-rapido" onclick="cargaRapida('repartir')">Repartir</button>
+            <button type="button" class="btn-rapido btn-limpiar" onclick="cargaRapida('limpiar')">Limpiar</button>
           </div>
         </div>
       </div>
@@ -141,7 +147,7 @@
           <span id="pTotal" class="pedido-total-numero"></span>
           <span id="pTotalPlatos" class="pedido-total-platos"></span>
         </div>
-        <button id="pEnviar" class="btn-confirmar btn-enviar-cocina" onclick="enviarPedido()" disabled>Enviar a cocina</button>
+        <button id="pEnviar" class="btn-confirmar btn-enviar-cocina" onclick="enviarPedidoACocina()" disabled>Enviar a cocina</button>
       </div>
     </div>
   </div>
@@ -149,7 +155,7 @@
   <!-- MODAL: Pendientes de cocina (lo pedido que todavía no se cocinó, agrupado por cocinero) -->
   <div id="modalPendientes" class="modal">
     <div class="modal-content modal-stock modal-pendientes">
-      <span class="close" onclick="cerrarModalPendientes()">&times;</span>
+      <span class="close" onclick="cerrarVentana('modalPendientes')">&times;</span>
       <h3>Pendientes de cocina</h3>
       <div id="listaPendientes" class="lista-pendientes">
         <p class="mov-vacio">Cargando...</p>
@@ -160,7 +166,7 @@
   <!-- MODAL: Descartar viandas -->
   <div id="modalDescarte" class="modal">
     <div class="modal-content modal-stock">
-      <span class="close" onclick="cerrarModalDescarte()">&times;</span>
+      <span class="close" onclick="cerrarVentana('modalDescarte')">&times;</span>
       <h3>Descartar viandas</h3>
       <p id="dInfo"></p>
 
@@ -175,7 +181,7 @@
       <div id="dError" class="modal-error"></div>
 
       <div class="modal-actions">
-        <button class="btn-cancelar" onclick="cerrarModalDescarte()">Cancelar</button>
+        <button class="btn-cancelar" onclick="cerrarVentana('modalDescarte')">Cancelar</button>
         <button id="dConfirmar" class="btn-confirmar" onclick="confirmarDescarte()">Confirmar descarte</button>
       </div>
     </div>
@@ -185,6 +191,7 @@
   <script src="../src/js/fechas.js"></script>
   <script src="../src/js/pedidosCocina.js"></script>
   <script src="../src/js/heladera.js"></script>
+  <script src="../src/js/pedirCocina.js"></script>
 
 </div> <!-- /.admin-content -->
 <script>

@@ -1,7 +1,10 @@
-# Informe: todo lo que cambió en la heladera (pasos H1 a H6)
+# Informe: todo lo que cambió en la heladera (pasos H1 a H8)
 
 > Rama `mejoras-fastgood` · 15/10/2026.
-> **H1 a H4: probados. H5 y H6: escritos;** falta correr el SQL de H6 y probar en la web (ver `docs/HELADERA-AVANCE.md`).
+> **H1 a H6: probados** (H4, H5 y H6 desde la web). Desde el 15/10 la heladera está conectada a la web nueva.
+> **H7** (marcas "NO USAR" / "USAR"): bloque 4 corrido y la 4A dio 12 filas en "sí". La prueba completa en la web se salteó (decisión tuya).
+> **H8** (pantallas, Parte 1): parada 1 (Producción) escrita, falta probarla en la web. Siguen la parada 2 (Consultar Pedidos) y la 3 (cocina y web nueva).
+> **Este informe se actualiza con cada cambio nuevo** (código, SQL, pantallas), con el mismo formato (regla del 15/10).
 > Los ejemplos usan tus datos: **fideos con 71 viandas**, el combo de prueba "PRUEBA Mantenimiento x10" y la
 > receta de fideos que mostró la prueba de H3: **300 g de harina integral y 2 huevos por vianda**.
 > En los `.sql` cada línea tiene su comentario. Acá va el código importante, sin todos los comentarios.
@@ -52,6 +55,9 @@ Alrededor de las 4 acciones cambiaron estas piezas de `server.js` y de la grilla
 | `PUT /estado` y `cambiarEstadoPedido` | Un pedido anulado no cambia más de estado; los datos que llegan se controlan | H4 |
 | `PUT /estado` | De 1 a 2, si el pedido no tiene nada para cocinar, salta directo a 3 | H5 |
 | Grilla (`ListarPedidos.js`) | No deja mover un anulado; muestra el estado que guardó el servidor | H4, H5 |
+| Marcas en la base y en los `.sql` | Las funciones viejas dicen "NO USAR" y las 4 nuevas "USAR" (solo comentarios: no cambia lo que hacen) | H7 |
+| Pantalla Producción (`heladera.js` reescrito + `pedirCocina.js` nuevo) | Libres, reservadas y en heladera; el mínimo se cambia desde la tabla; "Últimos movimientos" con filtro por tipo y "Ver más" | H8 |
+| `GET /api/viandas-stock`, `PUT /api/viandas-stock/:id/minimo` (nueva) y `GET /api/movimientos-viandas` | Traen las reservadas · cambian el mínimo (roles 6, 5 y 1) · filtran el cuaderno, de a 50 | H8 |
 
 ### Cada vianda gasta sus insumos UNA sola vez
 
@@ -119,6 +125,11 @@ Y un pedido de **10 fideos sin personalizar**, al pasar de 1 a 2, **salta direct
 - **`set search_path = public`.** La función busca las tablas solo en la carpeta `public`: nadie puede meter una tabla falsa
   con el mismo nombre en otra carpeta.
 - **`raise exception` (en las pruebas).** Corta con un error a propósito: Postgres deshace todo lo que hizo el bloque.
+- **`comment on ... is '...'`.** Guarda un texto pegado a una función, columna o secuencia. No cambia lo que hace.
+  Ej: `comment on function marcar_detalle_hecho(integer, uuid) is 'NO USAR…';` → esa función queda con ese cartel.
+  Si después se vuelve a crear la función con `create or replace`, el cartel queda.
+- **`obj_description(...)` / `col_description(...)`.** Leen ese texto. Ej: `obj_description(<la función producir_viandas>, 'pg_proc')`
+  → `'USAR. PRODUCIR (paso H3)…'`. Si no tiene comentario, dan vacío (null).
 
 **JavaScript**
 
@@ -132,6 +143,30 @@ Y un pedido de **10 fideos sin personalizar**, al pasar de 1 a 2, **salta direct
   Ej: `[{ personalizado: null }, { personalizado: 'sin sal' }].some(p => p.personalizado)` → true.
 - **`flatMap`** (ídem). Junta las listas de adentro en una sola.
   Ej: `[{ platos: [fideos, berenjenas] }, { platos: [arroz] }].flatMap(c => c.platos)` → `[fideos, berenjenas, arroz]`.
+
+**Nuevos en H8 (pantalla Producción y sus rutas)**
+
+- **`pedidos!inner ( id_estado )` + `.in('pedidos.id_estado', [1, 2, 3])`** (Supabase). Trae cada renglón de
+  `pedido_detalles` con el estado de su pedido, y **solo** los renglones cuyo pedido está en 1, 2 o 3 (`!inner` = "si el
+  pedido no cumple, el renglón no viene"). Ej: fideos ×10 del pedido #251 (estado 2) → viene; fideos ×8 del #240 (estado 4) → no.
+- **`.gt('cantidad_de_heladera', 0)`** (Supabase). "Mayor que 0" (*greater than*). Ej: 10 → viene · 0 → no.
+- **`.range(50, 99)`** (Supabase). Del renglón 50 al 99, contando desde 0: o sea, del 51.º al 100.º.
+- **`.update({ … }).eq(…).select(…).maybeSingle()`** (Supabase). Cambia la fila y devuelve cómo quedó (o nada, si no
+  había ninguna fila que cumpliera). Ej: mínimo 5 → 100 de los fideos → `{ id: 7, stock_minimo: 100 }`.
+- **`Object.keys(objeto)`** / **`Object.values(objeto)`**. Las claves / lo que hay adentro, en una lista.
+  Ej: `Object.keys({ 7: 3, 3: 0 })` → `['3', '7']` · `Object.values({ 3: {…}, 5: {…} })` → `[{…}, {…}]`.
+- **`URLSearchParams`**. Arma la parte de la dirección que va después del `?`.
+  Ej: `{ desde: '50' }` y después `set('tipo', 'venta')` → `"desde=50&tipo=venta"`.
+- **`classList.toggle('activo', condición)`**. Pone la clase si la condición es true y la saca si es false.
+  Ej: `boton.classList.toggle('activo', 'venta' === 'venta')` → el botón queda marcado.
+- **`Promise.all([a, b, c])`**. Espera a que terminen las tres cosas (se hacen a la vez).
+  Ej: después de descartar, `Promise.all([cargarPlatos(true), cargarMovimientos(false)])`.
+- **`hidden`**. Esconde un elemento. Ej: `botonVerMas.hidden = true` → "Ver más" no se ve.
+- **`padStart(2, '0')`**. Completa con ceros adelante. Ej: `'7'.padStart(2, '0')` → `'07'`.
+- **`%` (el resto) y `Math.floor`**. `10 % 6` → 4 · `Math.floor(10 / 6)` → 1. "Repartir 10 entre 6" → base 1 y sobran 4: 2, 2, 2, 2, 1, 1.
+- **`Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' })`**. La fecha de hoy en Argentina como
+  `AAAA-MM-DD` (el formato `en-CA` escribe así), sin importar en qué país está el servidor. Ej: → `'2026-10-15'`.
+- **`localeCompare(otro, 'es')`**. Compara dos textos como el diccionario (para ordenar). Ej: `'berenjenas'.localeCompare('fideos', 'es')` → negativo (va antes).
 
 ---
 
@@ -634,6 +669,9 @@ y Envíos solo muestra 3 y 4. Se hace al pasar **de 1 a 2** porque ahí tu prima
 | Tablas | `pedido_detalles` (lee), `pedidos.id_estado` = 3, `pedido_detalles.listo` = true |
 | Después | Aparece en Envíos (si es Delivery); no aparece en Tareas de Cocina |
 
+**Probado en la web (15/10):** pedido de 10 fideos → la heladera bajó 10; al pasarlo de 1 a 2 saltó solo a "Listo para Entregar";
+anulado → volvieron 10.
+
 ### 5.2 Grilla: `cambiarEstadoPedido` (`ListarPedidos.js:203`)
 
 **ANTES**
@@ -778,6 +816,14 @@ y no se guarda nada (ni el pedido, ni la venta, ni la heladera).
 | Tablas | `pedidos`, `pedido_combos`, `pedido_detalles`, `productos.stock_heladera`, `movimientos_viandas` |
 | Después | El catálogo (`GET /api/v1/combos`, "disponibles" = lo que hay, con tope en la cantidad del combo) baja solo. Producción muestra "Venta −18 · Pedido #N". La cocina ve solo los personalizados. Al pasar de 1 a 2, H5 decide si salta a 3. Anular devuelve las 18 (H4) |
 
+**Probado en la web (15/10):** todo volvió a los números del principio.
+
+| Prueba | Qué pasó |
+|---|---|
+| 8 fideos + 2 "sin sal" | La heladera bajó 8 (los "sin sal" no). Al pasarlo a 2 frenó con "Stock insuficiente" por el Huevo en −35: es lo esperado, porque en 2 se revisan los insumos de lo que cocina la cocina (2 "sin sal" × 2 huevos = 4). Anulado → volvieron 8 |
+| 10 fideos (con H5) | Bajó 10 y al pasar de 1 a 2 saltó solo a 3. Anulado → volvieron 10 |
+| Dos ventanas comprando canelones a la vez | La primera se creó; la segunda dio "No quedan suficientes viandas de «canelones»… quedan 6" y no se creó (el candado y el control del paso 13 funcionando). La primera se anuló |
+
 ### 6.2 `server.js`: solo comentarios
 
 La ruta `POST /api/pedidos-combos` ya no dice "SIN HELADERA". Su código no cambió: el `ok: false` de la base
@@ -785,24 +831,478 @@ La ruta `POST /api/pedidos-combos` ya no dice "SIN HELADERA". Su código no camb
 
 ---
 
-## 7. Las pruebas
+## 7. H7: marcas "NO USAR" y "USAR"
+
+### 7.1 Comentarios en la base (`sql/heladera.sql`, bloque 4, líneas 473–515)
+
+| Archivo | `sql/heladera.sql`, bloque 4 |
+|---|---|
+| Qué es | 12 comentarios (`comment on`): "NO USAR" en 5 funciones viejas, 2 columnas y 1 secuencia; "USAR" en las 4 funciones nuevas |
+
+**ANTES:** las funciones viejas y las nuevas estaban instaladas una al lado de la otra, sin nada que dijera cuál usar
+(`marcar_detalle_hecho` y `producir_viandas` hacen casi lo mismo y se veían igual).
+
+**AHORA**
+```sql
+-- las viejas: "NO USAR"
+comment on function marcar_detalle_hecho(integer, uuid) is
+  'NO USAR en código nuevo (paso H7). La reemplaza producir_viandas (sql/heladera.sql). La sigue usando el servidor viejo (rama Rodriguez) hasta el merge: no borrar.';
+comment on column movimientos_viandas.id_lote is
+  'NO USAR (paso H7). Solo lo llenaba registrar_tanda_multiple (sin uso). Los renglones nuevos lo dejan vacío.';
+-- ... (y el resto, ver la tabla)
+
+-- las nuevas: "USAR"
+comment on function producir_viandas(integer, uuid) is
+  'USAR. PRODUCIR (paso H3): la cocina toca "Hecho" en un pedido a cocina. Heladera +N, insumos − receta × N (la única vez para esas viandas) y renglón "produccion". La llama POST /api/ordenes-produccion/detalles/:id/hecho.';
+```
+
+| Cosa | Marca | Por qué queda |
+|---|---|---|
+| `marcar_detalle_hecho` | NO USAR → `producir_viandas` | La usa Render (servidor viejo) hasta el merge |
+| `aplicar_produccion_viandas` | NO USAR → `producir_viandas` | La llama `marcar_detalle_hecho` por dentro |
+| `registrar_descarte_vianda` | NO USAR → `descartar_viandas` | La usa Render hasta el merge |
+| `registrar_tanda_viandas` | NO USAR (sin uso) | No se borra nada sin preguntar |
+| `registrar_tanda_multiple` | NO USAR (sin uso; "combo" = varios platos cargados juntos) | Ídem |
+| `movimientos_viandas.id_lote` y `movimientos_viandas_lote_seq` | NO USAR (sin uso) | Ídem |
+| `orden_produccion_detalles.id_pedido_detalle` | NO USAR (0 renglones la usan) | Ídem |
+| `producir_viandas`, `crear_pedido_combos`, `anular_pedido_con_devolucion`, `descartar_viandas` | USAR: PRODUCIR / VENDER / DEVOLVER / DESCARTAR, con qué ruta la llama | Son las que se usan |
+
+**Por qué.** Para que nadie (vos, otro chat o Claude Code) use una función vieja en código nuevo. Se marcan en vez de
+borrarse: regla del CLAUDE.md, y el servidor de Render todavía usa dos de ellas.
+
+| ENTRADA | SALIDA |
+|---|---|
+| Nada | Nada: solo queda un texto guardado en cada cosa. No cambia lo que hacen las funciones, no toca datos y no hace falta reiniciar el servidor |
+
+**Ejemplo con fideos.** La cocina toca "Hecho" en un pedido a cocina de 2 fideos: sigue pasando lo mismo (71 → 73).
+El servidor nuevo llama a `producir_viandas` (que dice "USAR") y el de Render a `marcar_detalle_hecho` (que dice "NO USAR…
+la sigue usando el servidor viejo hasta el merge"): las dos andan. Si un día alguien abre `marcar_detalle_hecho`, el
+comentario le dice cuál usar.
+
+| Se conecta con | |
+|---|---|
+| Pantallas y rutas | Ninguna cambia |
+| Se lee con | `sql/heladera_probar.sql`, parte 4A, y `sql/heladera_revisar.sql` (pregunta 2, columna "comentario") |
+
+### 7.2 Comprobación 4A (`sql/heladera_probar.sql`, líneas 538–584)
+
+Una consulta que solo lee: busca las 9 funciones, las 2 columnas y la secuencia, y muestra su comentario.
+
+| ENTRADA | SALIDA |
+|---|---|
+| Nada | Una tabla de 12 filas: tipo, nombre, cómo tiene que empezar el comentario ("USAR" o "NO USAR"), el comentario y `esta_bien` ("sí" si empieza bien) |
+
+Ejemplo de una fila: `función · producir_viandas · USAR · USAR. PRODUCIR (paso H3)… · sí`.
+Si una dice "(sin comentario)", el bloque 4 no se corrió o falló.
+
+### 7.3 Comentarios en los `.sql` viejos (no hay que correr nada)
+
+| Archivo | Qué se agregó |
+|---|---|
+| `sql/Produccion.sql` | Arriba de `marcar_detalle_hecho`: "⚠ NO USAR en código nuevo… la reemplaza producir_viandas" |
+| `sql/stock_viandas_funciones.sql` | Arriba de todo: "TODAS las funciones de este archivo quedan NO USAR", y una línea arriba de cada función |
+| `sql/stock_viandas_lotes.sql` | Arriba de todo: la secuencia y `id_lote` quedan "NO USAR" |
+| `sql/heladera_revisar.sql` | Los comentarios de la pregunta 2 ya no dicen que las funciones nuevas "no tendrían que estar" (eso era antes de H2). La consulta no cambió |
+
+Y se corrigió el comentario viejo que nombraba una ruta que ya no existe:
+
+**ANTES**
+```
+-- Las llama el servidor con supabase.rpc(...):
+--   POST /api/viandas-stock/tanda    → registrar_tanda_viandas
+--   POST /api/viandas-stock/descarte → registrar_descarte_vianda
+```
+**AHORA**
+```
+-- Las llamaba el servidor con supabase.rpc(...):
+--   POST /api/viandas-stock/tanda    → registrar_tanda_viandas   (esa ruta ya no existe)
+--   POST /api/viandas-stock/descarte → registrar_descarte_vianda (el servidor nuevo usa descartar_viandas)
+```
+
+**Por qué.** Quien abra el archivo ve enseguida que no tiene que usarlas. Son comentarios del archivo: no van a la base
+y no hay que correr nada.
+
+### 7.4 Documentos (solo texto)
+
+`docs/informe_heladera.md` ahora describe cómo quedó todo (cada problema con "✅ Hx" o pendiente, y las preguntas
+contestadas). `docs/ESTADO-PROYECTO.md` y `docs/CONTEXTO-COMPLETO.md` ya no dicen que la heladera falta ni "SIN HELADERA".
+
+---
+
+## 8. H8: las pantallas, con las reglas del CLAUDE.md (Parte 1)
+
+H8 va en **tres paradas**. Después de cada una se prueba en la web, y recién ahí se sigue.
+
+| Parada | Pantalla | Estado |
+|---|---|---|
+| 1 | Producción (`heladera.html`) | ✍ escrita, falta probar en la web |
+| 2 | Consultar Pedidos (`ConsultarPedidos.html`) | ⏭ después de probar la 1 |
+| 3 | Ampliada el 16/10, en tres partes: **3A** Tareas de Cocina (`pedidosCocina.js`) y la web nueva (`index-combos.html`) · **3B** los insumos de un pedido en una función de la base, con `id_pedido` (arreglo C1) · **3C** Movimientos de Stock con todo junto (insumos y viandas) | ⏭ plan mostrado, esperando OK; va después de probar la 2 |
+
+En cada parada pasan dos cosas:
+1. **El código se reescribe con las reglas del CLAUDE.md**: pocas funciones, cada una con un trabajo entero; `forEach`
+   para recorrer; nada de `? :` adentro del HTML; `escHtml` en todo lo que viene de la base; un comentario en cada línea;
+   y arriba de cada función, qué hace, su ENTRADA y su SALIDA.
+2. **Se agregan las cosas nuevas de H8.**
+
+### 8.1 Parada 1: Producción
+
+**No hay SQL para correr.** Solo hay que reiniciar el servidor (cambió `server.js`) y recargar la página.
+
+| Archivo | Qué cambió |
+|---|---|
+| `frontend/src/js/heladera.js` | Reescrito: de **54 funciones a 12**. Columnas nuevas, mínimo editable, filtros en "Últimos movimientos" y "Ver más" |
+| `frontend/src/js/pedirCocina.js` | **Nuevo.** La ventana "Pedir a cocina", que antes estaba adentro de `heladera.js`, en 7 funciones. Hace lo mismo que antes |
+| `frontend/pages/heladera.html` | 8 columnas (cada título nuevo explica qué es al pasar el mouse), el lugar de los filtros de movimientos y de "Ver más", los `onclick` con los nombres nuevos y el `<script>` de `pedirCocina.js` |
+| `frontend/src/css/heladera.css` | Al final: las columnas grises, el casillero del mínimo con su ✓, los filtros de movimientos y "Ver más" |
+| `server.js` | **Cambian:** `GET /api/viandas-stock` (trae las reservadas) y `GET /api/movimientos-viandas` (filtro y "Ver más"). **Nueva:** `PUT /api/viandas-stock/:id/minimo`. **Solo las reglas** (hacen exactamente lo mismo): `leerItemsViandas`, `POST /api/ordenes-produccion` y `GET /api/ordenes-produccion/hechos-hoy` |
+
+#### 8.1.1 Las funciones de antes y las de ahora
+
+`heladera.js` tenía 54 funciones, muchas de 3 líneas que se usaban una sola vez. Ahora son 19 (12 + 7) y cada una hace
+un trabajo entero:
+
+| Ahora | Archivo | Qué hace | Junta lo que hacían antes |
+|---|---|---|---|
+| `iniciarProduccion` | heladera.js | Al abrir: engancha botones y filtros, hace la primera carga y recarga cada 60 s | el arranque, `iniciarFiltro`, `iniciarModalPedido`, `puedePedir`, `mostrarBotonPedir`, `iniciarActualizacionAutomatica`, `hayVentanaAbierta` y el "cerrar al tocar afuera" |
+| `estadoDelPlato` | heladera.js | La regla del estado: sin stock / bajo / bien / sin control | `estadoStock` (la misma regla) |
+| `cargarPlatos` | heladera.js | Pide los platos y dibuja la tabla | `fetchPlatos` |
+| `renderizarTabla` | heladera.js | Los botones de estado, la franja "Te faltan…" y la tabla | `aplicarFiltro`, `contarEstados`, `renderizarFiltrosEstado`, `actualizarAvisoFaltantes`, `compararEstado`, `faltaPlato`, `etiquetaEstado`, `renderizarPlatos`, `crearFilaPlato` |
+| `guardarMinimo` | heladera.js | Cambia el mínimo de un plato | **nueva** |
+| `cargarMovimientos` | heladera.js | "Últimos movimientos" con filtro y "Ver más" | `fetchHistorial`, `renderizarHistorial`, `crearRenglonMovimiento`, `cantidadConSigno`, `fechaCorta` |
+| `cargarHechosHoy` | heladera.js | "Hecho hoy" | `fetchHechosHoy`, `renderizarHechosHoy`, `horaCorta` |
+| `cargarPendientesCocina` | heladera.js | Los pendientes, el número del botón y abrir la ventana | `fetchPendientes`, `abrirModalPendientes` |
+| `abrirDescarte` | heladera.js | Abre "Descartar" con los datos del plato | `abrirModalDescarte` |
+| `confirmarDescarte` | heladera.js | Controla y manda el descarte | `confirmarDescarte`, `leerCantidad`, `mostrarErrorModal` |
+| `cerrarVentana` | heladera.js | Cierra cualquiera de las 3 ventanas | `cerrarModalPedido`, `cerrarModalPendientes`, `cerrarModalDescarte` |
+| `mostrarToast` | heladera.js | El aviso flotante | `mostrarToast` (igual) |
+| `abrirPedirACocina` | pedirCocina.js | Abre "Pedir a cocina": fecha, "Mostrar" y lista limpia | `abrirModalPedido`, `planesConPlatos`, `agregarOpcion` |
+| `platosDelFiltro` | pedirCocina.js | Los platos que se ven con "Mostrar", ordenados | `platosVisiblesPedido`, `compararPlatosPedido` |
+| `renderizarListaPedido` | pedirCocina.js | La lista con −, casillero y + | `renderizarListaPedido`, `pintarFilaPedido`, `cambiarCantidadPedido`, `filtroEsPlan`, `alCambiarPlanPedido` |
+| `leerCantidadPedida` | pedirCocina.js | Lo escrito en un plato, como número | `cantidadAPedir` |
+| `actualizarTotalPedido` | pedirCocina.js | "Total: N viandas en M platos" y si se puede enviar | `actualizarResumenPedido` |
+| `cargaRapida` | pedirCocina.js | "A cada uno", "Repartir" y "Limpiar" | `pedidoACadaUno`, `pedidoRepartir`, `pedidoLimpiar`, `leerCargaRapida`, `partesIguales` |
+| `enviarPedidoACocina` | pedirCocina.js | Manda el pedido a cocina | `enviarPedido`, `itemsDelPedido` |
+
+**Por qué se separó `pedirCocina.js`.** "Pedir a cocina" es una ventana entera, con su lista, su filtro y su carga rápida
+(casi la mitad del archivo viejo). Separada, cada archivo se lee de una vez. Las dos comparten `todosPlatos` y
+`estadoDelPlato`, que están en `heladera.js` (se carga antes).
+
+Los `onclick` del HTML cambiaron de nombre:
+
+| Botón | ANTES | AHORA |
+|---|---|---|
+| "+ Pedir a cocina" y "Pedir los que faltan" | `abrirModalPedido()` | `abrirPedirACocina()` |
+| "A cada uno" / "Repartir" / "Limpiar" | `pedidoACadaUno()` / `pedidoRepartir()` / `pedidoLimpiar()` | `cargaRapida('cada')` / `cargaRapida('repartir')` / `cargaRapida('limpiar')` |
+| "Enviar a cocina" | `enviarPedido()` | `enviarPedidoACocina()` |
+| "Pendientes de cocina" | `abrirModalPendientes()` | `cargarPendientesCocina(true)` |
+| La × y "Cancelar" de las ventanas | `cerrarModalPedido()`, `cerrarModalPendientes()`, `cerrarModalDescarte()` | `cerrarVentana('modalPedido')`, `cerrarVentana('modalPendientes')`, `cerrarVentana('modalDescarte')` |
+
+#### 8.1.2 Las viandas reservadas (`GET /api/viandas-stock` y 3 columnas)
+
+| Archivo | `server.js` (ruta `GET /api/viandas-stock`) y `heladera.js` (`renderizarTabla`) |
+|---|---|
+| Qué es | La tabla muestra, por plato: **Libres** (se pueden vender), **Reservadas** (ya son de un pedido que no se entregó) y **En heladera** (las dos juntas: lo que hay de verdad) |
+
+**ANTES** (servidor): solo mandaba `stock_heladera`.
+```js
+const resultado = (data || []).map(p => {
+  ...
+  return { id: p.id, nombre: p.nombre, stock_heladera: Number(p.stock_heladera || 0), stock_minimo: ..., ... };
+});
+```
+**ANTES** (pantalla): 6 columnas: Plato · Plan · Stock · Mínimo · Estado · Acciones.
+
+**AHORA** (servidor): una segunda consulta trae las reservadas, y se suman por plato.
+```js
+// 2. Las reservadas: los platos de pedidos en 1, 2 o 3 que salieron de la heladera.
+//    Se suma cantidad_de_heladera (NO cantidad): un personalizado tiene 0, porque no salió de la heladera.
+const { data: renglones, error: errRenglones } = await supabase
+  .from('pedido_detalles')
+  .select('id_producto, cantidad_de_heladera, pedidos!inner ( id_estado )')
+  .gt('cantidad_de_heladera', 0)              // solo los que sacaron viandas de la heladera
+  .in('pedidos.id_estado', [1, 2, 3]);        // de pedidos que no se entregaron ni se anularon
+
+// 3. Las reservadas de cada plato: { id_producto: viandas }. Ej: renglones de 8 y de 10 fideos → { 7: 18 }
+const reservadasPorPlato = {};
+(renglones || []).forEach(renglon => {
+  const yaSumadas = reservadasPorPlato[renglon.id_producto] || 0;
+  reservadasPorPlato[renglon.id_producto] = yaSumadas + Number(renglon.cantidad_de_heladera);
+});
+
+// 4. Un objeto por plato
+const libres = Number(plato.stock_heladera || 0);
+const reservadas = reservadasPorPlato[plato.id] || 0;
+resultado.push({ ..., stock_heladera: libres, reservadas: reservadas, en_heladera: libres + reservadas, ... });
+```
+**AHORA** (pantalla): 8 columnas: Plato · Plan · **Libres** · **Reservadas** · **En heladera** · Mínimo · Estado · Acciones.
+```js
+<td class="celda-stock">${Number(plato.stock_heladera)}</td>      // Libres (en negrita: es la que manda)
+<td class="celda-secundaria">${Number(plato.reservadas)}</td>      // Reservadas (en gris)
+<td class="celda-secundaria">${Number(plato.en_heladera)}</td>     // En heladera (en gris)
+```
+
+**Por qué.** Desde H6, una vianda vendida sale de `stock_heladera` en el momento de la compra, pero sigue en la heladera
+de verdad hasta que se entrega. Sin estas columnas, quien cuenta la heladera ve 71 viandas y la pantalla dice 61.
+Ahora se ven las dos cosas: 61 libres + 10 reservadas = 71 en la heladera.
+
+**Por qué `cantidad_de_heladera` y no `cantidad`.** Las reservadas son las viandas que **salieron de la heladera** y
+todavía están ahí. Un personalizado ("sin sal") tiene `cantidad_de_heladera` = 0: no salió de la heladera (lo cocina la
+cocina), así que no reserva nada. Los pedidos de la web vieja también tienen 0. Los estados 4 (entregado: la vianda ya se
+fue) y 5 (anulado: las viandas volvieron a las libres, H4) no cuentan.
+
+**El estado (Sin stock / Bajo / Bien) y "Descartar" siguen mirando solo las LIBRES**: las reservadas ya son de alguien.
+
+| ENTRADA | SALIDA |
+|---|---|
+| Nada (el usuario logueado, con rol 6, 5, 1 o 2) | Un objeto por plato activo: `{ id, nombre, stock_heladera (las libres), reservadas, en_heladera, stock_minimo, id_plan, plan_nombre, plan_activo, tiene_receta }`. 500 con un mensaje simple si falla la base |
+
+**Ejemplo con fideos** (empieza con 71 libres):
+
+| Momento | Libres | Reservadas | En heladera |
+|---|---|---|---|
+| Antes | 71 | 0 | 71 |
+| Un cliente compra 10 fideos (estado 1) | 61 | 10 | 71 |
+| Pasa a 2 y salta solo a 3 (H5) | 61 | 10 | 71 |
+| Se entrega (4) | 61 | 0 | **61** (se fueron) |
+| *Si en vez de entregarse se anulaba (5, H4)* | *71* | *0* | *71* |
+
+Y un pedido de 8 fideos + 2 "sin sal": libres 63, **reservadas 8** (los 2 "sin sal" los cocina la cocina).
+
+| Se conecta con | |
+|---|---|
+| Pantalla | Producción: la tabla (y `abrirDescarte`, que avisa cuántas reservadas no se pueden descartar) |
+| Ruta | `GET /api/viandas-stock` (roles 6, 5, 1 y 2) |
+| Tablas | `productos` (`stock_heladera`, `stock_minimo`), `planes`, `producto_insumo`, `pedido_detalles` (`cantidad_de_heladera`), `pedidos` (`id_estado`) |
+
+**Seguridad.** Las reservadas las calcula el servidor desde la base, nunca la pantalla. La consulta usa `.gt` e `.in`
+(son parámetros, no texto pegado: nadie puede meter SQL). En la pantalla, cada número pasa por `Number()` y cada texto
+por `escHtml`: si un plato se llamara `<script>…`, se ve como texto y no se ejecuta (protege de XSS).
+
+#### 8.1.3 El mínimo se cambia desde la tabla (`PUT /api/viandas-stock/:id/minimo` y `guardarMinimo`)
+
+| Archivo | `server.js` (ruta nueva) y `heladera.js` (`renderizarTabla` + `guardarMinimo`) |
+|---|---|
+| Qué es | En la columna Mínimo, los roles 6, 5 y 1 ven un casillero con ✓. El cocinero ve solo el número |
+
+**ANTES.** El mínimo de un plato se veía en la tabla, pero no se podía cambiar desde ninguna pantalla (solo en la base).
+
+**AHORA** (servidor)
+```js
+const ROLES_CAMBIAN_MINIMO = [6, 5, 1];
+const MINIMO_MAXIMO = 9999;
+
+app.put('/api/viandas-stock/:id/minimo', requireAuth, requireRol(...ROLES_CAMBIAN_MINIMO), async (req, res) => {
+  const idProducto = Number(req.params.id);                           // el plato, de la dirección
+  if (!Number.isInteger(idProducto) || idProducto <= 0 || idProducto > ENTERO_MAXIMO_BASE) {
+    return res.status(400).json({ error: 'ID de plato inválido' });
+  }
+  const minimo = leerCantidadViandas(req.body?.stock_minimo, true);   // entero >= 0, o null
+  if (minimo === null || minimo > MINIMO_MAXIMO) {
+    return res.status(400).json({ error: `El mínimo tiene que ser un número entero de 0 a ${MINIMO_MAXIMO}` });
+  }
+  const { data, error } = await supabase
+    .from('productos')
+    .update({ stock_minimo: minimo })   // cambia el mínimo...
+    .eq('id', idProducto)               // ...de este plato...
+    .eq('activo', true)                 // ...solo si está activo...
+    .select('id, stock_minimo')         // ...y devuelve cómo quedó
+    .maybeSingle();                     // una fila o ninguna
+  if (error) return errorInterno(res, error);
+  if (!data) return res.status(404).json({ error: 'El plato no existe o está desactivado' });
+  res.json({ mensaje: 'Mínimo actualizado', id: data.id, stock_minimo: data.stock_minimo });
+});
+```
+**AHORA** (pantalla): el casillero se arma ANTES del HTML, con un `if` (nada de `? :` adentro):
+```js
+let celdaMinimo = String(Number(plato.stock_minimo));     // el cocinero solo ve el número...
+if (puedeAdministrar) {                                    // ...los que administran lo pueden cambiar
+  celdaMinimo = `
+    <div class="minimo-editar">
+      <input type="number" class="input-minimo" min="0" max="9999" step="1" value="${Number(plato.stock_minimo)}"
+             aria-label="Mínimo de ${escHtml(plato.nombre)}">
+      <button type="button" class="btn-guardar-minimo" title="Guardar el mínimo">✓</button>
+    </div>`;
+}
+```
+y `guardarMinimo` controla el número (entero de 0 a 9999), lo manda con `PUT` y, si sale bien, redibuja la tabla en la
+misma página (el plato puede cambiar de estado) y avisa "Mínimo de «fideos»: 100". Se guarda con ✓ o con Enter.
+
+**Por qué.** El mínimo decide si un plato está Bajo, la franja "Te faltan…" y qué se le pide a la cocina; hasta ahora
+solo se cambiaba en la base. Roles 6, 5 y 1 porque son los que piden a cocina (el cocinero cocina lo que le piden).
+
+| | ENTRADA | SALIDA |
+|---|---|---|
+| Ruta | El número de plato en la dirección y `{ stock_minimo }` en el body | `{ mensaje: 'Mínimo actualizado', id, stock_minimo }` · 400 si un dato está mal · 404 si el plato no existe o está desactivado · 401/403 sin login o sin permiso · 500 error interno |
+| `guardarMinimo` | `idProducto` y el casillero (`input`) | Nada: si sale bien, cambia el mínimo en `todosPlatos`, redibuja y avisa; si no, avisa el error y deja el casillero para corregir |
+
+**Ejemplo con fideos** (61 libres, mínimo 5 → "Bien"): escribís 100 y tocás ✓ →
+`PUT /api/viandas-stock/7/minimo` con `{ stock_minimo: 100 }` → la fila pasa a **Bajo** (61 < 100), aparece la franja
+"Te faltan 1 plato: 1 bajo" y el aviso "Mínimo de «fideos»: 100". Lo volvés a 5 → "Bien" otra vez.
+Con 0 → "Sin control" (nunca falta).
+
+| Control de seguridad | Qué protege, y de qué |
+|---|---|
+| `requireAuth` | Sin login → 401. Nadie de internet puede cambiar mínimos |
+| `requireRol(6, 5, 1)` | Un cocinero que llame a la ruta desde la consola del navegador → 403. La pantalla le esconde el casillero, pero el que decide es el servidor |
+| Número de plato entero > 0 | Rechaza `7abc`, `-1` o `1.5` con 400, antes de tocar la base |
+| Mínimo entero de 0 a 9999 | Rechaza `"abc"`, `2.5`, `-3` o `99999999` con 400: lo que queda en la base siempre tiene sentido |
+| `.eq('id', …)` y `.eq('activo', true)` | Son parámetros, no texto pegado: no se puede meter SQL (inyección). Y un plato desactivado no se toca |
+| `errorInterno` | Si falla la base, la pantalla ve un mensaje simple y el detalle va al log del servidor |
+| `escHtml` en el `aria-label` | El nombre del plato va adentro de un atributo: si tuviera comillas o `<`, no rompe el HTML (XSS) |
+
+| Se conecta con | |
+|---|---|
+| Pantalla | Producción: la columna Mínimo (✓ o Enter → `guardarMinimo`) |
+| Ruta | `PUT /api/viandas-stock/:id/minimo` (nueva) |
+| Tabla | `productos.stock_minimo` (solo ese número: no toca la heladera ni el cuaderno) |
+| Después | `estadoDelPlato`, la franja "Te faltan…", los botones de estado y "Pedir a cocina" usan el mínimo nuevo |
+
+La recarga automática (cada 60 s) **no** recarga mientras el cursor está en un casillero de mínimo, para no borrar lo que
+estás escribiendo. Si escribís un número y no tocás ✓ ni Enter, no se guarda.
+
+#### 8.1.4 "Últimos movimientos": filtro por tipo y "Ver más" (`GET /api/movimientos-viandas` y `cargarMovimientos`)
+
+**ANTES** (servidor): siempre los últimos 50, de todos los tipos.
+```js
+app.get('/api/movimientos-viandas', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
+  const { data, error } = await supabase
+    .from('movimientos_viandas')
+    .select('id, tipo, cantidad, motivo, fecha, productos ( nombre ), usuarios ( nombre, apellido )')
+    .order('fecha', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(50);
+  ...
+  const resultado = (data || []).map(m => { ... });
+```
+**AHORA** (servidor): `?tipo=` y `?desde=` (los dos opcionales), y de a 50.
+```js
+const TIPOS_MOVIMIENTO_VIANDA = ['produccion', 'venta', 'devolucion', 'descarte', 'ajuste'];
+const MOVIMIENTOS_POR_PAGINA = 50;
+
+// 1. El tipo: vacío (todos) o uno de la lista cerrada
+let tipo = '';
+if (req.query.tipo != null && req.query.tipo !== '') {
+  tipo = String(req.query.tipo);
+  if (!TIPOS_MOVIMIENTO_VIANDA.includes(tipo)) return res.status(400).json({ error: 'Tipo de movimiento inválido' });
+}
+// 2. Desde: cuántos saltear (entero >= 0; vacío = 0)
+let desde = 0;
+if (req.query.desde != null && req.query.desde !== '') {
+  desde = leerCantidadViandas(req.query.desde, true);
+  if (desde === null) return res.status(400).json({ error: 'El valor de "desde" es inválido' });
+}
+// 3. La consulta
+let consulta = supabase.from('movimientos_viandas').select('...')
+  .order('fecha', { ascending: false })
+  .order('id', { ascending: false })
+  .range(desde, desde + MOVIMIENTOS_POR_PAGINA - 1);   // Ej: (50, 99) → del 51.º al 100.º
+if (tipo) consulta = consulta.eq('tipo', tipo);       // solo ese tipo, si se eligió uno
+```
+**AHORA** (pantalla): arriba de la lista, los botones **Todos · Producción · Ventas · Devoluciones · Descartes**; abajo,
+**"Ver más"** (aparece solo si llegaron 50, porque puede haber más).
+```js
+const parametros = new URLSearchParams({ desde: String(movimientosMostrados) });  // cuántos saltear
+if (tipoMovimientos) parametros.set('tipo', tipoMovimientos);                     // y el tipo, si se eligió
+const respuesta = await apiFetch('/api/movimientos-viandas?' + parametros.toString());
+...
+movimientosMostrados = movimientosMostrados + movimientos.length;
+botonVerMas.hidden = movimientos.length < MOVIMIENTOS_POR_PAGINA;   // llegaron menos de 50 = no hay más
+```
+
+**Por qué.** Desde H6 cada compra de la web anota una "Venta" en el cuaderno: los 50 últimos se llenan de ventas y una
+producción o un descarte de ayer ya no se ve. Con el filtro se ve un solo tipo, y con "Ver más" se va más atrás.
+"Ajuste" lo acepta el servidor, pero no tiene botón (todavía no hay ajustes).
+
+| | ENTRADA | SALIDA |
+|---|---|---|
+| Ruta | `?tipo=` (vacío = todos) y `?desde=` (vacío = 0) | Hasta 50 renglones `[{ id, tipo, cantidad, motivo, fecha, plato_nombre, usuario_nombre }]` · 400 si `tipo` o `desde` son inválidos · 500 |
+| `cargarMovimientos(agregar)` | `false` = empezar de nuevo (al abrir y al tocar un filtro) · `true` = "Ver más" | Nada: dibuja (o agrega abajo) los renglones, marca el filtro elegido y muestra u oculta "Ver más" |
+
+**Ejemplo con fideos.** Tocás **Ventas** → `GET /api/movimientos-viandas?desde=0&tipo=venta` → el renglón
+"−10 fideos" / "Venta · 15/10 18:40 · Consumidor Final" / "Pedido #251". Tocás **Producción** → "+2 fideos" /
+"Producción · 15/10 14:32 · …" / "Pedido a cocina #9". Si hay más de 50, "Ver más" pide `?desde=50` y agrega del 51 al 100.
+
+| Control de seguridad | Qué protege, y de qué |
+|---|---|
+| `tipo` de una lista cerrada (5 tipos) | Lo que llega en la dirección nunca se pega en la consulta: si no es uno de los 5 → 400. Nadie puede meter SQL ni pedir tipos inventados |
+| `desde` entero >= 0 | Rechaza `-5`, `abc` o `1.5` con 400 |
+| De a 50 (`range`) | Nadie puede pedir el cuaderno entero de una vez (miles de renglones): protege al servidor y a la base de una sobrecarga |
+| `escHtml` en cada texto (plato, motivo, usuario) | Un motivo de descarte como `<img onerror=…>` se ve como texto y no se ejecuta (XSS) |
+
+| Se conecta con | |
+|---|---|
+| Pantalla | Producción: el panel "Últimos movimientos" |
+| Ruta | `GET /api/movimientos-viandas` (roles 6, 5, 1 y 2) |
+| Tablas | `movimientos_viandas` (el cuaderno), `productos` (el nombre), `usuarios` (quién) |
+| Se recarga | Al abrir, al tocar un filtro y después de descartar |
+
+#### 8.1.5 "Descartar": solo las libres
+
+| | ANTES | AHORA |
+|---|---|---|
+| Arriba de la ventana | "fideos — en stock: 61 viandas" | "fideos — libres: 61 (las 10 reservadas no se pueden descartar)" |
+| Si pedís más | "No podés descartar más viandas de las que hay en stock." | "No podés descartar más viandas de las libres." |
+| Al terminar | "Descarte registrado. En stock: 59 viandas." y la tabla volvía a la página 1 | "Descarte registrado. Libres: 59." y la tabla se queda en la misma página |
+
+La base ya lo controlaba desde H2 (`descartar_viandas`: "En la heladera hay 61 viandas de «fideos»: no se pueden
+descartar 70"). La pantalla ahora lo explica antes de que pase.
+
+#### 8.1.6 Cómo se escribió: las reglas del CLAUDE.md, con ejemplos
+
+| Regla | ANTES | AHORA |
+|---|---|---|
+| Recorrer con `forEach` (sin `some`) | `return [...document.querySelectorAll('.modal')].some(m => m.style.display === 'block');` | `let hayVentanaAbierta = false;` y `forEach(ventana => { if (ventana.style.display === 'block') hayVentanaAbierta = true; })` |
+| Recorrer con `forEach` (sin `for` con contador) | `for (let i = 0; i < cantidadPlatos; i++) { let parte = base; if (i < sobrante) parte = base + 1; … }` (en `partesIguales`) | `visibles.forEach((plato, posicion) => { let parte = base; if (posicion < sobrante) parte = base + 1; … })` (adentro de `cargaRapida`) |
+| Armar el HTML con `forEach` | `lista.innerHTML = hechos.map(h => { … }).join('');` | `let html = '';` · `hechos.forEach(hecho => { … html += …; });` · `lista.innerHTML = html;` |
+| Nada de trucos | `mostrarErrorModal('dError', data.error \|\| 'No se pudo registrar el descarte.');` | `let mensaje = 'No se pudo registrar el descarte.';` · `if (datos.error) mensaje = datos.error;` |
+| Lo corto que se usa una vez, adentro | `hoyEnArgentina()` y `diaSiguiente()` (servidor); `fechaCorta`, `horaCorta` y `cantidadConSigno` (pantalla) | Adentro de la ruta `hechos-hoy`, de `cargarMovimientos` y de `cargarHechosHoy` |
+| `forEach` también en el servidor | `leerItemsViandas`: `for (const item of items) { … return { error }; }` y `Object.entries(…).map(…).filter(…).sort(…)` | `items.forEach(…)` con `let error = null` (con el primer error, los demás renglones se saltean) y `Object.keys(…).forEach(…)`. Se comparó la vieja con la nueva en 21 casos: dan lo mismo |
+
+#### 8.1.7 Qué probar en la web (parada 1)
+
+Reiniciar el servidor y recargar Producción con Ctrl+F5. Probar cuando tu prima no esté cargando. Los pedidos de prueba
+se crean y se anulan solo desde el servidor nuevo.
+
+| # | Qué hacés | Qué tiene que pasar |
+|---|---|---|
+| 1 | Abrís Producción como admin | 8 columnas: Plato · Plan · Libres · Reservadas · En heladera · Mínimo · Estado · Acciones. Sin pedidos de la web nueva sin entregar: Reservadas 0 y En heladera = Libres |
+| 2 | En la web nueva comprás 10 fideos y recargás Producción | fideos: Libres 61 · Reservadas 10 · En heladera 71 |
+| 3 | Mínimo de fideos: 100 y ✓ | Pasa a "Bajo", aparece "Te faltan…" y el aviso "Mínimo de «fideos»: 100" |
+| 4 | Mínimo: `abc`, `2.5` o `-3`, y ✓ | Aviso rojo "El mínimo tiene que ser un número entero de 0 a 9999." y no cambia nada |
+| 5 | Mínimo de fideos otra vez en 5, con Enter | Vuelve a "Bien" |
+| 6 | "Descartar" en fideos: abrís y Cancelar (sin descartar) | "fideos — libres: 61 (las 10 reservadas no se pueden descartar)" |
+| 7 | Últimos movimientos: Ventas, Producción, Devoluciones, Descartes y Todos | Cada filtro muestra solo ese tipo. En Ventas, arriba: "−10 fideos · Venta · … · Pedido #N" |
+| 8 | "Ver más" (si aparece) | Agrega los 50 siguientes abajo. Si no aparece, es que hay menos de 50 de ese tipo |
+| 9 | Anulás el pedido de prueba (Consultar Pedidos) y recargás Producción | fideos: Libres 71 · Reservadas 0 · En heladera 71. En Devoluciones: "+10 fideos" |
+| 10 | "+ Pedir a cocina": abrís, probás "Mostrar", −, +, "A cada uno", "Repartir" y "Limpiar" | Igual que antes. Cerrás con la × **sin enviar** (producir, solo con comida real) |
+| 11 | "Pendientes de cocina" y "Hecho hoy" | Igual que antes; el botón dice "Pendientes de cocina (N)" |
+| 12 | Entrás como cocinero | Ve el mínimo como número (sin casillero), sin "+ Pedir a cocina" ni la franja "Te faltan…" |
+| 13 | (Opcional) En la consola, como cocinero: `apiFetch('/api/viandas-stock/7/minimo', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stock_minimo: 3 }) }).then(r => r.status)` | `403` (el número de plato no importa: el permiso se mira antes) |
+
+---
+
+## 9. Las pruebas
 
 | Archivo | Pruebas | Qué prueban |
 |---|---|---|
 | `sql/heladera_probar.sql` | 1A, 1B, 1C | DESCARTAR (H2) ✅ |
 | | 2A, 2B, 2C | PRODUCIR (H3) ✅ |
 | | 3A, 3B, 3C | DEVOLVER (H4); H4 se probó desde la web ✅ |
-| `sql/pedido_combos_probar.sql` | 6A, 6B, 6C | VENDER (H6): no alcanza; vende 18, los "sin sal" no salen, 100 "sin sal" se pueden pedir, y anular devuelve 18 |
+| `sql/pedido_combos_probar.sql` | 6A, 6B, 6C | VENDER (H6): no alcanza; vende 18, los "sin sal" no salen, 100 "sin sal" se pueden pedir, y anular devuelve 18. H5 y H6 se probaron desde la web ✅ |
+| `sql/heladera_probar.sql` | 4A | Las marcas de H7 (solo lee) |
+| `sql/heladera_revisar.sql` | todo (solo lee) | Las funciones instaladas con su comentario y si la heladera cuadra con el cuaderno (H0 y H7) |
+| (en la web) | Parada 1 de H8 | Producción: la lista de la sección 8.1.7 |
 
 Los casos "de mentira" (1B, 2B, 3B, 6A, 6B) terminan con un error a propósito: Postgres deshace todo y no queda nada guardado.
 Lo único que no vuelve son los números de id (se saltean).
 
 ---
 
-## 8. Funciones viejas que quedan "NO USAR"
+## 10. Funciones viejas que quedan "NO USAR"
 
-No se borra nada (regla del CLAUDE.md). En H7 se les pone la marca "NO USAR" en el `.sql` y en la base (`comment on function`
-/ `comment on column`). **Ojo:** el servidor de Render (rama Rodriguez) todavía usa dos de ellas hasta el merge: no se tocan.
+No se borra nada (regla del CLAUDE.md). En H7 quedaron marcadas "NO USAR" en el `.sql` y en la base (`comment on function`
+/ `comment on column`, ver la sección 7). **Ojo:** el servidor de Render (rama Rodriguez) todavía usa dos de ellas hasta el merge: no se tocan.
 
 | Función o columna | Archivo | La reemplaza | ¿Alguien la usa hoy? |
 |---|---|---|---|

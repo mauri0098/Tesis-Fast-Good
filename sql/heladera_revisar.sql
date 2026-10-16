@@ -1,5 +1,6 @@
 -- =====================================================
 -- REVISAR LA HELADERA ANTES DE REHACERLA (SOLO LECTURA) — paso H0
+-- (Se vuelve a correr en el paso H7, para ver las marcas "NO USAR"/"USAR" y que la heladera siga cuadrando.)
 -- Esta consulta NO cambia nada: es un solo SELECT, que lee y muestra.
 -- Responde 6 preguntas antes de escribir las funciones nuevas:
 --   1. ¿Existe orden_produccion_detalles.id_pedido_detalle? ¿Hay renglones pendientes con ese dato?
@@ -73,7 +74,8 @@ select 1,                                                                 -- pre
 union all                                                                 -- junta con la consulta siguiente
 
 -- 2) FUNCIONES DE LA HELADERA: si están instaladas, qué reciben y quién las puede ejecutar.
---    Las 3 últimas de la lista son las nuevas: todavía NO tendrían que estar.
+--    Las 3 últimas de la lista son las nuevas: en H0 todavía no estaban; desde H4 tienen que estar.
+--    Desde H7, la columna "comentario" dice "NO USAR…" en las viejas y "USAR…" en las nuevas.
 select 2,                                                                 -- pregunta 2
        'funcion',                                                         -- qué se mira
        esperada.nombre,                                                   -- el nombre que se busca
@@ -94,9 +96,9 @@ select 2,                                                                 -- pre
                ('registrar_tanda_multiple'),                              -- tanda múltiple (nadie la usa)
                ('crear_orden_produccion'),                                -- el "Pedir a cocina" (queda igual)
                ('crear_pedido_combos'),                                   -- crear pedido de combos (ahí va VENDER)
-               ('producir_viandas'),                                      -- NUEVA: no tendría que estar
-               ('descartar_viandas'),                                     -- NUEVA: no tendría que estar
-               ('anular_pedido_con_devolucion')                           -- NUEVA: no tendría que estar
+               ('producir_viandas'),                                      -- NUEVA (H3): PRODUCIR
+               ('descartar_viandas'),                                     -- NUEVA (H2): DESCARTAR
+               ('anular_pedido_con_devolucion')                           -- NUEVA (H4): DEVOLVER
        ) as esperada (nombre)                                             -- la lista se llama "esperada" y su columna "nombre"
   left join pg_proc fun                                                   -- catálogo de funciones ("left": la fila sale aunque no la encuentre)
          on fun.proname = esperada.nombre                                 -- misma función, por nombre
