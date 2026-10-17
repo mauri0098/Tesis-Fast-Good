@@ -1,7 +1,7 @@
 // ============================================================================
 // fechas.js — Días hábiles y fechas locales (compartido)
-// Lo usan formulario.js (fecha de entrega del cliente) y ListarPedidos.js
-// (pedidos a producir hoy). Todo trabaja con la fecha LOCAL: nunca usar
+// Lo usan pedidoCombos.js (fecha de entrega del cliente en la web), ListarPedidos.js
+// (pedidos a producir hoy), otras pantallas del panel y server.js. Todo trabaja con la fecha LOCAL: nunca usar
 // toISOString(), que convierte a UTC y en Argentina cambia de día a las 21 h.
 // ============================================================================
 

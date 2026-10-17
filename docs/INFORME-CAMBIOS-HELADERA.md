@@ -1,6 +1,6 @@
 # Informe: todo lo que cambió en la heladera (pasos H1 a H9)
 
-> Rama `mejoras-fastgood` · 15/10/2026 (actualizado el 16/10/2026).
+> Rama `mejoras-fastgood` · 15/10/2026 (actualizado el 17/10/2026).
 > **H1 a H6: probados** (H4, H5 y H6 desde la web). Desde el 15/10 la heladera está conectada a la web nueva.
 > **H7** (marcas "NO USAR" / "USAR"): bloque 4 corrido y la 4A dio 12 filas en "sí". La prueba completa en la web se salteó (decisión tuya).
 > **H8** (pantallas, Parte 1): paradas 1, 2 y 3 (3A, 3B y 3C) **escritas**. El 16/10: SQL corrido y **test HELADERA 40/40**
@@ -11,6 +11,9 @@
 > (sección 13). Comprobado que se ve igual con los nombres nuevos y test HELADERA 40/40. Falta el recorrido a mano.
 > **Pantalla 1, paso 2 y diseño final** (16/10): la web nueva es `index.html` (`/`) (13.9) y quedó igual al diseño final v5,
 > con animaciones y login en ventana (13.10 y 13.11). Test HELADERA 40/40 en cada cambio. Falta el recorrido a mano.
+> **Limpieza** (17/10): se borró el código viejo que no se usaba (10 archivos de código, 27 imágenes, 8 funciones y 24 reglas
+> de CSS sueltas) y el index quedó con 1 HTML y 1 CSS (`index.css`, que une `index-combos.css` e `index-final.css`).
+> Comparado antes y después: se ve igual (sección 14). Pedido de prueba #30 y test 40/40.
 > **Este informe se actualiza con cada cambio nuevo** (código, SQL, pantallas), con el mismo formato (regla del 15/10).
 > Los ejemplos usan tus datos: **fideos con 71 viandas**, el combo de prueba "PRUEBA Mantenimiento x10" y la
 > receta de fideos que mostró la prueba de H3: **300 g de harina integral y 2 huevos por vianda**.
@@ -2842,3 +2845,192 @@ explicado en 13.11.7). La tabla completa de la v5 (124 clases y 60 ids) está en
 | `titulo-seccion` | igual (`titulo-seccion`) |
 | `visible` | igual (`visible`) |
 | `wa-flotante` | `whatsapp-flotante` |
+
+---
+
+## 14. Limpieza del código viejo y el index con un solo CSS (17/10)
+**Qué se pidió:** borrar solo lo que se demuestra que no se usa (plan del Paso 0, aprobado), sin cambiar cómo funciona ni
+cómo se ve. Además, que el index quede con **1 HTML y 1 CSS**: `index.html` + `index.css`. Nada de SQL y sin commit.
+Todo lo borrado está en git (commit `ff20b99`), así que se puede recuperar.
+
+**Tus decisiones sobre lo dudoso (17/10):**
+| # | Lo dudoso | Decisión |
+|---|---|---|
+| 1 | La carpeta de referencia `docs/diseno-final-index/` | Borrarla y corregir los comentarios que la nombran |
+| 2 | Las fotos originales `COMBO MANTENIMIENTO.jpeg` y `COMBO SALUDABLE.jpeg` | Borrarlas: la web usa las versiones `-1200` |
+| 3 | El estilo de "Más elegido" | Dejarlo |
+| 4 | El carrito escondido de `admin.html` | Sacarlo, y después borrar `carrito.css` y el `index.css` viejo si quedan sin uso |
+| 5 | Las fotos de los platos desactivados | Dejarlas |
+
+### 14.1 Cómo se demostró que algo no se usa
+- **El nombre, en todo el repo:**
+  - todos los HTML, JS y CSS, también los `url()` de los CSS y los `onclick="…"`;
+  - `server.js`: `express.static`, la ruta `/` y las demás rutas;
+  - `tests/` y el menú del panel (`roles.js` y `adminSidebar.js`).
+  Los comentarios no cuentan: un nombre que solo aparece en un comentario no es un uso.
+- **Páginas en uso:** las 12 del menú (`roles.js`), `index.html` y `login.html`. Lo que solo usaban `index-viejo.html` y
+  `formulario.html` cuenta como "sin uso".
+- **Nombres que el código arma pegando texto:** se revisaron uno por uno y esas reglas **se dejaron**.
+  - Ej: `'aviso-hecho aviso-hecho--' + resultado.tipo` arma `aviso-hecho--ok`, `--aviso`, `--info` y `--error`.
+  - Al revés: `` `plato${claseElegido}` `` solo arma `plato` y `plato-elegido`, nunca `plato-card`.
+- **Funciones en cadena:** si A solo la llama B, y a B no la llama nadie, se van las dos.
+  Ej: `abrirSidebar` solo la llamaba `openSidebar`, y a `openSidebar` no la llamaba nadie.
+- **Imágenes:** además, la historia de git y las fotos de los productos de la base, leídas con las rutas GET de la app
+  (sin SQL). Las fotos de los 4 platos activos están en Supabase Storage, no en la carpeta del front.
+
+### 14.2 Archivos borrados
+| Archivo | Por qué no se usaba |
+|---|---|
+| `index-viejo.html` | Nadie lo abre: no está en el menú, y `/` manda a `index.html` |
+| `pages/formulario.html`, `src/css/formulario.css`, `src/js/formulario.js` | Al formulario viejo solo lo abría `carrito.js`, que era del index viejo |
+| `src/js/index.js`, `carrito.js`, `animations.js` | Solo los cargaba `index-viejo.html` |
+| `src/js/funciones.js` | Solo lo cargaban `index-viejo.html` y `formulario.html` |
+| `src/css/carrito.css` y el `src/css/index.css` viejo | Solo los cargaba `admin.html`, para el carrito escondido. Sin el carrito, no tocaban nada de esa página (14.5) |
+| `src/css/index-combos.css` e `index-final.css` | Se unieron en el `index.css` nuevo (14.6) |
+| 27 imágenes (52,9 MB) | `vianda 1.png`, `sinGluten.png`, `pastel.png` y `combo.png`: solo `index-viejo.html`. `bannerpro4.png`: solo la regla `.hero`, sin uso. `1.webp` a `7.webp`, `barbacoa`, `hamburguesaLenteja`, `lasagnaCarne`, `milaNapo`, `pastelCalabaza`, `planDescenso`, `planVeggie` y `polloDisco`: los usaba una página que se borró en abril (commit `568afd5`), o nunca nadie. `bannerpro2`, `bannerrrrrrrr` y `medinabanner` (3): ningún código. Las 2 fotos originales de los combos: decisión 2 |
+| `docs/diseno-final-index/` (10 archivos, 0,8 MB) | Era solo de referencia (decisión 1) |
+
+En la carpeta `img/` quedan 6 imágenes, todas en uso: `logo.webp`, las 3 de `viandaprincipal2` y las 2 `combo-…-1200.jpg`.
+El front pasó de 100 archivos a 62.
+
+### 14.3 Funciones borradas (8)
+| Función | Archivo | Qué hacía (entrada → salida) | Por qué se fue |
+|---|---|---|---|
+| `verificarAutenticacion()` | `auth.js` | nada → si no había `usuario_id` guardado, mandaba a `login.html` | Nadie la llamaba. Lo que protege las pantallas es `guard.js` |
+| `obtenerRolUsuario()` | `auth.js` | nada → el rol guardado (un número) o `null` | Solo la llamaba `esAdmin` |
+| `esAdmin()` | `auth.js` | nada → `true` si el rol era 1 | Nadie la llamaba |
+| `armarResumenReceta(insumos)` | `generarReceta.js` | la lista de insumos → un texto como "harina 300 g, huevos 2 u … (+2)" | Nadie la llamaba (y su clase `.receta-resumen` tampoco tenía uso) |
+| `abrirSidebar()`, `cerrarSidebar()` | `global.js` | nada → abrían o cerraban el menú lateral viejo (`#sidebar`) | Solo las llamaban `openSidebar` y `closeSidebar`, y el `#sidebar` ya no existe en ninguna página |
+| `openSidebar()`, `closeSidebar()` | `global.js` | Lo mismo, con nombre en inglés | Nadie las llamaba |
+
+- **Conexiones:** ninguna, porque nadie las llamaba.
+- **Lo que sigue en uso en `global.js`:** las funciones de los modales. `admin.html` usa `openModal`, `closeModal`,
+  `openContactModal` y `closeContactModal` (Contacto y Sucursales), y esas llaman a `abrirModalSucursales`,
+  `cerrarModalSucursales`, `abrirModalContacto` y `cerrarModalContacto`.
+- `auth.js`, `global.js` y `generarReceta.js` no tienen una lista de funciones arriba, así que no hubo renglón que sacar. Al
+  encabezado de `global.js` sí se le sacó "Sidebar".
+- **Después de borrar:** el script encuentra 281 funciones y todas se usan.
+
+### 14.4 Reglas de CSS borradas
+| Dónde | Reglas | Quién las usaba |
+|---|---|---|
+| `global.css` | `.grid` (×2), `.card.animate-hidden`, `.card.revealed`, `#cart-count.cart-pulse` con su `@keyframes cart-pulse-anim`, `.close-btn` y `.sidebar-nav` | El index viejo (`index-viejo.html`, `animations.js` y `carrito.js`) |
+| `cocinero.css` | `.badge-contador.badge-activo`, `ul.platos-list` (×2) y `.fila-saliendo` | Nadie |
+| `ConsultarPedidos.css` | `ul.ingredientes-list`, `.badge-status`, `.bg-reg`, `.bg-prep` y `.bg-listo` | Nadie (no hay ningún `'bg-' + algo`) |
+| `stock.css` | `.btn-merma` y `.modal-tabs` (×2) | Nadie |
+| `generarReceta.css` | `.receta-resumen` | Nadie |
+| El `<style>` de `admin.html` | `.btn-export2` (×2), `.kpi-card.alerta.alerta-activa .kpi-valor` y `.kpi-valor.negativo` | Nadie (`reportes.js` nunca pone esas clases) |
+| `carrito.css` y el `index.css` viejo | Los dos enteros (14.5) | El carrito escondido de `admin.html` y el index viejo |
+
+- **Se dejaron a propósito:**
+  - "Más elegido" (`tarjeta-combo-destacada` y `tarjeta-combo-sello`), por la decisión 3;
+  - las clases que arma el código: `aviso-hecho--…`, `aviso-cocina--…`, `pend-…`, `estado-3/4`, `badge-estado-…` y
+    `detalle-…`.
+- **Comprobado después:** volví a correr la búsqueda. Las únicas reglas sin uso que quedan son las 3 de "Más elegido".
+
+### 14.5 `admin.html` sin el carrito escondido
+| | ANTES | AHORA |
+|---|---|---|
+| El carrito "🛒 Cambios Pendientes" | Un panel escondido afuera de la pantalla, a la derecha (`right: -380px`), con "Guardar" y "Cerrar". "Cerrar" llamaba a `cerrarCarrito()`, que en esta página no existe: era de `carrito.js`, que `admin.html` no carga | No está |
+| Los CSS que carga | `global.css`, `carrito.css`, el `index.css` del index viejo y `adminSidebar.css` | `global.css` y `adminSidebar.css` |
+| Cómo se ve | Una sombra casi invisible en el borde derecho: era la sombra del carrito escondido, que asomaba (hasta 22 de 255 en el celu y 2 de 255 en la compu) | Lo mismo, sin esa sombra |
+
+- **Por qué:** sin el carrito, ninguna regla de `carrito.css` ni del `index.css` viejo tocaba algo de la página. Lo que
+  quedaba del `index.css` viejo (`.section > p[style]` y `.panel-vacio`) usa clases que `admin.html` no tiene.
+- **Comprobado:** En Chrome sin ventana, a 1440 y a 390 px, "antes" contra "después":
+  - **Lo único distinto** son los 5 elementos del carrito (el `div#carrito`, su título, su lista y los 2 botones) y esa
+    sombra del borde.
+  - **Todo lo demás está idéntico** (posición, tamaño y estilos), también con Contacto y Sucursales abiertos.
+  - **Sigue andando igual:** Contacto y Sucursales abren y cierran, los números dan "28 · 14% · Bella Vista" y cargan los 4
+    gráficos.
+
+### 14.6 El index con 1 HTML y 1 CSS
+| | ANTES | AHORA |
+|---|---|---|
+| CSS del index | `index-combos.css` (747 renglones) e `index-final.css` (101), dos `<link>` | `index.css` (859 renglones), un solo `<link>` |
+| Qué hay adentro | — | **Parte 1** = lo que era `index-combos.css`. **Parte 2** = lo que era `index-final.css`. Mismos valores y mismo orden, así que gana lo mismo que antes. Solo cambian el encabezado y 3 comentarios que nombraban `index-final.css` |
+| La letra Figtree | Su `<link>` a Google | Igual, su `<link>` a Google: no es un archivo nuestro |
+| ¿Otra pantalla carga `index.css`? | — | No. `login.html` muestra el index de fondo en un `<iframe>`: es la página entera, no la hoja |
+
+- **Reglas compartidas para copiar:** no hubo, porque el index nunca cargó `global.css` ni otro CSS compartido.
+- **Comprobado que son las mismas reglas:** sin comentarios ni espacios, `index.css` es idéntico a `index-combos.css` +
+  `index-final.css` del commit `ff20b99`.
+- **Lo que se probó y se descartó:** traer la letra con `@import` adentro de `index.css`, para que la página pidiera una
+  sola hoja.
+  - Con `@import`, la hoja de la letra llega más tarde.
+  - El subtítulo de la portada tiene `max-width: 30ch`. `ch` es el ancho del "0" en la letra que se está usando, y el
+    navegador lo midió con la letra de reserva (Arial): 333 px en vez de 385,8 px.
+  - Resultado: cortaba en otro lugar ("…hechas / con ingredientes frescos.") y no se veía igual.
+  - Por eso la letra queda en su `<link>`, con un comentario en `index.html` que lo explica.
+
+### 14.7 Comentarios corregidos (no cambian nada)
+| Archivo | Antes | Ahora |
+|---|---|---|
+| `animaciones-index.js` | "Es docs/diseno-final-index/animaciones-index.js tal cual" | "Es el animaciones-index.js del diseño final tal cual (su carpeta de referencia se borró el 17/10: está en git)" + "Lo que hace cada clase está en index.css" |
+| `combosCatalogo.js` | "index-final.css pone la foto arriba", "…está en index-final.css" y las fotos originales "quedan sin tocar" | "index.css (parte 2)…" y "las originales se borraron el 17/10: están en git" |
+| `fechas.js` | "Lo usan formulario.js … y ListarPedidos.js" | "Lo usan pedidoCombos.js …, ListarPedidos.js …, otras pantallas del panel y server.js" |
+| `pedidoCombos.js` (2) | "el formulario viejo (pages/formulario.html + formulario.js)" | Lo mismo + "borrados el 17/10" |
+| `global.css` (2) | "GRID + TARJETAS" y "animations.js aplica el reveal en index.html" | "TARJETAS" y "visibles por defecto" |
+| `index.html` | Los comentarios de los dos `<link>` (nombraban `docs/diseno-index` y `docs/diseno-final-index`) | Uno solo: "UNA sola hoja, index.css" + el de la letra |
+
+`server.js` no se tocó (es solo lectura): dos comentarios todavía dicen `index-combos.html` (líneas 554 y 912) y uno
+`index.js` (línea 724).
+
+### 14.8 Cómo se comprobó
+Las capturas se hicieron con un Chrome sin ventana y un perfil temporal (sin tocar el tuyo). El "antes" se armó
+sirviéndole al navegador las versiones del commit `ff20b99` de cada archivo que cambió o se borró, sin tocar el repo. Las
+tandas corrieron una atrás de otra y esperando a que llegaran los datos.
+
+En una primera tanda, con las 4 corridas en paralelo, algunas pantallas todavía no tenían sus datos, y el subtítulo de la
+portada salió distinto por el `@import` (ver 14.6). Esa tanda se descartó.
+
+| Prueba | Cómo | Resultado |
+|---|---|---|
+| El index se ve igual | Recorrido de 15 pasos a 1440 y a 390 px: portada, página entera, Mi pedido, Armar combo (vacío, personalizando, 8 de 10, completo, "¿Salir?"), Mi pedido con el combo, Finalizar (vacío, con errores, retiro + transferencia, resumen abierto en el celu), la confirmación dibujada con datos de mentira y el login en ventana. En cada paso se guardó la captura y la posición, el tamaño y unos 70 estilos de cada elemento | **1440:** igual. Hubo 2 capturas con diferencias invisibles (en una foto de plato, como mucho 11 tonos de 255; en otra, 4 píxeles) y un paso con las respuestas de Preguntas en otro momento de su animación (abajo de la pantalla, no sale en la captura). **390:** posiciones y estilos idénticos en los 14 pasos. En 2 o 3 capturas de "Armar combo" el texto sale 1 píxel más arriba: la ventana queda en y = 351,23 y Chrome redondea distinto al dibujarla. Medido: todo está en el mismo lugar al 1/64 de píxel, y las capturas que cambian no son siempre las mismas |
+| Una sola hoja | Lo que pide la página al cargar | Antes pedía `index-combos.css` + `index-final.css`; ahora pide `index.css` (más la hoja de la letra de Google) |
+| El panel se ve igual | Las 12 pantallas del menú y `login.html`, a 1440 y a 390 px | Las 11 pantallas que no son `admin.html`: **idénticas píxel por píxel** y en estilos. `admin.html`: lo de 14.5. `login.html`: diferencias de 3 tonos de 255 como mucho en el index que muestra de fondo (no se ven) |
+| Sin errores ni imágenes rotas | La consola, los pedidos que fallan (400 o más) y las imágenes con `src` que no cargan, en las 14 páginas, antes y después | Ninguno, salvo el 404 de `/favicon.ico`, igual que antes (14.10) |
+| Lo que no se usa | Los scripts del Paso 0, otra vez | 281 funciones, todas en uso. Las únicas reglas sin uso son las 3 de "Más elegido". No queda ningún archivo del front sin uso |
+| `node --check` | Los 29 JS | Bien |
+| Pedido de prueba | Desde la web: "PRUEBA Mantenimiento x10" → 10 × fideos → Mi pedido → Finalizar ("PRUEBA – NO PREPARAR", retiro, efectivo, sin personalizados) → Confirmar → anular (con el PIN del `.env`, sin mostrarlo) | **#30.** Fideos: de 40 libres / 11 reservadas a 30 / 21. "Pedido anulado. Volvieron 10 viandas a la heladera." La heladera quedó igual y no hubo errores en la consola |
+| Test HELADERA | `node tests/test_e2e.js heladera` | **40/40** (pedidos de prueba #31 y #32, anulados; la heladera quedó igual) |
+
+### 14.9 Seguridad (qué protege)
+- **Menos código viejo, menos lugares para un error o un ataque.**
+  - Se fue el formulario viejo (`formulario.html` + `formulario.js`): mandaba pedidos a `POST /api/pedidos`. Esa ruta
+    sigue en el servidor, con su límite por IP y sus controles, y la usan los tests.
+  - Se fue el carrito viejo (`carrito.js`), que guardaba precios en el navegador.
+  - Ninguno de los dos se podía abrir desde la web, pero estaban publicados: cualquiera los podía pedir por su dirección.
+- **El botón "Cerrar" de `admin.html`** llamaba a una función que no existía en esa página: ya no está.
+- **No se agregó código nuevo.** Lo que se manda al servidor quedó igual, y `escHtml` sigue igual en todos lados.
+- **No se ejecutó nada en la base.** Las fotos de los productos se leyeron con las rutas GET de la app.
+
+### 14.10 Lo que quedó sin tocar (para después)
+- ~~**`favicon.ico` da 404:** 10 pantallas del panel no tienen `<link rel="icon">`, así que el navegador pide `/favicon.ico`
+  y no existe.~~ → **Arreglado el 17/10 (14.11).**
+- **`server.js`:** los comentarios viejos de 14.7.
+- **`<style>` adentro del HTML:** `admin.html` y varias pantallas del panel lo tienen (regla del CLAUDE.md). Se pasa a su
+  `.css` cuando se llegue a cada pantalla.
+- **`docs/diseno-index-v4/`:** es una carpeta vacía y no está en git.
+- **Historia:** las secciones viejas de este informe (13.x) siguen nombrando `index-combos.css`, `index-final.css` y
+  `docs/diseno-final-index/`. Es lo que se hizo en ese momento.
+
+### 14.11 El ícono en las pantallas del panel (17/10)
+**Qué se pidió:** agregar el renglón del ícono a las pantallas que no lo tenían, con el mismo logo que usa el index. Nada más.
+
+| | ANTES | AHORA |
+|---|---|---|
+| 10 pantallas del panel: `AsignarCocinero`, `ConsultarPedidos`, `Envios`, `MovimientosStock`, `MovimientosStockNuevo`, `combos`, `generarReceta`, `gestionUsuarios`, `heladera` y `stock` | Sin `<link rel="icon">`. El navegador pedía `/favicon.ico`, que no existe, y daba **404** | Un renglón abajo del `<title>`, igual al de `cocinero.html`: `<link rel="icon" href="../src/assets/img/logo.webp" type="image/webp"/>` |
+
+- **Por qué así:** es el mismo logo que ya usan el index, el login, `admin.html` y Tareas de Cocina. Desde `/pages/` la
+  dirección empieza con `../`.
+- **Qué cambia:** solo el ícono de la pestaña del navegador; la página se ve igual. Ahora las 14 páginas tienen su ícono.
+- **Cómo se agregó:** con un script que respeta los saltos de línea de Windows de esos archivos y que no toca una página
+  si no tiene un solo `<title>` o si ya tiene ícono. En git, cada página cambia en 1 renglón.
+- **Comprobado** (Chrome sin ventana, a 1440 y a 390 px):
+  - las 12 pantallas del menú y `login.html`: el ícono responde 200 en todas, y no hay ningún error ni ningún 404;
+  - el index: pide `index.css` y el ícono responde 200. Abrí "Armar combo" en cada categoría, "Mi pedido" y el login:
+    25 pedidos de red, ningún error, ningún 404 y ninguna imagen rota.
+- **Aviso (no es por este cambio):** durante la prueba cambiaron los combos de la base. Aparecieron "Combo semanal" (#4 de
+  5 viandas y #5 de 10, plan PROMO SEMANAL, categoría "Combos Saludables", que ahora sale primera), y ya no aparece
+  "Prueba no usar". Por la regla de las fotos (13.11), esos combos nuevos muestran la foto "combo saludable".

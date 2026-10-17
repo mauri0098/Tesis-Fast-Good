@@ -1,4 +1,4 @@
-# Heladera — avance del refactor (16/10/2026)
+# Heladera — avance del refactor (17/10/2026)
 
 Leer junto con `ESTADO-PROYECTO.md`, `CLAUDE.md` y `docs/informe_heladera.md`. Este archivo dice **dónde estamos parados** en la heladera.
 Se actualiza al terminar cada paso: estado, resultados y el próximo prompt.
@@ -257,12 +257,12 @@ Nota: cada caso de mentira gasta números de id que no vuelven (H2: renglón 17 
 - **Consultar Pedidos trae como mucho 1000 pedidos** (límite de Supabase por consulta): `GET /api/pedidos` los ordena del más nuevo al más viejo, así que cuando haya más, los más viejos no se ven (salvo filtrando por fechas). Hace falta paginación más adelante (que el servidor mande de a una página). Lo mismo, mucho más lejos, para las reservadas de Producción: se suman como mucho 1000 renglones de pedidos sin entregar.
 
 ## Próximo prompt para Claude Code (🔴 MODO POTENTE, Effort Max)
-**Pantalla 1 (16/10): paso 1, paso 2 y diseño final, escritos y comprobados.** Después de tu recorrido a mano ("Recorrido a
-mano", más abajo, con la compra de prueba y el cocinero), mandar:
+**Pantalla 1 (17/10): paso 1, paso 2, diseño final y limpieza, escritos y comprobados.** Después de tu recorrido a mano
+("Recorrido a mano", más abajo, con la compra de prueba y el cocinero), mandar:
 ```
-Miré la web (Pantalla 1: diseño final v5, animaciones y login en ventana) en celu y compu: [qué se vio bien y qué no].
+Miré la web (Pantalla 1: diseño final v5 + limpieza, con index.css como único CSS) y el panel en celu y compu:
+[qué se vio bien y qué no].
 Recorrido a mano: [compra de prueba y cocinero: cómo salió].
-Archivos del index viejo (lista de la sección 13.9 del INFORME): [OK a borrarlos / todavía no].
 Si algo falló, decime la causa y el plan, sin tocar nada sin mi OK. Si está todo bien, cerrá la Pantalla 1 en
 docs/HELADERA-AVANCE.md y en el INFORME, decime qué commiteo y pasá al plan de la Pantalla 2 (Login). No hagas commit.
 ```
@@ -287,7 +287,7 @@ el usuario). Recién ahí se pasa a la siguiente.
 
 | # | Pantalla | Pendientes ya anotados que se hacen ahí | Estado |
 |---|---|---|---|
-| 1 | Index (web nueva) | Paso 1: cambiar solo cómo se ve `index-combos.html` con el diseño de `docs/diseno-index/`. Paso 2: reemplazar el index viejo. Diseño final: `docs/diseno-final-index/` | ✍ **Paso 1, paso 2 y diseño final hechos (16/10)**: la web nueva es `index.html` (`/`), igual al diseño final v5, con animaciones y login en ventana (INFORME 13.9 a 13.11). Login y cerrar sesión llevan a donde corresponde. Pedido de prueba #27 desde la web (anulado, la heladera quedó igual) y test 40/40. Falta: tu recorrido a mano (compra y cocinero) y el OK para borrar los archivos del viejo (lista en la sección 13.9 del INFORME) |
+| 1 | Index (web nueva) | Paso 1: cambiar solo cómo se ve `index-combos.html` con el diseño de `docs/diseno-index/`. Paso 2: reemplazar el index viejo. Diseño final: `docs/diseno-final-index/` | ✍ **Paso 1, paso 2 y diseño final hechos (16/10)**: la web nueva es `index.html` (`/`), igual al diseño final v5, con animaciones y login en ventana (INFORME 13.9 a 13.11). Login y cerrar sesión llevan a donde corresponde. Pedido de prueba #27 desde la web (anulado, la heladera quedó igual) y test 40/40. **Limpieza hecha (17/10)**: se borró el index viejo y todo lo que no se usaba, y el index quedó con 1 HTML + 1 CSS (`index.css`); se ve igual (INFORME 14). Falta: tu recorrido a mano (compra y cocinero) |
 | 2 | Login | `auth.js` muestra el nombre del usuario sin `escHtml` (en el botón de sesión del encabezado) y trae estilos fijos de letra blanca (para el encabezado verde viejo), que en la web nueva se pisan desde `index-combos.css`. Sus nombres están en inglés (`auth-btn-container`, `login-btn-header`, `auth-dropdown`): pasarlos a español en todos los archivos que los usan | ⏭ |
 | 3 | Consultar Pedidos | | ⏭ |
 | 4 | Tareas de Cocina | (el punto 8 ya está escrito: el plato primero y el plan entre paréntesis) | ⏭ |
@@ -352,6 +352,30 @@ Detalle completo (funciones antes/ahora, lista de nombres "antes → ahora", pru
   - pedido de prueba #27 desde la web (anulado, la heladera quedó igual) y test 40/40 (#28 y #29, anulados).
   - **Pendientes:** "Más elegido" (no hay un dato), las 6 preguntas de la referencia (vienen sin respuesta) y las
     descripciones de los platos (hoy vacías).
+- **Limpieza (17/10)** — sección 14 del INFORME:
+  - **Se borró lo que no se usaba** (comprobado buscando cada nombre en todo el repo, el servidor, los tests y el menú):
+    - el index viejo (`index-viejo.html`, `index.js`, `carrito.js`, `animations.js`, `funciones.js`);
+    - el formulario viejo (`formulario.html`, `.css` y `.js`);
+    - 27 imágenes (52,9 MB), entre ellas las 2 fotos originales de los combos;
+    - `docs/diseno-final-index/`;
+    - 8 funciones (3 de `auth.js`, 1 de `generarReceta.js` y 4 de `global.js`) y 24 reglas de CSS sueltas.
+  - **`admin.html`:** sin el carrito escondido ("Cambios Pendientes"). Por eso se borraron también `carrito.css` y el
+    `index.css` viejo.
+  - **El index con 1 HTML + 1 CSS:** `index.css` = lo que eran `index-combos.css` (parte 1) + `index-final.css` (parte 2),
+    mismos valores y mismo orden. La letra Figtree sigue en su `<link>` de Google: con `@import` el subtítulo de la portada
+    cortaba distinto.
+  - **Comprobado antes y después, a 1440 y 390 px:**
+    - el index se ve igual (solo diferencias de 1 píxel al dibujar texto en "Armar combo" en el celu);
+    - las 11 pantallas del panel, idénticas píxel por píxel;
+    - `admin.html`: solo sin el carrito y la sombra casi invisible que dejaba en el borde;
+    - sin errores (el 404 del `favicon.ico`, que ya estaba, se arregló después: ver abajo);
+    - pedido de prueba #30 (anulado, la heladera quedó igual) y test 40/40 (#31 y #32).
+  - **Ícono (17/10)** — sección 14.11 del INFORME:
+    - el renglón del logo, agregado a las 10 pantallas del panel que no lo tenían;
+    - comprobado a 1440 y 390 px: las 14 páginas tienen su ícono (responde 200), sin errores y sin ningún 404.
+  - **Aviso:** cambiaron los combos de la base. Ahora sale primero "Combo semanal" (#4 y #5, categoría "Combos
+    Saludables", con la foto "combo saludable") y ya no aparece "Prueba no usar". El "PRUEBA Mantenimiento x10" (#1) sigue,
+    en la categoría "Viandas Saludables".
 
 **Recorrido a mano.** Ctrl+F5 en `http://localhost:3000/` (desde el paso 2, la web nueva es `index.html`). Para el celu: F12 → ícono del celular
 (Ctrl+Shift+M) → ancho 390, o el celu de verdad en la misma red Wi-Fi con la IP de la compu en lugar de `localhost`.

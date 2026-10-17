@@ -16,7 +16,7 @@
 //   mostrarConfirmacion  → dibuja "¡Recibimos tu pedido #N!" con lo que devolvió el servidor y el botón de WhatsApp
 //   armarMensajeWhatsApp → arma el mensaje (mismo formato que el formulario viejo) y devuelve el enlace de WhatsApp
 //
-// Los campos son los mismos que el formulario viejo (pages/formulario.html + formulario.js)
+// Los campos son los mismos que el formulario viejo (pages/formulario.html + formulario.js, borrados el 17/10)
 // y el pedido se arma igual que ahí (cliente_nombre = "Nombre Apellido", etc.).
 // Los controles de acá son una AYUDA: el servidor vuelve a controlar todo.
 // El pedido NO lleva precios, total ni usuario: el servidor los saca de la base y del token.
@@ -312,7 +312,7 @@ function armarPedido(datos) {
     return { id_combo: combo.id_combo, platos: platos };
   });
 
-  // Los datos del cliente, armados IGUAL que el formulario viejo (armarObjetoPedido de formulario.js).
+  // Los datos del cliente, armados IGUAL que el formulario viejo (armarObjetoPedido de formulario.js, ya borrado).
   // Lo único distinto: en lugar de "items" (platos sueltos) van los "combos".
   return {
     observaciones:     datos.observaciones,

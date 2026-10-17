@@ -1,575 +1,859 @@
-/* ===================================================
-   INDEX.CSS — Fast Good (Motion Design Edition)
-   Estilos exclusivos de la página principal.
-   =================================================== */
+/* ===================================================================================
+   INDEX.CSS — Estilos de la web (index.html). Es la ÚNICA hoja de la página:
+   no usa global.css (su encabezado verde, su pie y sus botones chocan con este diseño).
 
-/* ===================================================
-   BARRA DE ANUNCIO
-   =================================================== */
-.announcement-bar {
-    width: 100%;
-    padding: 0.6rem 1.5rem;
-    background: linear-gradient(135deg, #f1f8e9 0%, #e8f5e9 100%);
-    border-bottom: 1px solid #c8e6c9;
-    text-align: center;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #2e7d32;
-    letter-spacing: 0.015em;
-    animation: fade-up 0.5s 0.65s var(--easing-out) both;
+   Desde el 17/10 junta en un solo archivo las dos hojas que tenía la página, con los MISMOS valores y en el
+   MISMO orden (por eso se ve igual):
+     PARTE 1 — el diseño v5 (antes index-combos.css): colores, letras, encabezado, portada, categorías,
+               tarjetas de combos, ventanas, formulario y pie. Al final van los agregados: lo que la maqueta
+               no dibuja (personalizar un plato, fotos de verdad, el botón de sesión de auth.js, el login en
+               ventana, etc.).
+     PARTE 2 — el diseño final (antes index-final.css): tarjetas grandes, ajustes del celu, platos de
+               "Armar combo", animaciones y sus demoras. Va DESPUÉS de la parte 1 para que gane, como antes.
+   La letra Figtree la carga index.html con su propio <link> (la hoja de Google), antes que esta hoja.
+
+   Es el estilos.css v5 del diseño final con los nombres pasados a español claro (regla "Nombres claros" del
+   CLAUDE.md: ej. la tarjeta de un combo es .tarjeta-combo, no .combo; la tabla "maqueta → nuestro" está en el
+   INFORME, sección 13.11), sin las partes que esta página no usa (ofertas del día, platos sueltos, descuentos,
+   la ventana de iniciar sesión de la maqueta).
+
+   Cómo se ve todo (de la v5):
+   Fondo claro verdoso (#f3f6f1) con Categorías y Preguntas en verde clarito (#e7f1e4); tarjetas, modales y
+   controles en blanco. Verde para acción, selección y precio; naranja en el contador del pedido.
+   Radios: tarjetas 16px, fotos y campos 12px, botones en píldora.
+   Alturas: botones 44px (50px el de la portada), botones de categoría 40px en compu (52px en el celular).
+   Texto común 16px; secciones 44px arriba y abajo en celular, 72px en compu.
+   Capas: encabezado 10, WhatsApp flotante 20 (los <dialog> van en la capa de arriba del navegador).
+   =================================================================================== */
+
+/* ===================================================================================
+   PARTE 1 — DISEÑO v5 (antes index-combos.css)
+   =================================================================================== */
+
+:root {
+  color-scheme: light;
+
+  --verde: #2faa4b;             /* verde de marca: barras de progreso, bordes al pasar el mouse */
+  --verde-fuerte: #1d7a34;      /* botones y textos en verde (5.4:1 con blanco) */
+  --verde-hondo: #186a2c;       /* hover de los botones */
+  --verde-claro: #e7f1e4;       /* fondo de íconos y de lo elegido, en elementos chicos */
+  --naranja: #ff9800;
+  --error: #c0261b;
+
+  --fondo: #f3f6f1;             /* fondo general, igual que la original */
+  --tinte: #e7f1e4;             /* secciones alternas (categorías y preguntas), igual que la original */
+  --blanco: #ffffff;
+  --texto: #16201a;
+  --titulo: #2b352f;            /* gris oscuro de nombres de platos y ventanas */
+  --titulo-suave: #3a4640;      /* títulos de portada y de sección, igual que la original (8.4:1 sobre el tinte, 9:1 sobre el fondo) */
+  --texto-suave: #4b574e;
+  --borde: #d9e3d6;
+  --linea: #e3eae0;
+  --gris: #eef2ec;              /* gris casi blanco: recuadros de foto y botones redondos */
+  --foto-texto: #56645a;
+
+  --sombra: 0 1px 2px rgb(22 50 30 / .06), 0 8px 24px rgb(22 50 30 / .08);
+  --sombra-foto: 0 28px 60px -24px rgb(22 60 32 / .38);
+  --sombra-alta: 0 24px 60px rgb(16 40 22 / .22);
+  --sombra-accion: 0 6px 18px rgb(29 122 52 / .3);
+
+  --fuente: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --curva: cubic-bezier(.16, 1, .3, 1);
 }
 
-.announcement-bar strong {
-    font-weight: 700;
+/* Base */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 120px; -webkit-text-size-adjust: 100%; background: var(--fondo); }
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: var(--fuente);
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+/* Evita ver la página "a medio armar": el body aparece cuando terminó de cargar
+   (el script del final de index.html le pone la clase "cargada"; a los 2 s aparece igual) */
+body { visibility: hidden; opacity: 0; transition: opacity .15s ease-in; }
+body.cargada { visibility: visible; opacity: 1; }
+h1, h2, h3, h4 { font-family: var(--fuente); line-height: 1.15; margin: 0; letter-spacing: -.02em; color: var(--titulo); font-weight: 800; text-wrap: balance; }
+p { margin: 0; }
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+::selection { background: color-mix(in srgb, var(--verde) 25%, transparent); }
+:focus-visible { outline: 3px solid var(--verde); outline-offset: 2px; }
+.icono { width: 20px; height: 20px; flex: none; }
+/* La lista de íconos del principio del HTML (se dibujan una vez y se reutilizan con <use>): no ocupa lugar */
+.lista-iconos { position: absolute; }
+
+.contenedor { width: 100%; max-width: 1200px; margin-inline: auto; padding-inline: 16px; }
+@media (min-width: 768px) { .contenedor { padding-inline: 32px; } }
+
+/* "Saltar al contenido": escondido arriba; aparece al llegar con la tecla Tab */
+.saltar-al-contenido {
+  position: absolute; left: 16px; top: -60px; z-index: 40;
+  background: var(--verde-fuerte); color: #fff; padding: 10px 16px; border-radius: 999px;
+}
+.saltar-al-contenido:focus { top: 12px; }
+
+/* Botones */
+.boton {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 20px;
+  border: 0; border-radius: 999px;
+  font-weight: 700; font-size: .9375rem; text-decoration: none; white-space: nowrap; cursor: pointer;
+  transition: transform .2s var(--curva), background-color .2s, box-shadow .2s, color .2s;
+}
+.boton .icono { width: 18px; height: 18px; }
+.boton:active:not(:disabled) { transform: scale(.97); }
+.boton-principal { background: var(--verde-fuerte); color: #fff; }
+.boton-principal:hover:not(:disabled) { background: var(--verde-hondo); box-shadow: var(--sombra-accion); }
+.boton-principal:disabled { background: var(--borde); color: var(--texto-suave); cursor: not-allowed; }
+.boton-secundario { background: var(--blanco); color: var(--texto); box-shadow: inset 0 0 0 2px var(--borde); }
+.boton-secundario:hover { box-shadow: inset 0 0 0 2px var(--verde); color: var(--verde-fuerte); }
+.boton-grande { min-height: 50px; padding: 0 28px; font-size: 1rem; }
+.boton-ancho { width: 100%; }
+.boton-mi-pedido { gap: 8px; padding: 0 6px 0 16px; background: var(--verde-fuerte); color: #fff; }
+.boton-mi-pedido:hover { background: var(--verde-hondo); }
+.contador-combos {
+  display: inline-grid; place-items: center;
+  min-width: 26px; height: 26px; padding: 0 6px; border-radius: 999px;
+  background: var(--naranja); color: var(--texto); font-size: .875rem; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+/* "Salto" (la usa la ✓ grande de la confirmación) */
+@keyframes salto { 40% { transform: scale(1.35); } }
+
+/* Recuadro de foto (platos y combos) */
+.foto {
+  display: grid; place-items: center; text-align: center;
+  width: 100%; aspect-ratio: 4 / 3;
+  background: var(--gris); color: var(--foto-texto);
+  font-size: .8125rem; font-weight: 600;
+  border-radius: 12px;
 }
 
-@media (max-width: 768px) {
-    .announcement-bar {
-        font-size: 0.78rem;
-        padding: 0.5rem 1rem;
-    }
+/* Logo (encabezado y pie) */
+.logo { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; }
+.logo-imagen { display: block; height: 40px; width: auto; }
+
+/* 1. Encabezado */
+.encabezado {
+  position: sticky; top: 0; z-index: 10;
+  background: color-mix(in srgb, var(--fondo) 88%, transparent);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--borde);
+}
+/* En el celular: logo y botones arriba, el menú abajo. En compu (900px o más): todo en una fila */
+.encabezado-fila {
+  display: grid; align-items: center; gap: 0 8px;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas: "logo . botones" "menu menu menu";
+  padding-block: 8px 0;
+}
+.encabezado .logo { grid-area: logo; }
+.encabezado-botones { grid-area: botones; display: flex; align-items: center; gap: 4px; }
+.menu-principal {
+  grid-area: menu; display: flex; gap: 4px;
+  overflow-x: auto; scrollbar-width: none;
+  margin-inline: -16px; padding: 2px 16px 4px;
+}
+.menu-principal::-webkit-scrollbar { display: none; }
+.menu-principal a {
+  flex: none; display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 999px;
+  font-weight: 600; font-size: .9375rem; text-decoration: none; color: var(--texto-suave);
+  transition: color .2s, background-color .2s;
+}
+.menu-principal a:hover { color: var(--texto); background: var(--tinte); }
+@media (max-width: 767px) {
+  .menu-principal a { padding: 0 10px; font-size: .875rem; }
+  .menu-principal a:first-child { margin-left: -10px; }
+}
+@media (max-width: 400px) {
+  .boton-mi-pedido { padding-left: 12px; font-size: .9375rem; gap: 6px; }
+  .boton-mi-pedido .icono { display: none; }
+}
+@media (min-width: 900px) {
+  .encabezado-fila { grid-template-areas: "logo menu botones"; min-height: 64px; padding-block: 0; gap: 24px; }
+  .menu-principal a { min-height: 40px; }
+  .menu-principal { justify-content: center; margin: 0; padding: 0; }
 }
 
-/* ===================================================
-   HERO — Glassmorphism pill + animación de entrada
-   =================================================== */
-.hero {
-    position: relative;
-    background: url('../assets/img/bannerpro4.png') no-repeat center center;
-    background-size: cover;
-    background-color: #fff;
+/* 2. Portada: en celular el texto arriba y la foto en tarjeta debajo; en compu, texto a la izquierda y foto a la derecha */
+.portada { padding: 24px 0 0; }
+.portada-columnas { display: grid; gap: 28px; }
+.portada-texto { container-type: inline-size; }
+/* "Fast Good" siempre en una línea: el tamaño sigue al ancho de la columna */
+.portada h1 {
+  color: var(--titulo-suave);
+  font-size: min(19cqi, 5.25rem); font-weight: 900; line-height: .95; letter-spacing: -.04em;
+  white-space: nowrap;
+}
+/* La palabra en verde de un título: "Good", "estamos", "frecuentes" */
+.palabra-verde { color: var(--verde-fuerte); }
+.portada-subtitulo {
+  margin: 14px 0 0; max-width: 30ch;
+  font-size: clamp(1.0625rem, 4.4vw, 1.25rem); font-weight: 500; line-height: 1.35; letter-spacing: -.01em; color: var(--texto-suave);
+}
+.portada-lugar {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
+  font-size: .9375rem; font-weight: 700; color: var(--verde-fuerte);
+}
+.portada-lugar .icono { width: 18px; height: 18px; }
+.portada-botones { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; margin-top: 20px; }
+.portada-botones .boton { width: 100%; }
+.combos-desde { font-size: .9375rem; color: var(--texto-suave); }
+.combos-desde strong { color: var(--verde-fuerte); font-weight: 800; }
+/* Contacto chico debajo del botón: no compite con "Pedir ahora" */
+.portada-contacto {
+  list-style: none; margin: 10px 0 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 0 20px;
+  font-size: .875rem; font-weight: 500; color: var(--texto-suave);
+}
+.portada-contacto li { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.portada-contacto .icono { width: 18px; height: 18px; color: var(--verde-fuerte); }
+.portada-contacto a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-decoration: none; }
+.portada-contacto a:hover { color: var(--verde-fuerte); text-decoration: underline; text-underline-offset: 3px; }
 
-    /* 100svh = "small viewport height": descuenta la barra del navegador en móviles.
-       El fallback 100vh mantiene compatibilidad en browsers sin soporte de svh. */
-    height: 100svh;
-    height: 100vh;             /* fallback para browsers sin svh */
-    min-height: 600px;
+/* Foto en tarjeta, encuadrada en las bandejas (lado derecho de la foto) */
+.portada-foto { position: relative; }
+.portada-marco {
+  position: relative; aspect-ratio: 4 / 3; overflow: hidden;
+  border-radius: 16px; background: var(--gris); box-shadow: var(--sombra-foto);
+}
+.portada-imagen { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; object-fit: cover; object-position: 100% 50%; }
+.portada-etiqueta {
+  position: absolute; left: 12px; bottom: 12px; margin: 0;
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px;
+  background: var(--blanco); color: var(--texto); font-size: .875rem; font-weight: 700;
+  box-shadow: 0 6px 18px -6px rgb(14 22 30 / .3);
+}
+.portada-etiqueta .icono { width: 18px; height: 18px; color: var(--verde-fuerte); }
 
-    /* width: 100% explícito garantiza que nunca herede un ancho reducido
-       de un contenedor padre con padding o max-width accidental. */
-    width: 100%;
-    box-sizing: border-box;    /* el ancho incluye padding, evita desbordes */
-
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    overflow: hidden;
-
-    /* background-position: center 52% desplaza el punto de interés de la imagen
-       2% hacia abajo respecto al centro geométrico del elemento.
-       Compensa visualmente que el hero empieza DEBAJO del header sticky,
-       por lo que su mitad real queda ~40px más baja que el centro visual de pantalla. */
-    background-position: center 52%;
+/* Los tres pasos */
+.franja-pasos { margin-top: 32px; border-block: 1px solid var(--borde); }
+.pasos {
+  list-style: none; margin: 0 auto; padding-block: 12px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+}
+.pasos li {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+  font-size: .8125rem; font-weight: 600; line-height: 1.25; color: var(--texto-suave);
+}
+.pasos-numero {
+  display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 999px;
+  background: var(--verde-fuerte); color: #fff; font-size: .8125rem; font-weight: 800;
 }
 
-.hero h2 {
-    position: relative;
-    z-index: 1;
-    padding: 1.1rem 2.8rem;
-    font-size: 2.1rem;
-    font-weight: 700;
-    color: #1a4d25;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.72);
-    backdrop-filter: blur(12px) saturate(160%);
-    -webkit-backdrop-filter: blur(12px) saturate(160%);
-    border: 1.5px solid rgba(40, 167, 69, 0.25);
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
-    animation: hero-text-in 0.85s 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-    max-width: 80%;
-    letter-spacing: 0.01em;
+@media (min-width: 768px) {
+  .portada { padding-top: 40px; }
+  .portada-columnas { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: center; gap: clamp(40px, 5vw, 64px); }
+  .portada-marco { aspect-ratio: 3 / 2; }
+  .portada-subtitulo { margin-top: 16px; }
+  .portada-lugar { margin-top: 12px; }
+  .portada-botones { margin-top: 24px; }
+  .portada-botones .boton { width: auto; }
+  .portada-contacto { margin-top: 12px; }
+  .portada-etiqueta { left: 16px; bottom: 16px; gap: 8px; padding: 8px 14px; font-size: .875rem; }
+  .franja-pasos { margin-top: 40px; }
+  .pasos { padding-block: 14px; gap: 24px; }
+  .pasos li { flex-direction: row; justify-content: center; gap: 10px; font-size: .9375rem; text-align: left; }
+  .pasos-numero { width: 26px; height: 26px; }
 }
 
-@keyframes hero-text-in {
-    from {
-        opacity: 0;
-        transform: translateY(36px) scale(0.93);
-        filter: blur(4px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-        filter: blur(0);
-    }
+/* Secciones: fondo general; Categorías y Preguntas en verde clarito, como la original */
+.seccion { padding: 44px 0; }
+.seccion-fondo-verde { background: var(--tinte); }
+.titulo-seccion {
+  color: var(--titulo-suave);
+  font-size: clamp(1.75rem, 7vw, 2.5rem); font-weight: 800; line-height: 1.08; letter-spacing: -.03em;
+}
+.titulo-seccion + .lista-categorias, .titulo-seccion + .donde-columnas, .titulo-seccion + .preguntas-columnas { margin-top: 20px; }
+@media (min-width: 768px) {
+  .seccion { padding: 72px 0; }
+  .titulo-seccion + .lista-categorias, .titulo-seccion + .donde-columnas, .titulo-seccion + .preguntas-columnas { margin-top: 28px; }
 }
 
-.section > p[style] {
-    animation: fade-up-soft 0.7s 0.2s ease both;
+/* 3. Categorías: un botón por categoría; la elegida, verde y con la ✓ */
+.lista-categorias {
+  display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+  margin-inline: -16px; padding: 4px 16px 8px; scroll-padding-inline: 16px;
+}
+.lista-categorias::-webkit-scrollbar { display: none; }
+.boton-categoria {
+  flex: none; scroll-snap-align: start;
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 0 16px; border-radius: 999px;
+  border: 2px solid var(--borde); background: var(--blanco); color: var(--texto);
+  font-weight: 700; font-size: .9375rem; cursor: pointer;
+  transition: background-color .2s, border-color .2s, color .2s, transform .2s var(--curva);
+}
+.boton-categoria:hover { border-color: var(--verde); color: var(--verde-fuerte); }
+.boton-categoria:active { transform: scale(.97); }
+.boton-categoria-tilde { display: none; }
+.boton-categoria[aria-pressed="true"] {
+  background: var(--verde-fuerte); border-color: var(--verde-fuerte); color: #fff;
+  box-shadow: var(--sombra-accion);
+}
+.boton-categoria[aria-pressed="true"] .boton-categoria-tilde {
+  display: inline-grid; place-items: center; width: 20px; height: 20px; margin-left: -6px; border-radius: 999px;
+  background: #fff; color: var(--verde-fuerte);
+}
+.boton-categoria-tilde .icono { width: 13px; height: 13px; }
+@media (min-width: 768px) {
+  .lista-categorias { flex-wrap: wrap; overflow: visible; margin: 0; padding: 4px 0; }
+  .lista-categorias .boton-categoria { min-height: 40px; }
 }
 
-@keyframes fade-up-soft {
-    from { opacity: 0; transform: translateY(24px); }
-    to   { opacity: 1; transform: translateY(0); }
+/* 4. La zona de combos de la categoría elegida: título, bajada y tarjetas */
+.zona-combos { margin-top: 32px; scroll-margin-top: 120px; }
+.zona-combos h3 { color: var(--titulo-suave); font-size: clamp(1.375rem, 5vw, 1.75rem); font-weight: 800; line-height: 1.1; letter-spacing: -.025em; }
+.zona-combos > p { margin: 6px 0 20px; font-size: 1rem; color: var(--texto-suave); }
+@media (min-width: 768px) { .zona-combos { margin-top: 40px; } .zona-combos > p { margin-bottom: 24px; } }
+
+/* Tarjetas de combos (la regla .combo de la v5, con nuestros nombres). Cada tarjeta es un botón entero:
+   datos a la izquierda y foto a la derecha. La parte 2 (más abajo) las pasa a tarjetas
+   grandes con la foto arriba */
+.grilla-combos { display: grid; gap: 12px; max-width: 760px; }
+.tarjeta-combo {
+  position: relative; display: grid; grid-template-columns: 1fr 96px; gap: 16px; align-items: center;
+  width: 100%; padding: 14px 16px; text-align: left; cursor: pointer;
+  background: var(--blanco); border: 2px solid var(--borde); border-radius: 16px;
+  transition: border-color .2s, transform .25s var(--curva), box-shadow .25s;
+}
+.tarjeta-combo:hover { border-color: var(--verde); box-shadow: var(--sombra); }
+.tarjeta-combo:active { transform: scale(.99); }
+/* Combo destacado: borde naranja y la pastilla "Más elegido". Quedan listos pero NO se usan: hoy el sistema
+   no tiene un dato que diga cuál es el más elegido */
+.tarjeta-combo-destacada, .tarjeta-combo-destacada:hover { border-color: var(--naranja); }
+.tarjeta-combo-datos { display: grid; gap: 4px; justify-items: start; }
+.tarjeta-combo-nombre { font-size: 1.0625rem; font-weight: 700; letter-spacing: -.015em; line-height: 1.25; color: var(--titulo); }
+.tarjeta-combo-precio { font-size: 1.3125rem; font-weight: 800; letter-spacing: -.02em; color: var(--verde-fuerte); font-variant-numeric: tabular-nums; }
+.tarjeta-combo-por-vianda { color: var(--texto-suave); font-size: .9375rem; }
+.tarjeta-combo-sello {
+  margin-bottom: 4px; padding: 3px 10px; border-radius: 999px;
+  background: var(--naranja); color: var(--texto); font-size: .75rem; font-weight: 800;
+}
+.tarjeta-combo-foto { position: relative; }
+.tarjeta-combo .foto { aspect-ratio: 1; font-size: .75rem; padding: 6px; }
+@media (min-width: 768px) { .tarjeta-combo { grid-template-columns: 1fr 112px; padding: 16px 18px; } }
+
+/* Selector de cantidad (− 2 +), del mismo alto que los botones (48px) */
+.selector-cantidad {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 4px; justify-self: start;
+  padding: 3px; border-radius: 999px; background: var(--tinte);
+}
+.boton-cantidad {
+  display: grid; place-items: center; width: 38px; height: 38px; border-radius: 999px;
+  border: 0; background: var(--blanco); color: var(--texto); cursor: pointer;
+  box-shadow: 0 1px 2px rgb(22 50 30 / .12);
+  transition: transform .15s var(--curva), background-color .15s;
+}
+.boton-cantidad .icono { width: 16px; height: 16px; }
+.boton-cantidad:active:not(:disabled) { transform: scale(.9); }
+.boton-sumar { background: var(--verde-fuerte); color: #fff; }
+.boton-sumar:hover:not(:disabled) { background: var(--verde-hondo); }
+.boton-cantidad:disabled { opacity: .35; cursor: not-allowed; }
+.numero-cantidad { min-width: 26px; text-align: center; font-weight: 800; font-size: 1rem; font-variant-numeric: tabular-nums; }
+@media (max-width: 767px) { .selector-cantidad { padding: 1px; } .boton-cantidad { width: 42px; height: 42px; } }
+
+/* Modales (<dialog>): en el celular suben desde abajo; en compu, centrados */
+.modal {
+  border: 0; padding: 0; margin: auto 0 0; width: 100%; max-width: 100%; max-height: 92dvh;
+  background: var(--blanco); color: var(--texto);
+  border-radius: 20px 20px 0 0; box-shadow: var(--sombra-alta);
+  overflow: hidden;
+}
+.modal[open] { display: flex; flex-direction: column; animation: subir .38s var(--curva); }
+.modal::backdrop { background: rgb(8 18 11 / .55); animation: aparecer .3s ease; }
+@keyframes subir { from { transform: translateY(40px); opacity: 0; } }
+@keyframes aparecer { from { opacity: 0; } }
+
+.modal-encabezado {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+  padding: 20px 16px 14px;
+}
+.modal-encabezado h2 { font-size: 1.5rem; font-weight: 800; }
+.modal-categoria { font-size: .875rem; font-weight: 700; color: var(--verde-fuerte); margin-bottom: 2px; }
+.boton-cerrar {
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; border: 0; cursor: pointer;
+  background: var(--tinte); color: var(--texto); transition: background-color .2s;
+}
+.boton-cerrar:hover { background: var(--borde); }
+.modal-contenido { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 16px; }
+.modal-pie {
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--linea); background: var(--blanco);
+}
+.dos-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dos-botones .boton { padding: 0 12px; }
+
+@media (min-width: 768px) {
+  .modal { margin: auto; max-width: 600px; max-height: 86dvh; border-radius: 20px; }
+  .modal-encabezado, .modal-contenido, .modal-pie { padding-inline: 24px; }
+  /* "Mi pedido" en compu: un panel a la derecha, de todo el alto */
+  .modal-pedido {
+    margin: 0 0 0 auto; height: 100dvh; max-height: 100dvh; max-width: 440px; border-radius: 20px 0 0 20px;
+  }
+  .modal-pedido[open] { animation: deslizar .38s var(--curva); }
+  @keyframes deslizar { from { transform: translateX(40px); opacity: 0; } }
 }
 
-/* ===================================================
-   RESPONSIVE HERO
-   =================================================== */
-@media (max-width: 768px) {
-    .hero {
-        height: 100vh;
-        min-height: 500px;
-        background-attachment: scroll;
-    }
+/* Progreso del combo: "3 de 10", "Te faltan 7" y la barra */
+.progreso { padding: 0 16px 14px; border-bottom: 1px solid var(--linea); }
+.progreso-texto { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.progreso-texto strong { font-size: 1.125rem; font-variant-numeric: tabular-nums; }
+.progreso-texto span { color: var(--texto-suave); font-size: .9375rem; }
+.progreso-barra { height: 10px; border-radius: 999px; background: var(--tinte); overflow: hidden; }
+.progreso-barra span {
+  display: block; height: 100%; border-radius: inherit; background: var(--verde);
+  transform-origin: left; transform: scaleX(0); transition: transform .35s var(--curva);
+}
+.progreso.progreso-completo .progreso-texto span { color: var(--verde-fuerte); font-weight: 700; }
+@media (min-width: 768px) { .progreso { padding-inline: 24px; } }
 
-    .hero h2 {
-        font-size: 1.5rem;
-        padding: 0.8rem 1.4rem;
-        max-width: 90%;
-    }
+/* Aviso al salir del armado con platos elegidos (reemplaza al botón "Agregar al pedido") */
+.aviso-salir[hidden], #boton-agregar-combo[hidden] { display: none; }
+.aviso-salir p { margin-bottom: 12px; color: var(--texto-suave); font-size: .9375rem; }
+
+/* Platos dentro del combo */
+.lista-platos { list-style: none; margin: 0; display: grid; gap: 10px; padding-top: 14px; }
+.plato {
+  display: grid; grid-template-columns: 72px 1fr; gap: 12px; align-items: start;
+  padding: 10px; border-radius: 16px; border: 2px solid var(--borde);
+  transition: border-color .2s, background-color .2s;
+}
+.plato.plato-elegido { border-color: var(--verde); background: color-mix(in srgb, var(--verde) 6%, var(--blanco)); }
+.plato .foto { aspect-ratio: 1; font-size: .6875rem; padding: 4px; }
+.plato-datos { display: grid; gap: 4px; }
+.plato h3 { font-size: 1rem; font-weight: 700; letter-spacing: -.01em; line-height: 1.3; }
+.plato p { color: var(--texto-suave); font-size: .875rem; line-height: 1.4; }
+.plato .selector-cantidad { margin-top: 6px; }
+@media (min-width: 520px) {
+  .plato { grid-template-columns: 80px 1fr auto; align-items: center; }
+  .plato .selector-cantidad { margin-top: 0; }
 }
 
-/* ===================================================
-   GLASSMORPHISM — Carrito lateral (mejora sobre carrito.css)
-   =================================================== */
-#carrito.carrito-lateral {
-    backdrop-filter: blur(22px) saturate(185%);
-    -webkit-backdrop-filter: blur(22px) saturate(185%);
-    background: rgba(255, 255, 255, 0.88) !important;
-    border-left: 1px solid rgba(255, 255, 255, 0.4);
-    box-shadow: -8px 0 40px rgba(0, 0, 0, 0.15) !important;
+/* Mi pedido: un renglón por combo */
+.combo-del-pedido { display: grid; gap: 8px; padding: 16px 0; border-bottom: 1px solid var(--linea); }
+.combo-del-pedido:last-child { border-bottom: 0; }
+.nombre-y-precio { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.combo-nombre { font-weight: 700; }
+.combo-precio { font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.combo-platos { margin: 0; padding: 0; list-style: none; color: var(--texto-suave); font-size: .875rem; display: grid; gap: 2px; }
+.combo-acciones { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.combo-precio-vianda { color: var(--texto-suave); font-size: .875rem; }
+.boton-quitar {
+  min-height: 44px; border: 0; background: none; padding: 0 4px; cursor: pointer;
+  color: var(--texto-suave); font-weight: 600; font-size: .875rem; text-decoration: underline; text-underline-offset: 3px;
+}
+.boton-quitar:hover { color: var(--error); }
+.total { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+.total span { font-weight: 600; color: var(--texto-suave); }
+.total strong { font-size: 1.5rem; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+
+/* Mi pedido vacío: el ícono de la bolsa y "Todavía no agregaste combos." */
+.pedido-vacio { display: grid; gap: 10px; justify-items: center; text-align: center; padding: 48px 8px; }
+.pedido-vacio-icono {
+  display: grid; place-items: center; width: 64px; height: 64px; border-radius: 999px;
+  background: var(--verde-claro); color: var(--verde-fuerte);
+}
+.pedido-vacio-icono .icono { width: 28px; height: 28px; }
+.pedido-vacio p { color: var(--texto-suave); max-width: 30ch; }
+
+/* Finalizar pedido: en el celular ocupa toda la pantalla */
+.modal-finalizar { margin: 0; width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+.vista { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.vista[hidden] { display: none; }
+.vista > form { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.finalizar-contenido { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 28px; }
+.finalizar-columnas { display: grid; gap: 28px; }
+.campos { display: grid; gap: 36px; }
+.finalizar-pie { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 16px; }
+.finalizar-total { display: grid; line-height: 1.2; }
+.finalizar-total > span:first-child { font-size: .875rem; font-weight: 600; color: var(--texto-suave); }
+.finalizar-total strong { font-size: 1.375rem; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.finalizar-pie .boton { padding: 0 24px; }
+
+/* En compu: los campos a la izquierda y el resumen fijo a la derecha */
+@media (min-width: 900px) {
+  .modal-finalizar { margin: auto; max-width: 1040px; height: min(880px, 94dvh); max-height: 94dvh; border-radius: 20px; }
+  .finalizar-contenido { padding: 4px 32px 32px; }
+  .finalizar-columnas { grid-template-columns: 1fr 360px; gap: 48px; align-items: start; }
+  .campos { grid-column: 1; grid-row: 1; }
+  .finalizar-columnas > .resumen { grid-column: 2; grid-row: 1; position: sticky; top: 0; }
+  .finalizar-columnas > .resumen > summary { cursor: default; }
+  .resumen-flecha { display: none; }
+  .finalizar-pie { padding-inline: 32px; grid-template-columns: auto auto; justify-content: end; gap: 28px; }
 }
 
-/* ===================================================
-   SPA — Sistema de vistas
-   =================================================== */
-.spa-view {
-    animation: spa-fade-in 0.42s var(--easing-out) both;
+/* Resumen del pedido (plegable en el celular, abierto fijo en compu). También lo usa la confirmación */
+.resumen { border-radius: 16px; background: var(--tinte); }
+.resumen > summary {
+  list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  min-height: 60px; padding: 12px 16px; cursor: pointer; font-weight: 700;
+}
+.resumen > summary::-webkit-details-marker { display: none; }
+.resumen-titulo { display: grid; line-height: 1.25; }
+/* "(1 combo)" debajo del título, y los platos de cada combo: letra chica y gris */
+.resumen-cantidad, .resumen-platos { font-size: .8125rem; font-weight: 500; color: var(--texto-suave); }
+.resumen-derecha { display: inline-flex; align-items: center; gap: 10px; }
+.resumen-derecha strong { color: var(--verde-fuerte); font-variant-numeric: tabular-nums; }
+.resumen-flecha { width: 18px; height: 18px; color: var(--texto-suave); transform: rotate(90deg); transition: transform .25s var(--curva); }
+.resumen[open] .resumen-flecha { transform: rotate(-90deg); }
+.resumen-contenido { padding: 0 16px 16px; }
+.resumen-lista { list-style: none; margin: 0; padding: 0; }
+.resumen-combo { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid var(--borde); font-size: .9375rem; }
+.resumen-combo .nombre-y-precio span:last-child { font-weight: 700; white-space: nowrap; }
+.resumen-cuentas { margin: 0; padding-top: 12px; border-top: 1px solid var(--borde); display: grid; gap: 6px; }
+.resumen-cuentas div { display: flex; justify-content: space-between; gap: 12px; }
+.resumen-cuentas dt { color: var(--texto-suave); }
+.resumen-cuentas dd { margin: 0; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.resumen-renglon-total { margin-top: 4px; }
+.resumen-renglon-total dt { color: var(--texto); font-weight: 700; }
+.resumen-renglon-total dd { font-size: 1.25rem; font-weight: 800; color: var(--verde-fuerte); }
+
+/* Formulario */
+.grupo-campos { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 14px; }
+.grupo-campos > legend { padding: 0; margin-bottom: 14px; font-size: 1.25rem; font-weight: 800; letter-spacing: -.015em; }
+.campo { display: grid; gap: 6px; }
+.campo > label { font-weight: 700; font-size: .9375rem; }
+.opcional { font-weight: 500; color: var(--texto-suave); }
+/* Casillero: donde se escribe o se elige (inputs, el select del barrio y el de observaciones) */
+.casillero {
+  width: 100%; min-height: 46px; padding: 10px 14px;
+  font: inherit; font-size: 1rem; color: var(--texto); caret-color: var(--verde-fuerte);
+  background: var(--blanco); border: 2px solid var(--borde); border-radius: 12px;
+  transition: border-color .15s, box-shadow .15s;
+}
+textarea.casillero { resize: vertical; min-height: 96px; }
+.casillero::placeholder { color: var(--texto-suave); }
+.casillero:hover { border-color: #c3d0bf; }
+.casillero:focus { outline: none; border-color: var(--verde-fuerte); box-shadow: 0 0 0 4px rgb(47 170 75 / .22); }
+.campo-ayuda { font-size: .875rem; color: var(--texto-suave); }
+.campo-error { font-size: .875rem; font-weight: 600; color: var(--error); }
+.campo-error:empty { display: none; }
+.campo-error::before { content: "! "; font-weight: 800; }
+.grupo-barrio { display: grid; gap: 14px; padding: 16px; border-radius: 16px; background: var(--tinte); }
+.grupo-barrio[hidden], .nota[hidden] { display: none; }
+.nota { padding: 12px 14px; border-radius: 12px; background: var(--tinte); color: var(--texto); font-size: .9375rem; }
+
+/* Opciones tipo tarjeta (Envío / Retiro, Efectivo / Transferencia): el radio de verdad está escondido
+   y se pinta la tarjeta de al lado (opcion-tarjeta) cuando está elegido */
+.opciones { display: grid; gap: 10px; }
+@media (min-width: 520px) { .opciones-dos-columnas { grid-template-columns: 1fr 1fr; } }
+.opcion { position: relative; display: block; cursor: pointer; }
+.opcion-radio { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+.opcion-tarjeta {
+  display: flex; align-items: flex-start; gap: 12px; height: 100%;
+  padding: 14px; border: 2px solid var(--borde); border-radius: 16px; background: var(--blanco);
+  transition: border-color .15s, background-color .15s;
+}
+.opcion:hover .opcion-tarjeta { border-color: var(--verde); }
+.opcion-circulo {
+  flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 999px;
+  border: 2px solid var(--borde); background: var(--blanco); transition: box-shadow .15s, background-color .15s;
+}
+.opcion-textos { display: grid; gap: 4px; justify-items: start; }
+.opcion-titulo { font-weight: 700; }
+.opcion-detalle { font-size: .875rem; color: var(--texto-suave); }
+.opcion-radio:checked + .opcion-tarjeta { border-color: var(--verde-fuerte); background: var(--verde-claro); }
+.opcion-radio:checked + .opcion-tarjeta .opcion-circulo { border-color: var(--verde-fuerte); background: var(--verde-fuerte); box-shadow: inset 0 0 0 4px var(--blanco); }
+.opcion-radio:focus-visible + .opcion-tarjeta { outline: 3px solid var(--naranja); outline-offset: 2px; }
+
+/* Confirmación: la ✓ grande, "¡Recibimos tu pedido #N!", los datos, el resumen y WhatsApp */
+.confirmacion { display: grid; gap: 18px; max-width: 620px; margin-inline: auto; padding-top: 12px; }
+.confirmacion-tilde {
+  display: grid; place-items: center; width: 64px; height: 64px; border-radius: 999px;
+  background: var(--verde-fuerte); color: #fff;
+  animation: salto .6s var(--curva);
+}
+.confirmacion-tilde .icono { width: 30px; height: 30px; }
+.confirmacion h3 { font-size: clamp(1.625rem, 6vw, 2.125rem); font-weight: 800; }
+.confirmacion > p { color: var(--texto-suave); font-size: 1.0625rem; }
+.confirmacion-datos { margin: 0; display: grid; gap: 12px; padding: 16px; border-radius: 16px; border: 2px solid var(--borde); }
+.confirmacion-datos div { display: grid; gap: 2px; }
+.confirmacion-datos dt { font-size: .8125rem; font-weight: 700; color: var(--texto-suave); }
+.confirmacion-datos dd { margin: 0; font-weight: 600; }
+.confirmacion .resumen { padding: 4px 16px 16px; }
+@media (min-width: 640px) { .confirmacion-datos { grid-template-columns: repeat(3, 1fr); } }
+
+/* Botón con forma de enlace (lo usa "✎ Personalizar" en el armado del combo) */
+.boton-enlace {
+  justify-self: start; min-height: 44px; border: 0; background: none; padding: 0; cursor: pointer;
+  color: var(--verde-fuerte); font-weight: 700; font-size: .9375rem; text-decoration: underline; text-underline-offset: 3px;
 }
 
-.spa-view--oculta {
-    display: none;
+/* Dónde estamos: los datos a la izquierda y el recuadro del mapa a la derecha (debajo, en el celular) */
+.donde-columnas { display: grid; gap: 28px; }
+.donde-lista { margin: 0; display: grid; gap: 18px; align-content: start; }
+.donde-dato { display: grid; grid-template-columns: 40px 1fr; gap: 14px; align-items: start; }
+.donde-dato .icono {
+  width: 40px; height: 40px; padding: 10px; border-radius: 999px;
+  background: var(--blanco); color: var(--verde-fuerte); box-shadow: inset 0 0 0 1px var(--borde);
+}
+.donde-columnas dt { font-size: .875rem; font-weight: 700; color: var(--texto-suave); }
+.donde-columnas dd { margin: 2px 0 0; font-size: 1rem; font-weight: 600; }
+.donde-columnas .boton { margin-top: 10px; }
+.enlace-subrayado { display: inline-flex; align-items: center; min-height: 44px; margin-top: -10px; color: inherit; text-decoration: underline; text-decoration-color: var(--borde); text-underline-offset: 4px; }
+.enlace-subrayado:hover { color: var(--verde-fuerte); text-decoration-color: currentColor; }
+/* El recuadro gris del mapa (todavía sin mapa de verdad: dice "mapa") */
+.mapa {
+  position: relative; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 16px;
+  background: var(--gris); box-shadow: var(--sombra-foto);
+}
+.mapa .foto { position: absolute; inset: 0; aspect-ratio: auto; border-radius: 0; font-size: .9375rem; }
+@media (min-width: 768px) { .donde-columnas { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 48px; align-items: start; } }
+
+/* Preguntas frecuentes: acordeón con <details> (anda sin JavaScript).
+   name="preguntas" en cada <details> hace que se abra una a la vez */
+.preguntas-columnas { display: grid; }
+.acordeon { border-top: 1px solid var(--borde); align-self: start; }
+.acordeon + .acordeon { border-top: 0; }
+@media (min-width: 900px) {
+  .preguntas-columnas { grid-template-columns: 1fr 1fr; column-gap: 48px; }
+  .acordeon + .acordeon { border-top: 1px solid var(--borde); }
+}
+.pregunta { border-bottom: 1px solid var(--borde); }
+.pregunta > summary { list-style: none; }
+.pregunta > summary::-webkit-details-marker { display: none; }
+.pregunta-titulo {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  width: 100%; min-height: 56px; padding: 14px 0; border: 0; background: none; cursor: pointer;
+  text-align: left; font-size: 1rem; font-weight: 700; color: var(--texto);
+  transition: color .2s;
+}
+.pregunta-titulo:hover { color: var(--verde-fuerte); }
+.pregunta-signo {
+  flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px;
+  background: var(--blanco); color: var(--verde-fuerte); box-shadow: inset 0 0 0 1px var(--borde);
+  transition: transform .25s var(--curva), background-color .2s, color .2s;
+}
+.pregunta-signo .icono { width: 16px; height: 16px; }
+/* La pregunta abierta: el título en verde y el + girado (queda una ×) */
+.pregunta[open] > .pregunta-titulo { color: var(--verde-fuerte); }
+.pregunta[open] .pregunta-signo { transform: rotate(45deg); background: var(--verde-fuerte); color: #fff; }
+.pregunta-respuesta { padding: 0 44px 16px 0; color: var(--texto-suave); max-width: 65ch; }
+
+/* Pie de página */
+.pie-de-pagina { padding: 44px 0 calc(32px + env(safe-area-inset-bottom)); border-top: 1px solid var(--borde); }
+.pie-columnas { display: grid; gap: 28px; }
+.pie-marca { display: grid; gap: 12px; justify-items: start; align-content: start; max-width: 34ch; }
+.pie-marca p, .pie-columna p { color: var(--texto-suave); }
+.pie-columna { display: grid; gap: 8px; align-content: start; }
+.pie-columna h2 { font-size: .9375rem; font-weight: 800; letter-spacing: 0; margin-bottom: 4px; }
+.pie-columna a { color: var(--texto-suave); text-decoration: none; padding: 2px 0; }
+.pie-columna a:hover { color: var(--verde-fuerte); text-decoration: underline; text-underline-offset: 3px; }
+@media (min-width: 640px) { .pie-columnas { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1024px) { .pie-columnas { grid-template-columns: 1.6fr 1fr 1fr 1fr; } }
+@media (max-width: 767px) {
+  /* Aire abajo para el botón flotante de WhatsApp; links de 44px en dos columnas */
+  .pie-de-pagina { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .pie-de-pagina nav.pie-columna { grid-template-columns: 1fr 1fr; column-gap: 16px; row-gap: 0; }
+  .pie-de-pagina nav.pie-columna h2 { grid-column: 1 / -1; }
+  .pie-columna a { display: flex; align-items: center; min-height: 44px; padding: 0; }
 }
 
-@keyframes spa-fade-in {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
+/* WhatsApp flotante (capa 20: sobre el contenido; los modales abiertos lo tapan) */
+.whatsapp-flotante {
+  position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 20;
+  display: grid; place-items: center; width: 52px; height: 52px; border-radius: 999px;
+  background: var(--verde-fuerte); color: #fff; box-shadow: 0 8px 24px rgb(16 40 22 / .3);
+  transition: transform .25s var(--curva), box-shadow .2s, opacity .25s;
+}
+.whatsapp-flotante .icono { width: 26px; height: 26px; }
+.whatsapp-flotante:hover { transform: translateY(-2px); }
+.whatsapp-flotante:active { transform: scale(.95); }
+@media (min-width: 768px) { .whatsapp-flotante { right: 24px; bottom: 24px; } }
+
+/* Animaciones de la v5 (solo si se permite movimiento). "js" lo pone animaciones-index.js en <html>; las animaciones
+   del diseño final (demoras de las tarjetas, el salto del contador, las respuestas) están en la parte 2 (más abajo) */
+@media (prefers-reduced-motion: no-preference) {
+  .js .revelar { opacity: 0; transform: translateY(18px); transition: opacity .6s var(--curva), transform .6s var(--curva); }
+  .js .revelar.visible { opacity: 1; transform: none; }
+  .portada-texto > * { animation: entrar .7s var(--curva) both; }
+  .portada-texto > :nth-child(2) { animation-delay: .06s; }
+  .portada-texto > :nth-child(3) { animation-delay: .12s; }
+  .portada-texto > :nth-child(4) { animation-delay: .18s; }
+  @keyframes entrar { from { opacity: 0; transform: translateY(16px); } }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
-/* ===================================================
-   VISTA DE PLANES — Topbar + layout
-   =================================================== */
-.planes-topbar {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    margin-bottom: 2.5rem;
-    flex-wrap: wrap;
+/* ===================================================================================
+   AGREGADOS DE ESTA PÁGINA
+   =================================================================================== */
+
+/* Fotos de verdad (la maqueta usa un recuadro gris): la imagen llena su recuadro sin deformarse.
+   Si un plato no tiene foto se muestra el logo, entero y con aire alrededor (foto-logo).
+   En la tarjeta de un combo, si su foto no carga, también el logo entero (le gana al "cover" de la parte 2) */
+img.foto { display: block; object-fit: cover; }
+img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
+.grilla-combos .tarjeta-combo-foto img.foto-logo { object-fit: contain; }
+
+/* Mensajes de la zona de combos: "Cargando combos...", "Por ahora no hay combos disponibles." */
+.aviso-combos { padding: 24px 0; color: var(--texto-suave); }
+
+/* El botón de sesión lo arma auth.js (lo comparten otras pantallas) con estilos escritos en la etiqueta,
+   pensados para el encabezado verde viejo (letra blanca). Acá se pisan para que se vea como un botón de
+   texto. !important = "esta regla gana aunque haya un estilo escrito en la etiqueta".
+   Los nombres (auth-btn-container, login-btn-header) son de auth.js: se arreglan en la Pantalla 2 (Login). */
+#auth-btn-container { position: relative; }
+#auth-btn-container .login-btn-header {
+  display: inline-flex !important; align-items: center; min-height: 44px; padding: 0 12px !important;
+  border: 0 !important; border-radius: 999px !important; background: transparent !important;
+  color: var(--texto) !important; font-family: var(--fuente) !important; font-size: .9375rem !important;
+  font-weight: 600 !important; text-decoration: none; white-space: nowrap; cursor: pointer;
+}
+#auth-btn-container .login-btn-header:hover { color: var(--verde-fuerte) !important; background: var(--tinte) !important; }
+@media (max-width: 400px) { #auth-btn-container .login-btn-header { padding: 0 8px !important; font-size: .875rem !important; } }
+
+/* "Quedan 3" o "Sin stock" debajo del nombre del plato (la maqueta lo escribe con estilo en la etiqueta).
+   Va con ".plato" adelante para ganarle a ".plato p" (el gris de la descripción) */
+.plato .plato-quedan { font-size: .8125rem; font-weight: 700; color: var(--verde-fuerte); }
+.plato .plato-sin-stock { color: var(--error); }
+
+/* Personalizar un plato ("sin sal"): va debajo del plato, a todo su ancho */
+.plato-personalizados { grid-column: 1 / -1; display: grid; gap: 8px; }
+.renglon-personalizado {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 6px 6px 6px 12px; border-radius: 12px; background: var(--tinte);
+}
+.renglon-personalizado-texto { font-size: .875rem; font-weight: 700; color: var(--texto); overflow-wrap: anywhere; }
+.renglon-personalizado .selector-cantidad { margin-top: 0; background: var(--blanco); }
+.personalizar-plato { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; }
+@media (max-width: 519px) {
+  .personalizar-plato { grid-template-columns: 1fr 1fr; }
+  .personalizar-plato .casillero { grid-column: 1 / -1; }
+}
+.boton-enlace:disabled { color: var(--texto-suave); cursor: not-allowed; text-decoration: none; }
+
+/* Formulario: Nombre y Apellido lado a lado (la maqueta lo hace con estilo en la etiqueta) */
+.campos-lado-a-lado { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+/* El error al enviar ocupa todo el ancho del pie, arriba del total y del botón */
+.finalizar-error { grid-column: 1 / -1; }
+/* En compu el resumen queda abierto fijo: no se cierra al tocar su título */
+@media (min-width: 900px) { .finalizar-columnas > .resumen > summary { pointer-events: none; } }
+
+/* Confirmación: el ícono del botón de WhatsApp, y el alias de la transferencia con letra oscura (como en el formulario) */
+.confirmacion .boton .icono { width: 22px; height: 22px; }
+.confirmacion > .nota { color: var(--texto); font-size: .9375rem; }
+/* En la confirmación el resumen no tiene título arriba: el primer combo va sin la raya de separación */
+.confirmacion .resumen-combo:first-child { border-top: 0; }
+
+/* El renglón del copyright, abajo del pie */
+.pie-derechos { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--borde); font-size: .875rem; color: var(--texto-suave); }
+
+/* Modal "Iniciar sesión": usa el mismo login de login.html (manejarLogin, de auth.js), que muestra y esconde
+   sus avisos con la clase "show"; por eso los avisos arrancan escondidos */
+.formulario-login { display: grid; gap: 16px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+.aviso-login, .cargando-login { display: none; font-size: .875rem; font-weight: 600; }
+.aviso-login { color: var(--error); }
+.cargando-login { color: var(--texto-suave); }
+.aviso-login.show, .cargando-login.show { display: block; }
+.login-otros { display: grid; gap: 10px; justify-items: center; padding-top: 16px; border-top: 1px solid var(--linea); color: var(--texto-suave); }
+@media (min-width: 768px) { .modal-login { max-width: 440px; } }
+
+/* ===================================================================================
+   PARTE 2 — DISEÑO FINAL (antes index-final.css)
+   Ajustes del diseño final (v5) y sus animaciones. Va después de la parte 1 para que gane.
+   Solo estilos: no cambia nada del funcionamiento. Son los mismos valores del index-final.css del diseño final,
+   con los nombres pasados a los nuestros (tabla "maqueta → nuestro" en el INFORME, sección 13.11).
+   Ej: .combos → .grilla-combos · .combo → .tarjeta-combo · .combo__cta → .tarjeta-combo-boton · .contador → .contador-combos
+   =================================================================================== */
+
+/* ---------- 1. Combos: tarjetas grandes ----------
+   3 por fila en compu. Si se agregan más combos, se achican solas (mínimo 260px)
+   y pasan a la fila de abajo. En celu, una por fila. */
+.grilla-combos { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; max-width: none; align-items: stretch; }
+.grilla-combos .tarjeta-combo { grid-template-columns: 1fr; gap: 0; padding: 0; overflow: hidden; align-items: stretch; align-content: start; }
+.grilla-combos .tarjeta-combo-foto { order: -1; }
+.grilla-combos .tarjeta-combo .foto { aspect-ratio: 16 / 10; border-radius: 0; font-size: .9375rem; }
+.grilla-combos .tarjeta-combo-foto img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 0; }
+/* (La regla de .combo__mas, el + redondo, no va: nuestra tarjeta no lo tiene) */
+.grilla-combos .tarjeta-combo-datos { padding: 18px 20px 20px; gap: 6px; }
+.grilla-combos .tarjeta-combo-nombre { font-size: 1.25rem; }
+.grilla-combos .tarjeta-combo-precio { font-size: 1.75rem; }
+.grilla-combos .tarjeta-combo-destacada .tarjeta-combo-sello { position: absolute; top: 14px; left: 14px; z-index: 1; margin: 0; }
+.grilla-combos .tarjeta-combo-boton {
+  display: flex; align-items: center; justify-content: center; gap: 6px; justify-self: stretch;
+  min-height: 48px; margin-top: 10px; border-radius: 12px;
+  background: var(--verde-fuerte); color: #fff; font-weight: 700; font-size: 1rem;
+  transition: background-color .2s;
+}
+.grilla-combos .tarjeta-combo-boton .icono { width: 18px; height: 18px; }
+.grilla-combos .tarjeta-combo:hover .tarjeta-combo-boton { background: var(--verde-hondo); }
+
+/* ---------- 1b. Encabezado en celu: que entre todo sin scroll de costado ---------- */
+.encabezado-fila { grid-template-columns: auto minmax(0, 1fr) auto; }
+.encabezado .menu-principal { min-width: 0; }
+@media (max-width: 400px) {
+  .encabezado-fila { gap: 0 4px; }
+  /* "Iniciar sesión" lo arma auth.js con estilos en la etiqueta: por eso el !important (mismo valor que la referencia) */
+  .encabezado #auth-btn-container .login-btn-header { padding: 0 4px !important; }
+  .encabezado .boton-mi-pedido { padding-left: 10px; }
+  .encabezado-botones { gap: 2px; }
+  /* (La regla de .logo__vacio no va: nuestro logo es la imagen, no el texto) */
 }
 
-/* El h2 del topbar hereda .section h2 de global.css pero sin centering */
-.planes-topbar h2 {
-    flex: 1;
-    text-align: left;
-    margin-bottom: 0;
+/* ---------- 2. Categorías: en celu una abajo de la otra ---------- */
+@media (max-width: 767px) {
+  .lista-categorias { flex-direction: column; overflow: visible; margin: 0; padding: 4px 0; }
+  .lista-categorias .boton-categoria { width: 100%; justify-content: center; min-height: 52px; font-size: 1rem; }
 }
 
-.planes-topbar h2::after {
-    margin: 0.4rem 0 0;
+/* ---------- 3. Platos dentro de "Armar combo" ----------
+   Compu: foto | nombre + descripción (centrado) | − cantidad +
+   Celu:  foto | nombre + descripción, y el − cantidad + abajo del texto (no abajo de la foto) */
+.plato-datos { align-self: center; min-width: 0; }
+.plato p { overflow-wrap: anywhere; }
+@media (max-width: 519px) {
+  .plato .foto, .plato > img { grid-row: span 2; }
+  .plato .selector-cantidad { grid-column: 2; justify-self: start; }
 }
 
-/* Botón "← Volver a Categorías" */
-.btn-volver {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.6rem 1.4rem;
-    border-radius: var(--radius-pill);
-    background: rgba(40, 167, 69, 0.1);
-    color: var(--color-primary);
-    font-family: var(--font-main);
-    font-size: 0.88rem;
-    font-weight: 600;
-    border: 1.5px solid rgba(40, 167, 69, 0.28);
-    cursor: pointer;
-    transition:
-        background 0.26s ease,
-        color 0.26s ease,
-        border-color 0.26s ease,
-        transform 0.26s var(--easing-spring);
-    flex-shrink: 0;
+/* ---------- 4. Animaciones ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  /* Portada: el texto entra subiendo, uno atrás del otro */
+  .portada-texto > * { animation: entrar .7s var(--curva) both; }
+  .portada-texto > :nth-child(2) { animation-delay: .06s; }
+  .portada-texto > :nth-child(3) { animation-delay: .12s; }
+  .portada-texto > :nth-child(4) { animation-delay: .18s; }
+  @keyframes entrar { from { opacity: 0; transform: translateY(16px); } }
+
+  /* Secciones que aparecen al bajar con el scroll (las activa animaciones-index.js).
+     --d = demora, para que las tarjetas aparezcan de a una */
+  .js .revelar { opacity: 0; }
+  .js .revelar.visible { opacity: 1; animation: revelar .6s var(--curva) backwards; animation-delay: var(--d, 0s); }
+  @keyframes revelar { from { opacity: 0; transform: translateY(18px); } }
+
+  /* Contador de "Mi pedido": salta cuando se agrega algo */
+  .contador-combos.salta { animation: salto .45s var(--curva); }
+  @keyframes salto { 40% { transform: scale(1.35); } }
+
+  /* Preguntas: la respuesta aparece suave (el + ya gira 45° con estilos.css) */
+  .pregunta-respuesta:not([hidden]) { animation: abrir-respuesta .3s var(--curva); }
+  @keyframes abrir-respuesta { from { opacity: 0; transform: translateY(-6px); } }
 }
 
-.btn-volver:hover {
-    background: var(--color-primary);
-    color: #fff;
-    border-color: var(--color-primary);
-    transform: translateX(-4px);
-}
-
-/* ===================================================
-   ACORDEÓN DE PLANES
-   =================================================== */
-.planes-container {
-    display: flex;
-    flex-direction: column;
-    gap: 0.9rem;
-}
-
-/* Item contenedor */
-.plan-item {
-    border-radius: var(--radius-md);
-    overflow: hidden;
-    box-shadow: var(--shadow-sm);
-    transition: box-shadow 0.32s ease;
-}
-
-.plan-item:has(.plan-panel.open) {
-    box-shadow: var(--shadow-lg);
-}
-
-/* Botón de cabecera del plan (estilo naranja de marca) */
-.plan-accordion-btn {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    padding: 1.1rem 1.6rem;
-    background: linear-gradient(135deg, #ff9800, #f57c00);
-    color: #fff;
-    border: none;
-    cursor: pointer;
-    font-family: var(--font-main);
-    font-size: 1.1rem;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    text-align: left;
-    transition: filter 0.26s ease;
-}
-
-.plan-accordion-btn:hover {
-    filter: brightness(1.08);
-}
-
-.plan-accordion-btn.active {
-    filter: brightness(0.95);
-}
-
-/* Chevron giratorio */
-.plan-chevron {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-    transition: transform 0.38s var(--easing-out);
-}
-
-.plan-chevron svg {
-    width: 18px;
-    height: 18px;
-    stroke: #fff;
-    fill: none;
-    stroke-width: 2.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.plan-accordion-btn.active .plan-chevron {
-    transform: rotate(180deg);
-}
-
-/* Panel expandible (grid-template-rows trick) */
-.plan-panel {
-    display: grid;
-    grid-template-rows: 0fr;
-    opacity: 0;
-    background: #f0faf2;
-    transition:
-        grid-template-rows 0.4s var(--easing-out),
-        opacity 0.34s ease;
-}
-
-.plan-panel.open {
-    grid-template-rows: 1fr;
-    opacity: 1;
-}
-
-.plan-panel-inner {
-    overflow: hidden;
-    min-height: 0;
-}
-
-.plan-panel-content {
-    padding: 1.4rem 1.6rem 2rem;
-}
-
-/* Estados internos del panel */
-.panel-cargando,
-.panel-vacio {
-    text-align: center;
-    padding: 2.5rem;
-    color: var(--color-muted);
-    font-size: 0.95rem;
-}
-
-/* ===================================================
-   GRILLA DE PRODUCTOS — 3 columnas exactas
-   =================================================== */
-.productos-catalogo {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.2rem;
-}
-
-/* ─── Tarjeta de plato ─── */
-.plato-card {
-    display: flex;
-    flex-direction: column;
-    border-radius: 16px;
-    overflow: hidden;
-    background: #fff;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.09);
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    animation: plato-enter 0.42s var(--easing-out) both;
-    transition:
-        transform 0.38s var(--easing-spring),
-        box-shadow 0.32s ease;
-    will-change: transform;
-}
-
-.plato-card:hover {
-    transform: translateY(-7px);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
-}
-
-@keyframes plato-enter {
-    from { opacity: 0; transform: translateY(24px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-/* Imagen del plato */
-.plato-card__img {
-    height: 160px;
-    overflow: hidden;
-    background: #e8f5e9;
-    flex-shrink: 0;
-}
-
-.plato-card__img img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    transition: transform 0.46s var(--easing-out);
-}
-
-.plato-card:hover .plato-card__img img {
-    transform: scale(1.09);
-}
-
-/* Cuerpo de la tarjeta */
-.plato-card__body {
-    padding: 0.85rem 1rem 0.4rem;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-}
-
-.plato-card__nombre {
-    font-size: 0.93rem;
-    font-weight: 700;
-    color: var(--color-text);
-    line-height: 1.35;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.plato-card__desc {
-    font-size: 0.76rem;
-    color: var(--color-muted);
-    line-height: 1.5;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    flex: 1;
-}
-
-.plato-card__precio {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-top: 0.3rem;
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--color-primary);
-}
-
-/* Precio original tachado (cuando hay descuento) */
-.precio-original {
-    font-size: 0.82rem;
-    font-weight: 500;
-    color: var(--color-muted);
-    text-decoration: line-through;
-}
-
-/* Precio final con descuento */
-.precio-final {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--color-primary);
-}
-
-/* Badge "−15%" */
-.descuento-badge {
-    font-size: 0.7rem;
-    font-weight: 700;
-    padding: 0.15rem 0.45rem;
-    border-radius: 20px;
-    background: rgba(40, 167, 69, 0.12);
-    color: var(--color-primary-dark);
-    letter-spacing: 0.02em;
-}
-
-/* Footer: counter + botón */
-.plato-card__footer {
-    padding: 0.5rem 1rem 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-}
-
-.plato-counter {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    flex-shrink: 0;
-}
-
-.plato-counter__btn {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    border: none;
-    background: rgba(40, 167, 69, 0.12);
-    color: var(--color-primary);
-    font-size: 1rem;
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--font-main);
-    line-height: 1;
-    transition:
-        background 0.2s ease,
-        transform 0.2s var(--easing-spring);
-}
-
-.plato-counter__btn:hover {
-    background: var(--color-primary);
-    color: #fff;
-    transform: scale(1.15);
-}
-
-.plato-counter__qty {
-    font-size: 0.9rem;
-    font-weight: 700;
-    min-width: 20px;
-    text-align: center;
-    color: var(--color-text);
-}
-
-/* Botón "Agregar al carrito" */
-.plato-add-btn {
-    flex: 1;
-    padding: 0.5rem 0.65rem;
-    border-radius: var(--radius-pill);
-    background: var(--color-primary);
-    color: #fff;
-    font-size: 0.78rem;
-    font-weight: 600;
-    border: none;
-    cursor: pointer;
-    font-family: var(--font-main);
-    white-space: nowrap;
-    transition:
-        background 0.26s ease,
-        transform 0.26s var(--easing-spring),
-        box-shadow 0.26s ease;
-}
-
-.plato-add-btn:hover {
-    background: var(--color-primary-dark);
-    transform: scale(1.05) translateY(-1px);
-    box-shadow: 0 5px 16px rgba(40, 167, 69, 0.38);
-}
-
-.plato-add-btn:active {
-    transform: scale(0.96);
-    box-shadow: none;
-}
-
-/* ===================================================
-   RESPONSIVE — Planes y catálogo
-   =================================================== */
-@media (max-width: 960px) {
-    .productos-catalogo {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 768px) {
-    .planes-topbar {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .planes-topbar h2 {
-        font-size: 1.6rem;
-    }
-
-    .plan-accordion-btn {
-        font-size: 1rem;
-        padding: 0.95rem 1.2rem;
-    }
-
-    .plan-panel-content {
-        padding: 1rem 1.1rem 1.5rem;
-    }
-
-    .productos-catalogo {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1rem;
-    }
-}
-
-@media (max-width: 520px) {
-    .productos-catalogo {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* ===================================================
-   PANEL ADMIN — GRID "FUNCIONES PRINCIPALES" (3-3-3)
-   Modificador de .grid, no afecta el resto de las grillas
-   =================================================== */
-.menu-grid {
-    grid-template-columns: repeat(3, 1fr);
-    align-items: stretch;
-}
-
-@media (max-width: 960px) {
-    .menu-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 600px) {
-    .menu-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Altura minima de la vista de planes para que el footer no deje hueco */
-#vista-planes {
-    min-height: 70vh;
-}
+/* ---------- 5. Demoras de "revelar" (--d) ----------
+   En la referencia van en el HTML (style="--d: …"). El CLAUDE.md no permite style="" sueltos, así que van acá,
+   con los mismos valores: categorías y el texto de los combos .05s; Dónde estamos y Preguntas .08s;
+   cada tarjeta, 0,08 s más que la anterior (la 1.ª 0 s, la 2.ª .08 s, la 3.ª .16 s…; de la 13.ª en adelante, .96 s) */
+.lista-categorias.revelar, .zona-combos > p.revelar { --d: .05s; }
+.donde-columnas.revelar, .preguntas-columnas.revelar { --d: .08s; }
+.grilla-combos > :nth-child(2) { --d: .08s; }
+.grilla-combos > :nth-child(3) { --d: .16s; }
+.grilla-combos > :nth-child(4) { --d: .24s; }
+.grilla-combos > :nth-child(5) { --d: .32s; }
+.grilla-combos > :nth-child(6) { --d: .40s; }
+.grilla-combos > :nth-child(7) { --d: .48s; }
+.grilla-combos > :nth-child(8) { --d: .56s; }
+.grilla-combos > :nth-child(9) { --d: .64s; }
+.grilla-combos > :nth-child(10) { --d: .72s; }
+.grilla-combos > :nth-child(11) { --d: .80s; }
+.grilla-combos > :nth-child(12) { --d: .88s; }
+.grilla-combos > :nth-child(n+13) { --d: .96s; }

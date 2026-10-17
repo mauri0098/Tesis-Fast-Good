@@ -94,34 +94,6 @@ body {
   padding: 2rem;
 }
 
-/* Listas de Viandas */
-ul.ingredientes-list {
-  padding-left: 0;
-  margin: 0;
-  font-size: 0.82rem;
-  color: #555;
-  list-style-position: inside;
-  text-align: left;
-  display: inline-block;
-}
-
-/* =========================================
-   BADGES & STATUS
-   ========================================= */
-.badge-status {
-  padding: 0.35rem 0.6rem;
-  border-radius: 50px;
-  font-size: 0.75rem; 
-  font-weight: 700;
-  display: inline-block;
-  text-transform: uppercase;
-  word-break: keep-all;
-}
-
-.bg-reg { background: #e2e3e5; color: #383d41; }
-.bg-prep { background: #fff3cd; color: #856404; }
-.bg-listo { background: #d4edda; color: #155724; }
-
 /* Método Pago Info */
 .pago-info {
   display: flex;

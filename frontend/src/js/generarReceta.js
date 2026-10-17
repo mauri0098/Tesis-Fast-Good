@@ -212,17 +212,6 @@ function calcularCantidadPosible(insumos) {
   return isFinite(posible) ? posible : 0;
 }
 
-function armarResumenReceta(insumos) {
-  if (!insumos || insumos.length === 0) return 'Sin insumos';
-
-  const partes = insumos.slice(0, 3).map(function (ins) {
-    return ins.nombre_insumo + ' ' + ins.cantidad_necesaria + ' ' + ins.unidad_medida;
-  });
-
-  const resumen = partes.join(', ');
-  return insumos.length > 3 ? resumen + ' … (+' + (insumos.length - 3) + ')' : resumen;
-}
-
 // ==========================================
 // FILTROS
 // ==========================================

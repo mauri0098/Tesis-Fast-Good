@@ -1,30 +1,7 @@
 // ====================================================================
 // GLOBAL.JS - Lógica compartida en todo el sitio (Fast Good)
-// Sidebar, Modales y eventos globales.
+// Modales y eventos globales.
 // ====================================================================
-
-
-// ====================================================================
-// GESTIÓN DE BARRA LATERAL (SIDEBAR)
-// ====================================================================
-// Abre el menú lateral deslizando desde la izquierda
-function abrirSidebar() {
-    document.getElementById("sidebar").style.width = "250px";
-}
-
-// Cierra el menú lateral ocultándolo
-function cerrarSidebar() {
-    document.getElementById("sidebar").style.width = "0";
-}
-
-// Mantenemos las funciones con nombres originales para compatibilidad con HTML
-function openSidebar() {
-    abrirSidebar();
-}
-
-function closeSidebar() {
-    cerrarSidebar();
-}
 
 
 // ====================================================================

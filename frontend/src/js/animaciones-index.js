@@ -9,8 +9,9 @@
 //     observarNuevos (adentro) → empieza a mirar los "revelar" que todavía no se vieron (también los que se dibujan
 //                             después, como las tarjetas al cambiar de categoría)
 //
-// Es docs/diseno-final-index/animaciones-index.js tal cual; lo único distinto es el nombre del contador:
-// ".contador" → ".contador-combos" (regla "Nombres claros" del CLAUDE.md).
+// Es el animaciones-index.js del diseño final tal cual (su carpeta de referencia se borró el 17/10: está en git);
+// lo único distinto es el nombre del contador: ".contador" → ".contador-combos" (regla "Nombres claros" del CLAUDE.md).
+// Lo que hace cada clase (js, visible, salta) está en index.css.
 
 function iniciarAnimacionesIndex() {
   const sinMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

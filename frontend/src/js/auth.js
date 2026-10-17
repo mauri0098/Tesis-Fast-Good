@@ -134,28 +134,6 @@ function mostrarError(elementId, mensaje) {
 }
 
 /**
- * Verifica si el usuario está logueado
- * Si no, redirige al login
- */
-function verificarAutenticacion() {
-  const usuarioId = localStorage.getItem('usuario_id');
-  
-  if (!usuarioId) {
-    // No hay sesión activa, redirigir al login
-    window.location.href = 'login.html';
-  }
-}
-
-/**
- * Obtiene el rol del usuario actual
- * Retorna: 1 (admin), 2 (usuario), null (no logueado)
- */
-function obtenerRolUsuario() {
-  const rol = localStorage.getItem('usuario_rol');
-  return rol ? parseInt(rol) : null;
-}
-
-/**
  * Obtiene los datos del usuario logueado
  */
 function obtenerDatosUsuario() {
@@ -165,13 +143,6 @@ function obtenerDatosUsuario() {
     email: localStorage.getItem('usuario_email'),
     rol: parseInt(localStorage.getItem('usuario_rol') || '0')
   };
-}
-
-/**
- * Verifica si el usuario actual es admin
- */
-function esAdmin() {
-  return obtenerRolUsuario() === 1;
 }
 
 /**

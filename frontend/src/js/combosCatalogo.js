@@ -15,8 +15,8 @@
 // Imagen que se usa cuando un plato no tiene imagen o la imagen no carga
 const IMAGEN_POR_DEFECTO = './src/assets/img/logo.webp';
 
-// Fotos de las tarjetas de combos: versiones livianas (1200 px) de "COMBO MANTENIMIENTO.jpeg" y "COMBO SALUDABLE.jpeg",
-// que quedan sin tocar en la misma carpeta
+// Fotos de las tarjetas de combos: versiones livianas (1200 px) de "COMBO MANTENIMIENTO.jpeg" y "COMBO SALUDABLE.jpeg"
+// (las originales se borraron el 17/10: están en git)
 const FOTO_COMBO_MANTENIMIENTO = './src/assets/img/combo-mantenimiento-1200.jpg';
 const FOTO_COMBO_SALUDABLE = './src/assets/img/combo-saludable-1200.jpg';
 
@@ -167,8 +167,8 @@ function renderizarCombos() {
     const precioPorVianda = Math.round(precio / combo.cantidad);   // cantidad: siempre 1 o más (lo controla el servidor)
 
     // La tarjeta entera es el botón (mismos data-accion y data-id-combo de siempre: el clic lo escucha armarCombo.js).
-    // Los datos a la izquierda y la foto a la derecha; index-final.css pone la foto arriba.
-    // "revelar": aparece suave; la demora de cada tarjeta está en index-final.css.
+    // Los datos a la izquierda y la foto a la derecha; index.css (parte 2) pone la foto arriba.
+    // "revelar": aparece suave; la demora de cada tarjeta está en index.css (parte 2).
     // (Para un combo "más elegido" ya están en el CSS tarjeta-combo-destacada y la pastilla tarjeta-combo-sello;
     //  no se usan porque el sistema no tiene un dato que diga cuál es)
     html += `

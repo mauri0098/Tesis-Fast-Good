@@ -159,15 +159,9 @@ footer {
 }
 
 /* ===================================================
-   GRID + TARJETAS
+   TARJETAS
    =================================================== */
-.grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 2rem;
-}
-
-/* Cards — visibles por defecto. animations.js aplica el reveal en index.html */
+/* Cards — visibles por defecto */
 .card {
     overflow: hidden;
     border-radius: var(--radius-md);
@@ -179,19 +173,6 @@ footer {
         box-shadow  0.35s ease,
         opacity     0.55s var(--easing-out);
     will-change: transform;
-}
-
-/* Estado inicial para el reveal animado (lo setea animations.js inline) */
-.card.animate-hidden {
-    opacity: 0;
-    transform: translateY(44px);
-}
-
-/* Clase añadida por IntersectionObserver */
-.card.revealed {
-    opacity: 1;
-    transform: translateY(0);
-    transition-delay: 0s;
 }
 
 .card:hover {
@@ -246,21 +227,6 @@ footer {
 .btn:active {
     transform: scale(0.96);
     box-shadow: none;
-}
-
-/* ===================================================
-   CART COUNT — Pulso animado
-   =================================================== */
-@keyframes cart-pulse-anim {
-    0%   { transform: scale(1); }
-    28%  { transform: scale(1.6); box-shadow: 0 0 0 5px rgba(255,0,0,0.2); }
-    55%  { transform: scale(0.88); }
-    80%  { transform: scale(1.12); }
-    100% { transform: scale(1); }
-}
-
-#cart-count.cart-pulse {
-    animation: cart-pulse-anim 0.55s var(--easing-spring) both;
 }
 
 /* ===================================================
@@ -394,22 +360,6 @@ footer {
     padding-left: 35px;
 }
 
-.close-btn {
-    position: absolute;
-    top: 15px;
-    right: 20px;
-    border: none;
-    background: none;
-    font-size: 30px;
-    color: var(--color-white);
-    cursor: pointer;
-}
-
-.sidebar-nav {
-    display: flex;
-    flex-direction: column;
-}
-
 /* ===================================================
    KEYFRAME BASE
    =================================================== */
@@ -459,11 +409,6 @@ footer {
 
     .section h2 {
         font-size: 1.7rem;
-    }
-
-    .grid {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
     }
 
     .card img {

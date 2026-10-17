@@ -20,8 +20,6 @@
 
   <!-- CSS Global -->
   <link rel="stylesheet" href="./src/css/global.css">
-  <link rel="stylesheet" href="./src/css/carrito.css">
-  <link rel="stylesheet" href="./src/css/index.css">
 
   <!-- Chart.js (gráficos del dashboard de reportes) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -55,8 +53,6 @@
     .btn-aplicar:hover  { background: #218838; }
     .btn-export   { background: #1565c0; color: white; }
     .btn-export:hover   { background: #0d47a1; }
-    .btn-export2  { background: #6c757d; color: white; }
-    .btn-export2:hover  { background: #5a6268; }
 
     /* ── Tarjetas KPI ── */
     .kpi-grid {
@@ -77,16 +73,12 @@
     .kpi-card.alerta       { border-top-color: #dc3545; }
     .kpi-card.top-barrio   { border-top-color: #1565c0; }
 
-    /* Pulso rojo cuando hay insumos en alerta real */
-    .kpi-card.alerta.alerta-activa .kpi-valor { color: #dc3545; font-weight: 800; }
-
     /* Grid 2 columnas iguales para la segunda fila de gráficos */
     .charts-row-2col { grid-template-columns: 1fr 1fr; }
 
     .kpi-label { font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
                  letter-spacing: 0.06em; color: var(--color-muted); margin-bottom: 0.4rem; }
     .kpi-valor { font-size: 1.75rem; font-weight: 700; color: var(--color-text); line-height: 1.1; }
-    .kpi-valor.negativo { color: #dc3545; }
     .kpi-icono { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%);
                  font-size: 2.8rem; opacity: 0.08; }
 
@@ -137,14 +129,6 @@
 
   <!-- CONTENIDO PRINCIPAL -->
   <div class="admin-content">
-
-    <!-- Carrito Lateral -->
-    <div id="carrito" class="carrito-lateral">
-      <h3>🛒 Cambios Pendientes</h3>
-      <ul id="carrito-items" style="list-style: none; padding: 0; margin-top: 1rem;"></ul>
-      <button class="btn-cerrar-carrito" style="background-color: #2196F3;">Guardar</button>
-      <button onclick="cerrarCarrito()" class="btn-cerrar-carrito">Cerrar</button>
-    </div>
 
     <header>
       <div class="container-centrado">

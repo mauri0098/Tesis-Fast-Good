@@ -37,10 +37,6 @@ body {
   transition: background-color 0.3s;
 }
 
-.badge-contador.badge-activo {
-  background-color: #dc3545;
-}
-
 /* =========================================
    LAYOUT PRINCIPAL
    ========================================= */
@@ -117,20 +113,6 @@ body {
 }
 
 /* =========================================
-   LISTA DE PLATOS
-   ========================================= */
-ul.platos-list {
-  padding-left: 1rem;
-  margin: 0;
-  font-size: 0.85rem;
-  color: #555;
-}
-
-ul.platos-list li {
-  margin-bottom: 0.25rem;
-}
-
-/* =========================================
    BOTÓN LISTO PARA ENTREGAR
    ========================================= */
 .btn-listo {
@@ -155,15 +137,6 @@ ul.platos-list li {
 .btn-listo:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-/* =========================================
-   ANIMACIÓN DE SALIDA AL MARCAR LISTO
-   ========================================= */
-.fila-saliendo {
-  opacity: 0;
-  transform: translateX(20px);
-  transition: opacity 0.35s ease, transform 0.35s ease;
 }
 
 /* =========================================

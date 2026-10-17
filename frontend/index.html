@@ -7,14 +7,14 @@
   <title>Fast Good - Combos de viandas</title>
   <meta name="description" content="Viandas caseras saludables. Elegí tu combo, armá tus platos y te lo llevamos.">
 
+  <!-- La letra Figtree (hoja de Google; no es un CSS nuestro). Va en su <link> y no adentro de index.css con @import:
+       con @import llega más tarde y el subtítulo de la portada (max-width en "ch") se medía con otra letra -->
   <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/webp" href="./src/assets/img/logo.webp">
 
-  <!-- CSS de esta página: el diseño aprobado (docs/diseno-index). Es la única hoja: no usa global.css.
+  <!-- CSS de esta página: UNA sola hoja, index.css. No usa global.css.
        Todos los estilos están ahí (también el que esconde la página hasta que termina de cargar) -->
-  <link rel="stylesheet" href="./src/css/index-combos.css">
-  <!-- Ajustes y animaciones del diseño final (docs/diseno-final-index): va ÚLTIMO, para que gane -->
-  <link rel="stylesheet" href="./src/css/index-final.css">
+  <link rel="stylesheet" href="./src/css/index.css">
 </head>
 
 <body>
