@@ -5,6 +5,8 @@
 // Funciones:
 //   abrirFinalizarPedido → arma el resumen, pone la fecha mínima, completa los datos de la sesión
 //                          y abre el modal "Finalizar pedido" con el formulario
+//   renderizarDiasEntrega → dibuja los próximos 5 días de entrega como botones (se ven en el celu) y marca el elegido;
+//                          el botón que se toca escribe su fecha en el campo de fecha de siempre
 //   cargarBarrios     → pide la lista de barrios al servidor (una sola vez) y llena el select
 //   validarFormulario → controla cada campo, escribe los errores debajo y devuelve los datos limpios (o null)
 //   armarPedido       → junta el carrito y los datos del formulario en el pedido que se manda al servidor
@@ -14,14 +16,15 @@
 //   enviarPedido      → manda el pedido a POST /api/pedidos-combos y traduce la respuesta a
 //                       { ok: true, respuesta } o { ok: false, error: "mensaje para el cliente" }
 //   mostrarConfirmacion  → dibuja "¡Recibimos tu pedido #N!" con lo que devolvió el servidor y el botón de WhatsApp
+//                          (y deja detrás las categorías: en el celu se cierra la pantalla de combos)
 //   armarMensajeWhatsApp → arma el mensaje (mismo formato que el formulario viejo) y devuelve el enlace de WhatsApp
 //
 // Los campos son los mismos que el formulario viejo (pages/formulario.html + formulario.js, borrados el 17/10)
 // y el pedido se arma igual que ahí (cliente_nombre = "Nombre Apellido", etc.).
 // Los controles de acá son una AYUDA: el servidor vuelve a controlar todo.
 // El pedido NO lleva precios, total ni usuario: el servidor los saca de la base y del token.
-// Necesita antes: escape.js (escHtml), fechas.js (días hábiles), api.js (apiFetch)
-// y carritoCombos.js (carritoCombos, guardarCarrito, renderizarCarrito).
+// Necesita antes: escape.js (escHtml), fechas.js (días hábiles), api.js (apiFetch),
+// combosCatalogo.js (cargarCombos, volverACategorias) y carritoCombos.js (carritoCombos, guardarCarrito, renderizarCarrito).
 // ====================================================================
 
 // Datos del negocio para el mensaje de WhatsApp (los mismos que usa el formulario viejo)
@@ -48,6 +51,11 @@ const DIAS_HABILES_CON_PERSONALIZADO = 3;
 
 // Valores EXACTOS que acepta el servidor (los mismos que usa el formulario viejo)
 const ENTREGA_ENVIO = 'Delivery';
+
+// Botones de días (celu): el nombre de cada día, según getDay() (0 = domingo … 6 = sábado).
+// El corto se ve en el botón ("Mar"); el largo lo lee un lector de pantalla ("martes 21/10/2026")
+const NOMBRES_DIAS_CORTOS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const NOMBRES_DIAS_LARGOS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
 // Para no pedir los barrios cada vez que se abre la ventana
 let barriosCargados = false;
@@ -100,6 +108,7 @@ function abrirFinalizarPedido() {
   document.getElementById('resumen-total-titulo').textContent = textoTotal;
   document.getElementById('resumen-total').textContent = textoTotal;
   document.getElementById('total-a-pagar').textContent = textoTotal;
+  document.getElementById('total-en-boton').textContent = textoTotal;   // en el celu: "Confirmar pedido · $ 137.000"
 
   // En compu el resumen va abierto (fijo, a la derecha); en el celular arranca cerrado y se abre al tocarlo.
   // matchMedia pregunta si la pantalla cumple esa medida. Ej: compu de 1440 px → true · celular de 390 px → false
@@ -121,6 +130,8 @@ function abrirFinalizarPedido() {
   if (fechaQueNoAlcanza) campoFecha.value = '';
   document.getElementById('fecha-primera-posible').textContent =
     'La primera fecha posible es el ' + fechaDDMMAAAA(parseFechaLocal(campoFecha.min)) + aclaracionPersonalizado + '.';
+  // En el celu, los 5 días como botones (desde la fecha mínima de recién)
+  renderizarDiasEntrega();
 
   // 3. Si el cliente inició sesión, se completan solos los campos vacíos con sus datos.
   //    Los mismos 5 campos que completa el formulario viejo (preLlenarFormulario).
@@ -156,6 +167,47 @@ function abrirFinalizarPedido() {
   document.getElementById('vista-formulario').hidden = false;
   document.getElementById('vista-confirmacion').hidden = true;
   document.getElementById('modal-finalizar').showModal();
+}
+
+// ── Los próximos 5 días de entrega como botones (se ven en el celu) ────────
+// ENTRADA: nada (usa la fecha mínima que puso abrirFinalizarPedido en el campo de fecha: campoFecha.min)
+// SALIDA:  nada (dibuja en #dias-entrega un botón por día hábil, desde el primero posible, y marca el elegido).
+//          En el celu, si la fecha elegida no es uno de esos días (o todavía no hay), se elige el primero.
+//          La fecha va al campo de fecha de siempre: es el que se controla y se manda (mismo valor 'AAAA-MM-DD').
+// Ej: hoy sábado 17/10, primera fecha posible martes 20/10 → [Mar 20] [Mié 21] [Jue 22] [Vie 23] [Lun 26],
+//     con "Mar 20" marcado y el campo de fecha en '2026-10-20'
+function renderizarDiasEntrega() {
+  const campoFecha = document.getElementById('campo-fecha');
+  const primerDia = parseFechaLocal(campoFecha.min);   // ya es un día hábil (lo calculó sumarDiasHabiles)
+
+  // Los 5 días: el primero posible y los días hábiles que le siguen (salteando fines de semana y feriados).
+  // map arma una lista nueva: por cada número n, el día hábil que está n días hábiles después del primero.
+  // Ej: [0, 1, 2, 3, 4] con primer día martes 20/10 → [mar 20, mié 21, jue 22, vie 23, lun 26]
+  const dias = [0, 1, 2, 3, 4].map(n => sumarDiasHabiles(primerDia, n));
+  const fechasDeLosBotones = dias.map(dia => fechaLocalISO(dia));   // Ej: ['2026-10-20', '2026-10-21', …]
+
+  // En el celu el primer día viene elegido (si la fecha de antes no es uno de estos 5). En compu no se toca:
+  // ahí se elige con el campo de fecha, como siempre.
+  // matchMedia pregunta si la pantalla cumple esa medida. Ej: celular de 390 px → true · compu de 1440 px → false
+  const esCelu = window.matchMedia('(max-width: 767px)').matches;
+  const estaEnLosBotones = fechasDeLosBotones.includes(campoFecha.value);   // includes = "está en la lista"
+  const hayQueElegirElPrimero = esCelu && !estaEnLosBotones;
+  if (hayQueElegirElPrimero) campoFecha.value = fechasDeLosBotones[0];
+
+  // Un botón por día: "Mar" arriba y "21" abajo. El elegido va con aria-pressed="true" (el CSS lo pinta de verde
+  // y los lectores de pantalla dicen "presionado"). Los textos los arma esta función: no vienen de la base.
+  let html = '';
+  dias.forEach((dia, indice) => {
+    const fechaISO = fechasDeLosBotones[indice];
+    const estaElegido = fechaISO === campoFecha.value;   // true o false
+    const nombreCorto = NOMBRES_DIAS_CORTOS[dia.getDay()];
+    const nombreLargo = NOMBRES_DIAS_LARGOS[dia.getDay()] + ' ' + fechaDDMMAAAA(dia);
+    html += `
+      <button type="button" class="dia-entrega" data-fecha="${fechaISO}" aria-pressed="${estaElegido}" aria-label="${nombreLargo}">
+        <small>${nombreCorto}</small><b>${dia.getDate()}</b>
+      </button>`;
+  });
+  document.getElementById('dias-entrega').innerHTML = html;
 }
 
 // ── Pide los barrios al servidor y llena el select (una sola vez) ─────────
@@ -347,15 +399,17 @@ async function confirmarPedido(evento) {
 
   const pedido = armarPedido(datos);
 
-  // El botón se apaga mientras se envía: así un doble clic no crea dos pedidos
+  // El botón se apaga mientras se envía: así un doble clic no crea dos pedidos.
+  // Se cambia solo su texto (el span de adentro): al lado está el total, que en el celu se ve dentro del botón
   const boton = document.getElementById('boton-confirmar-pedido');
+  const textoBoton = document.getElementById('boton-confirmar-texto');
   boton.disabled = true;
-  boton.textContent = 'Enviando pedido...';
+  textoBoton.textContent = 'Enviando pedido...';
 
   const resultado = await enviarPedido(pedido);
 
   boton.disabled = false;
-  boton.textContent = 'Confirmar pedido';
+  textoBoton.textContent = 'Confirmar pedido';
 
   // Si no alcanzan las viandas de un plato (otro cliente se las llevó), se vuelven a pedir los combos
   // (combosCatalogo.js), en la misma categoría: así el menú muestra lo que queda al armar el combo de nuevo.
@@ -487,6 +541,10 @@ function mostrarConfirmacion(respuesta, datos) {
   // Se pasa a la vista de confirmación
   document.getElementById('vista-formulario').hidden = true;
   document.getElementById('vista-confirmacion').hidden = false;
+
+  // Detrás de la confirmación quedan otra vez las categorías (en el celu se cierra la pantalla de combos):
+  // así "Volver al inicio" vuelve al inicio. volverACategorias es de combosCatalogo.js
+  volverACategorias();
 }
 
 // ── Arma el mensaje de WhatsApp (mismo formato que redirigirAWhatsApp del formulario viejo) ──
@@ -578,6 +636,17 @@ document.addEventListener('DOMContentLoaded', () => {
     opcion.addEventListener('change', () => {
       document.getElementById('alias-transferencia').hidden = opcion.value !== 'Transferencia';
     });
+  });
+
+  // Botones de días (celu): el que se toca escribe su fecha en el campo de fecha (el que se controla y se manda),
+  // se borra el error de la fecha y se vuelven a dibujar para marcar el elegido.
+  // Se escucha en el contenedor porque los botones se vuelven a dibujar (closest = el botón tocado)
+  document.getElementById('dias-entrega').addEventListener('click', evento => {
+    const botonDia = evento.target.closest('[data-fecha]');
+    if (!botonDia) return;
+    document.getElementById('campo-fecha').value = botonDia.dataset.fecha;
+    document.getElementById('error-fecha').textContent = '';
+    renderizarDiasEntrega();
   });
 
   // Fecha: si se elige un feriado o un fin de semana, se avisa y se borra

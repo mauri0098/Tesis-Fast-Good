@@ -451,6 +451,8 @@ app.get('/api/v1/catalogo', async (req, res) => {
     .select(`
       id,
       nombre,
+      imagen,
+      descripcion,
       planes (
         id,
         nombre,
@@ -472,8 +474,10 @@ app.get('/api/v1/catalogo', async (req, res) => {
 
   // Filtrar planes y productos activos en el servidor
   const catalogo = (data || []).map(cat => ({
-    id:     cat.id,
-    nombre: cat.nombre,
+    id:          cat.id,
+    nombre:      cat.nombre,
+    imagen:      cat.imagen,        // la dirección de su foto, o null
+    descripcion: cat.descripcion,   // su frase corta, o null
     planes: (cat.planes || [])
       .filter(p => p.activo)
       .map(plan => ({
@@ -487,11 +491,11 @@ app.get('/api/v1/catalogo', async (req, res) => {
   res.json(catalogo);
 });
 
-// GET /api/v1/categorias → todas las categorías
+// GET /api/v1/categorias → todas las categorías (con su foto y su frase corta, o null si no tienen)
 app.get('/api/v1/categorias', async (req, res) => {
   const { data, error } = await supabase
     .from('categorias')
-    .select('id, nombre');
+    .select('id, nombre, imagen, descripcion');
   if (error) return errorInterno(res, error);
   res.json(data);
 });
@@ -565,10 +569,11 @@ app.get('/api/v1/combos', limiteCatalogo, async (req, res) => {
       nombre,
       cantidad,
       precio,
+      destacado,
       planes (
         nombre,
         activo,
-        categorias ( id, nombre )
+        categorias ( id, nombre, imagen, descripcion )
       ),
       combo_productos (
         activo,
@@ -614,8 +619,9 @@ app.get('/api/v1/combos', limiteCatalogo, async (req, res) => {
       nombre:    combo.nombre,
       cantidad:  combo.cantidad,
       precio:    Number(combo.precio),
+      destacado: combo.destacado === true,  // true = lleva "Más elegido" (sin el dato, false)
       plan:      combo.planes.nombre,
-      categoria: combo.planes.categorias, // { id, nombre }, o null si el plan no tiene categoría
+      categoria: combo.planes.categorias, // { id, nombre, imagen, descripcion }, o null si el plan no tiene categoría
       menu
     });
   }
@@ -3589,6 +3595,7 @@ app.get('/api/combos', requireAuth, requireRol(6, 5), async (req, res) => {
       cantidad,
       precio,
       activo,
+      destacado,
       planes ( nombre, activo ),
       combo_productos ( activo, productos ( activo ) ),
       pedido_combos ( count )
@@ -3625,6 +3632,7 @@ app.get('/api/combos', requireAuth, requireRol(6, 5), async (req, res) => {
       cantidad:       combo.cantidad,
       precio:         Number(combo.precio),
       activo:         combo.activo,
+      destacado:      combo.destacado === true,   // "Más elegido" (por ahora se marca desde Supabase)
       platos_en_menu: platosEnMenu,
       veces_vendido:  vecesVendido
     };
@@ -3769,7 +3777,7 @@ app.get('/api/combos/:id/menu', requireAuth, requireRol(6, 5), async (req, res) 
     // 1. El combo
     const { data: combo, error: errorCombo } = await supabase
       .from('combos')
-      .select('id, nombre, cantidad')
+      .select('id, nombre, cantidad, destacado')
       .eq('id', idCombo)
       .maybeSingle();
     if (errorCombo) return errorInterno(res, errorCombo);

@@ -14,6 +14,11 @@
 > **Limpieza** (17/10): se borró el código viejo que no se usaba (10 archivos de código, 27 imágenes, 8 funciones y 24 reglas
 > de CSS sueltas) y el index quedó con 1 HTML y 1 CSS (`index.css`, que une `index-combos.css` e `index-final.css`).
 > Comparado antes y después: se ve igual (sección 14). Pedido de prueba #30 y test 40/40.
+> **Index final** (17/10, `diseno-index-final2/`): `index.css` ordenado (perillas + secciones); en compu, primero las
+> tarjetas de categoría y después sus combos, con la tarjeta nueva y "✨ Armalo por mí"; en el celu, el flujo de la
+> referencia (pantallas que entran desde la derecha, armado a pantalla completa, datos en una hoja con los días como
+> botones). 3 columnas nuevas (SQL que corriste vos) y 5 rutas GET que las mandan. Pedidos de prueba #34, #35 y #38 y
+> test 40/40 (#36 y #37), todos anulados (sección 15).
 > **Este informe se actualiza con cada cambio nuevo** (código, SQL, pantallas), con el mismo formato (regla del 15/10).
 > Los ejemplos usan tus datos: **fideos con 71 viandas**, el combo de prueba "PRUEBA Mantenimiento x10" y la
 > receta de fideos que mostró la prueba de H3: **300 g de harina integral y 2 huevos por vianda**.
@@ -3034,3 +3039,411 @@ portada salió distinto por el `@import` (ver 14.6). Esa tanda se descartó.
 - **Aviso (no es por este cambio):** durante la prueba cambiaron los combos de la base. Aparecieron "Combo semanal" (#4 de
   5 viandas y #5 de 10, plan PROMO SEMANAL, categoría "Combos Saludables", que ahora sale primera), y ya no aparece
   "Prueba no usar". Por la regla de las fotos (13.11), esos combos nuevos muestran la foto "combo saludable".
+
+## 15. Pantalla 1: el index final de `diseno-index-final2/` — celu con flujo y compu con tarjeta nueva (17/10)
+**Qué se pidió** (`diseno-index-final2/PROMPT.md`, "al pie de la letra"):
+- que el index quede **igualito** a las referencias, en el celu (390 px) y en la compu (1440 px), con las animaciones;
+- que siga siendo **1 HTML + 1 CSS**, con `index.css` ordenado: perillas arriba y secciones comentadas;
+- sin cambiar lo que se manda al servidor y sin inventar datos;
+- cambios de JS chicos y explicados, y sin commit.
+
+**Tus decisiones (17/10):**
+| # | Tema | Decisión |
+|---|---|---|
+| 1 | "Iniciar sesión" en el celu | A: chiquito, al lado de "Mi pedido" |
+| 2 | Insignias de la portada del celu | "✓ Caseras", "⚡ Listas en 5 min" y "🛵 Entregas en 48 hs hábiles" |
+| 3 | "Cómo funciona" | A: los textos de la referencia (🥗 Elegís · ✋ Armás · 🛵 Recibís) |
+| 4 | La fecha de entrega en el celu | A: los próximos 5 días como botones, con el primero ya elegido |
+| 5 | Orden de los campos de "Finalizar pedido" | A: el de hoy, con el estilo de la referencia |
+| 6 | "✨ Armalo por mí" | B: también en compu |
+| 7 | Una parada | Después del CSS ordenado y la compu, capturas a 1440 px. Respuesta: "OK a la compu" |
+| — | "HASTA X% OFF" y "X% OFF" | No van: se sacaron del todo, también el estilo |
+| — | Datos que faltaban | 3 columnas nuevas con SQL, que corriste vos: "Más elegido", y la foto y la frase de la categoría |
+| — | Panel para cargar esos datos | No por ahora: queda pendiente. Se cargan desde Supabase |
+| — | La compu, después de ver las capturas | Igual que en el celu, **primero las categorías**. Una tarjeta por categoría, con la misma plantilla de la tarjeta de combo. Al tocarla se ven sus combos, con "‹ Todas las categorías" para volver. La tarjeta de categoría se hace **una sola vez** (una función y un HTML) y el celu usa la misma |
+
+### 15.1 Qué archivos cambiaron
+| Archivo | Qué cambió |
+|---|---|
+| `sql/combos_categorias_extra.sql` (nuevo) | Las 3 columnas nuevas (15.2). Lo corriste vos |
+| `server.js` | 5 rutas GET mandan los datos nuevos (15.3). Solo lectura |
+| `frontend/index.html` | Las cosas nuevas de la pantalla (15.5 y 15.6), sin renombrar nada: <br>· categorías y zona de combos; <br>· "Cómo funciona" y las insignias del celu; <br>· el encabezado y el resumen del armado en el celu; <br>· "✨ Armalo por mí"; <br>· el título, los íconos, la ayuda del retiro, los días y el total del botón de "Finalizar pedido" |
+| `frontend/src/css/index.css` | Ordenado (15.4), la compu (15.5), el celu (15.6) y las animaciones (15.8). Pasó de 859 a 1236 renglones |
+| `combosCatalogo.js` | La tarjeta de categoría, la foto compartida y el ir y volver entre categorías y combos |
+| `armarCombo.js` | "Armalo por mí", y el encabezado y los textos del celu |
+| `carritoCombos.js` | En el celu, "Mandar pedido" va directo a "Finalizar pedido" |
+| `pedidoCombos.js` | Los días como botones, el total adentro del botón y volver a las categorías después de la confirmación |
+
+No cambió: lo que se manda al servidor (`armarPedido`, `validarFormulario`, `enviarPedido`), `fechas.js`, `auth.js`,
+`animaciones-index.js`, `tests/` ni las otras pantallas.
+
+### 15.2 SQL: `sql/combos_categorias_extra.sql` (nuevo; lo corriste el 17/10 y salieron los 3 renglones)
+| Tabla | Columna nueva | Tipo | Para qué | Si está vacía |
+|---|---|---|---|---|
+| `combos` | `destacado` | sí / no, obligatoria, empieza en "no" (`boolean not null default false`) | "Más elegido": pastilla naranja y botón naranja | `false` → sin pastilla |
+| `categorias` | `imagen` | texto, puede ir vacía | la foto de la tarjeta de la categoría | la foto de su primer combo, con la regla de siempre |
+| `categorias` | `descripcion` | texto, puede ir vacía | la frase debajo del nombre | sin frase |
+
+- **Cómo está hecho:**
+  - solo agrega (`add column if not exists`), todo junto (`begin … commit`), con un comentario en cada renglón y sin `$$`;
+  - el RLS queda como estaba;
+  - `notify pgrst`, para que la API vea las columnas enseguida;
+  - al final, una consulta que solo lee y muestra las 3 columnas.
+- **Hoy en la base:** los 4 combos tienen `destacado` en "no", y las 4 categorías no tienen foto ni frase. Por eso la web
+  muestra las fotos con la regla de siempre y ninguna pastilla.
+
+### 15.3 `server.js`: las rutas GET mandan los datos nuevos
+Solo lectura, con los mismos permisos y los mismos controles.
+
+| Ruta | Quién la usa | Antes | Ahora |
+|---|---|---|---|
+| `GET /api/v1/combos` | la web (pública, con su límite de 60 por minuto por IP) | cada combo: `id`, `nombre`, `cantidad`, `precio`, `plan`, `categoria: { id, nombre }` y `menu` | además `destacado` (`true`/`false`) y `categoria: { id, nombre, imagen, descripcion }` |
+| `GET /api/v1/catalogo` | pública | categorías con `id` y `nombre` | además `imagen` y `descripcion` |
+| `GET /api/v1/categorias` | pública | `id, nombre` | `id, nombre, imagen, descripcion` |
+| `GET /api/combos` | el panel (`requireAuth` + `requireRol(6, 5)`) | — | además `destacado` |
+| `GET /api/combos/:id/menu` | el panel (`requireAuth` + `requireRol(6, 5)`) | `id, nombre, cantidad` | además `destacado` |
+
+- **`destacado: combo.destacado === true`:** si la columna viniera vacía o con otra cosa, sale `false`.
+- **Comprobado** en el servidor de prueba:
+  - las rutas del panel sin sesión siguen dando 401;
+  - con un id que no es un número, 400, como antes.
+- **⚠ Hay que reiniciar tu servidor del puerto 3000** para que mande estos datos. Sin reiniciar, la web anda igual: toma
+  "sin foto, sin frase, sin destacado".
+
+### 15.4 `index.css` ordenado
+- **Arriba, las perillas:** un bloque `:root`, cada perilla con su comentario en criollo ("si la subís, …").
+  - Tamaños: los títulos, los botones y los espacios.
+  - Las tarjetas: el ancho mínimo (el de combo y el de categoría), la separación, lo redondeado, la forma de la foto, el
+    nombre, el precio y el alto de "¡Lo quiero!".
+  - Velocidades: aparecer al bajar, la demora entre tarjetas, las ventanas, las pantallas y la hoja del celu, el latido y
+    el brillo.
+  - Los colores.
+  - Debajo, las perillas que cambian en el celu.
+- **Después, 12 secciones comentadas:**
+  - 0 Base · 1 Encabezado · 2 Portada · 3 Categorías · 4 Tarjeta de combo · 5 Pantallas del celu;
+  - 6 Armar combo · 7 Mi pedido y Finalizar · 8 Dónde estamos · 9 Preguntas · 10 Pie · 11 Animaciones.
+  - Lo del celu de cada parte va al final de su sección, en un bloque "Celu (como la referencia)". Así le gana a lo de
+    arriba sin trucos.
+- **Comprobado que ordenarlo no cambió nada** (antes de los cambios de diseño):
+  - sin comentarios ni espacios, las reglas eran las mismas: solo cambiaron números por su perilla, y se juntaron reglas
+    iguales;
+  - el recorrido de 15 pasos, a 1440 y a 390 px, dio los mismos estilos, salvo dos "ruidos" que ya conocíamos (14.6 y
+    14.8): el subtítulo de la portada medido con la letra de reserva, y una respuesta de Preguntas a mitad de su animación.
+
+### 15.5 Compu (768 px o más)
+| | ANTES (git) | AHORA |
+|---|---|---|
+| Sección Categorías | Fondo verde clarito y título "Categorías" | Fondo blanco y "Elegí tu **categoría**". Los títulos de sección quedan un poco más chicos, como la referencia (36 px en vez de 40) |
+| Categorías | Una pastilla por categoría y, debajo, los combos de la elegida | **Una tarjeta por categoría**, de a 3 por fila como máximo (ninguna más angosta que 340 px; con 1 o 2 categorías, cada una mide lo mismo que con 3). Lleva: <br>· la foto, con el nombre encima en blanco (y la frase, si tiene); <br>· "N combos"; <br>· abajo, "DESDE", el precio del combo más barato y "o $ … por vianda" (el menor); <br>· "Ver combos →", con el estilo de "¡Lo quiero!" |
+| Al tocar una categoría | Se pintaba la pastilla y cambiaban los combos de abajo | Las categorías se esconden y en el mismo lugar aparecen sus combos, con "‹ Todas las categorías" arriba para volver. El "atrás" del navegador también vuelve |
+| Tarjeta de combo | Foto arriba, nombre, precio, "$ … por vianda" y "Armar combo ›" | Como la referencia: <br>· foto grande con el nombre en blanco encima y "N viandas"; <br>· "Más elegido" solo si el combo es destacado; <br>· abajo, el precio grande y "$ … por vianda"; <br>· "¡Lo quiero! →": pastilla verde con degradé, la flecha en un círculo blanco, late y la cruza un brillo. <br>El destacado va en naranja |
+| Armar combo | — | Arriba de los platos, "✨ Armalo por mí" (decisión 6B). Lo demás, igual |
+| Lo demás | — | Igual. Comparado elemento por elemento contra la compu que aprobaste: el encabezado, la portada, Dónde estamos, Preguntas, el pie, Armar, Mi pedido, Finalizar y el login quedaron idénticos |
+
+- **Los links "Combos"** del menú y del pie llevaban a la zona de combos (`#combos`). Esa zona ahora está escondida hasta
+  que se toca una categoría, así que ahora llevan a `#categorias`.
+- **Con 2 combos** (cada categoría hoy tiene 2), las tarjetas de combo miden lo mismo que con 3. Es lo que ya estaba
+  aprobado.
+
+### 15.6 Celu (menos de 768 px): el flujo de la referencia
+| Pantalla | Cómo es ahora | Cómo se hizo |
+|---|---|---|
+| Encabezado | Una fila blanca de 58 px: el logo, "Iniciar Sesión" chiquito y "Mi pedido" (decisión 1A). El menú no se ve: a cada parte se llega bajando | CSS |
+| Portada | Compacta: <br>· el lugar en una pastilla; <br>· "Fast Good" de 44 px; <br>· la bajada; <br>· las insignias (decisión 2). <br>No van la foto, "Pedir ahora", el contacto ni los 3 pasos | CSS. Las insignias se agregaron al HTML: en compu no se ven |
+| Categorías | "ELEGÍ TU CATEGORÍA" como rótulo, con una raya hasta el borde, y debajo **las mismas tarjetas de categoría** de compu, una por fila. Solo cambia el tamaño: nombre de 19 px, precio de 22 px y foto más apaisada. Abajo, "Cómo funciona" (decisión 3) | CSS. "Cómo funciona" se agregó al HTML: en compu no se ve |
+| Combos de la categoría | "Ver combos →" abre una pantalla blanca que **entra desde la derecha**. Tiene: <br>· una barra con "‹" y el nombre de la categoría; <br>· "¿CUÁNTAS VIANDAS?"; <br>· las tarjetas de combo, con "¡Lo quiero!". <br>La "‹" o el "atrás" del celu vuelven a las categorías | Es **la misma zona de combos** de compu: el CSS la pone encima de toda la página (`position: fixed`) |
+| Armar | Pantalla completa que también entra desde la derecha: <br>· arriba, "‹ Armá tu combo"; <br>· un recuadro verde clarito con la foto, el nombre y el precio; <br>· "ELEGÍ TUS 10 PLATOS · PODÉS REPETIR" y "✨ Armalo por mí"; <br>· los platos: foto chica · nombre · − N +; <br>· fija abajo, la barra con "Tus platos · 2 de 10", el progreso y "Elegí 8 platos más". <br>Con el combo completo dice "¡Listo! Ya podés mandarlo" y "Mandar pedido · $ 137.000" | Es la **misma ventana** de compu (`#modal-combo`) con otro CSS. El progreso pasa abajo de los platos con `order` |
+| Mandar pedido | Agrega el combo y abre "Finalizar pedido" directo. "Mi pedido" sigue en el encabezado, para sumar otro combo | `agregarAlCarrito` (15.7) |
+| Datos | Una **hoja que sube desde abajo**, con la rayita gris arriba y el título "¿Cómo te lo **damos**?": <br>· los mismos campos y en el mismo orden (decisión 5A), con rótulos chicos y casilleros de 50 px; <br>· Envío/Retiro y Efectivo/Transferencia como **botones partidos**; con Retiro, debajo dice dónde se retira; <br>· la fecha: los próximos **5 días hábiles como botones**, con el primero elegido (decisión 4A); <br>· "Confirmar pedido · $ 137.000", a todo el ancho | Es la **misma ventana** de compu. Los radios de siempre siguen adentro de los botones partidos. Los días escriben la fecha en el campo de fecha de siempre (15.7) |
+| ¡Pedido listo! | El mensaje de hoy ("¡Recibimos tu pedido #N!", la fecha de entrega, la entrega, el pago, el resumen y WhatsApp), con la ✓ grande que **aparece con rebote**. Detrás quedan otra vez las categorías | CSS, y `volverACategorias` |
+
+### 15.7 Las funciones: antes y ahora
+Ejemplos con «PRUEBA Mantenimiento x10» ($ 137.000, plan MANTENIMIENTO, categoría "Viandas Saludables"; su menú:
+berenjenas rellenas, canelones y fideos).
+
+**`combosCatalogo.js`** (de 3 a 5 funciones)
+
+**`cargarCombos(mantenerCategoria)`** — trae los combos y dibuja las categorías.
+- ENTRADA: `false` al abrir la página, `true` al recargar porque no alcanzaron las viandas. SALIDA: nada (dibuja).
+- **Antes:** arrancaba mostrando la primera categoría, con sus combos.
+- **Ahora:** arranca en las categorías, con ninguna abierta (`categoriaElegida = null`). Al recargar, se queda en la que
+  estaba abierta si todavía tiene combos. Los avisos ("Cargando combos...", "No pudimos cargar los combos…") van donde están
+  las categorías, porque los combos arrancan escondidos.
+```js
+const sigueLaElegida = mantenerCategoria && combosDisponibles.some(combo => combo.categoria.id === categoriaElegida);
+categoriaElegida = sigueLaElegida ? categoriaElegida : null;   // si no, ninguna: las categorías
+```
+- **Se conecta:** la llaman el arranque de la página y `confirmarPedido` (con "No quedan suficientes viandas…"). Llama a
+  `GET /api/v1/combos`, a `renderizarCategorias` y a `renderizarCombos`.
+
+**`armarFotoTarjeta(combo, fotoPropia, textoAlternativo)`** — NUEVA. Arma el HTML de la foto de una tarjeta.
+- ENTRADA: el combo del que sale la foto, una foto propia que va primero (la de la categoría, o `null`) y el texto para
+  lectores de pantalla. SALIDA: el HTML de la imagen, o el recuadro gris "foto del combo" si no hay ninguna.
+- **La regla** es la de siempre (13.11), con un paso nuevo adelante. Gana la primera que corresponda:
+
+  | Orden | Foto |
+  |---|---|
+  | 0 | La foto propia (la de la categoría) |
+  | 1 | Plan Mantenimiento → "combo mantenimiento" |
+  | 2 | Categoría con "saludable" → "combo saludable" |
+  | 3 | La del primer plato que tenga una |
+  | 4 | Ninguna → el recuadro gris "foto del combo" |
+
+  Si la imagen no carga, se cambia por el logo una sola vez.
+- **Ej:** "Viandas Saludables", sin foto propia, con un primer combo de plan MANTENIMIENTO → la foto "combo mantenimiento".
+- **Por qué:** antes la regla estaba adentro de `renderizarCombos`. Ahora la usan 3 lugares: la tarjeta de categoría, la de
+  combo y el recuadro del armado en el celu. Así está una sola vez.
+- **Se conecta:** la llaman `renderizarCategorias`, `renderizarCombos` y `abrirModalCombo`. Pasa por `escHtml` la dirección de
+  la foto y el texto.
+
+**`renderizarCategorias()`** — REESCRITA: antes dibujaba pastillas, ahora tarjetas.
+- ENTRADA: nada (usa `combosDisponibles`). SALIDA: nada (dibuja en `#lista-categorias` una tarjeta por categoría que tiene
+  combos, en el orden en que vienen).
+- **Paso 1:** junta los combos por categoría en un objeto, para no recorrer los combos adentro de las categorías:
+  `{ 4: [combo semanal x5, combo semanal x10], 1: [MANTENIMIENTO - PRUEBA 20, PRUEBA Mantenimiento x10] }`.
+- **Paso 2:** por cada categoría calcula "DESDE" (el precio más bajo), "o $ … por vianda" (el menor por vianda; puede
+  ser de otro combo) y "1 combo" / "N combos". La frase va solo si la categoría tiene una.
+```js
+const precios = combosDeLaCategoria.map(combo => Number(combo.precio));                                  // [100000, 137000]
+const preciosPorVianda = combosDeLaCategoria.map(combo => Math.round(Number(combo.precio) / combo.cantidad)); // [5000, 13700]
+const desde = Math.min(...precios);                // 100000 → "DESDE $ 100.000"
+const desdePorVianda = Math.min(...preciosPorVianda);   // 5000 → "o $ 5.000 por vianda"
+```
+- **El HTML es el de la tarjeta de combo:** las mismas clases `tarjeta-combo-…`, más `tarjeta-categoria`, y dos piezas
+  nuevas, `tarjeta-categoria-desde` y `tarjeta-combo-descripcion`. Es una sola función y un solo HTML para compu y celu.
+- **Seguridad:** el nombre, la frase y la foto de la base pasan por `escHtml`.
+- **Se conecta:** la llama `cargarCombos`. Al tocar una tarjeta (`data-accion="ver-combos"`) se abren sus combos (el clic,
+  más abajo).
+
+**`renderizarCombos()`** — los combos de la categoría elegida.
+- ENTRADA: nada (usa `categoriaElegida`). SALIDA: nada.
+- **Nuevo 1:** le pone o le saca a `#categorias` la clase `mostrando-combos`. Con la clase, se ven los combos; sin la
+  clase, las categorías. Qué hace cada pantalla con esa clase lo decide el CSS: en compu, los combos reemplazan a las
+  categorías; en el celu, entran como pantalla aparte.
+```js
+const hayCombos = combosDeLaCategoria.length > 0;                                        // null → 0 combos → false
+document.getElementById('categorias').classList.toggle('mostrando-combos', hayCombos);
+if (!hayCombos) return;
+```
+- **Nuevo 2:** arriba de los combos dibuja la barra: "‹ Todas las categorías" (en el celu solo la "‹", con el nombre de la
+  categoría al lado) y el rótulo "¿Cuántas viandas?" (solo celu). La foto, con `armarFotoTarjeta`.
+- **Igual que antes:** el título, la bajada, la tarjeta, el precio, "Más elegido" y `escHtml`.
+- **Se conecta:** la llaman `cargarCombos`, el clic en una categoría y `volverACategorias`. Las tarjetas de combo
+  ("¡Lo quiero!") las sigue escuchando `armarCombo.js`, en el mismo `#combos`.
+
+**`volverACategorias()`** — NUEVA. Esconde los combos y vuelve a mostrar las categorías.
+- ENTRADA: nada. SALIDA: nada (`categoriaElegida = null` y `renderizarCombos()`, que saca la clase).
+- **Se conecta:** la llaman la "‹", el "atrás" del navegador y `mostrarConfirmacion`.
+
+**Los clics, al cargar la página** (antes había una sola línea: `cargarCombos(false)`):
+- **Tocar una tarjeta de categoría:** `categoriaElegida = su id`, `renderizarCombos()` y se anota un paso en el historial
+  del navegador (`history.pushState({ pantalla: 'combos' }, '')`).
+  - **Por qué:** así el "atrás" del celu (o del navegador) vuelve a las categorías, en lugar de salir de la página.
+- **"‹ Todas las categorías":** `volverACategorias()` y, si el último paso del historial es el de la categoría, lo saca
+  (`history.back()`).
+- **`popstate`** (el "atrás"): si se volvió a un paso de antes de abrir la categoría, `volverACategorias()`.
+- **Al recargar la página estando en los combos:** el navegador se acuerda del paso. Se borra
+  (`history.replaceState(null, '')`), porque la página arranca en las categorías.
+- **Todos se escuchan en el contenedor** (`closest`), porque las tarjetas se vuelven a dibujar.
+
+**`armarCombo.js`**
+
+**`armarloPorMi()`** — NUEVA. "✨ Armalo por mí" completa el combo solo.
+- ENTRADA: nada (usa el combo que se está armando). SALIDA: nada (suma viandas y vuelve a dibujar). No llama al servidor.
+- **Cómo reparte:** da vueltas por el menú, en orden, y en cada vuelta suma 1 a cada plato con **la misma función del +**
+  (`cambiarCantidadPlato`). Así respeta "lo que queda" de cada plato y la cantidad del combo. Si en una vuelta entera no
+  pudo sumar nada, para.
+- **Si ya había platos elegidos**, completa lo que falta.
+- **Ej. real** (topes: berenjenas 10, canelones 6, fideos 10): desde 0 → 4 berenjenas, 3 canelones y 3 fideos = 10 de 10.
+  Con 1 berenjena y 1 canelón ya elegidos → 4, 4 y 2.
+```js
+let sumoEnLaVuelta = true;
+while (totalElegido < comboEnArmado.cantidad && sumoEnLaVuelta) {
+  sumoEnLaVuelta = false;
+  comboEnArmado.menu.forEach(plato => {
+    const yaEstaCompleto = totalElegido >= comboEnArmado.cantidad;
+    if (yaEstaCompleto) return;                    // return = saltear este plato
+    const antes = totalElegido;
+    cambiarCantidadPlato(plato.id, 1);             // la misma función del +
+    if (totalElegido > antes) sumoEnLaVuelta = true;
+  });
+}
+```
+- **Se conecta:** la llama el botón `data-accion="armar-por-mi"` (en el mismo `addEventListener` de la ventana). Con el
+  combo completo, `renderizarMenuCombo` apaga el botón.
+
+**`abrirModalCombo(idCombo)`**
+- **Nuevo:** completa el recuadro del celu.
+  - la foto, con `armarFotoTarjeta`, que ya pasa por `escHtml`;
+  - el nombre y el precio, con `textContent`;
+  - "Elegí tus 10 platos · podés repetir".
+- **Lo demás, igual:** los topes, el encabezado y la ventana.
+
+**`renderizarMenuCombo()`**
+- **Nuevo 1:** el texto del progreso y el del botón salen de una tabla, según la pantalla:
+  - compu: "Te faltan 7" / "¡Combo completo!", y "Agregar al pedido" (lo de siempre);
+  - celu: "Tus platos" / "¡Listo! Ya podés mandarlo", y "Elegí 7 platos más" / "Mandar pedido · $ 137.000".
+- **Nuevo 2:** apaga "✨ Armalo por mí" con el combo completo.
+- **Igual que antes:** los platos, los topes y los personalizados.
+```js
+const esCelu = window.matchMedia('(max-width: 767px)').matches;   // celu de 390 px → true
+const textos = textosPorPantalla[esCelu ? 'celu' : 'compu'];     // (en el código, en dos pasos: pantalla y textos)
+const textoFalta = completo ? textos.completo : textos.falta;
+document.getElementById('boton-agregar-combo').textContent = completo ? textos.botonCompleto : textos.boton;
+```
+
+**`carritoCombos.js`**
+
+**`agregarAlCarrito(comboArmado)`** — suma el combo armado.
+- ENTRADA: el combo armado. SALIDA: nada.
+- **Antes:** guardaba y abría "Mi pedido".
+- **Ahora:** en compu, igual. En el celu, "Mandar pedido" va directo a "Finalizar pedido": `renderizarCarrito()` (el número
+  del ícono) + `abrirFinalizarPedido()`, saliendo temprano con `return`, sin `else`.
+- **Se conecta:** la llama `confirmarCombo` (armarCombo.js). Llama a `abrirFinalizarPedido` (pedidoCombos.js, que se carga
+  después: recién se usa al tocar el botón, cuando ya están todos los archivos).
+
+**`pedidoCombos.js`**
+
+**`renderizarDiasEntrega()`** — NUEVA. Los próximos 5 días de entrega como botones (se ven en el celu).
+- ENTRADA: nada. Usa la fecha mínima que puso `abrirFinalizarPedido`: 2 días hábiles, o 3 si hay personalizados.
+- SALIDA: nada. Dibuja un botón por día hábil, desde el primero posible. En el celu, si la fecha elegida no es uno de esos
+  días (o no hay ninguna), elige el primero (decisión 4A). En compu no toca la fecha.
+- **Usa las funciones de `fechas.js`** (`sumarDiasHabiles`, `fechaLocalISO`, `fechaDDMMAAAA`): saltea los fines de semana y
+  los feriados igual que el control de la fecha.
+- **Ej. real** (hoy sábado 17/10): primera fecha posible martes 20/10 → [Mar 20 ✓] [Mié 21] [Jue 22] [Vie 23] [Lun 26], y
+  el campo de fecha en `'2026-10-20'`.
+- **El valor que se manda es el mismo de siempre:** el botón escribe `'AAAA-MM-DD'` en el campo de fecha (`#campo-fecha`).
+  Ese campo es el que controla `validarFormulario` y el que va al servidor.
+- **Cada botón:** `aria-pressed` (el elegido; los lectores de pantalla dicen "presionado") y `aria-label` con el día entero
+  ("martes 20/10/2026").
+- **Se conecta:** la llaman `abrirFinalizarPedido` y el clic en un día. Ese clic escribe la fecha, borra el error de la
+  fecha y la vuelve a llamar.
+
+**`abrirFinalizarPedido()`**
+- **Nuevo:** escribe el total también adentro del botón (`#total-en-boton`: en el celu, "Confirmar pedido · $ 137.000") y
+  llama a `renderizarDiasEntrega()`.
+- **Lo demás, igual.**
+
+**`confirmarPedido(evento)`** — 2 renglones.
+- "Enviando pedido..." y "Confirmar pedido" se escriben en el texto del botón (`#boton-confirmar-texto`) y no en el botón
+  entero. Si no, se borraba el total que va al lado.
+- **Igual que antes:** apaga el botón mientras se envía, para que un doble clic no cree dos pedidos.
+
+**`mostrarConfirmacion(respuesta, datos)`** — 1 renglón.
+- Al final llama a `volverACategorias()`: detrás de "¡Recibimos tu pedido!" quedan las categorías (en el celu se cierra la
+  pantalla de combos). Así "Volver al inicio" vuelve al inicio.
+
+### 15.8 Animaciones
+| Animación | Dónde | Cuándo |
+|---|---|---|
+| Portada que entra, secciones que aparecen al bajar, el contador de "Mi pedido" que salta | Todo | Las de antes, sin cambios |
+| Latido y brillo de "¡Lo quiero!" y "Ver combos" | Las tarjetas | Sin parar |
+| Tarjetas que aparecen de a una | Categorías y combos | Al llegar a la pantalla. Cada una espera 0,08 s más que la anterior |
+| Pantalla que entra desde la derecha (0,4 s) | Celu: los combos y el armado | Al abrirse |
+| Hoja que sube desde abajo (0,45 s) | Celu: "Finalizar pedido" | Al abrirse |
+| La ✓ con rebote (crece de 0, se pasa un poquito y vuelve) | La confirmación (celu y compu; antes daba un salto) | Al aparecer |
+| Al pasar el mouse: la tarjeta sube, la foto se acerca y la flecha se corre | Las tarjetas (solo con mouse: en el celu, después de tocar, quedaba pegado) | Al pasar el mouse |
+
+**Con "sin movimiento"** (`prefers-reduced-motion`) no se mueve nada:
+- todo dura casi 0;
+- el latido y el brillo no están;
+- las secciones y las tarjetas se ven sin animar.
+
+Comprobado en el celu y en la compu (15.9).
+
+### 15.9 Cómo se comprobó
+Todo con Chrome sin ventana y perfiles temporales (sin tocar el tuyo), contra una copia del servidor nueva (puerto 3001)
+y la base real. El "antes" se armó sirviéndole al navegador los archivos del index tal como están en git.
+
+| Prueba | Cómo | Resultado |
+|---|---|---|
+| Compu, 1440 px | Recorrido: página entera, categorías, mouse encima, tocar una, "‹ Todas las categorías", el "atrás" del navegador, armar, Armalo por mí, Mi pedido, Finalizar | Anda todo. Las tarjetas de categoría miden 363 px (las de 3 por fila), sin errores en la consola |
+| Celu, 390 px | Recorrido: inicio, Ver combos (entra desde la derecha), el "atrás" del celu, armar (0, 2 y 10 de 10), Armalo por mí, Mandar pedido, datos (los días, Retiro, Confirmar vacío), cerrar, "‹", Mi pedido | Anda todo. Datos vacíos → los 4 errores de siempre, sin mandar nada. Los días: Mar 20 ✓, Mié 21, Jue 22, Vie 23 y Lun 26 |
+| Contra la referencia | Imágenes "referencia \| nuestra" de las 5 pantallas del celu y del armado en compu | En `diseno-index-final2/capturas-finales/comparaciones/`. Lo que no quedó igual, en 15.11 |
+| Que lo demás no cambió | Elemento por elemento (posición, tamaño y unos 65 estilos), en 15 pasos, la compu aprobada contra la de ahora | **1440:** encabezado, portada, Dónde estamos, Preguntas, pie, Armar, Mi pedido, Finalizar y login, idénticos. **390:** Dónde estamos, pie, Mi pedido y login, idénticos. Cambian, a propósito, el encabezado, la portada, las categorías, el armado y Finalizar. Ruido: una respuesta de Preguntas a mitad de su animación |
+| Sin scroll de costado | 14 anchos: 320, 360, 390, 412, 600, 767, 768, 900, 1024, 1131, 1132, 1280, 1440 y 1920 px, con las categorías, los combos, el armado y Finalizar abiertos | En ninguno. A 320 px, el título de Finalizar se achica y los botones de entrega van en 2 renglones |
+| Pedidos de prueba de verdad | "PRUEBA – NO PREPARAR", Retiro y Efectivo, sin personalizados. Después anulados, con el PIN del `.env` sin mostrarlo | **#34**, celu, con Armalo por mí (4 berenjenas, 3 canelones y 3 fideos). **#35**, compu (5 berenjenas y 5 fideos). **#38**, celu, para la captura final. Los 3 con entrega el 20/10/2026, anulados ("Volvieron 10 viandas a la heladera"). La heladera quedó igual que al empezar |
+| Test HELADERA | `node tests/test_e2e.js heladera`, contra el servidor con el `server.js` nuevo | **40/40**: pedidos #36 y #37, anulados; la heladera quedó igual |
+| Login | "Iniciar Sesión", la clave mal y la clave bien (admin), en celu y compu | Se abre la ventana, aparece "Usuario o contraseña incorrectos" y el admin va a su panel. La ventana del login está igual que antes |
+| ✎ Personalizar | "sin sal" en un plato, en celu y compu | Aparece el renglón "⚠ sin sal" con su − y + y la nota de +1 día hábil. El − lo saca |
+| Sin movimiento | `prefers-reduced-motion: reduce`, en celu y compu | Se ve todo sin animar (15.8) |
+| "Más elegido" | SIMULADO: el navegador recibe `destacado = true` en el combo #1. La base no se toca | La pastilla naranja, el borde y el botón naranja, en celu y compu |
+| Consola | En todas las pruebas | Sin errores. Lo único: el aviso que escribe `auth.js` cuando probé a propósito la clave mal |
+| `node --check` | Los 4 JS cambiados | Bien |
+
+- **Lo que apareció en las pruebas** (no son errores del código nuevo):
+  - **La base tardó 20 s una vez.** La primera consulta de los combos tardó 20 s; después, medio segundo. Pasó dos veces,
+    con la base "fría". Mientras tanto, la página muestra "Cargando combos...".
+  - **El primer pedido de prueba del 3001 dio 500, "Bloqueado por política CORS".** El servidor solo acepta pedidos que
+    vienen de las direcciones permitidas (`localhost:3000` y la de `CORS_ORIGIN`), y mi copia corría en el 3001. No se
+    creó nada. Se arrancó la copia con la variable `CORS_ORIGIN=http://localhost:3001`, sin tocar el código ni el
+    `.env`.
+- **Los pedidos de prueba que se hicieron**, todos anulados (estado 5):
+  - #34, #35 y #38, por la web;
+  - #36 y #37, del test.
+
+  El #33 ("PRUEBA 77 Federico Medina") no es de estas pruebas y no se tocó.
+- **Capturas** en `diseno-index-final2/capturas-finales/`:
+  - `comparaciones/` (14 imágenes);
+  - `celu-390/` y `compu-1440/`;
+  - `antes-git/`;
+  - `otros-anchos/`.
+
+### 15.10 Seguridad (qué protege cada cosa)
+- **El pedido que se manda no cambió:**
+  - `armarPedido`, `validarFormulario` y `enviarPedido` son los mismos;
+  - la fecha es el mismo `'AAAA-MM-DD'`, y el servidor la vuelve a controlar (día hábil y mínimo);
+  - los precios y el total siguen saliendo de la base: los de la pantalla son solo para mostrar.
+
+  Protege de que alguien cambie precios o fechas desde el navegador.
+- **`escHtml` en todo lo que viene de la base y va al `innerHTML`:** el nombre y la frase de la categoría, la dirección de
+  su foto (que va adentro de un atributo), los nombres y los precios de los combos. El recuadro del armado usa
+  `textContent`.
+  - Protege de que un texto cargado en la base (por ejemplo, la frase de una categoría) se ejecute como código en el
+    navegador de un cliente (XSS).
+  - Los días y sus nombres los arma el JS: no vienen de la base.
+- **`server.js`, solo lectura:**
+  - con las funciones de Supabase (`.select`), sin pegar texto en el SQL;
+  - las rutas del panel siguen con `requireAuth` + `requireRol(6, 5)`;
+  - la pública de combos sigue con su límite por IP.
+
+  `destacado` solo puede salir `true` o `false`.
+- **Los datos nuevos los carga solo quien entra a Supabase:** el navegador no puede marcar un combo como "Más elegido"
+  (no hay ruta que lo cambie).
+- **El historial del navegador** solo guarda `{ pantalla: 'combos' }`, sin datos.
+- **El SQL solo agrega columnas,** con el RLS como estaba.
+
+### 15.11 Lo que no quedó igual a la referencia (y por qué)
+| Dónde | Referencia | Nuestra | Por qué |
+|---|---|---|---|
+| Encabezado del celu | "Fast Good" escrito y "💬 WhatsApp" | El logo, "Iniciar Sesión" y "Mi pedido" | Decisión 1A. WhatsApp sigue flotante, abajo a la derecha |
+| Textos y datos | "Sierras Chicas", "congeladas", "Plan descenso de peso", "$ 137.000"… | Los nuestros: "Nueva Córdoba y Villa Allende", la bajada de siempre, las insignias de la decisión 2, y los combos y precios de la base | La referencia tiene datos de relleno: no se inventan datos |
+| Título de las categorías en el celu | "CATEGORÍAS" | "ELEGÍ TU CATEGORÍA" (el mismo título de la sección, como rótulo) | Es el título que ya tenía la sección |
+| "% OFF" | "HASTA 23% OFF", "12% OFF" | No está | Tu decisión: no va |
+| Fotos | La misma foto de ejemplo | La regla de siempre: hoy "combo saludable" y "combo mantenimiento" | Las categorías todavía no tienen foto propia (se cargan desde Supabase) |
+| "N combos" / "N viandas" | Arriba a la derecha | Arriba a la izquierda, y "Más elegido" a la derecha | En la referencia iban a la derecha porque a la izquierda estaba el "% OFF". Es la tarjeta que aprobaste en compu |
+| Frase de la categoría | "Bajá de peso comiendo rico" | Sin frase | Las categorías no tienen frase en la base. Va sola cuando se cargue |
+| Platos del armado | Una línea por plato | Debajo de cada uno, "✎ Personalizar" (y "Quedan 6" cuando hay pocas), así que los renglones son más altos. Sin segunda línea si el plato no tiene descripción | Personalizar es nuestra función (la referencia no la tiene). Las descripciones de los platos están vacías en la base |
+| Platos que aparecen de a uno | Sí | No | La lista se vuelve a dibujar con cada + o −: la animación se repetiría en cada toque |
+| Datos: los campos | Solo el texto gris adentro ("Nombre") | Un rótulo chico arriba de cada casillero | El texto gris desaparece al escribir y no lo leen bien los lectores de pantalla. Además, son los campos de hoy (decisión 5A) |
+| Datos: el orden | Entrega, nombre, teléfono, dirección y barrio, día, pago | El de hoy: Tus datos (con Email opcional y Dirección), Tipo de entrega, Barrio, Fecha, Pago y Observaciones; arriba, el resumen plegable y la ✕ | Decisión 5A |
+| Datos: entrega | "🛵 Delivery" / "🏠 Retiro" | "🛵 Envío a domicilio" / "🏠 Retiro en el local". Con Retiro, dice dónde se retira | Los textos de hoy. Los valores que se mandan son los mismos ("Delivery" / "Retiro en local") |
+| Datos: Dirección con Retiro | Se esconde | Se ve | Hoy es obligatoria también con Retiro (`validarFormulario` y el servidor). Queda anotado como pendiente |
+| Datos: los días | Incluía un sábado | Solo días hábiles; debajo, el aviso de las 48 hs y la primera fecha posible | Los mismos días que acepta el servidor |
+| Datos: la hoja | Más baja; el botón al final | Más alta (más campos), con el botón fijo abajo | Hay más campos |
+| ¡Pedido listo! | "¡Pedido listo!", "Llega el martes 20" y "Hacer otro pedido" | El mensaje de hoy: "¡Recibimos tu pedido #N!", la fecha, la entrega, el pago, el resumen, "Enviar por WhatsApp" y "Volver al inicio" | El PROMPT pide el mensaje de éxito de hoy |
+| Botones redondos chicos | 38 y 34 px | Iguales, con un área invisible de 44 a 48 px para el dedo | Más fáciles de tocar, sin que se vean distintos |
+| Compu | Pastillas de categoría arriba de los combos | Primero las tarjetas de categoría | Lo pediste después de ver la compu |
+
+### 15.12 Pendientes (anotados, no hechos)
+- **Panel para cargar "Más elegido" y la foto y la frase de cada categoría.** Por ahora se cargan desde Supabase:
+  - `combos.destacado` = true;
+  - `categorias.imagen` = la dirección de la foto;
+  - `categorias.descripcion` = la frase.
+- **La dirección es obligatoria también con Retiro** (`validarFormulario` y el servidor). Habría que decidir si con
+  Retiro va vacía.
+- **Reiniciar tu servidor del 3000** para que mande los datos nuevos (15.3).
+- **`server.js`, ya anotado en 14.7:** dos comentarios todavía dicen `index-combos.html` y uno `index.js`.
+- **Nuevo:** cuando el servidor rechaza un pedido por CORS, contesta 500 ("error interno") en vez de 403 ("no permitido").
+  No cambia nada para el cliente (la web ve "No pudimos enviar tu pedido…"), pero el registro lo anota como error del
+  servidor. Se mira con la seguridad del servidor.

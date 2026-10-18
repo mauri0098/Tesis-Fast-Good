@@ -72,9 +72,11 @@
         <img class="logo-imagen" src="./src/assets/img/logo.webp" alt="">
       </a>
 
+      <!-- En el celu el menú no se ve (como la referencia). "Combos" lleva a las categorías: los combos se ven
+           recién al tocar una (la zona #combos está escondida hasta entonces) -->
       <nav class="menu-principal" aria-label="Principal">
         <a href="#categorias">Categorías</a>
-        <a href="#combos">Combos</a>
+        <a href="#categorias">Combos</a>
         <a href="#preguntas">Preguntas</a>
         <a href="#donde-estamos">Contacto</a>
       </nav>
@@ -119,6 +121,12 @@
               <a href="https://www.instagram.com/fastgood.va/" target="_blank" rel="noopener">fastgood.va</a>
             </li>
           </ul>
+          <!-- Insignias: solo en el celu (portada compacta, como la referencia). En compu no se ven -->
+          <ul class="portada-insignias">
+            <li>✓ Caseras</li>
+            <li>⚡ Listas en 5 min</li>
+            <li>🛵 Entregas en 48 hs hábiles</li>
+          </ul>
         </div>
         <div class="portada-foto">
           <div class="portada-marco">
@@ -150,15 +158,28 @@
       </div>
     </section>
 
-    <!-- 3. Categorías + Combos (los llena combosCatalogo.js con los datos del servidor) -->
-    <section class="seccion seccion-fondo-verde" id="categorias" aria-labelledby="titulo-categorias">
+    <!-- 3. Categorías + Combos (los llena combosCatalogo.js con los datos del servidor).
+         Primero se ven las tarjetas de categorías; al tocar una, sus combos (combosCatalogo.js le pone a esta sección
+         la clase "mostrando-combos"): en compu en el mismo lugar, en el celu como una pantalla que entra desde la derecha -->
+    <section class="seccion seccion-fondo-blanco seccion-categorias" id="categorias" aria-labelledby="titulo-categorias">
       <div class="contenedor">
-        <h2 id="titulo-categorias" class="titulo-seccion revelar">Categorías</h2>
-        <div class="lista-categorias revelar" id="lista-categorias" role="group" aria-label="Elegí una categoría"></div>
+        <h2 id="titulo-categorias" class="titulo-seccion revelar">Elegí tu <span class="palabra-verde">categoría</span></h2>
+        <!-- Las tarjetas de categorías (renderizarCategorias). Cada tarjeta aparece sola, de a una -->
+        <div class="lista-categorias" id="lista-categorias" role="group" aria-label="Elegí una categoría">
+          <p class="aviso-combos aviso-cargando">Cargando combos...</p>
+        </div>
 
-        <!-- Los combos de la categoría elegida -->
-        <div class="zona-combos" id="combos">
-          <p class="aviso-combos">Cargando combos...</p>
+        <!-- Los combos de la categoría elegida (renderizarCombos): escondidos hasta que se toca una categoría -->
+        <div class="zona-combos" id="combos"></div>
+
+        <!-- "Cómo funciona": solo en el celu, debajo de las categorías (en compu están los 3 pasos de la portada) -->
+        <div class="como-funciona">
+          <p class="rotulo">Cómo funciona</p>
+          <ol class="como-funciona-pasos">
+            <li><span class="como-funciona-icono" aria-hidden="true">🥗</span>Elegís</li>
+            <li><span class="como-funciona-icono" aria-hidden="true">✋</span>Armás</li>
+            <li><span class="como-funciona-icono" aria-hidden="true">🛵</span>Recibís</li>
+          </ol>
         </div>
       </div>
     </section>
@@ -256,7 +277,8 @@
       <nav class="pie-columna" aria-label="Pie de página">
         <h2>Navegación</h2>
         <a href="#categorias">Categorías</a>
-        <a href="#combos">Combos</a>
+        <!-- Lleva a las categorías: los combos se ven al tocar una (la zona #combos está escondida hasta entonces) -->
+        <a href="#categorias">Combos</a>
         <a href="#donde-estamos">Dónde estamos</a>
         <a href="#preguntas">Preguntas frecuentes</a>
       </nav>
@@ -275,15 +297,20 @@
     </div>
   </footer>
 
-  <!-- 7. Modal para armar un combo (lo maneja armarCombo.js) -->
-  <dialog class="modal" id="modal-combo" aria-labelledby="modal-combo-titulo">
+  <!-- 7. Modal para armar un combo (lo maneja armarCombo.js). En compu, una ventana centrada; en el celu, una
+       pantalla completa que entra desde la derecha, con la barra "‹ Armá tu combo" y la barra fija de abajo -->
+  <dialog class="modal modal-armar" id="modal-combo" aria-labelledby="modal-combo-titulo">
     <div class="modal-encabezado">
-      <div>
+      <div class="armar-titulos">
         <p class="modal-categoria" id="modal-combo-categoria"></p>
         <h2 id="modal-combo-titulo"></h2>
       </div>
+      <!-- Título de la barra en el celu (ahí el nombre del combo va abajo, con su foto y su precio) -->
+      <p class="armar-titulo-celu" aria-hidden="true">Armá tu combo</p>
+      <!-- Cerrar: en compu la ✕; en el celu la "‹" a la izquierda (es el mismo botón, el CSS cambia cuál se ve) -->
       <button class="boton-cerrar" type="button" data-accion="cerrar" aria-label="Cerrar">
         <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-cerrar"></use></svg>
+        <span class="boton-cerrar-flecha" aria-hidden="true">‹</span>
       </button>
     </div>
 
@@ -298,8 +325,22 @@
       </div>
     </div>
 
-    <!-- Platos del menú del combo -->
-    <ul class="lista-platos modal-contenido" id="lista-platos"></ul>
+    <!-- Platos del menú del combo, y arriba "✨ Armalo por mí": completa el combo solo, repartiendo de a un plato
+         (armarloPorMi, de armarCombo.js). Esta parte es la que se desliza cuando hay muchos platos -->
+    <div class="modal-contenido armar-contenido">
+      <!-- Solo en el celu (como la referencia): la foto, el nombre y el precio del combo, y "Elegí tus 10 platos ·
+           podés repetir". Los completa abrirModalCombo (armarCombo.js) -->
+      <div class="armar-resumen-combo">
+        <span class="armar-resumen-foto" id="armar-combo-foto"></span>
+        <span class="armar-resumen-textos">
+          <strong id="armar-combo-nombre"></strong>
+          <span class="armar-resumen-precio" id="armar-combo-precio"></span>
+        </span>
+      </div>
+      <p class="rotulo armar-rotulo" id="armar-combo-rotulo"></p>
+      <button class="boton-armar-por-mi" type="button" id="boton-armar-por-mi" data-accion="armar-por-mi">✨ Armalo por mí</button>
+      <ul class="lista-platos" id="lista-platos"></ul>
+    </div>
 
     <div class="modal-pie">
       <button class="boton boton-principal boton-ancho" type="button" id="boton-agregar-combo" data-accion="agregar-combo" disabled>Agregar al pedido</button>
@@ -336,10 +377,15 @@
     </div>
   </dialog>
 
-  <!-- 9. Modal "Finalizar pedido": formulario y confirmación (lo maneja pedidoCombos.js) -->
+  <!-- 9. Modal "Finalizar pedido": formulario y confirmación (lo maneja pedidoCombos.js).
+       En compu, una ventana centrada; en el celu, una hoja que sube desde abajo (como la referencia) -->
   <dialog class="modal modal-finalizar" id="modal-finalizar" aria-labelledby="modal-finalizar-titulo">
     <div class="modal-encabezado">
-      <h2 id="modal-finalizar-titulo">Finalizar pedido</h2>
+      <!-- El título: "Finalizar pedido" en compu y "¿Cómo te lo damos?" en el celu (el CSS muestra uno solo) -->
+      <h2 id="modal-finalizar-titulo">
+        <span class="finalizar-titulo-compu">Finalizar pedido</span>
+        <span class="finalizar-titulo-celu">¿Cómo te lo <span class="palabra-verde">damos</span>?</span>
+      </h2>
       <button class="boton-cerrar" type="button" data-accion="cerrar" aria-label="Cerrar">
         <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-cerrar"></use></svg>
       </button>
@@ -410,12 +456,13 @@
               <fieldset class="grupo-campos" aria-describedby="error-entrega">
                 <legend>Tipo de Entrega</legend>
                 <div class="opciones opciones-dos-columnas">
+                  <!-- En el celu son botones partidos (como la referencia): se ve el ícono y el título, sin el detalle -->
                   <label class="opcion">
                     <input class="opcion-radio" type="radio" name="entrega" value="Delivery" checked>
                     <span class="opcion-tarjeta">
                       <span class="opcion-circulo" aria-hidden="true"></span>
                       <span class="opcion-textos">
-                        <span class="opcion-titulo">Envío a domicilio</span>
+                        <span class="opcion-titulo"><span class="opcion-emoji" aria-hidden="true">🛵</span>Envío a domicilio</span>
                         <span class="opcion-detalle">Te lo llevamos a tu dirección.</span>
                       </span>
                     </span>
@@ -425,12 +472,14 @@
                     <span class="opcion-tarjeta">
                       <span class="opcion-circulo" aria-hidden="true"></span>
                       <span class="opcion-textos">
-                        <span class="opcion-titulo">Retiro en el local</span>
+                        <span class="opcion-titulo"><span class="opcion-emoji" aria-hidden="true">🏠</span>Retiro en el local</span>
                         <span class="opcion-detalle">Ituzaingó 431 (Nueva Córdoba) o 9 de Julio 179 (Villa Allende)</span>
                       </span>
                     </span>
                   </label>
                 </div>
+                <!-- Solo en el celu y solo con "Retiro" elegido: dónde se retira (en el celu el detalle de arriba no se ve) -->
+                <p class="campo-ayuda entrega-ayuda-retiro">Retirás en Ituzaingó 431 (Nueva Córdoba) o en 9 de Julio 179 (Villa Allende).</p>
                 <p class="campo-error" id="error-entrega"></p>
 
                 <!-- Barrio de entrega: solo se ve (y solo es obligatorio) con envío a domicilio -->
@@ -446,6 +495,10 @@
 
                 <div class="campo">
                   <label for="campo-fecha">Fecha de entrega</label>
+                  <!-- Solo en el celu: los próximos 5 días de entrega como botones ("Mar 21"…), con el primero ya
+                       elegido (los dibuja renderizarDiasEntrega, de pedidoCombos.js). El botón que se toca escribe su
+                       fecha en el campo de abajo, que es el que se controla y se manda, igual que siempre -->
+                  <div class="dias-entrega" id="dias-entrega" role="group" aria-label="Día de entrega"></div>
                   <input class="casillero" id="campo-fecha" type="date" aria-describedby="fecha-aviso fecha-primera-posible error-fecha">
                   <!-- Mismo aviso que el formulario viejo -->
                   <p class="campo-ayuda" id="fecha-aviso">
@@ -466,7 +519,7 @@
                     <input class="opcion-radio" type="radio" name="pago" value="Efectivo" checked>
                     <span class="opcion-tarjeta">
                       <span class="opcion-circulo" aria-hidden="true"></span>
-                      <span class="opcion-textos"><span class="opcion-titulo">Efectivo</span></span>
+                      <span class="opcion-textos"><span class="opcion-titulo"><span class="opcion-emoji" aria-hidden="true">💵</span>Efectivo</span></span>
                     </span>
                   </label>
                   <label class="opcion">
@@ -474,7 +527,7 @@
                     <span class="opcion-tarjeta">
                       <span class="opcion-circulo" aria-hidden="true"></span>
                       <span class="opcion-textos">
-                        <span class="opcion-titulo">Transferencia</span>
+                        <span class="opcion-titulo"><span class="opcion-emoji" aria-hidden="true">🏦</span>Transferencia</span>
                         <span class="opcion-detalle">Alias FAST.GOOD.VA</span>
                       </span>
                     </span>
@@ -501,7 +554,12 @@
             <span>Total</span>
             <span><strong id="total-a-pagar"></strong></span>
           </div>
-          <button class="boton boton-principal boton-grande" type="submit" id="boton-confirmar-pedido">Confirmar pedido</button>
+          <!-- En el celu el total va adentro del botón ("Confirmar pedido · $ 137.000") y el de la izquierda no se ve.
+               El texto lo cambia confirmarPedido ("Enviando pedido...") y el total lo escribe abrirFinalizarPedido -->
+          <button class="boton boton-principal boton-grande" type="submit" id="boton-confirmar-pedido">
+            <span id="boton-confirmar-texto">Confirmar pedido</span>
+            <span class="boton-confirmar-total">· <span id="total-en-boton"></span></span>
+          </button>
         </div>
       </form>
     </div>

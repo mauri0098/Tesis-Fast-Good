@@ -4,7 +4,7 @@
 // Funciones:
 //   cargarCarrito    → lee el carrito guardado en el navegador (localStorage) y descarta lo que esté roto
 //   guardarCarrito   → guarda el carrito en el navegador (se llama en cada cambio)
-//   agregarAlCarrito → suma un combo armado, guarda y abre "Mi pedido"
+//   agregarAlCarrito → suma un combo armado, guarda y abre "Mi pedido" (en el celu, "Finalizar pedido" directo)
 //   quitarDelCarrito → saca un combo, guarda y vuelve a dibujar
 //   renderizarCarrito→ dibuja los combos con sus platos, el total, el número del ícono y el botón Finalizar
 //   abrirMiPedido    → dibuja el carrito y abre la ventana "Mi pedido"
@@ -12,7 +12,8 @@
 // Cada combo es un elemento aparte, aunque sea igual a otro (en la base, cada combo comprado
 // es una fila de pedido_combos con sus propias viandas). El ícono cuenta combos, no viandas.
 // El total es solo para mostrar: el que se cobra lo calcula el servidor desde la base.
-// Necesita antes: escape.js (escHtml).
+// Necesita antes: escape.js (escHtml). Usa también abrirFinalizarPedido (pedidoCombos.js, que se carga después:
+// recién se llama al tocar "Mandar pedido", cuando ya están todos los archivos).
 // ====================================================================
 
 // Clave en localStorage (distinta de la del carrito viejo, FG_CARRITO_ACTUAL, para no mezclarlos)
@@ -68,9 +69,22 @@ function guardarCarrito() {
 }
 
 // ── Suma un combo armado (lo llama confirmarCombo, de armarCombo.js) ──────
+// ENTRADA: comboArmado = { id_combo, nombre, precio, cantidad, platos }
+// SALIDA:  nada (el combo queda en el carrito y guardado). En compu se abre "Mi pedido", como siempre.
+//          En el celu ("Mandar pedido · $…") se va directo a "Finalizar pedido" (abrirFinalizarPedido, de
+//          pedidoCombos.js); "Mi pedido" sigue andando desde el encabezado para sumar otro combo.
+// Ej: en el celu, combo x10 completo → "Mandar pedido · $ 137.000" → el ícono pasa a 1 y se abre "¿Cómo te lo damos?"
 function agregarAlCarrito(comboArmado) {
   carritoCombos.push(comboArmado);
   guardarCarrito();
+
+  // matchMedia pregunta si la pantalla cumple esa medida. Ej: celular de 390 px → true · compu de 1440 px → false
+  const esCelu = window.matchMedia('(max-width: 767px)').matches;
+  if (esCelu) {
+    renderizarCarrito();       // el número del ícono y "Mi pedido" al día
+    abrirFinalizarPedido();    // de pedidoCombos.js
+    return;
+  }
   abrirMiPedido();
 }
 

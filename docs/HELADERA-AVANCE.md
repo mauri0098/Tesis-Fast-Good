@@ -257,8 +257,20 @@ Nota: cada caso de mentira gasta números de id que no vuelven (H2: renglón 17 
 - **Consultar Pedidos trae como mucho 1000 pedidos** (límite de Supabase por consulta): `GET /api/pedidos` los ordena del más nuevo al más viejo, así que cuando haya más, los más viejos no se ven (salvo filtrando por fechas). Hace falta paginación más adelante (que el servidor mande de a una página). Lo mismo, mucho más lejos, para las reservadas de Producción: se suman como mucho 1000 renglones de pedidos sin entregar.
 
 ## Próximo prompt para Claude Code (🔴 MODO POTENTE, Effort Max)
-**Pantalla 1 (17/10): paso 1, paso 2, diseño final y limpieza, escritos y comprobados.** Después de tu recorrido a mano
-("Recorrido a mano", más abajo, con la compra de prueba y el cocinero), mandar:
+**Pantalla 1 (17/10): paso 1, paso 2, diseño final, limpieza e index final (`diseno-index-final2/`), escritos y
+comprobados.**
+1. Reiniciá el servidor del puerto 3000 (por el `server.js` nuevo).
+2. Hacé el "Recorrido a mano" del index final (más abajo), en celu y compu.
+3. Después mandá:
+```
+Miré el index final (diseno-index-final2: categorías primero, celu con pantallas y hoja de datos) en celu y compu,
+con el servidor reiniciado: [qué se vio bien y qué no, pantalla por pantalla].
+Si algo falló, decime la causa y el plan, sin tocar nada sin mi OK. Si está todo bien, cerrá la Pantalla 1 en
+docs/HELADERA-AVANCE.md y en el INFORME, decime qué commiteo (archivos) y pasá al plan de la Pantalla 2 (Login).
+No hagas commit.
+```
+
+(Anterior, de la limpieza.)
 ```
 Miré la web (Pantalla 1: diseño final v5 + limpieza, con index.css como único CSS) y el panel en celu y compu:
 [qué se vio bien y qué no].
@@ -287,7 +299,7 @@ el usuario). Recién ahí se pasa a la siguiente.
 
 | # | Pantalla | Pendientes ya anotados que se hacen ahí | Estado |
 |---|---|---|---|
-| 1 | Index (web nueva) | Paso 1: cambiar solo cómo se ve `index-combos.html` con el diseño de `docs/diseno-index/`. Paso 2: reemplazar el index viejo. Diseño final: `docs/diseno-final-index/` | ✍ **Paso 1, paso 2 y diseño final hechos (16/10)**: la web nueva es `index.html` (`/`), igual al diseño final v5, con animaciones y login en ventana (INFORME 13.9 a 13.11). Login y cerrar sesión llevan a donde corresponde. Pedido de prueba #27 desde la web (anulado, la heladera quedó igual) y test 40/40. **Limpieza hecha (17/10)**: se borró el index viejo y todo lo que no se usaba, y el index quedó con 1 HTML + 1 CSS (`index.css`); se ve igual (INFORME 14). Falta: tu recorrido a mano (compra y cocinero) |
+| 1 | Index (web nueva) | Paso 1: cambiar solo cómo se ve `index-combos.html` con el diseño de `docs/diseno-index/`. Paso 2: reemplazar el index viejo. Diseño final: `docs/diseno-final-index/` | ✍ **Paso 1, paso 2 y diseño final hechos (16/10)**: la web nueva es `index.html` (`/`), igual al diseño final v5, con animaciones y login en ventana (INFORME 13.9 a 13.11). Login y cerrar sesión llevan a donde corresponde. Pedido de prueba #27 desde la web (anulado, la heladera quedó igual) y test 40/40. **Limpieza hecha (17/10)**: se borró el index viejo y todo lo que no se usaba, y el index quedó con 1 HTML + 1 CSS (`index.css`); se ve igual (INFORME 14). **Index final hecho (17/10, `diseno-index-final2/`)**: CSS ordenado; compu con las tarjetas de categoría primero y la tarjeta nueva; celu con el flujo de la referencia (INFORME 15). Pedidos de prueba #34, #35 y #38 y test 40/40, todos anulados. Falta: tu recorrido a mano (el nuevo, más abajo) y reiniciar el servidor |
 | 2 | Login | `auth.js` muestra el nombre del usuario sin `escHtml` (en el botón de sesión del encabezado) y trae estilos fijos de letra blanca (para el encabezado verde viejo), que en la web nueva se pisan desde `index-combos.css`. Sus nombres están en inglés (`auth-btn-container`, `login-btn-header`, `auth-dropdown`): pasarlos a español en todos los archivos que los usan | ⏭ |
 | 3 | Consultar Pedidos | | ⏭ |
 | 4 | Tareas de Cocina | (el punto 8 ya está escrito: el plato primero y el plan entre paréntesis) | ⏭ |
@@ -301,7 +313,18 @@ el usuario). Recién ahí se pasa a la siguiente.
 ### Ideas para después (web nueva): están en la maqueta pero hoy no existen
 Se dejaron afuera del paso 1 de la Pantalla 1 porque serían comportamiento nuevo o datos que no tenemos (decisión del 16/10):
 - "Ofertas del día" (la tira de ofertas que se desliza).
-- El sello "El más elegido" en un combo (habría que decidir cómo se elige: ¿el más vendido?).
+- ~~El sello "El más elegido" en un combo~~ → **hecho el 17/10** (INFORME 15): sale si el combo tiene `destacado` = true.
+  Se marca a mano desde Supabase.
+- **(17/10) PENDIENTE: un panel para cargar "Más elegido", la foto y la frase de cada categoría.**
+  - Hoy se cargan desde Supabase: `combos.destacado`, `categorias.imagen` y `categorias.descripcion`.
+  - Sin foto, la tarjeta de la categoría usa la de su primer combo; sin frase, va sin frase.
+- **(17/10) PENDIENTE: la dirección es obligatoria también con "Retiro en el local"** (`validarFormulario` y el servidor).
+  - Por eso en el celu la Dirección se ve siempre.
+  - Hay que decidir si con Retiro puede ir vacía. Si se cambia, se cambia en los dos lados.
+- (17/10) Cuando el servidor rechaza un pedido por CORS, contesta 500 en vez de 403.
+  - Para el cliente no cambia nada.
+  - Se mira con la seguridad del servidor.
+- "% OFF" en las tarjetas: **no va** (decisión del 17/10).
 - "Seguir armando · 4 de 10" en la tarjeta de un combo empezado (hoy, si se cierra el armado, se pierde).
 - El mapa en "Dónde estamos".
 - "Días y horarios" y "Zonas de entrega" (no están cargados en ningún lado).
@@ -376,41 +399,75 @@ Detalle completo (funciones antes/ahora, lista de nombres "antes → ahora", pru
   - **Aviso:** cambiaron los combos de la base. Ahora sale primero "Combo semanal" (#4 y #5, categoría "Combos
     Saludables", con la foto "combo saludable") y ya no aparece "Prueba no usar". El "PRUEBA Mantenimiento x10" (#1) sigue,
     en la categoría "Viandas Saludables".
+- **Index final (17/10, `diseno-index-final2/PROMPT.md`)** — sección 15 del INFORME:
+  - **SQL** `sql/combos_categorias_extra.sql` (lo corriste vos): `combos.destacado`, `categorias.imagen` y
+    `categorias.descripcion`. **`server.js`:** 5 rutas GET los mandan (solo lectura). **Hay que reiniciar el servidor.**
+  - **`index.css` ordenado:** perillas comentadas arriba y 12 secciones (0 a 11). Comprobado que ordenarlo no cambió nada.
+  - **Compu:**
+    - primero las **tarjetas de categoría**, con la misma plantilla de la tarjeta de combo: foto, nombre, "N combos",
+      "DESDE $…", "o $… por vianda" y "Ver combos →";
+    - al tocar una, sus combos en el mismo lugar, con "‹ Todas las categorías";
+    - la tarjeta de combo nueva ("¡Lo quiero!", que late y brilla; "Más elegido" en naranja si el combo es destacado);
+    - "✨ Armalo por mí".
+  - **Celu (el flujo de la referencia):**
+    - encabezado de una fila y portada compacta con insignias;
+    - las mismas tarjetas de categoría, y "Cómo funciona";
+    - los combos en una pantalla que entra desde la derecha;
+    - el armado a pantalla completa, con la barra fija abajo. "Mandar pedido · $…" abre "Finalizar pedido" directo;
+    - los datos en una hoja que sube, con botones partidos y los 5 días hábiles como botones (el primero elegido);
+    - la ✓ con rebote.
+  - **Comprobado:**
+    - 390 y 1440 px contra las referencias (imágenes lado a lado);
+    - sin scroll de costado en 14 anchos (de 320 a 1920 px);
+    - lo que no se tocó quedó idéntico;
+    - login, Personalizar, Mi pedido y "sin movimiento" andan;
+    - consola sin errores;
+    - pedidos de prueba #34 (celu), #35 (compu) y #38 (celu) y test 40/40 (#36 y #37), todos anulados, con la heladera
+      igual.
+  - **Capturas:** `diseno-index-final2/capturas-finales/` (en `comparaciones/`, "referencia | nuestra" y "antes | después").
 
-**Recorrido a mano.** Ctrl+F5 en `http://localhost:3000/` (desde el paso 2, la web nueva es `index.html`). Para el celu: F12 → ícono del celular
-(Ctrl+Shift+M) → ancho 390, o el celu de verdad en la misma red Wi-Fi con la IP de la compu en lugar de `localhost`.
+**Recorrido a mano (index final, 17/10).**
+1. **Primero, reiniciá tu servidor** (el del puerto 3000), para que tome el `server.js` nuevo.
+2. Después, Ctrl+F5 en `http://localhost:3000/`.
+3. Para el celu: F12 → ícono del celular (Ctrl+Shift+M) → ancho 390. O el celu de verdad, en la misma red Wi-Fi, con la IP
+   de la compu en lugar de `localhost`.
+
+Las capturas de cada paso están en `diseno-index-final2/capturas-finales/`.
 
 En el celu (390 px):
 | # | Qué hacés | Qué tiene que pasar |
 |---|---|---|
-| 1 | Abrís la página | Logo, "Iniciar Sesión" y "Mi pedido 0" arriba, el menú debajo. "Fast Good" grande, "Pedir ahora" a todo el ancho, "Combos desde $ 100.000", WhatsApp e Instagram, la foto con "Entregamos a las 48 hs hábiles" y los 3 pasos |
-| 2 | Bajás a Categorías | Las secciones aparecen suaves al bajar. Un botón por categoría, a todo el ancho; la elegida verde con ✓. Combos uno debajo del otro, a lo ancho: la foto "combo mantenimiento", nombre, precio grande en verde, "$ 13.700 por vianda" y "Armar combo ›". Se puede tocar en cualquier parte de la tarjeta |
-| 3 | "Mi pedido" (vacío) | Sube desde abajo: bolsa + "Todavía no agregaste combos.", "Finalizar pedido" gris |
-| 4 | "Armar combo" en «PRUEBA Mantenimiento x10» | Sube desde abajo: "0 de 10 · Te faltan 10", canelones con "Quedan 6", botones − / + redondos (el + verde) |
-| 5 | Sumás platos | El plato se pone verde, la barra avanza, "Te faltan N" baja |
-| 6 | "✎ Personalizar" en canelones, escribís "sin sal" y "Agregar" | Renglón "⚠ sin sal − 1 +" y la nota "Los platos personalizados se cocinan aparte…" |
-| 7 | Completás 10 | "¡Combo completo!" en verde, los + se apagan, "Agregar al pedido" se prende |
-| 8 | ✕ (o Escape) con platos elegidos | "Elegiste 10 de 10. Si salís, se pierde lo que elegiste." con "Salir" y "Seguir armando" → Seguir armando |
-| 9 | "Agregar al pedido" | Mi pedido: nombre y precio, un plato por renglón ("1 × canelones · ⚠ sin sal"), "$ 13.700 c/u", "Quitar", total, y "Mi pedido 1" |
-| 10 | "Finalizar pedido" | Pantalla completa. Resumen cerrado "(1 combo) $ 137.000": al tocarlo se abre. Tus datos (Nombre y Apellido lado a lado), Tipo de Entrega en tarjetas, Barrio, Fecha (primera posible un día hábil más por el "sin sal"), Método de Pago, Observaciones. Abajo, fijos: Total y "Confirmar pedido" |
-| 11 | "Confirmar pedido" con todo vacío | Los errores en rojo debajo de cada campo (no se manda nada) |
-| 12 | Retiro en el local + Transferencia | Se esconde el barrio; aparece "Alias: FAST.GOOD.VA (cuenta a nombre de Fast and Good VA SRL)." |
-| 13 | (Opcional, cuando tu prima no esté cargando) Un pedido "PRUEBA – NO PREPARAR" de verdad, Retiro y Efectivo | La confirmación: ✓ grande, "¡Recibimos tu pedido #N!", fecha / entrega / pago, el resumen con el total y el botón verde "Enviar por WhatsApp" (abre WhatsApp con el mensaje; no hace falta mandarlo). **Después anulás #N en Consultar Pedidos** |
-| 14 | Preguntas, Dónde estamos, pie | Una pregunta abierta a la vez (el + gira); sucursales con "Cómo llegar"; el pie en una columna; el botón flotante de WhatsApp |
-| 15 | "Iniciar Sesión" | Se abre una ventana con Email y Contraseña. Con la clave mal, "Usuario o contraseña incorrectos" en rojo; con tu usuario, tu pantalla (admin → panel, cocinero → Tareas de Cocina) |
+| 1 | Abrís la página | **Arriba:** una sola fila blanca con el logo, "Iniciar Sesión" chiquito y "Mi pedido 0" (sin el menú). <br>**Portada:** la pastilla verde "Nueva Córdoba y Villa Allende, Córdoba", "Fast Good", la bajada y las insignias "✓ Caseras · ⚡ Listas en 5 min · 🛵 Entregas en 48 hs hábiles". <br>**Categorías:** "ELEGÍ TU CATEGORÍA" con una raya, y una tarjeta por categoría. |
+| 2 | Mirás una tarjeta de categoría | La foto con el nombre en blanco, "2 combos", "DESDE $ 20.000", "o $ 4.000 por vianda" y "Ver combos →" verde, que late y lo cruza un brillo |
+| 3 | Bajás | Debajo de las categorías, "CÓMO FUNCIONA": 🥗 Elegís · ✋ Armás · 🛵 Recibís. Después, Dónde estamos, Preguntas y el pie, como siempre. Las secciones aparecen suaves al bajar |
+| 4 | "Ver combos" en "Viandas Saludables" | **Entra una pantalla desde la derecha**, con "‹ Viandas Saludables" arriba y "¿CUÁNTAS VIANDAS?". Los combos, uno debajo del otro, con "N viandas", el precio, "$ … por vianda" y "¡Lo quiero!" |
+| 5 | La "‹", o el "atrás" del celu | Vuelve a las categorías, en el mismo lugar (no sale de la página) |
+| 6 | Otra vez "Ver combos" y "¡Lo quiero!" en «PRUEBA Mantenimiento x10» | **Pantalla completa desde la derecha:** <br>· "‹ Armá tu combo"; <br>· el recuadro con la foto, el nombre y "$ 137.000"; <br>· "ELEGÍ TUS 10 PLATOS · PODÉS REPETIR" y "✨ Armalo por mí"; <br>· los platos (canelones con "Quedan 6"); <br>· fija abajo: "Tus platos · 0 de 10", la barra y el botón gris "Elegí 10 platos más" |
+| 7 | Sumás 2 platos con el + | "2 de 10", la barra avanza y el botón dice "Elegí 8 platos más" |
+| 8 | "✎ Personalizar" en canelones, escribís "sin sal" y "Agregar" | Renglón "⚠ sin sal − 1 +" y la nota "Los platos personalizados se cocinan aparte…". Sacalo con el − |
+| 9 | "✨ Armalo por mí" | Completa hasta 10, repartiendo de a uno (canelones no pasa de 6). "¡Listo! Ya podés mandarlo", los + apagados y el botón verde **"Mandar pedido · $ 137.000"** |
+| 10 | La "‹" con platos elegidos | "Elegiste 10 de 10. Si salís, se pierde lo que elegiste." → "Seguir armando" |
+| 11 | "Mandar pedido · $ 137.000" | **Sube una hoja desde abajo:** la rayita gris, "¿Cómo te lo damos?" y el resumen "(1 combo) $ 137.000" (al tocarlo se abre). Después: <br>· TUS DATOS, con rótulos chicos y casilleros altos; <br>· TIPO DE ENTREGA: botón partido "🛵 Envío a domicilio / 🏠 Retiro en el local"; <br>· el barrio; <br>· la fecha: **5 botones de días hábiles**, el primero en verde; <br>· MÉTODO DE PAGO: "💵 Efectivo / 🏦 Transferencia"; <br>· Observaciones. <br>Abajo, fijo: "Confirmar pedido · $ 137.000". En el ícono, "Mi pedido 1" |
+| 12 | Tocás otro día; después "Retiro" y "Transferencia" | El día tocado se pone verde. Con Retiro se esconde el barrio y aparece "Retirás en Ituzaingó 431 (Nueva Córdoba) o en 9 de Julio 179 (Villa Allende)". Con Transferencia aparece el alias |
+| 13 | "Confirmar pedido" con todo vacío | Los errores en rojo debajo de cada campo (no se manda nada) |
+| 14 | ✕ de la hoja y después "Mi pedido" | Se cierra la hoja y queda la pantalla de combos. "Mi pedido" muestra el combo (para sumar otro, "Seguir eligiendo") |
+| 15 | (Opcional, cuando tu prima no esté cargando) Un pedido "PRUEBA – NO PREPARAR" de verdad, Retiro y Efectivo | La ✓ grande, verde, **aparece con un rebote**. Debajo: "¡Recibimos tu pedido #N!", la fecha, la entrega, el pago, el resumen y "Enviar por WhatsApp". "Volver al inicio" deja las categorías. **Después anulás #N en Consultar Pedidos** |
+| 16 | "Iniciar Sesión" | La ventana de siempre, con Email y Contraseña. Con la clave mal, "Usuario o contraseña incorrectos"; con tu usuario, tu pantalla |
 
 En la compu (pantalla completa):
 | # | Qué mirás | Qué tiene que pasar |
 |---|---|---|
-| 1 | Encabezado | Una sola fila: logo, menú al medio, "Iniciar Sesión" y "Mi pedido" |
-| 2 | Portada | Texto a la izquierda y foto a la derecha; "Pedir ahora" y "Combos desde" en la misma línea; los 3 pasos en fila |
-| 3 | Categorías y combos | Categorías en fila; combos de a 3 por fila (2 si achicás la ventana a tamaño tablet), con los botones "Armar combo ›" a la misma altura; al pasar el mouse, borde verde, sombra y el botón más oscuro. Al tocar otra categoría, las tarjetas aparecen de a una |
-| 4 | Armar combo | Modal centrado; el − N + a la derecha de cada plato |
-| 5 | Mi pedido | Panel a la derecha, de todo el alto |
-| 6 | Finalizar pedido | Modal grande: campos a la izquierda y resumen fijo a la derecha (no se cierra); Envío / Retiro y Efectivo / Transferencia de a dos |
-| 7 | Confirmación (si hiciste el 13) | Fecha, entrega y pago en 3 columnas |
-| 8 | Dónde estamos, Preguntas y pie | Dos columnas; preguntas en dos columnas; pie en 4 columnas |
-| 9 | Iniciar sesión | Se abre en una ventana (como el 15 del celu). Después de entrar como cliente, el botón muestra tu nombre; el menú que abre lo dibuja `auth.js` (Pantalla 2) |
+| 1 | Encabezado y portada | Como siempre: una fila con el logo, el menú, "Iniciar Sesión" y "Mi pedido"; el texto a la izquierda y la foto a la derecha; los 3 pasos en fila |
+| 2 | "Elegí tu categoría" (fondo blanco) | **Las tarjetas de categoría**, del ancho de 3 por fila (hoy son 2, a la izquierda): foto, nombre, "2 combos", "DESDE $ …", "o $ … por vianda" y "Ver combos →". Al pasar el mouse, la tarjeta sube, la foto se acerca y la flecha se corre |
+| 3 | Tocás "Viandas Saludables" | Las categorías se van y en su lugar aparecen "‹ Todas las categorías", "Combos Viandas Saludables", la bajada y los 2 combos, que aparecen de a uno. Cada uno con "N viandas" y "¡Lo quiero! →" |
+| 4 | "‹ Todas las categorías" (y otra vez, con el "atrás" del navegador) | Vuelven las categorías |
+| 5 | Menú "Categorías" o "Combos" | Baja a "Elegí tu categoría" (si estaban abiertos los combos, vuelven las categorías) |
+| 6 | "¡Lo quiero!" en «PRUEBA Mantenimiento x10» | La ventana centrada de siempre ("0 de 10 · Te faltan 10"), con **"✨ Armalo por mí"** arriba de los platos |
+| 7 | "✨ Armalo por mí" | "10 de 10 · ¡Combo completo!" (4 berenjenas, 3 canelones y 3 fideos, si la heladera está como hoy); el botón queda apagado y "Agregar al pedido" prendido |
+| 8 | "Agregar al pedido" | "Mi pedido" a la derecha, como siempre (en compu no va directo a Finalizar) |
+| 9 | "Finalizar pedido" | La ventana grande de siempre (campos a la izquierda, resumen fijo a la derecha, la fecha con su campo) |
+| 10 | Confirmación (solo si hacés un pedido de prueba también desde la compu, y lo anulás después) | La ✓ con rebote; fecha, entrega y pago en 3 columnas |
+| 11 | "Más elegido" (opcional) | En Supabase, poné `destacado` = true en un combo y recargá: ese combo sale con la pastilla naranja "Más elegido", el borde naranja y "¡Lo quiero!" naranja. Después volvelo a false |
 
 ## Ajustes después de probar a mano (16/10) — de a uno, con freno
 (Desde el 16/10 se hacen cuando se llega a su pantalla: ver la tabla de arriba.)

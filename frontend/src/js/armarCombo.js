@@ -6,7 +6,10 @@
 //                                  el tope de cada plato (descontando lo que ya está en el carrito)
 //   renderizarMenuCombo          → dibuja los platos con sus botones − / +, los personalizados,
 //                                  el "X de N", la barra y si se puede agregar al pedido
+//                                  (con los textos de compu o los del celu: "Elegí 7 platos más" / "Mandar pedido · $…")
 //   cambiarCantidadPlato         → suma o resta 1 vianda de heladera de un plato, respetando los límites
+//   armarloPorMi                 → "✨ Armalo por mí": completa el combo repartiendo de a un plato, en orden,
+//                                  con la misma función del + (respeta lo que queda de cada plato y el máximo)
 //   agregarPlatoPersonalizado    → suma 1 vianda personalizada (plato + texto, ej: "sin sal")
 //   cambiarCantidadPersonalizado → suma o resta 1 a un renglón personalizado (en 0 desaparece)
 //   confirmarCombo               → arma el combo elegido y lo manda al carrito
@@ -15,7 +18,7 @@
 // Personalizado: mismo precio, NO sale de la heladera (no tiene tope de stock), va a cocina
 // y se entrega 1 día hábil más tarde. Un renglón personalizado = un plato + un texto.
 //
-// Necesita antes: escape.js (escHtml) y combosCatalogo.js (combosDisponibles, IMAGEN_POR_DEFECTO).
+// Necesita antes: escape.js (escHtml) y combosCatalogo.js (combosDisponibles, IMAGEN_POR_DEFECTO, armarFotoTarjeta).
 // Los límites de acá son una AYUDA para el cliente: el servidor los vuelve a controlar
 // todos al crear el pedido.
 // ====================================================================
@@ -91,6 +94,14 @@ function abrirModalCombo(idCombo) {
   // Encabezado (textContent muestra el texto tal cual, no hace falta escHtml)
   document.getElementById('modal-combo-categoria').textContent = combo.categoria.nombre + ' · ' + combo.plan;
   document.getElementById('modal-combo-titulo').textContent = combo.nombre;
+
+  // Arriba de los platos (se ve solo en el celu): la foto del combo (con la misma regla de las tarjetas,
+  // armarFotoTarjeta de combosCatalogo.js, que ya pasa los datos por escHtml), el nombre, el precio y
+  // "Elegí tus 10 platos · podés repetir". El precio es solo para mostrar: el que se cobra lo calcula el servidor.
+  document.getElementById('armar-combo-foto').innerHTML = armarFotoTarjeta(combo, '', '');
+  document.getElementById('armar-combo-nombre').textContent = combo.nombre;
+  document.getElementById('armar-combo-precio').textContent = '$ ' + Number(combo.precio).toLocaleString('es-AR');
+  document.getElementById('armar-combo-rotulo').textContent = `Elegí tus ${combo.cantidad} platos · podés repetir`;
 
   // Pie: se ve el botón "Agregar", no el "¿Salir?"
   document.getElementById('boton-agregar-combo').hidden = false;
@@ -228,11 +239,28 @@ function renderizarMenuCombo() {
     campoTexto.focus();
   }
 
-  // Progreso: "3 de 10" y "Te faltan 7" (o "¡Combo completo!")
+  // Progreso: "3 de 10" y el texto de al lado, y el texto del botón. Cambian según la pantalla (tabla de abajo):
+  // en compu, los de siempre ("Te faltan 7" o "¡Combo completo!" y "Agregar al pedido"); en el celu, los de la
+  // referencia ("Tus platos" o "¡Listo! Ya podés mandarlo", y "Elegí 7 platos más" o "Mandar pedido · $ 137.000").
+  // matchMedia pregunta si la pantalla cumple esa medida. Ej: celular de 390 px → true · compu de 1440 px → false
   const faltan = cantidadDelCombo - totalElegido;
-  const textoFalta = faltan > 0 ? `Te faltan ${faltan}` : '¡Combo completo!';
+  const esCelu = window.matchMedia('(max-width: 767px)').matches;
+  const pantalla = esCelu ? 'celu' : 'compu';
+  const palabraPlatos = faltan === 1 ? 'plato' : 'platos';                              // "1 plato" o "7 platos"
+  const precioDelCombo = '$ ' + Number(comboEnArmado.precio).toLocaleString('es-AR');  // solo para mostrar
+  // La tabla se arma acá adentro (y no arriba de todo) porque usa cuántos faltan y el precio de este combo
+  const textosPorPantalla = {
+    compu: { falta: `Te faltan ${faltan}`, completo: '¡Combo completo!',
+             boton: 'Agregar al pedido', botonCompleto: 'Agregar al pedido' },
+    celu:  { falta: 'Tus platos', completo: '¡Listo! Ya podés mandarlo',
+             boton: `Elegí ${faltan} ${palabraPlatos} más`, botonCompleto: 'Mandar pedido · ' + precioDelCombo }
+  };
+  const textos = textosPorPantalla[pantalla];
+  const textoFalta = completo ? textos.completo : textos.falta;
   document.getElementById('modal-combo-cuenta').textContent = `${totalElegido} de ${cantidadDelCombo}`;
   document.getElementById('modal-combo-falta').textContent = textoFalta;
+  // En el celu, "Mandar pedido" agrega el combo y abre "Finalizar pedido" directo (agregarAlCarrito, de carritoCombos.js)
+  document.getElementById('boton-agregar-combo').textContent = completo ? textos.botonCompleto : textos.boton;
   // Con el combo completo, el progreso lleva la clase "progreso-completo" (el texto se pone verde).
   // toggle(clase, true) la pone y toggle(clase, false) la saca. Ej: 10 de 10 → la pone · 4 de 10 → la saca
   document.getElementById('modal-combo-progreso').classList.toggle('progreso-completo', completo);
@@ -245,6 +273,8 @@ function renderizarMenuCombo() {
 
   // "Agregar al pedido" se activa solo con el combo justo
   document.getElementById('boton-agregar-combo').disabled = !completo;
+  // "✨ Armalo por mí" se apaga con el combo completo (no queda nada por repartir)
+  document.getElementById('boton-armar-por-mi').disabled = completo;
 }
 
 // ── Suma (cambio = 1) o resta (cambio = -1) una vianda de un plato ────────
@@ -262,6 +292,41 @@ function cambiarCantidadPlato(idPlato, cambio) {
 
   cantidadesElegidas[idPlato] = nuevaCantidad;
   totalElegido = totalElegido + cambio;
+  renderizarMenuCombo();
+}
+
+// ── "✨ Armalo por mí": completa el combo solo ────────────────────────────
+// ENTRADA: nada (usa comboEnArmado y totalElegido)
+// SALIDA:  nada (suma viandas de a una con cambiarCantidadPlato, la misma función del +, hasta completar el combo
+//          o hasta que no quede de ningún plato). No llama al servidor.
+// Cómo reparte: da vueltas por el menú en orden y en cada vuelta suma 1 a cada plato. Si un plato ya no tiene
+// ("quedan" 0) o el combo se completó, cambiarCantidadPlato no suma y se sigue con el siguiente.
+// Si ya había platos elegidos, completa lo que falta.
+// Ej: combo x10 con 2 fideos ya elegidos y el menú [fideos, canelones (quedan 3), berenjenas] →
+//     1.ª vuelta: fideos 3, canelones 1, berenjenas 1 · 2.ª: 4, 2, 2 · 3.ª: 5, 3 y se completa → 10 de 10
+function armarloPorMi() {
+  // Sin combo abierto no hay nada que armar
+  if (!comboEnArmado) return;
+
+  // Si estaba abierto el campo "Personalizar", se cierra (se reparten viandas de heladera, no personalizadas)
+  platoPersonalizando = null;
+
+  // Se sigue dando vueltas mientras falten viandas y la vuelta anterior haya podido sumar algo
+  // (si en una vuelta entera no se sumó nada, no queda de ningún plato: se frena)
+  let sumoEnLaVuelta = true;
+  while (totalElegido < comboEnArmado.cantidad && sumoEnLaVuelta) {
+    sumoEnLaVuelta = false;
+    comboEnArmado.menu.forEach(plato => {
+      const yaEstaCompleto = totalElegido >= comboEnArmado.cantidad;
+      // Combo completo: return = saltear este plato y seguir con el siguiente (no se suma más)
+      if (yaEstaCompleto) return;
+      const antes = totalElegido;                 // cuántas había antes de tocar el +
+      cambiarCantidadPlato(plato.id, 1);          // la misma función del +: respeta lo que queda y el máximo
+      if (totalElegido > antes) sumoEnLaVuelta = true;   // se pudo sumar: hay que dar otra vuelta
+    });
+  }
+
+  // Se vuelve a dibujar una vez más (por si no se pudo sumar nada: así se cierra el campo "Personalizar")
   renderizarMenuCombo();
 }
 
@@ -421,6 +486,8 @@ document.addEventListener('DOMContentLoaded', () => {
       cambiarCantidadPersonalizado(Number(boton.dataset.indice), 1);
     } else if (accion === 'personalizado-restar') {
       cambiarCantidadPersonalizado(Number(boton.dataset.indice), -1);
+    } else if (accion === 'armar-por-mi') {
+      armarloPorMi();
     } else if (accion === 'agregar-combo') {
       confirmarCombo();
     } else if (accion === 'cerrar') {
