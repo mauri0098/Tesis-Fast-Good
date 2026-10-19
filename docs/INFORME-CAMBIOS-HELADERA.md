@@ -3447,3 +3447,156 @@ y la base real. El "antes" se armó sirviéndole al navegador los archivos del i
 - **Nuevo:** cuando el servidor rechaza un pedido por CORS, contesta 500 ("error interno") en vez de 403 ("no permitido").
   No cambia nada para el cliente (la web ve "No pudimos enviar tu pedido…"), pero el registro lo anota como error del
   servidor. Se mira con la seguridad del servidor.
+
+### 15.13 Fondo blanco y verdes más intensos (18/10)
+**Qué se pidió:**
+- un cambio SOLO en `index.css`, con las perillas;
+- sin tocar el encabezado, el HTML ni el JS;
+- **todo el fondo blanco**, menos el encabezado, que queda como está;
+- **el verde un poco más intenso** en todo lo que hoy es verde;
+- los textos verdes sobre blanco tienen que seguir dando 4,5:1 o más.
+
+**Tus decisiones** (las pregunté porque chocaban dos pedidos):
+- **El verde principal:** el `#13893a` que pediste da **4,4996:1** con el blanco: no llega a 4,5 por cuatro diezmilésimas. Y
+  da 4,0:1 con el verde clarito. Elegiste "dos verdes":
+  - **`#12893a`** para los botones y lo verde grande: a la vista es igual, porque cambia 1 en el rojo, y da 4,50:1;
+  - una perilla nueva, **`--verde-texto: #127f36`**, para los textos verdes chicos.
+- **"Mi pedido"**, que es un botón verde del encabezado, toma el verde nuevo. El fondo y todo lo demás del encabezado quedan
+  igual.
+
+| Perilla | ANTES | AHORA | Dónde se ve |
+|---|---|---|---|
+| `--verde-fuerte` (verde principal) | `#1d7a34` | `#12893a` | Botones, "Good" y los títulos en verde, precios, "Ver combos" / "¡Lo quiero!" (la punta oscura del degradé y la flecha), íconos, bordes de lo elegido, el día elegido |
+| `--verde-texto` (nueva) | — | `#127f36` | Textos verdes chicos: "$ … por vianda", "Combos desde", "Quedan 6", "✎ Personalizar", "✨ Armalo por mí", "¡Combo completo!", la pastilla del lugar, el precio del recuadro del armado, el total del resumen, los títulos y links verdes al pasar el mouse |
+| `--verde` (marca y acentos) | `#2faa4b` | `#26b04f` | Barras de progreso, bordes al pasar el mouse, la punta clara de "¡Lo quiero!", el aro del foco y el borde de "Armalo por mí" |
+| `--verde-hondo` (hover) | `#186a2c` | `#0f7330` | Los botones al pasar el mouse |
+| `--verde-claro` | `#e7f1e4` | `#e8f5eb` | Fondos chicos: la pastilla del lugar, el recuadro del armado, lo elegido, los íconos |
+| `--tinte` | `#e7f1e4` | `var(--verde-claro)` (el mismo) | Recuadros chicos: notas, el resumen, el barrio, el botón ✕, el fondo de − / + |
+| `--fondo` | `#f3f6f1` (gris verdoso) | `#ffffff` | Toda la página: portada, los 3 pasos, Dónde estamos y el pie |
+| `--fondo-encabezado` (nueva) | — | `#f3f6f1` | El fondo del encabezado en compu: el de siempre (antes tomaba `--fondo`; así no cambia) |
+
+**Las reglas que cambiaron** (todas en `index.css`):
+- **Preguntas** (`.seccion-fondo-verde`): de `var(--tinte)` a `var(--fondo)`, o sea blanca. El nombre de la clase lo usa el
+  HTML, así que se dejó, con un comentario.
+- **El encabezado:** `color-mix(… var(--fondo) 88% …)` pasó a `var(--fondo-encabezado)`. Se ve igual.
+- **Los verdes escritos a mano pasaron a las perillas:**
+  - el degradé de "¡Lo quiero!": de `#2faa4b → #1e8538` a `var(--verde) → var(--verde-fuerte)`;
+  - la flecha: de `#1e8538` a `var(--verde-fuerte)`;
+  - las sombras (`rgb(30 133 56 / .6)` en el botón y en el latido, `rgb(29 122 52 / .3)` en `--sombra-accion`);
+  - el aro del latido (`rgb(47 170 75 / …)`);
+  - el borde de los casilleros al escribir (`rgb(47 170 75 / .22)` y `rgb(40 167 69 / .15)`).
+
+  Ahora son `color-mix(in srgb, var(--verde…) X%, transparent)`: "ese verde con X % de opacidad". Si se cambia una
+  perilla, cambian también las sombras.
+- **19 reglas** de texto verde chico pasaron de `--verde-fuerte` a `--verde-texto`. Los textos grandes (de 18,66 px en
+  negrita o de 24 px para arriba), los íconos, los bordes y los fondos siguen con `--verde-fuerte`.
+- **No se tocó:** el HTML, el JS, el naranja ni los grises. El recuadro gris del "mapa" y el de las fotos sin foto siguen
+  grises: son recuadros, no fondos de sección.
+
+**Cómo se comprobó** (Chrome sin ventana, a 390 y a 1440 px, contra la copia del servidor en el 3001, porque el 3000 no
+estaba prendido):
+| Prueba | Resultado |
+|---|---|
+| Fondos | `html`, `body`, portada, Categorías, Dónde estamos, Preguntas y pie, blancos. El encabezado, igual que antes: blanco en el celu y `#f3f6f1` (88 %) en compu |
+| Contraste de cada texto verde que se ve, medido contra el fondo que tiene realmente detrás (inicio, combos, armar, armar completo y Finalizar) | **114 textos, todos pasan.** Los más justos: <br>· la pastilla del lugar y el precio del recuadro del armado (celu), 4,54:1 sobre el verde clarito (pide 4,5); <br>· "Quedan 6" sobre el plato elegido, 4,81; <br>· el total del resumen (20 px, grande), 4,01 (pide 3). <br>Los textos chicos sobre blanco dan 5,1:1, y los grandes ("Good", precios), 4,5:1 |
+| Al pasar el mouse (no se mide solo) | Los textos verdes chicos sobre el verde clarito dan 4,54:1, por cuenta |
+| Capturas antes / después | En `diseno-index-final2/capturas-fondo-blanco-y-verdes/`: 12 comparaciones, más las capturas sueltas y la lista de los 114 contrastes |
+| Sin scroll de costado y consola sin errores | Bien, en celu y compu |
+
+**Para tener en cuenta** (no son textos verdes, así que no estaban en el pedido): con el verde de marca más intenso, bajan
+un poco dos cosas que ya estaban justas.
+| Qué | Antes | Ahora | Pide |
+|---|---|---|---|
+| El aro verde que marca dónde estás con el teclado (`:focus-visible`, `--verde`) | 3,01:1 | 2,84:1 | 3:1 |
+| La letra blanca de "¡Lo quiero!" sobre la punta clara del degradé | 3,01:1 | 2,84:1 | 4,5:1 (la punta oscura da 4,50) |
+
+Si querés, se arregla con una perilla: el aro del foco con `--verde-fuerte`, y el degradé de `--verde-fuerte` a
+`--verde-hondo`.
+
+### 15.14 La foto nueva de la portada (18/10)
+**Qué pasaba:** pusiste una foto nueva, `src/assets/img/portada-vianda.jpg` (2752 × 1536, 3,1 MB), y en `index.html`
+cambiaste la portada para que la use. Pero no se veía, por tres cosas:
+- el HTML decía `portada-viandas` (en plural) y el archivo es `portada-vianda` (en singular);
+- pedía las versiones `-900` y `-1600`, que no existían;
+- tenía las medidas de la foto vieja (3168 × 1344).
+
+| | ANTES | AHORA |
+|---|---|---|
+| Archivos | Solo `portada-vianda.jpg` | Además `portada-vianda-900.jpg` (900 × 502, 116 KB) y `portada-vianda-1600.jpg` (1600 × 893, 309 KB), hechas de la original (JPEG calidad 82, igual que las fotos de los combos). La original no se tocó |
+| `index.html` | `portada-viandas…` (no existe), `3168w`, `width="3168" height="1344"`, `src` = la original | `portada-vianda…` (como se llama el archivo), `2752w`, `width="2752" height="1536"`, `src` = la de 1600 (por si el navegador no entiende `srcset`) y el comentario al día |
+| CSS | — | Nada: con el encuadre de siempre (marco 3:2 en compu y la foto apoyada a la derecha) entran todas las bandejas |
+
+**Comprobado** en tu servidor del 3000:
+- a 1440, 1024 y 768 px la foto carga y elige la de 900 px, que pesa 117 KB (el marco mide como mucho 590 px);
+- sin errores ni 404.
+
+En el celu la foto no se ve (la portada es compacta), pero el navegador igual baja la de 900 px. Pasaba lo mismo con la
+foto vieja.
+
+**Quedan sin uso** `viandaprincipal2.jpg`, `-900` y `-1600` (4,7 MB): el index ya no las nombra (solo
+`docs/maqueta-index.html`, que es de referencia). No se borraron: decidís vos.
+
+### 15.15 Portada nueva de la compu: la foto que se funde con el blanco (19/10)
+**Qué se pidió** (`diseno-portada/PROMPT.md`): la portada de la compu igual a la referencia, con sus animaciones, y el
+encabezado blanco en compu y en el celu. La portada del celu queda como estaba. Solo cosas visuales, sin JS.
+
+**Tus decisiones (19/10):**
+| # | Tema | Decisión |
+|---|---|---|
+| 1 | Dónde arranca la foto | Valen los números del PROMPT: 34 %, `object-position: 80% 50%` y el fundido hasta el 36 %. La referencia y la captura de la carpeta son de una versión anterior (28 %) |
+| 2 | La foto | `foto-portada.webp` copiada como `portada-vianda.webp` (1920 × 1072, 255 KB). Se borraron `portada-vianda.jpg` (3,1 MB) y las versiones `-900` y `-1600` |
+| 3 | El texto nuevo | "Fast & Good" y la bajada nueva van en compu y en celu. La pastilla del lugar: la nueva en compu y la de antes en el celu |
+| 4 | El link "activo" del menú | Sin JS: el verde clarito sale solo al pasar el mouse |
+| 5 | "Combos desde $…" | Escondido en compu. Sigue en el HTML, porque lo completa el JS |
+| 6 | El menú | Quedan los 4 links |
+| — | El logo del encabezado | Escrito: "Fast" en gris y "& Good" en verde. El pie sigue con la imagen |
+
+| Qué | Archivo y lugar | ANTES | AHORA |
+|---|---|---|---|
+| Referencia fuera de git | `.gitignore` | — | `diseno-portada/` |
+| Foto | `src/assets/img/` | `portada-vianda.jpg` y sus versiones `-900` y `-1600` | Solo `portada-vianda.webp` (255 KB) |
+| Encabezado | `index.css`, sección 1 | Fondo gris verdoso un poco transparente con desenfoque, borde de 1 px, 64 px de alto | **Blanco** con una línea de 1 px hecha con sombra (`--encabezado-linea`), 68 px de alto en compu. Sigue pegado arriba (`sticky`, capa 10, por encima de la foto). Links en gris; al pasar el mouse, verde clarito con letra verde. "Iniciar sesión" en negrita. "Mi pedido", igual |
+| Logo | `index.html` + `index.css`, secciones 0 y 1 | La imagen `logo.webp` | Escrito, `.logo-texto`: "Fast" en `--titulo-suave` y "& Good" en `--verde-fuerte`, 900, 24 px (21 px en el celu) |
+| Texto de la portada | `index.html` | "Fast Good", "Viandas caseras y saludables, hechas con ingredientes frescos.", "Pedir ahora", "Combos desde…" y la etiqueta "Entregamos a las 48 hs hábiles" en la foto | En este orden: la pastilla del lugar (2 textos, el CSS muestra el de cada pantalla), "Fast & Good", "Viandas saludables, caseras y congeladas. Elegís tu combo y te lo llevamos.", "Pedir ahora" + **"Ver categorías"** (nuevo, lleva a `#categorias` igual que "Pedir ahora"), WhatsApp e Instagram. **Sin** la etiqueta de las 48 hs |
+| Portada en compu | `index.css`, sección 2 | Dos columnas: texto y foto en tarjeta redondeada (3:2). Los 3 pasos en una franja abajo | Una franja de 640 px (`--portada-alto`). El texto a la izquierda, adelante. La foto en posición absoluta, desde `--portada-foto-desde` (34 %) hasta el borde derecho y de arriba a abajo, sin bordes, con `cover` y `80% 50%` |
+| Fundido | `index.css`, sección 2 | — | `.portada-foto::before`: del blanco de la página a transparente, hasta `--portada-fundido` (36 %). Los pasos del medio van al 25 % y al 61 % de ese largo (con 36 %: 9 % y 22 %, como el PROMPT), así siguen a la perilla |
+| "⚡ Listas en 5 minutos" | `index.html` + `index.css`, sección 2 | — | Pastilla blanca arriba a la derecha de la foto (28 px de arriba, 32 px de la derecha), 15 px en negrita, "5 minutos" en verde. Solo compu |
+| Pasos | `index.css`, sección 2 | Franja de lado a lado debajo de la portada | La misma lista, ahora como pastilla blanca chiquita abajo a la derecha de la foto (22 px y 28 px), de 11 px, con números en círculos de 16 px y flechas "→" puestas con `::after`. En el celu siguen sin verse |
+| Compus medianas | `index.css`, `:root` + sección 2 | — | De 768 a 1199 px: foto desde el 40 % y título de 68 px. De 768 a 1023 px: foto desde el 50 %, título de 56 px, el texto en una columna de 380 px y la pastilla del lugar un poco más chica (si no, se partía en dos renglones) |
+| Animaciones | `index.css`, sección 11 | El texto entraba subiendo 16 px | Solo compu, una vez al cargar: <br>1. el texto sube 20 px de a uno (0,8 s, con 0,07 s de diferencia); <br>2. la foto entra desde la derecha a los 0,15 s (1,4 s: de `opacity 0`, `translateX(120px)` y `clip-path: inset(0 0 0 40%)` a todo visible); <br>3. el zoom 1.12 → 1 (2,2 s); <br>4. los pasos a los 1,1 s y "Listas" a los 1,25 s (suben 12 px, 0,7 s). <br>Con "reducir movimiento" no se anima nada |
+
+**Perillas nuevas** (`:root`):
+- `--portada-alto: 640px`
+- `--portada-foto-desde: 34%`
+- `--portada-fundido: 36%`
+- `--titulo-portada-compu: 84px`
+- `--encabezado-linea: #e3e9e1`
+
+`--fondo-encabezado` pasó a `#ffffff`.
+
+**Lo que no quedó igual a la referencia:**
+- **Corrido 20 px:** el texto de la portada arranca 20 px más a la derecha, porque nuestro contenedor mide 1200 px y el de
+  la referencia 1240. Así queda alineado con el resto de la página.
+- **Más aire debajo:** "Elegí tu categoría" queda más abajo que en la referencia, porque esa sección sigue como estaba.
+- **"Iniciar Sesión"** sale con S mayúscula, porque ese texto lo escribe `auth.js`.
+- **Sin link activo:** el menú no marca la sección que se está mirando (decisión 4).
+
+**Cómo se comprobó** (Chrome sin ventana, contra la copia del servidor en el 3001):
+| Prueba | Resultado |
+|---|---|
+| 1440 px, lado a lado con la referencia | Igual, salvo lo de arriba |
+| Que nada se pise (1440, 1280, 1024 y 768) | El texto queda sobre la parte blanca del fundido y no hay scroll de costado |
+| Celu, 390 px | Igual que antes, salvo el encabezado blanco con el logo escrito, "Fast & Good" y la bajada nueva |
+| Animación | A los 0,7 s la foto entra "destapándose" desde la derecha; al final, todo en su lugar |
+| Reducir movimiento | Sin animación, todo quieto y en su lugar |
+| Botones y Mi pedido | "Pedir ahora" y "Ver categorías" llevan a `#categorias`; "Mi pedido" abre el carrito |
+| Consola | Sin errores |
+
+Las capturas están en `diseno-portada/capturas/`, que no se sube a git.
+
+**Ajustes (19/10):**
+- La foto entra más lenta (`--portada-foto-duracion: 2.2s`, zoom de 3,2 s, pastillas a 1,8 y 1,95 s), arranca corrida a la izquierda y se destapa hacia la derecha.
+- Degradé blanco abajo de la foto (`--portada-fundido-abajo: 30px`).
+- El logo del encabezado es la imagen redonda (40 px en compu, 34 px en el celu) + "Fast & Good" escrito.
+- En celus de 400 px o menos, el encabezado lleva márgenes de 12 px; de 380 px o menos, "Iniciar sesión" va en dos renglones.
+- `auth.js`: solo el texto "Iniciar Sesión" → "Iniciar sesión".

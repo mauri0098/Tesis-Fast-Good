@@ -67,9 +67,10 @@
   <!-- 1. Encabezado -->
   <header class="encabezado">
     <div class="contenedor encabezado-fila">
-      <!-- El logo: lleva al principio de la página -->
-      <a href="#inicio" class="logo" aria-label="Fast Good, volver al inicio">
+      <!-- El logo de la web (la imagen redonda, la misma del pie) y al lado "Fast & Good" escrito: un solo link al inicio -->
+      <a href="#inicio" class="logo" aria-label="Fast &amp; Good, volver al inicio">
         <img class="logo-imagen" src="./src/assets/img/logo.webp" alt="">
+        <span class="logo-texto">Fast <span class="palabra-verde">&amp; Good</span></span>
       </a>
 
       <!-- En el celu el menú no se ve (como la referencia). "Combos" lleva a las categorías: los combos se ven
@@ -96,19 +97,26 @@
 
   <main id="contenido">
 
-    <!-- 2. Portada: en el celular el texto arriba y la foto debajo; en compu, uno al lado del otro -->
+    <!-- 2. Portada. En el celu: compacta, sin foto. En compu: el texto a la izquierda sobre blanco y la foto grande a la
+         derecha, que se funde con el blanco (diseno-portada, 19/10) -->
     <section class="portada" id="inicio">
       <div class="contenedor portada-columnas">
         <div class="portada-texto">
-          <h1>Fast <span class="palabra-verde">Good</span></h1>
-          <p class="portada-subtitulo">Viandas caseras y saludables, hechas con ingredientes frescos.</p>
+          <!-- El lugar: en compu, la pastilla "NUEVA CÓRDOBA · VILLA ALLENDE · CÓRDOBA" con un puntito verde;
+               en el celu, la de siempre (con el ícono). El CSS muestra una sola -->
           <p class="portada-lugar">
             <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-ubicacion"></use></svg>
-            Nueva Córdoba y Villa Allende, Córdoba
+            <span class="portada-lugar-punto" aria-hidden="true"></span>
+            <span class="portada-lugar-celu">Nueva Córdoba y Villa Allende, Córdoba</span>
+            <span class="portada-lugar-compu">Nueva Córdoba · Villa Allende · Córdoba</span>
           </p>
+          <h1>Fast <span class="palabra-verde">&amp; Good</span></h1>
+          <p class="portada-subtitulo">Viandas saludables, caseras y congeladas. Elegís tu combo y te lo llevamos.</p>
           <div class="portada-botones">
             <a class="boton boton-principal boton-grande" href="#categorias">Pedir ahora</a>
-            <!-- "Combos desde $…": lo completa combosCatalogo.js con el precio más bajo (se ve cuando llegan los combos) -->
+            <!-- "Ver categorías": lleva al mismo lugar que "Pedir ahora" (se ve en compu) -->
+            <a class="boton boton-secundario boton-grande boton-ver-categorias" href="#categorias">Ver categorías</a>
+            <!-- "Combos desde $…": lo completa combosCatalogo.js con el precio más bajo. En compu no se ve (19/10) -->
             <p class="combos-desde" id="combos-desde" hidden>Combos desde <strong id="combos-desde-precio"></strong></p>
           </div>
           <ul class="portada-contacto">
@@ -128,27 +136,22 @@
             <li>🛵 Entregas en 48 hs hábiles</li>
           </ul>
         </div>
+        <!-- La foto grande (solo en compu; en el celu no se ve). Arranca en el 34 % del ancho y llega al borde derecho;
+             el fundido blanco de su borde izquierdo lo hace el CSS (.portada-foto::before).
+             La foto: portada-vianda.webp (1920 × 1072, 255 KB) · width/height: su medida real ·
+             fetchpriority="high": se pide primero (es lo primero que se ve) -->
         <div class="portada-foto">
           <div class="portada-marco">
-            <!-- Las viandas sobre la mesa de madera. srcset = las 3 medidas de la misma foto (900 px, 1600 px y la
-                 original de 3168 px); el navegador baja la que le alcanza para el ancho de la pantalla (sizes: en compu
-                 la foto ocupa más o menos la mitad del ancho, en el celu todo el ancho). Así el celu no baja 4 MB.
-                 width/height: la medida real de la foto · fetchpriority="high": se pide primero (es lo primero que se ve) -->
-            <img class="portada-imagen" src="./src/assets/img/viandaprincipal2-1600.jpg"
-                 srcset="./src/assets/img/viandaprincipal2-900.jpg 900w,
-                         ./src/assets/img/viandaprincipal2-1600.jpg 1600w,
-                         ./src/assets/img/viandaprincipal2.jpg 3168w"
-                 sizes="(min-width: 768px) 56vw, 100vw" width="3168" height="1344" fetchpriority="high"
-                 alt="Viandas caseras de Fast Good">
+            <img class="portada-imagen" src="./src/assets/img/portada-vianda.webp" width="1920" height="1072"
+                 fetchpriority="high" alt="Viandas caseras de Fast &amp; Good en sus envases, sobre una mesa de madera">
+            <!-- Pastilla blanca arriba a la derecha de la foto -->
+            <p class="portada-listas">⚡ Listas en <strong>5 minutos</strong></p>
           </div>
-          <p class="portada-etiqueta">
-            <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-reloj"></use></svg>
-            Entregamos a las 48 hs hábiles
-          </p>
         </div>
       </div>
 
-      <!-- Los 3 pasos para pedir -->
+      <!-- Los 3 pasos para pedir. En compu, una pastilla chiquita abajo a la derecha de la foto (las flechas "→" las pone
+           el CSS); en el celu no se ven -->
       <div class="franja-pasos">
         <ol class="contenedor pasos">
           <li><span class="pasos-numero" aria-hidden="true">1</span>Elegí tu combo</li>

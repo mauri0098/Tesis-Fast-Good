@@ -174,7 +174,7 @@ function actualizarBotonAuth() {
     container.innerHTML = `
       <a href="login.html" class="login-btn-header"
         style="background:none;color:white;border:1px solid white;">
-        Iniciar Sesión
+        Iniciar sesión
       </a>
     `;
   }

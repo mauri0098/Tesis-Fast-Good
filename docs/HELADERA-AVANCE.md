@@ -425,6 +425,29 @@ Detalle completo (funciones antes/ahora, lista de nombres "antes → ahora", pru
     - pedidos de prueba #34 (celu), #35 (compu) y #38 (celu) y test 40/40 (#36 y #37), todos anulados, con la heladera
       igual.
   - **Capturas:** `diseno-index-final2/capturas-finales/` (en `comparaciones/`, "referencia | nuestra" y "antes | después").
+- **Fondo blanco y verdes más intensos (18/10)** — INFORME 15.13. Solo `index.css`, con las perillas:
+  - todo el fondo blanco (el encabezado, igual);
+  - verde principal `#12893a` (el `#13893a` pedido no llegaba a 4,5:1 por poquito);
+  - textos verdes chicos con la perilla nueva `--verde-texto: #127f36`;
+  - marca `#26b04f`, hover `#0f7330`, verde clarito `#e8f5eb`;
+  - "Mi pedido" con el verde nuevo;
+  - los verdes escritos a mano (degradé y sombras de "¡Lo quiero!", foco de los casilleros) pasaron a las perillas.
+  - **Medido:** 114 textos verdes, todos con 4,5:1 o más (los grandes, 3:1 o más).
+  - **Para decidir:** el aro del foco del teclado y la punta clara de "¡Lo quiero!" bajaron a 2,84:1 (antes 3,01).
+  - **Capturas:** `diseno-index-final2/capturas-fondo-blanco-y-verdes/`.
+- **Foto nueva de la portada (18/10)** — INFORME 15.14:
+  - el HTML apunta a `portada-vianda` (el nombre del archivo), con su medida real (2752 × 1536);
+  - versiones de 900 y 1600 px creadas al lado.
+  - **Pendiente de decidir:** borrar las 3 `viandaprincipal2` (4,7 MB), que quedaron sin uso.
+- **Portada nueva de la compu (19/10, `diseno-portada/`)** — INFORME 15.15:
+  - encabezado blanco con el logo escrito "Fast & Good" (compu y celu);
+  - en compu, la foto grande desde el 34 % con fundido blanco, "⚡ Listas en 5 minutos" y los pasos en pastillas;
+  - las animaciones de la referencia;
+  - la foto ahora es solo `portada-vianda.webp` (255 KB);
+  - `diseno-portada/` está en el `.gitignore`;
+  - el celu, igual (solo cambian el encabezado y los textos);
+  - perillas nuevas: `--portada-alto`, `--portada-foto-desde`, `--portada-fundido` y `--titulo-portada-compu`.
+  - **Ajustes (19/10):** foto más lenta y hacia la derecha, degradé abajo, logo imagen + texto e "Iniciar sesión" con minúscula (INFORME 15.15).
 
 **Recorrido a mano (index final, 17/10).**
 1. **Primero, reiniciá tu servidor** (el del puerto 3000), para que tome el `server.js` nuevo.

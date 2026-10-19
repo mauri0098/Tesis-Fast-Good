@@ -21,11 +21,21 @@
   color-scheme: light;
 
   /* ── PERILLAS: tamaños ─────────────────────────────────────────────────────────── */
-  --titulo-portada-tamano: min(19cqi, 5.25rem);         /* "Fast Good" de la portada: si la subís, se ve más grande (nunca más ancho que su columna) */
+  --titulo-portada-tamano: min(19cqi, 5.25rem);         /* "Fast & Good" de la portada en el celu: si la subís, se ve más grande (nunca más ancho que su columna) */
   --titulo-seccion-tamano: clamp(1.625rem, 5vw, 2.25rem); /* "Elegí tu categoría", "Dónde estamos", "Preguntas frecuentes": si la subís, más grandes */
   --titulo-combos-tamano: clamp(1.25rem, 4vw, 1.5rem);    /* "Combos …", arriba de las tarjetas: si la subís, más grande */
   --boton-alto: 44px;                                   /* alto de los botones comunes (44 px es lo mínimo cómodo para el dedo): si la subís, más altos */
   --boton-grande-alto: 50px;                            /* alto de "Pedir ahora" y de "Confirmar pedido" */
+
+  /* ── PERILLAS: portada de la compu (768 px o más; el celu no las usa) ──────────── */
+  --portada-alto: 640px;                                /* alto de la portada: si la subís, la foto y la portada quedan más altas */
+  --portada-foto-desde: 34%;                            /* dónde arranca la foto, contando desde la izquierda de la pantalla: si la subís,
+                                                           la foto empieza más a la derecha y le deja más lugar al texto */
+  --portada-fundido: 36%;                               /* hasta dónde llega el fundido blanco sobre la foto (en % del ancho de la foto):
+                                                           si la subís, la foto se funde con el blanco más despacio */
+  --portada-fundido-abajo: 30px;                        /* alto del fundido blanco del borde de abajo de la foto: si la subís, la foto se
+                                                           funde más abajo (más suave contra la sección de abajo) */
+  --titulo-portada-compu: 84px;                        /* "Fast & Good" en compu: si la subís, más grande (ojo: puede pisar la foto) */
 
   /* ── PERILLAS: espacios ───────────────────────────────────────────────────────── */
   --seccion-espacio: 44px;                              /* aire arriba y abajo de cada sección en el celu: si la subís, las secciones quedan más separadas */
@@ -47,23 +57,30 @@
   --ventana-duracion: .38s;                             /* lo que tarda una ventana en abrirse (sube o entra de costado) */
   --pantalla-duracion: .4s;                             /* celu: lo que tarda una pantalla (combos, armar) en entrar desde la derecha */
   --hoja-duracion: .45s;                                /* celu: lo que tarda "Finalizar pedido" en subir desde abajo */
+  --portada-foto-duracion: 1.4s;                       /* compu: lo que tarda la foto de la portada en entrar desde la derecha: si la subís, la foto entra más lenta */
   --latido-duracion: 2.8s;                              /* cada cuánto "late" el botón "¡Lo quiero!": si la bajás, late más rápido */
   --brillo-duracion: 3.2s;                              /* cada cuánto lo cruza el brillo: si la bajás, pasa más seguido */
 
   /* ── Colores ──────────────────────────────────────────────────────────────────── */
-  --verde: #2faa4b;             /* verde de marca: barras de progreso, bordes al pasar el mouse */
-  --verde-fuerte: #1d7a34;      /* botones y textos en verde (5.4:1 con blanco) */
-  --verde-hondo: #186a2c;       /* hover de los botones */
-  --verde-claro: #e7f1e4;       /* fondo de íconos y de lo elegido, en elementos chicos */
+  /* Los verdes (18/10: un poco más intensos). Contraste con el blanco, que tiene que ser 4,5:1 o más en los textos */
+  --verde: #26b04f;             /* verde de marca y acentos: barras de progreso, bordes al pasar el mouse, la punta clara de "¡Lo quiero!" */
+  --verde-fuerte: #12893a;      /* verde principal: botones, "Good", precios, "¡Lo quiero!" y "Ver combos" (4,5:1 con el blanco: lo justo) */
+  --verde-texto: #127f36;       /* textos verdes CHICOS ("$ … por vianda", "Quedan 6", links, "✎ Personalizar"): un poco más oscuro, así se
+                                   leen bien también sobre el verde clarito (5,1:1 con el blanco y 4,5:1 con el verde clarito).
+                                   Si lo aclarás, esos textos se leen peor */
+  --verde-hondo: #0f7330;       /* hover de los botones (el verde un poco más oscuro al pasar el mouse) */
+  --verde-claro: #e8f5eb;       /* verde clarito de fondos chicos: íconos, lo elegido */
   --naranja: #ff9800;           /* contador de "Mi pedido" y lo destacado */
   --error: #c0261b;             /* textos de error */
 
-  --fondo: #f3f6f1;             /* fondo general, igual que la original */
-  --tinte: #e7f1e4;             /* secciones en verde clarito (preguntas) y fondos chicos */
+  --fondo: #ffffff;             /* fondo de TODA la página: portada, secciones y pie (blanco desde el 18/10) */
+  --fondo-encabezado: #ffffff;  /* fondo del encabezado, en compu y en el celu (blanco desde el 19/10) */
+  --encabezado-linea: #e3e9e1;  /* la línea finita debajo del encabezado */
+  --tinte: var(--verde-claro);  /* recuadros chicos en verde clarito (notas, resumen, barrio, botón ✕): el mismo verde clarito */
   --blanco: #ffffff;
   --texto: #16201a;             /* texto común */
   --titulo: #2b352f;            /* gris oscuro de nombres de platos y ventanas */
-  --titulo-suave: #3a4640;      /* títulos de portada y de sección (8.4:1 sobre el tinte, 9:1 sobre el fondo) */
+  --titulo-suave: #3a4640;      /* títulos de portada y de sección (9,9:1 sobre el blanco) */
   --texto-suave: #4b574e;       /* textos secundarios */
   --borde: #d9e3d6;             /* bordes de tarjetas y casilleros */
   --linea: #e3eae0;             /* líneas finitas de separación */
@@ -74,7 +91,8 @@
   --sombra: 0 1px 2px rgb(22 50 30 / .06), 0 8px 24px rgb(22 50 30 / .08);
   --sombra-foto: 0 28px 60px -24px rgb(22 60 32 / .38);
   --sombra-alta: 0 24px 60px rgb(16 40 22 / .22);
-  --sombra-accion: 0 6px 18px rgb(29 122 52 / .3);
+  /* color-mix(in srgb, color X%, transparent) = ese color con un X % de opacidad (así las sombras siguen a la perilla) */
+  --sombra-accion: 0 6px 18px color-mix(in srgb, var(--verde-fuerte) 30%, transparent);
 
   --fuente: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --curva: cubic-bezier(.16, 1, .3, 1);  /* arranca rápido y frena suave */
@@ -88,6 +106,20 @@
     --tarjetas-separacion: 16px;
     --tarjeta-nombre-tamano: 19px;
     --tarjeta-precio-tamano: 22px;
+  }
+}
+/* Las perillas de la portada en compus medianas: la foto arranca más a la derecha y el título es más chico, así el
+   texto no queda arriba de la foto */
+@media (min-width: 768px) and (max-width: 1199px) {
+  :root {
+    --portada-foto-desde: 40%;
+    --titulo-portada-compu: 68px;
+  }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  :root {
+    --portada-foto-desde: 50%;
+    --titulo-portada-compu: 56px;
   }
 }
 
@@ -143,7 +175,7 @@ button { font: inherit; color: inherit; }
 .boton-principal:hover:not(:disabled) { background: var(--verde-hondo); box-shadow: var(--sombra-accion); }
 .boton-principal:disabled { background: var(--borde); color: var(--texto-suave); cursor: not-allowed; }
 .boton-secundario { background: var(--blanco); color: var(--texto); box-shadow: inset 0 0 0 2px var(--borde); }
-.boton-secundario:hover { box-shadow: inset 0 0 0 2px var(--verde); color: var(--verde-fuerte); }
+.boton-secundario:hover { box-shadow: inset 0 0 0 2px var(--verde); color: var(--verde-texto); }
 .boton-grande { min-height: var(--boton-grande-alto); padding: 0 28px; font-size: 1rem; }
 .boton-ancho { width: 100%; }
 
@@ -160,17 +192,21 @@ button { font: inherit; color: inherit; }
 img.foto { display: block; object-fit: cover; }
 img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 
-/* Logo (encabezado y pie) */
-.logo { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; }
+/* Logo (encabezado y pie): la imagen redonda de la web. En el encabezado, además, "Fast & Good" escrito al lado
+   ("Fast" en gris oscuro y "& Good" en verde; sección 1) */
+.logo { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; text-decoration: none; }
 .logo-imagen { display: block; height: 40px; width: auto; }
+.logo-texto { color: var(--titulo-suave); font-size: 24px; font-weight: 900; letter-spacing: -.035em; line-height: 1; white-space: nowrap; }
 
 /* La palabra en verde de un título: "Good", "estamos", "frecuentes" */
 .palabra-verde { color: var(--verde-fuerte); }
 
-/* Secciones: fondo general; Categorías en blanco y Preguntas en verde clarito */
+/* Secciones: desde el 18/10 todas con el fondo de la página (blanco, perilla --fondo).
+   "seccion-fondo-verde" (Preguntas) es un nombre que usa el HTML: se deja, pero ahora va blanca.
+   Para volver a pintarla de verde clarito: background: var(--tinte) */
 .seccion { padding: var(--seccion-espacio) 0; }
 .seccion-fondo-blanco { background: var(--blanco); }
-.seccion-fondo-verde { background: var(--tinte); }
+.seccion-fondo-verde { background: var(--fondo); }
 .titulo-seccion {
   color: var(--titulo-suave);
   font-size: var(--titulo-seccion-tamano); font-weight: 800; line-height: 1.08; letter-spacing: -.03em;
@@ -204,7 +240,7 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
   padding: 20px 16px 14px;
 }
 .modal-encabezado h2 { font-size: 1.5rem; font-weight: 800; }
-.modal-categoria { font-size: .875rem; font-weight: 700; color: var(--verde-fuerte); margin-bottom: 2px; }
+.modal-categoria { font-size: .875rem; font-weight: 700; color: var(--verde-texto); margin-bottom: 2px; }
 .boton-cerrar {
   flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; border: 0; cursor: pointer;
   background: var(--tinte); color: var(--texto); transition: background-color .2s;
@@ -225,11 +261,12 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 /* ===================================================================================
    1. ENCABEZADO: logo, menú, "Iniciar sesión" y "Mi pedido"
    =================================================================================== */
+/* Blanco, con una línea finita abajo (es una sombra de 1 px: no ocupa lugar). sticky = queda pegado arriba al bajar.
+   Capa 10 (z-index): va por encima de la foto de la portada, así la foto no le tapa la línea */
 .encabezado {
   position: sticky; top: 0; z-index: 10;
-  background: color-mix(in srgb, var(--fondo) 88%, transparent);
-  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--borde);
+  background: var(--fondo-encabezado);
+  box-shadow: 0 1px 0 var(--encabezado-linea);
 }
 /* En el celular: logo y botones arriba, el menú abajo. En compu (900px o más): todo en una fila.
    minmax(0, 1fr): la columna del medio se puede achicar, así entra todo sin scroll de costado */
@@ -252,7 +289,8 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
   font-weight: 600; font-size: .9375rem; text-decoration: none; color: var(--texto-suave);
   transition: color .2s, background-color .2s;
 }
-.menu-principal a:hover { color: var(--texto); background: var(--tinte); }
+/* Al pasar el mouse: fondo verde clarito y letra verde (sin JS no se marca la sección que se está mirando) */
+.menu-principal a:hover { color: var(--verde-texto); background: var(--verde-claro); }
 
 /* "Mi pedido" y su contador naranja */
 .boton-mi-pedido { gap: 8px; padding: 0 6px 0 16px; background: var(--verde-fuerte); color: #fff; }
@@ -273,16 +311,18 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
   display: inline-flex !important; align-items: center; min-height: 44px; padding: 0 12px !important;
   border: 0 !important; border-radius: 999px !important; background: transparent !important;
   color: var(--texto) !important; font-family: var(--fuente) !important; font-size: .9375rem !important;
-  font-weight: 600 !important; text-decoration: none; white-space: nowrap; cursor: pointer;
+  font-weight: 700 !important; text-decoration: none; white-space: nowrap; cursor: pointer;
 }
-#auth-btn-container .login-btn-header:hover { color: var(--verde-fuerte) !important; background: var(--tinte) !important; }
+#auth-btn-container .login-btn-header:hover { color: var(--verde-texto) !important; background: var(--tinte) !important; }
 
 /* En el celu (como la referencia): una sola fila blanca de 58 px (con el borde) con el logo, "Iniciar sesión" chiquito
    y "Mi pedido". El menú no se ve: a cada parte se llega bajando */
 @media (max-width: 767px) {
-  .encabezado { background: rgb(255 255 255 / .94); }
   .encabezado-fila { grid-template-areas: "logo . botones"; min-height: 57px; padding-block: 0; }
   .menu-principal { display: none; }
+  /* El logo un poco más chico: la imagen de 34 px y "Fast & Good" de 20 px */
+  .encabezado .logo-imagen { height: 34px; }
+  .logo-texto { font-size: 20px; }
 }
 /* Celus chicos (400px o menos): se achican los espacios para que entre todo en una fila */
 @media (max-width: 400px) {
@@ -290,10 +330,17 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
   .encabezado-botones { gap: 2px; }
   .boton-mi-pedido { padding-left: 10px; font-size: .9375rem; gap: 6px; }
   .boton-mi-pedido .icono { display: none; }
-  #auth-btn-container .login-btn-header { padding: 0 4px !important; font-size: .875rem !important; }
+  #auth-btn-container .login-btn-header { padding: 0 4px !important; font-size: 13px !important; }
+  /* Con el logo + "Fast & Good", el encabezado necesita un poco más de lugar: márgenes de 12 px a los costados */
+  .encabezado .contenedor { padding-inline: 12px; }
+}
+/* Celus muy chicos (380 px o menos, ej. 360): "Iniciar sesión" en dos renglones ("Iniciar / sesión"), así entra todo en
+   una fila sin achicar el logo */
+@media (max-width: 380px) {
+  #auth-btn-container .login-btn-header { white-space: normal !important; line-height: 1.1; text-align: center; max-width: 52px; }
 }
 @media (min-width: 900px) {
-  .encabezado-fila { grid-template-areas: "logo menu botones"; min-height: 64px; padding-block: 0; gap: 24px; }
+  .encabezado-fila { grid-template-areas: "logo menu botones"; min-height: 68px; padding-block: 0; gap: 24px; }
   .menu-principal a { min-height: 40px; }
   .menu-principal { justify-content: center; margin: 0; padding: 0; }
 }
@@ -309,7 +356,10 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 @media (min-width: 768px) { .modal-login { max-width: 440px; } }
 
 /* ===================================================================================
-   2. PORTADA: en celular el texto arriba y la foto en tarjeta debajo; en compu, texto a la izquierda y foto a la derecha
+   2. PORTADA. Celu: compacta (el lugar, "Fast & Good", la bajada y las insignias), sin foto.
+   Compu (768 px o más, diseno-portada del 19/10): el texto a la izquierda sobre blanco y la foto grande a la derecha,
+   de arriba a abajo, que se funde con el blanco; encima de la foto, "⚡ Listas en 5 minutos" y los 3 pasos.
+   Las medidas que más se tocan son perillas del :root (--portada-…); los movimientos están en la sección 11
    =================================================================================== */
 .portada { padding: 24px 0 0; }
 .portada-columnas { display: grid; gap: 28px; }
@@ -326,13 +376,17 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 }
 .portada-lugar {
   display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
-  font-size: .9375rem; font-weight: 700; color: var(--verde-fuerte);
+  font-size: .9375rem; font-weight: 700; color: var(--verde-texto);
 }
 .portada-lugar .icono { width: 18px; height: 18px; }
+/* El texto del lugar y el puntito de compu: en el celu no se ven (va el texto de siempre, con el ícono) */
+.portada-lugar-punto, .portada-lugar-compu { display: none; }
+/* "Ver categorías" y "⚡ Listas en 5 minutos": solo en compu */
+.boton-ver-categorias, .portada-listas { display: none; }
 .portada-botones { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; margin-top: 20px; }
 .portada-botones .boton { width: 100%; }
 .combos-desde { font-size: .9375rem; color: var(--texto-suave); }
-.combos-desde strong { color: var(--verde-fuerte); font-weight: 800; }
+.combos-desde strong { color: var(--verde-texto); font-weight: 800; }
 /* Contacto chico debajo del botón: no compite con "Pedir ahora" */
 .portada-contacto {
   list-style: none; margin: 10px 0 0; padding: 0;
@@ -342,52 +396,110 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 .portada-contacto li { display: flex; align-items: center; gap: 8px; min-height: 44px; }
 .portada-contacto .icono { width: 18px; height: 18px; color: var(--verde-fuerte); }
 .portada-contacto a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-decoration: none; }
-.portada-contacto a:hover { color: var(--verde-fuerte); text-decoration: underline; text-underline-offset: 3px; }
+.portada-contacto a:hover { color: var(--verde-texto); text-decoration: underline; text-underline-offset: 3px; }
 
-/* Foto en tarjeta, encuadrada en las bandejas (lado derecho de la foto) */
-.portada-foto { position: relative; }
-.portada-marco {
-  position: relative; aspect-ratio: 4 / 3; overflow: hidden;
-  border-radius: 16px; background: var(--gris); box-shadow: var(--sombra-foto);
-}
-.portada-imagen { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; object-fit: cover; object-position: 100% 50%; }
-.portada-etiqueta {
-  position: absolute; left: 12px; bottom: 12px; margin: 0;
-  display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px;
-  background: var(--blanco); color: var(--texto); font-size: .875rem; font-weight: 700;
-  box-shadow: 0 6px 18px -6px rgb(14 22 30 / .3);
-}
-.portada-etiqueta .icono { width: 18px; height: 18px; color: var(--verde-fuerte); }
+/* La foto (solo se ve en compu: abajo, en el @media de 768 px o más) */
+.portada-marco { position: relative; overflow: hidden; background: var(--gris); }
+.portada-imagen { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; object-fit: cover; object-position: 80% 50%; }
 
-/* Los tres pasos */
-.franja-pasos { margin-top: 32px; border-block: 1px solid var(--borde); }
-.pasos {
-  list-style: none; margin: 0 auto; padding-block: 12px;
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
-}
-.pasos li {
-  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
-  font-size: .8125rem; font-weight: 600; line-height: 1.25; color: var(--texto-suave);
-}
+/* Los tres pasos (solo se ven en compu, como pastilla encima de la foto) */
+.pasos { list-style: none; margin: 0; padding: 0; }
+.pasos li { display: flex; align-items: center; color: var(--texto-suave); font-weight: 700; }
 .pasos-numero {
-  display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 999px;
-  background: var(--verde-fuerte); color: #fff; font-size: .8125rem; font-weight: 800;
+  display: grid; place-items: center; flex: none; border-radius: 999px;
+  background: var(--verde-claro); color: var(--verde-fuerte); font-weight: 800;
 }
 
+/* ── Compu (768 px o más) ─────────────────────────────────────────────────────────
+   La portada es una franja de --portada-alto de alto. El texto va adelante (capa 2) y la foto atrás (capa 0), en
+   posición absoluta: desde --portada-foto-desde hasta el borde derecho, y de arriba a abajo.
+   isolation: isolate = las capas de adentro se ordenan solo entre ellas (el encabezado, capa 10, queda siempre arriba).
+   overflow: hidden = la foto que entra desde la derecha (sección 11) no hace scroll de costado */
 @media (min-width: 768px) {
-  .portada { padding-top: 40px; }
-  .portada-columnas { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: center; gap: clamp(40px, 5vw, 64px); }
-  .portada-marco { aspect-ratio: 3 / 2; }
-  .portada-subtitulo { margin-top: 16px; }
-  .portada-lugar { margin-top: 12px; }
-  .portada-botones { margin-top: 24px; }
-  .portada-botones .boton { width: auto; }
-  .portada-contacto { margin-top: 12px; }
-  .portada-etiqueta { left: 16px; bottom: 16px; gap: 8px; padding: 8px 14px; font-size: .875rem; }
-  .franja-pasos { margin-top: 40px; }
-  .pasos { padding-block: 14px; gap: 24px; }
-  .pasos li { flex-direction: row; justify-content: center; gap: 10px; font-size: .9375rem; text-align: left; }
-  .pasos-numero { width: 26px; height: 26px; }
+  .portada {
+    position: relative; isolation: isolate; overflow: hidden;
+    display: flex; align-items: center; min-height: var(--portada-alto); padding: 0;
+  }
+  .portada-columnas { width: 100%; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 64px; }
+  .portada-texto { position: relative; z-index: 2; padding: 56px 0; }
+
+  /* 1. El lugar: pastilla verde clarita, en mayúsculas, con un puntito verde que tiene un halo */
+  .portada-lugar {
+    gap: 9px; margin: 0; padding: 8px 16px; border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--verde) 22%, var(--blanco)); background: var(--verde-claro);
+    font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  }
+  .portada-lugar .icono, .portada-lugar-celu { display: none; }
+  .portada-lugar-compu { display: inline; }
+  .portada-lugar-punto {
+    display: block; width: 7px; height: 7px; border-radius: 50%; background: var(--verde);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--verde) 20%, transparent);
+  }
+  /* 2. "Fast & Good" (perilla --titulo-portada-compu) */
+  .portada h1 { margin-top: 20px; font-size: var(--titulo-portada-compu); letter-spacing: -.05em; line-height: .95; }
+  /* 3. La bajada */
+  .portada-subtitulo { margin-top: 18px; max-width: 420px; font-size: 17px; font-weight: 400; line-height: 1.55; letter-spacing: 0; }
+  /* 4. Los botones redondos: "Pedir ahora" (verde) y "Ver categorías" (blanco con borde). "Combos desde $…" no se ve */
+  .portada-botones { gap: 10px; margin-top: 28px; }
+  .portada-botones .boton { width: auto; min-height: 52px; font-size: 16px; font-weight: 800; }
+  .portada-botones .boton-principal {
+    padding: 0 28px; box-shadow: 0 12px 26px -10px color-mix(in srgb, var(--verde-fuerte) 60%, transparent);
+  }
+  .portada-botones .boton-principal:hover:not(:disabled) { transform: translateY(-2px); }
+  .boton-ver-categorias {
+    display: inline-flex; padding: 0 24px; font-weight: 700;
+    box-shadow: inset 0 0 0 1.5px var(--encabezado-linea);
+  }
+  .boton-ver-categorias:hover { box-shadow: inset 0 0 0 1.5px var(--verde-fuerte); background: var(--verde-claro); color: var(--texto); }
+  .portada-botones .combos-desde { display: none; }
+  /* 5. WhatsApp e Instagram */
+  .portada-contacto { gap: 0 22px; margin-top: 14px; font-size: 14.5px; font-weight: 400; }
+
+  /* La foto: de --portada-foto-desde al borde derecho, de arriba a abajo, sin bordes redondeados */
+  .portada-foto { position: absolute; top: 0; bottom: 0; right: 0; left: var(--portada-foto-desde); z-index: 0; }
+  .portada-marco { position: absolute; inset: 0; border-radius: 0; box-shadow: none; background: none; }
+  /* El fundido blanco del borde izquierdo de la foto: del blanco del fondo a transparente. Llega hasta --portada-fundido;
+     los pasos del medio van al 25 % y al 61 % de ese largo (con 36 %: 9 % y 22 %), así siguen a la perilla */
+  .portada-foto::before {
+    content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: linear-gradient(90deg,
+      var(--fondo) 0%,
+      color-mix(in srgb, var(--fondo) 90%, transparent) calc(var(--portada-fundido) * .25),
+      color-mix(in srgb, var(--fondo) 35%, transparent) calc(var(--portada-fundido) * .61),
+      color-mix(in srgb, var(--fondo) 0%, transparent) var(--portada-fundido));
+  }
+  /* El fundido blanco del borde de abajo: de transparente (arriba) al blanco del fondo (abajo), de --portada-fundido-abajo
+     de alto, así la foto se funde con la sección de abajo. Los pasos (capa 2) quedan por encima */
+  .portada-foto::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; pointer-events: none;
+    height: var(--portada-fundido-abajo);
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--fondo) 0%, transparent), var(--fondo));
+  }
+  /* "⚡ Listas en 5 minutos": pastilla blanca arriba a la derecha de la foto */
+  .portada-listas {
+    position: absolute; top: 28px; right: 32px; z-index: 2; margin: 0;
+    display: inline-flex; align-items: center; gap: 4px; padding: 10px 18px; border-radius: 999px;
+    background: var(--blanco); color: var(--texto); font-size: 15px; font-weight: 800;
+    box-shadow: 0 14px 30px -12px rgb(0 0 0 / .35);
+  }
+  .portada-listas strong { color: var(--verde-fuerte); }
+  /* Los 3 pasos: pastilla blanca chiquita abajo a la derecha, con flechas "→" entre paso y paso */
+  .franja-pasos {
+    position: absolute; right: 28px; bottom: 22px; z-index: 2;
+    padding: 6px 12px; border-radius: 999px; background: rgb(255 255 255 / .92);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 8px 18px -10px rgb(0 0 0 / .3);
+  }
+  .pasos { display: flex; align-items: center; gap: 6px; width: auto; max-width: none; }   /* (también es "contenedor": sin su ancho) */
+  .pasos li { gap: 5px; font-size: 11px; line-height: 1.2; white-space: nowrap; }
+  .pasos li + li::before { content: "→"; margin-right: 1px; color: #c1cbc3; }   /* la flecha gris entre los pasos */
+  .pasos-numero { width: 16px; height: 16px; font-size: 9px; }
+}
+/* Compus chicas (768 a 1023 px): el texto en una sola columna de 380 px (así entran la pastilla del lugar en un renglón
+   y los dos botones lado a lado) y la pastilla con la letra un poco más chica. La foto arranca en el 50 % (perilla) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .portada-columnas { grid-template-columns: minmax(0, 1fr); }
+  .portada-texto { max-width: 380px; }
+  .portada-lugar { padding: 7px 13px; font-size: 11px; letter-spacing: .06em; }
 }
 
 /* Celu (como la referencia): portada compacta y blanca. Arriba el lugar en una pastilla, "Fast Good" (44 px: perilla
@@ -431,7 +543,7 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
    y el precio por vianda en verde ("o $ 11.600 por vianda") */
 .tarjeta-combo-descripcion { display: block; margin-top: 2px; font-size: 13px; font-weight: 600; letter-spacing: 0; opacity: .9; }
 .tarjeta-categoria-desde { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--texto-suave); }
-.tarjeta-combo-por-vianda b { color: var(--verde-fuerte); }
+.tarjeta-combo-por-vianda b { color: var(--verde-texto); }
 
 /* La zona de combos de la categoría elegida: escondida hasta que se toca una categoría.
    Arriba "‹ Todas las categorías", después "Combos …", la bajada y las tarjetas */
@@ -449,7 +561,7 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
   font-weight: 700; font-size: .9375rem; cursor: pointer;
   transition: background-color .2s, color .2s, transform .2s var(--curva);
 }
-.boton-volver-categorias:hover { background: var(--verde-claro); color: var(--verde-fuerte); }
+.boton-volver-categorias:hover { background: var(--verde-claro); color: var(--verde-texto); }
 .boton-volver-categorias:active { transform: scale(.97); }
 .boton-volver-flecha {
   display: grid; place-items: center; width: 30px; height: 30px; padding-bottom: 2px; border-radius: 50%;
@@ -569,13 +681,14 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 }
 .tarjeta-combo-por-vianda { font-size: 13px; color: var(--texto-suave); }
 
-/* "¡Lo quiero! →": pastilla verde con degradé y la flecha en un círculo blanco.
+/* "¡Lo quiero! →": pastilla verde con degradé (del verde de marca al verde principal: perillas --verde y --verde-fuerte)
+   y la flecha en un círculo blanco. La sombra es el verde principal al 60 %.
    El brillo es el ::after (una franja blanca transparente que la cruza); el latido y el brillo se mueven en la sección 11 */
 .tarjeta-combo-boton {
   position: relative; overflow: hidden; flex: none;
   display: inline-flex; align-items: center; gap: 8px; height: var(--lo-quiero-alto); padding: 0 6px 0 18px; border-radius: 999px;
-  background: linear-gradient(135deg, #2faa4b, #1e8538); color: #fff; font-weight: 800; font-size: 15px; white-space: nowrap;
-  box-shadow: 0 8px 18px -6px rgb(30 133 56 / .6), inset 0 1px 0 rgb(255 255 255 / .25);
+  background: linear-gradient(135deg, var(--verde), var(--verde-fuerte)); color: #fff; font-weight: 800; font-size: 15px; white-space: nowrap;
+  box-shadow: 0 8px 18px -6px color-mix(in srgb, var(--verde-fuerte) 60%, transparent), inset 0 1px 0 rgb(255 255 255 / .25);
   transition: transform .2s var(--curva);
 }
 .tarjeta-combo-boton::after {
@@ -584,7 +697,7 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 }
 .tarjeta-combo-flecha {
   display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
-  background: #fff; color: #1e8538; font-weight: 900; font-size: 16px;
+  background: #fff; color: var(--verde-fuerte); font-weight: 900; font-size: 16px;
   transition: transform .3s var(--curva);
 }
 @media (hover: hover) {
@@ -663,7 +776,7 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
   display: block; height: 100%; border-radius: inherit; background: var(--verde);
   transform-origin: left; transform: scaleX(0); transition: transform .35s var(--curva);
 }
-.progreso.progreso-completo .progreso-texto span { color: var(--verde-fuerte); font-weight: 700; }
+.progreso.progreso-completo .progreso-texto span { color: var(--verde-texto); font-weight: 700; }
 @media (min-width: 768px) { .progreso { padding-inline: 24px; } }
 
 /* Aviso al salir del armado con platos elegidos (reemplaza al botón "Agregar al pedido") */
@@ -676,7 +789,7 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 .boton-armar-por-mi {
   display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 44px; margin-bottom: 10px;
   border: 1.5px dashed var(--verde); border-radius: 12px; background: var(--blanco);
-  color: var(--verde-fuerte); font-weight: 800; font-size: 14px; cursor: pointer;
+  color: var(--verde-texto); font-weight: 800; font-size: 14px; cursor: pointer;
   transition: background-color .2s, transform .15s var(--curva);
 }
 .boton-armar-por-mi:hover:not(:disabled) { background: var(--verde-claro); }
@@ -708,7 +821,7 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 }
 /* "Quedan 3" o "Sin stock" debajo del nombre del plato.
    Va con ".plato" adelante para ganarle a ".plato p" (el gris de la descripción) */
-.plato .plato-quedan { font-size: .8125rem; font-weight: 700; color: var(--verde-fuerte); }
+.plato .plato-quedan { font-size: .8125rem; font-weight: 700; color: var(--verde-texto); }
 .plato .plato-sin-stock { color: var(--error); }
 
 /* Selector de cantidad (− 2 +), del mismo alto que los botones */
@@ -746,7 +859,7 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 /* Botón con forma de enlace ("✎ Personalizar") */
 .boton-enlace {
   justify-self: start; min-height: 44px; border: 0; background: none; padding: 0; cursor: pointer;
-  color: var(--verde-fuerte); font-weight: 700; font-size: .9375rem; text-decoration: underline; text-underline-offset: 3px;
+  color: var(--verde-texto); font-weight: 700; font-size: .9375rem; text-decoration: underline; text-underline-offset: 3px;
 }
 .boton-enlace:disabled { color: var(--texto-suave); cursor: not-allowed; text-decoration: none; }
 
@@ -780,7 +893,7 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
   .armar-resumen-foto img.foto-logo { object-fit: contain; padding: 8px; }
   .armar-resumen-textos { display: grid; min-width: 0; }
   .armar-resumen-textos strong { font-size: 16px; font-weight: 700; line-height: 1.3; }
-  .armar-resumen-precio { font-size: 17px; font-weight: 800; letter-spacing: -.02em; color: var(--verde-fuerte); font-variant-numeric: tabular-nums; }
+  .armar-resumen-precio { font-size: 17px; font-weight: 800; letter-spacing: -.02em; color: var(--verde-texto); font-variant-numeric: tabular-nums; }
   .armar-rotulo { display: block; margin: 22px 0 10px; }
 
   /* La barra fija de abajo = el progreso (pasa abajo de los platos) + el pie con el botón */
@@ -890,7 +1003,7 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 /* "(1 combo)" debajo del título, y los platos de cada combo: letra chica y gris */
 .resumen-cantidad, .resumen-platos { font-size: .8125rem; font-weight: 500; color: var(--texto-suave); }
 .resumen-derecha { display: inline-flex; align-items: center; gap: 10px; }
-.resumen-derecha strong { color: var(--verde-fuerte); font-variant-numeric: tabular-nums; white-space: nowrap; }  /* el total no se parte en dos renglones */
+.resumen-derecha strong { color: var(--verde-texto); font-variant-numeric: tabular-nums; white-space: nowrap; }  /* el total no se parte en dos renglones */
 .resumen-flecha { width: 18px; height: 18px; color: var(--texto-suave); transform: rotate(90deg); transition: transform .25s var(--curva); }
 .resumen[open] .resumen-flecha { transform: rotate(-90deg); }
 .resumen-contenido { padding: 0 16px 16px; }
@@ -923,7 +1036,7 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 textarea.casillero { resize: vertical; min-height: 96px; }
 .casillero::placeholder { color: var(--texto-suave); }
 .casillero:hover { border-color: #c3d0bf; }
-.casillero:focus { outline: none; border-color: var(--verde-fuerte); box-shadow: 0 0 0 4px rgb(47 170 75 / .22); }
+.casillero:focus { outline: none; border-color: var(--verde-fuerte); box-shadow: 0 0 0 4px color-mix(in srgb, var(--verde) 22%, transparent); }
 .campo-ayuda { font-size: .875rem; color: var(--texto-suave); }
 .campo-error { font-size: .875rem; font-weight: 600; color: var(--error); }
 .campo-error:empty { display: none; }
@@ -1008,7 +1121,7 @@ textarea.casillero { resize: vertical; min-height: 96px; }
   .campos-lado-a-lado { gap: 10px; }
   .modal-finalizar .casillero { min-height: 50px; padding: 0 14px; border-width: 1.5px; font-size: 16px; }
   .modal-finalizar textarea.casillero { padding: 12px 14px; }
-  .modal-finalizar .casillero:focus { border-color: var(--verde); box-shadow: 0 0 0 4px rgb(40 167 69 / .15); }
+  .modal-finalizar .casillero:focus { border-color: var(--verde); box-shadow: 0 0 0 4px color-mix(in srgb, var(--verde) 15%, transparent); }
   .grupo-barrio { padding: 12px; }
 
   /* Botones partidos: las dos opciones en una franja gris; la elegida, blanca con letra verde.
@@ -1024,7 +1137,7 @@ textarea.casillero { resize: vertical; min-height: 96px; }
   .opcion-titulo { font-size: 15px; color: var(--texto-suave); }
   .opcion-emoji { display: inline; margin-right: 6px; }
   .opcion-radio:checked + .opcion-tarjeta { background: var(--blanco); box-shadow: 0 1px 4px rgb(0 0 0 / .1); }
-  .opcion-radio:checked + .opcion-tarjeta .opcion-titulo { color: var(--verde-fuerte); }
+  .opcion-radio:checked + .opcion-tarjeta .opcion-titulo { color: var(--verde-texto); }
   /* Con "Retiro" elegido se ve dónde se retira (:has(…) = "el grupo que tiene adentro el radio de Retiro marcado") */
   .grupo-campos:has(.opcion-radio[value="Retiro en local"]:checked) .entrega-ayuda-retiro { display: block; }
 
@@ -1073,7 +1186,7 @@ textarea.casillero { resize: vertical; min-height: 96px; }
 .donde-columnas dd { margin: 2px 0 0; font-size: 1rem; font-weight: 600; }
 .donde-columnas .boton { margin-top: 10px; }
 .enlace-subrayado { display: inline-flex; align-items: center; min-height: 44px; margin-top: -10px; color: inherit; text-decoration: underline; text-decoration-color: var(--borde); text-underline-offset: 4px; }
-.enlace-subrayado:hover { color: var(--verde-fuerte); text-decoration-color: currentColor; }
+.enlace-subrayado:hover { color: var(--verde-texto); text-decoration-color: currentColor; }
 /* El recuadro gris del mapa (todavía sin mapa de verdad: dice "mapa") */
 .mapa {
   position: relative; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 16px;
@@ -1102,7 +1215,7 @@ textarea.casillero { resize: vertical; min-height: 96px; }
   text-align: left; font-size: 1rem; font-weight: 700; color: var(--texto);
   transition: color .2s;
 }
-.pregunta-titulo:hover { color: var(--verde-fuerte); }
+.pregunta-titulo:hover { color: var(--verde-texto); }
 .pregunta-signo {
   flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px;
   background: var(--blanco); color: var(--verde-fuerte); box-shadow: inset 0 0 0 1px var(--borde);
@@ -1110,7 +1223,7 @@ textarea.casillero { resize: vertical; min-height: 96px; }
 }
 .pregunta-signo .icono { width: 16px; height: 16px; }
 /* La pregunta abierta: el título en verde y el + girado (queda una ×) */
-.pregunta[open] > .pregunta-titulo { color: var(--verde-fuerte); }
+.pregunta[open] > .pregunta-titulo { color: var(--verde-texto); }
 .pregunta[open] .pregunta-signo { transform: rotate(45deg); background: var(--verde-fuerte); color: #fff; }
 .pregunta-respuesta { padding: 0 44px 16px 0; color: var(--texto-suave); max-width: 65ch; }
 
@@ -1124,7 +1237,7 @@ textarea.casillero { resize: vertical; min-height: 96px; }
 .pie-columna { display: grid; gap: 8px; align-content: start; }
 .pie-columna h2 { font-size: .9375rem; font-weight: 800; letter-spacing: 0; margin-bottom: 4px; }
 .pie-columna a { color: var(--texto-suave); text-decoration: none; padding: 2px 0; }
-.pie-columna a:hover { color: var(--verde-fuerte); text-decoration: underline; text-underline-offset: 3px; }
+.pie-columna a:hover { color: var(--verde-texto); text-decoration: underline; text-underline-offset: 3px; }
 @media (min-width: 640px) { .pie-columnas { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 1024px) { .pie-columnas { grid-template-columns: 1.6fr 1fr 1fr 1fr; } }
 @media (max-width: 767px) {
@@ -1158,17 +1271,26 @@ textarea.casillero { resize: vertical; min-height: 96px; }
 @keyframes aparecer { from { opacity: 0; } }                                        /* el fondo oscuro de una ventana */
 @keyframes deslizar { from { transform: translateX(40px); opacity: 0; } }          /* "Mi pedido" entrando de costado */
 @keyframes salto { 40% { transform: scale(1.35); } }                                /* el contador de "Mi pedido" */
-@keyframes entrar { from { opacity: 0; transform: translateY(16px); } }             /* el texto de la portada */
+@keyframes entrar { from { opacity: 0; transform: translateY(16px); } }             /* el texto de la portada (celu) */
 @keyframes revelar { from { opacity: 0; transform: translateY(18px); } }            /* una sección al llegar a la pantalla */
 @keyframes abrir-respuesta { from { opacity: 0; transform: translateY(-6px); } }    /* la respuesta de una pregunta */
 /* "¡Lo quiero!": late (le crece un aro verde que se desvanece) y lo cruza un brillo de izquierda a derecha */
 @keyframes latido {
-  0%, 100% { box-shadow: 0 8px 18px -6px rgb(30 133 56 / .6), 0 0 0 0 rgb(47 170 75 / .35); }
-  50%      { box-shadow: 0 8px 18px -6px rgb(30 133 56 / .6), 0 0 0 6px rgb(47 170 75 / 0); }
+  0%, 100% { box-shadow: 0 8px 18px -6px color-mix(in srgb, var(--verde-fuerte) 60%, transparent), 0 0 0 0 color-mix(in srgb, var(--verde) 35%, transparent); }
+  50%      { box-shadow: 0 8px 18px -6px color-mix(in srgb, var(--verde-fuerte) 60%, transparent), 0 0 0 6px color-mix(in srgb, var(--verde) 0%, transparent); }
 }
 @keyframes brillo { 0%, 60% { left: -60%; } 100% { left: 130%; } }
 /* Celu: una pantalla que entra desde la derecha, la hoja que sube desde abajo y la ✓ que aparece con rebote */
 @keyframes entrar-derecha { from { transform: translateX(100%); } }
+/* Portada de la compu: el texto sube 20 px; la foto entra desde la derecha "destapándose" (clip-path = qué parte se ve:
+   arranca mostrando solo el 60 % de la derecha) mientras se achica de 1.12 a 1; las pastillas suben 12 px */
+@keyframes portada-texto-sube { from { opacity: 0; transform: translateY(20px); } }
+@keyframes portada-foto-entra {
+  from { opacity: 0; transform: translateX(120px); clip-path: inset(0 0 0 40%); }
+  to   { opacity: 1; transform: none; clip-path: inset(0); }
+}
+@keyframes portada-foto-zoom { from { transform: scale(1.12); } to { transform: scale(1); } }
+@keyframes portada-pastilla-sube { from { opacity: 0; transform: translateY(12px); } }
 @keyframes subir-hoja { from { transform: translateY(100%); } }
 @keyframes rebote { 0% { transform: scale(0); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
 
@@ -1193,6 +1315,22 @@ textarea.casillero { resize: vertical; min-height: 96px; }
   .portada-texto > :nth-child(3) { animation-delay: .12s; }
   .portada-texto > :nth-child(4) { animation-delay: .18s; }
   .portada-texto > .portada-insignias { animation-delay: .18s; }   /* celu: las insignias, después de la bajada */
+
+  /* Portada de la compu (corre una sola vez, al cargar la página):
+     1. el texto de la izquierda sube y aparece de a uno: 0,8 s, con 0,07 s entre una línea y la siguiente;
+     2. la foto entra desde la derecha a los 0,15 s y tarda 1,4 s (perilla --portada-foto-duracion) · 3. a la vez, su zoom suave (2,2 s);
+     4. las pastillas aparecen después: los pasos a los 1,1 s y "Listas en 5 minutos" a los 1,25 s (0,7 s cada una) */
+  @media (min-width: 768px) {
+    .portada-texto > * { animation: portada-texto-sube .8s var(--curva) both; }
+    .portada-texto > :nth-child(2) { animation-delay: .07s; }
+    .portada-texto > :nth-child(3) { animation-delay: .14s; }
+    .portada-texto > :nth-child(4) { animation-delay: .21s; }
+    .portada-texto > :nth-child(5) { animation-delay: .28s; }
+    .portada-foto { animation: portada-foto-entra var(--portada-foto-duracion) var(--curva) .15s both; }
+    .portada-imagen { animation: portada-foto-zoom 2.2s var(--curva) .15s both; }
+    .franja-pasos { animation: portada-pastilla-sube .7s var(--curva) 1.1s both; }
+    .portada-listas { animation: portada-pastilla-sube .7s var(--curva) 1.25s both; }
+  }
 
   /* Secciones que aparecen al bajar con el scroll (las activa animaciones-index.js).
      --d = demora, para que las tarjetas aparezcan de a una */
