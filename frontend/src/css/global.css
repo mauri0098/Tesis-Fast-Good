@@ -1,9 +1,116 @@
-/* ===================================================
-   GLOBAL.CSS — Fast Good (Motion Design Edition)
-   Fuente de verdad. No alterar IDs ni lógica JS.
-   =================================================== */
+/* ============================================================
+   GLOBAL.CSS — Fast Good: lo común a todas las pantallas del panel (y al login)
+   La cargan admin.html, login.html y las 11 pantallas de pages/. El index NO la carga.
 
-/* --- RESET --- */
+   Estilo nuevo (19/10/2026): el mismo del index. Letra Figtree, fondo blanco, los verdes del
+   index, botones en forma de pastilla y tarjetas blancas con un borde finito.
+   Solo cambia cómo se ve: no cambia ningún id, ninguna clase ni nada de JS.
+
+   Cada pantalla tiene además su CSS propio (y algunas un <style> adentro). Lo de ellas le gana
+   a esto, así que hay detalles que siguen como antes hasta que se rediseñe cada pantalla.
+
+   Secciones:
+     0. Perillas (colores, tamaños y letra)
+     1. Base: letra, márgenes y fondo
+     2. Título de cada pantalla (<header>)
+     3. Pie
+     4. Secciones y tarjetas
+     5. Botones
+     6. Casilleros y etiquetas
+     7. Ventanas
+     8. Tablas
+     9. Paginación (los números debajo de las tablas)
+    10. Utilidades y menú viejo
+    11. Animaciones
+    12. Celular (hasta 768 px)
+   ============================================================ */
+
+
+/* ===== 0. PERILLAS ===== */
+:root {
+    /* ── Colores (los mismos del index) ─────────────────────────────────────────── */
+    --verde-principal: #12893a;   /* botones verdes, la pantalla actual del menú, lo elegido (4,5:1 con el blanco) */
+    --verde-texto: #127f36;       /* textos verdes CHICOS: un poco más oscuro, así se leen bien también sobre el verde suave */
+    --verde-hondo: #0f7330;       /* el verde un poco más oscuro de los botones al pasar el mouse */
+    --verde-marca: #26b04f;       /* verde de marca, para acentos */
+    --verde-suave: #e8f5eb;       /* fondo verde suave: al pasar el mouse, franjas y la X de las ventanas */
+    --titulo: #3a4640;            /* títulos grandes ("Administración de Pedidos") */
+    --texto: #111a14;             /* texto común */
+    --texto-gris: #4a564d;        /* textos secundarios: etiquetas, datos chicos */
+    --texto-apagado: #5f6b63;     /* títulos de las columnas, de los grupos del menú y la lupa */
+    --borde-gris: #e3e9e1;        /* bordes de tarjetas, casilleros y botones blancos */
+    --linea-suave: #edf1ec;       /* líneas finitas entre renglones de una tabla */
+    --gris-boton: #f3f6f2;        /* fondo de los botones redondos y de las cantidades */
+    --fondo: #ffffff;             /* fondo de todas las pantallas (blanco, como el index) */
+    --blanco: #ffffff;
+    --naranja: #ff9800;           /* lo destacado en naranja (el mismo de antes y del index) */
+    --rojo: #b42318;              /* el botón de anular y los textos de error */
+    --rojo-suave: #f3e3e1;        /* fondo rojo suave de los avisos de "cuidado" */
+    --rojo-texto: #8a2219;        /* letra de esos avisos */
+    --fondo-ventana: rgb(14 20 26 / .5);  /* lo oscuro que tapa la pantalla detrás de una ventana (.5 = a medias) */
+
+    /* ── Tamaños ────────────────────────────────────────────────────────────────── */
+    --alto-boton: 44px;           /* alto de los botones y casilleros (44 px es lo cómodo para el dedo): si lo subís, más altos */
+    --alto-boton-chico: 34px;     /* alto de los botones de las tablas (Detalles, Pago, Anular) */
+    --radio-pastilla: 999px;      /* esquinas de los botones: 999 = redondas del todo (forma de pastilla) */
+    --radio-casillero: 12px;      /* esquinas de los casilleros donde se escribe */
+    --radio-tarjeta: 16px;        /* esquinas de las tarjetas blancas (filtros, tabla) */
+    --radio-ventana: 20px;        /* esquinas de las ventanas */
+    --espacio-pantalla: 32px;     /* aire a los costados de cada pantalla en compu: si lo subís, el contenido queda más angosto */
+    --titulo-pantalla: 36px;      /* tamaño del título de cada pantalla en compu */
+
+    /* ── Tablas: los títulos de las columnas y las celdas (valen para TODAS las tablas del panel) ── */
+    --fondo-titulos-tabla: #ffffff;               /* fondo de los títulos de las columnas: blanco (sin franja) */
+    --color-titulos-tabla: var(--verde-texto);    /* letra de los títulos: el verde de los textos chicos (#127f36) */
+    --letra-titulos-tabla: 14.5px;                /* tamaño de la letra de los títulos: si lo subís, títulos más grandes */
+    --linea-titulos-tabla: #cfe5d5;               /* la línea de 2 px debajo de los títulos: verde clarito */
+    --letra-celdas-tabla: 15px;                   /* tamaño de la letra de las celdas */
+    --celda-alto: 15px;                           /* aire arriba y abajo de cada celda: si lo subís, renglones más altos */
+    --celda-espacio: 12px;                        /* aire a los costados de cada celda: si lo bajás, entran más columnas */
+    --linea-renglones-tabla: var(--linea-suave);  /* la línea suave entre renglones (#edf1ec) */
+    --fila-encima: #f6faf6;                       /* el renglón al pasar el mouse: verde clarito */
+
+    /* ── Letra ──────────────────────────────────────────────────────────────────── */
+    --fuente: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;  /* la del index (se carga en el <head> de cada pantalla) */
+
+    /* ── Sombras ────────────────────────────────────────────────────────────────── */
+    --sombra-suave: 0 1px 2px rgb(22 50 30 / .06), 0 8px 24px rgb(22 50 30 / .08);  /* la de las tarjetas del index */
+    --sombra-ventana: 0 24px 60px rgb(14 22 30 / .22);                               /* la de las ventanas */
+
+    /* ── Las variables de antes (en inglés) ─────────────────────────────────────── */
+    /* Las usan los CSS de cada pantalla y login.css: siguen con el mismo nombre y ahora toman el valor de las perillas nuevas */
+    --color-primary:        var(--verde-principal);  /* antes #28a745 */
+    --color-primary-dark:   var(--verde-hondo);      /* antes #388E3C */
+    --color-primary-glass:  rgb(18 137 58 / .97);    /* el verde principal casi sin transparencia (antes el verde viejo) */
+    --color-secondary:      var(--naranja);          /* igual que antes: #ff9800 */
+    --color-accent:         var(--verde-marca);      /* antes #00ff22 (verde flúor) */
+    --color-bg:             var(--fondo);            /* antes #f8f9fa (gris clarito) */
+    --color-white:          var(--blanco);
+    --color-text:           var(--texto);            /* antes #2a2a2a */
+    --color-muted:          var(--texto-apagado);    /* antes #9e9e9e (se leía poco) */
+    --color-overlay:        var(--fondo-ventana);    /* antes rgba(0, 0, 0, 0.52) */
+
+    --font-main: var(--fuente);                      /* antes 'Poppins' */
+
+    --radius-sm:   var(--radio-casillero);           /* antes 6px */
+    --radius-md:   var(--radio-tarjeta);             /* antes 14px */
+    --radius-pill: var(--radio-pastilla);            /* antes 30px */
+
+    --shadow-sm:         var(--sombra-suave);
+    --shadow-md:         var(--sombra-suave);
+    --shadow-lg:         var(--sombra-ventana);
+    --shadow-card-hover: 0 18px 40px rgb(22 50 30 / .14);
+    --shadow-btn-hover:  0 6px 18px rgb(18 137 58 / .30);  /* sombra verde de los botones al pasar el mouse */
+
+    --transition-fast:   0.28s ease;
+    --easing-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);  /* se pasa un poquito y vuelve (efecto resorte) */
+    --easing-out:        cubic-bezier(0.22, 1, 0.36, 1);     /* arranca rápido y frena suave */
+}
+
+
+/* ===== 1. BASE: LETRA, MÁRGENES Y FONDO ===== */
+
+/* Todo arranca sin márgenes, con la letra del panel, y el ancho incluye el borde */
 * {
     margin: 0;
     padding: 0;
@@ -13,99 +120,67 @@
 
 html {
     scroll-behavior: smooth;
-    scrollbar-gutter: stable; /* Reserva espacio para la barra de scroll en ambos lados,
-                                 evitando que aparezca/desaparezca y desplace el contenido.
-                                 Elimina la asimetría horizontal causada por la scrollbar de Windows. */
+    scrollbar-gutter: stable; /* deja siempre el lugar de la barra de scroll: así el contenido no salta de costado */
 }
 
-/* --- VARIABLES --- */
-:root {
-    --color-primary:        #28a745;
-    --color-primary-dark:   #388E3C;
-    --color-primary-glass:  rgba(40, 167, 69, 0.97);
-    --color-secondary:      #ff9800;
-    --color-accent:         #00ff22;
-    --color-bg:             #f8f9fa;
-    --color-white:          #ffffff;
-    --color-text:           #2a2a2a;
-    --color-muted:          #9e9e9e;
-    --color-overlay:        rgba(0, 0, 0, 0.52);
-
-    --font-main: 'Poppins', sans-serif;
-
-    --radius-sm:   6px;
-    --radius-md:   14px;
-    --radius-pill: 30px;
-
-    --shadow-sm:         0 2px 12px rgba(0, 0, 0, 0.09);
-    --shadow-md:         0 6px 24px rgba(0, 0, 0, 0.10);
-    --shadow-lg:         0 16px 48px rgba(0, 0, 0, 0.18);
-    --shadow-card-hover: 0 22px 54px rgba(0, 0, 0, 0.17);
-    --shadow-btn-hover:  0 8px 28px rgba(255, 152, 0, 0.48);
-
-    --transition-fast:   0.28s ease;
-    --easing-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
-    --easing-out:        cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-/* --- BODY --- */
+/* La página: fondo blanco y texto oscuro */
 body {
     background: var(--color-bg);
     color: var(--color-text);
-    line-height: 1.65;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;  /* la letra un poco más prolija en Mac */
 }
 
-/* Sticky footer: el contenido principal ocupa todo el espacio sobrante
-   dentro de .admin-content (el flex-column que envuelve header+main+footer) */
+/* El contenido ocupa el alto que sobra dentro de .admin-content (que es una columna) */
 main,
 .page-container {
     flex: 1;
 }
 
-/* ===================================================
-   HEADER — Glassmorphism + Entrada secuencial
-   =================================================== */
-header {
-    position: sticky;
-    top: 0;
-    z-index: 1000;
+/* El contenido de cada pantalla: el mismo aire a los costados que el título */
+.page-container {
     width: 100%;
-    padding: 0.85rem 2rem;
-    background: var(--color-primary-glass);
-    backdrop-filter: blur(18px) saturate(180%);
-    -webkit-backdrop-filter: blur(18px) saturate(180%);
-    color: var(--color-white);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-    box-shadow: 0 1px 0 rgba(255,255,255,0.12), var(--shadow-sm);
-    animation: header-drop 0.55s var(--easing-out) both;
+    padding: 22px var(--espacio-pantalla) 48px;
 }
 
-@keyframes header-drop {
-    from { transform: translateY(-110%); opacity: 0; }
-    to   { transform: translateY(0);     opacity: 1; }
+
+/* ===== 2. TÍTULO DE CADA PANTALLA (<header>) ===== */
+
+/* Ya no es una barra verde: es el título grande, sobre el blanco (el logo ahora está en el menú) */
+header {
+    width: 100%;
+    padding: 28px var(--espacio-pantalla) 0;
+    background: transparent;
+    color: var(--titulo);
 }
 
+/* El título: Figtree 900, grande y gris oscuro */
 header h1 {
-    font-size: 1.8rem;
-    letter-spacing: 0.04em;
-    animation: fade-up 0.5s 0.18s var(--easing-out) both;
-}
-
-header img {
+    font-size: var(--titulo-pantalla);
+    font-weight: 900;
+    letter-spacing: -.035em;
+    line-height: 1.2;
+    color: var(--titulo);
     animation: fade-up 0.5s 0.10s var(--easing-out) both;
 }
 
-/* Nav links — entrada escalonada */
+/* El logo de cada pantalla no se muestra: ya está arriba del menú */
+header img {
+    display: none;
+}
+
+/* Los links del título (Contacto y Sucursales, en Inicio): gris, y verdes al pasar el mouse */
 header nav a {
     margin-left: 1.5rem;
-    color: var(--color-white);
-    font-weight: 600;
+    color: var(--texto-gris);
+    font-weight: 700;
     text-decoration: none;
     cursor: pointer;
     display: inline-block;
     transition: color var(--transition-fast), transform var(--transition-fast);
 }
 
+/* Los links aparecen de a uno */
 header nav > a:nth-child(1) { animation: fade-up 0.45s 0.25s var(--easing-out) both; }
 header nav > a:nth-child(2) { animation: fade-up 0.45s 0.33s var(--easing-out) both; }
 header nav > a:nth-child(3) { animation: fade-up 0.45s 0.41s var(--easing-out) both; }
@@ -113,26 +188,29 @@ header nav > div            { animation: fade-up 0.45s 0.49s var(--easing-out) b
 header nav > a:last-child   { animation: fade-up 0.45s 0.57s var(--easing-out) both; }
 
 header nav a:hover {
-    color: var(--color-accent);
+    color: var(--verde-texto);
     transform: translateY(-2px);
 }
 
-/* ===================================================
-   FOOTER
-   =================================================== */
+
+/* ===== 3. PIE ===== */
+
+/* Desde el 19/10 ninguna pantalla del panel tiene pie (se sacó el "© 2024…"). Queda por si alguna lo vuelve a usar */
 footer {
     width: 100%;
     margin-top: auto;
-    padding: 2.5rem 1rem;
-    background: var(--color-primary-glass);
-    color: var(--color-white);
+    padding: 24px var(--espacio-pantalla);
+    border-top: 1px solid var(--borde-gris);
+    background: var(--fondo);
+    color: var(--texto-gris);
+    font-size: 14px;
     text-align: center;
-    letter-spacing: 0.03em;
 }
 
-/* ===================================================
-   SECCIONES
-   =================================================== */
+
+/* ===== 4. SECCIONES Y TARJETAS ===== */
+
+/* Una sección con su título centrado */
 .section {
     max-width: 1200px;
     margin: 0 auto;
@@ -142,46 +220,43 @@ footer {
 .section h2 {
     margin-bottom: 2.8rem;
     font-size: 2.2rem;
-    color: var(--color-primary);
+    font-weight: 900;
+    color: var(--titulo);
     text-align: center;
     position: relative;
 }
 
-/* Línea decorativa bajo el título */
+/* La rayita naranja debajo del título de la sección */
 .section h2::after {
     content: '';
     display: block;
     width: 56px;
     height: 4px;
     margin: 0.55rem auto 0;
-    background: linear-gradient(90deg, var(--color-secondary), #ffc107);
+    background: var(--naranja);
     border-radius: 4px;
 }
 
-/* ===================================================
-   TARJETAS
-   =================================================== */
-/* Cards — visibles por defecto */
+/* Tarjeta blanca con borde finito; al pasar el mouse sube un poquito */
 .card {
     overflow: hidden;
-    border-radius: var(--radius-md);
-    background: var(--color-white);
+    border: 1px solid var(--borde-gris);
+    border-radius: var(--radio-tarjeta);
+    background: var(--blanco);
     text-align: center;
-    box-shadow: var(--shadow-md);
     transition:
-        transform   0.4s var(--easing-spring),
-        box-shadow  0.35s ease,
+        transform   0.3s var(--easing-out),
+        box-shadow  0.3s ease,
         opacity     0.55s var(--easing-out);
-    will-change: transform;
 }
 
 .card:hover {
-    transform: translateY(-10px);
+    transform: translateY(-4px);
     box-shadow: var(--shadow-card-hover);
     transition-delay: 0s;
 }
 
-/* Zoom interno de imagen */
+/* La foto de la tarjeta, con un zoom suave al pasar el mouse */
 .card img {
     width: 100%;
     height: 200px;
@@ -191,47 +266,173 @@ footer {
 }
 
 .card:hover img {
-    transform: scale(1.08);
+    transform: scale(1.05);
 }
 
 .card h3 {
     margin: 1rem 0 0.25rem;
     font-size: 1.2rem;
+    font-weight: 800;
     color: var(--color-text);
 }
 
-/* ===================================================
-   BOTONES — Micro-interacciones
-   =================================================== */
+
+/* ===== 5. BOTONES ===== */
+
+/* .btn: el botón general (verde, en forma de pastilla) */
 .btn {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--alto-boton);
     margin: 1rem 0;
-    padding: 0.8rem 2rem;
-    border-radius: var(--radius-pill);
-    background: linear-gradient(135deg, #ff9800, #f57c00);
-    color: var(--color-white);
-    font-weight: 600;
+    padding: 0 18px;
+    border: 0;
+    border-radius: var(--radio-pastilla);
+    background: var(--verde-principal);
+    color: var(--blanco);
+    font-size: 15px;
+    font-weight: 700;
     text-decoration: none;
     cursor: pointer;
-    transition:
-        transform  0.28s var(--easing-spring),
-        box-shadow 0.28s ease;
-    will-change: transform;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .btn:hover {
-    transform: scale(1.07) translateY(-2px);
+    background: var(--verde-hondo);
     box-shadow: var(--shadow-btn-hover);
 }
 
-.btn:active {
-    transform: scale(0.96);
-    box-shadow: none;
+/* Los tres botones del estilo nuevo (los usa Consultar Pedidos; las otras pantallas, cuando se rediseñen).
+   Forma común: pastilla de 44 px de alto, letra 700 de 15 px y un solo renglón */
+.boton-principal,
+.boton-secundario,
+.boton-peligro {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: var(--alto-boton);
+    padding: 0 18px;
+    border: 0;
+    border-radius: var(--radio-pastilla);
+    font-size: 15px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
 }
 
-/* ===================================================
-   MODALES — Transición spring
-   =================================================== */
+/* Principal: verde con letra blanca (Aplicar, Guardar, "Sí, ya pagó") */
+.boton-principal {
+    background: var(--verde-principal);
+    color: var(--blanco);
+}
+
+.boton-principal:hover {
+    background: var(--verde-hondo);
+}
+
+/* Secundario: blanco con borde gris (Ver todos, Cancelar). El borde va "por adentro" (inset): no cambia el tamaño */
+.boton-secundario {
+    background: var(--blanco);
+    color: var(--texto);
+    box-shadow: inset 0 0 0 2px var(--borde-gris);
+}
+
+.boton-secundario:hover {
+    box-shadow: inset 0 0 0 2px var(--verde-principal);
+}
+
+/* Peligro: rojo con letra blanca ("Confirmar anulación") */
+.boton-peligro {
+    background: var(--rojo);
+    color: var(--blanco);
+}
+
+.boton-peligro:hover {
+    background: var(--rojo-texto);
+}
+
+/* Apagado (mientras se guarda): más clarito y sin la manito */
+.boton-principal:disabled,
+.boton-secundario:disabled,
+.boton-peligro:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+}
+
+/* Con el teclado (Tab): un anillo verde alrededor, para ver dónde se está */
+.boton-principal:focus-visible,
+.boton-secundario:focus-visible,
+.boton-peligro:focus-visible {
+    outline: 3px solid var(--verde-principal);
+    outline-offset: 2px;
+}
+
+
+/* ===== 6. CASILLEROS Y ETIQUETAS ===== */
+
+/* Casillero donde se escribe o se elige (texto, número, fecha, select) */
+.campo {
+    width: 100%;
+    min-height: var(--alto-boton);
+    padding: 0 14px;
+    border: 2px solid var(--borde-gris);
+    border-radius: var(--radio-casillero);
+    background: var(--blanco);
+    color: var(--texto);
+    font-size: 15px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Al escribir: el borde se pone verde, con un brillo suave alrededor */
+.campo:focus {
+    outline: none;
+    border-color: var(--verde-principal);
+    box-shadow: 0 0 0 3px var(--verde-suave);
+}
+
+/* El texto gris de ayuda adentro del casillero */
+.campo::placeholder {
+    color: var(--texto-apagado);
+}
+
+/* El casillero de los filtros (.filtro-input, el nombre de antes): el mismo aspecto que .campo.
+   Lo usan Consultar Pedidos y Asignar Cocineros; las otras pantallas lo pintan con su CSS propio */
+.filtro-input {
+    width: 280px;
+    padding: 10px 14px;
+    border: 2px solid var(--borde-gris);
+    border-radius: var(--radio-casillero);
+    background: var(--blanco);
+    color: var(--texto);
+    font-size: 15px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filtro-input:focus {
+    outline: none;
+    border-color: var(--verde-principal);
+    box-shadow: 0 0 0 3px var(--verde-suave);
+}
+
+/* Etiqueta arriba de un casillero (ej: "Fecha de entrega"): el texto arriba y el casillero abajo */
+.etiqueta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--texto-gris);
+}
+
+
+/* ===== 7. VENTANAS ===== */
+
+/* --- 7a. Las ventanas de las otras pantallas (.modal): mismo aspecto que las nuevas --- */
+
+/* Lo oscuro que tapa la pantalla (la ventana se abre desde el JS de cada pantalla) */
 .modal {
     display: none;
     position: fixed;
@@ -239,77 +440,332 @@ footer {
     inset: 0;
     overflow: auto;
     background: var(--color-overlay);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
     animation: modal-overlay-in 0.3s ease both;
 }
 
-@keyframes modal-overlay-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
-
+/* La caja blanca de la ventana */
 .modal-content {
     width: 80%;
     max-width: 600px;
     margin: 10% auto;
-    padding: 2.5rem;
-    border-radius: var(--radius-md);
-    background: var(--color-white);
+    padding: 24px;
+    border-radius: var(--radio-ventana);
+    background: var(--blanco);
     text-align: center;
-    box-shadow: var(--shadow-lg);
-    animation: modal-spring-in 0.48s var(--easing-spring) both;
-}
-
-@keyframes modal-spring-in {
-    from { opacity: 0; transform: translateY(-55px) scale(0.88); }
-    to   { opacity: 1; transform: translateY(0)    scale(1);    }
+    box-shadow: var(--sombra-ventana);
+    animation: modal-spring-in 0.4s var(--easing-out) both;
 }
 
 .modal-content h3 {
     margin-bottom: 0.75rem;
-    font-size: 1.8rem;
-    color: var(--color-primary);
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -.015em;
+    color: var(--texto);
 }
 
 .modal-content p,
 .modal-content a {
     margin-bottom: 1rem;
-    font-size: 1.1rem;
+    font-size: 15px;
     color: var(--color-text);
     text-decoration: none;
 }
 
 .modal-content a:hover {
-    color: var(--color-primary);
+    color: var(--verde-texto);
 }
 
-/* Botón × de cierre */
+/* La × de cerrar: un círculo verde suave de 40 px, arriba a la derecha */
 .close {
     float: right;
-    font-size: 28px;
-    font-weight: bold;
-    color: var(--color-muted);
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radio-pastilla);
+    background: var(--verde-suave);
+    color: var(--texto);
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 40px;
+    text-align: center;
     cursor: pointer;
-    transition: color 0.2s ease, transform 0.3s var(--easing-spring);
-    line-height: 1;
+    transition: color 0.2s ease;
 }
 
 .close:hover,
 .close:focus {
-    color: var(--color-text);
-    transform: rotate(90deg) scale(1.15);
+    color: var(--verde-principal);
 }
 
-/* ===================================================
-   UTILIDADES
-   =================================================== */
+/* --- 7b. Las piezas de las ventanas nuevas (las usa Consultar Pedidos) --- */
+
+/* La caja: blanca, bien redondeada y con sombra. Si es más alta que la pantalla, se mueve adentro (scroll) */
+.ventana {
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    overflow-y: auto;
+    border-radius: var(--radio-ventana);
+    background: var(--blanco);
+    box-shadow: var(--sombra-ventana);
+}
+
+/* Arriba: el título a la izquierda y la X a la derecha */
+.ventana-cabecera {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 20px 20px 14px;
+}
+
+/* El renglón chiquito verde arriba del título (ej: "Pedido #020") */
+.ventana-numero {
+    margin: 0 0 2px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--verde-principal);
+}
+
+/* El título de la ventana */
+.ventana-titulo {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -.015em;
+    color: var(--texto);
+}
+
+/* Lo de adentro: una columna con aire entre las partes */
+.ventana-cuerpo {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 0 20px 16px;
+}
+
+/* Abajo: los botones a la derecha, con una línea finita arriba */
+.ventana-pie {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 20px 18px;
+    border-top: 1px solid var(--linea-suave);
+}
+
+/* La X redonda de cerrar (40 px, verde suave) */
+.boton-cerrar {
+    display: grid;
+    place-items: center;   /* la X en el medio */
+    flex: none;            /* no se achica */
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: var(--radio-pastilla);
+    background: var(--verde-suave);
+    color: var(--texto);
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.boton-cerrar:hover {
+    color: var(--verde-principal);
+}
+
+.boton-cerrar:focus-visible {
+    outline: 3px solid var(--verde-principal);
+    outline-offset: 2px;
+}
+
+
+/* ===== 8. TABLAS ===== */
+
+/* La tarjeta blanca que tiene la tabla. Si la tabla no entra, se mueve de costado solo adentro de la tarjeta */
+.table-wrapper {
+    border: 1px solid var(--borde-gris);
+    border-radius: var(--radio-tarjeta);
+    background: var(--blanco);
+    padding: 16px;
+    overflow-x: auto;
+}
+
+/* La tabla común (la usan Asignar Cocineros y, con su propio CSS encima, otras pantallas) */
+.standard-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;   /* los anchos de las columnas salen de los títulos (Asignar Cocineros los reparte en su <style>) */
+}
+
+/* Dónde va el texto: a la izquierda y al medio del alto. Son reglas "suaves": la pantalla que centra
+   sus columnas con su CSS propio (por ejemplo, Gestión de Stock) les gana y queda como estaba */
+.standard-table thead th {
+    text-align: left;
+}
+
+.standard-table tbody td {
+    vertical-align: middle;
+    text-align: left;
+    word-wrap: break-word;
+}
+
+/* La grilla del panel (.grilla-fg, la usan Generar Receta y Consultar Pedidos): el texto a la izquierda
+   y al medio del alto. Se escribe "table.grilla-fg" para ganarle a las reglas .standard-table de cada pantalla */
+table.grilla-fg thead th {
+    text-align: left;
+}
+
+table.grilla-fg tbody td {
+    vertical-align: middle;
+    text-align: left;
+    word-wrap: break-word;
+}
+
+/* --- Los títulos de las columnas de TODAS las tablas del panel (.standard-table y .grilla-fg) ---
+   Fondo blanco (sin franja), letra verde en negrita, sin mayúsculas ni letras separadas, y una línea
+   verde clarita de 2 px abajo. Se escribe "table." adelante para ganarle al CSS propio de cada pantalla
+   (que pintaba sus títulos con una franja verde y letra en mayúscula) */
+table.standard-table thead th,
+table.grilla-fg thead th {
+    padding: 12px var(--celda-espacio);
+    background-color: var(--fondo-titulos-tabla);
+    color: var(--color-titulos-tabla);
+    font-size: var(--letra-titulos-tabla);
+    font-weight: 800;
+    text-transform: none;
+    letter-spacing: normal;
+    border-bottom: 2px solid var(--linea-titulos-tabla);
+}
+
+/* --- Las celdas de TODAS las tablas del panel: letra de 15 px, 15 px de aire arriba y abajo,
+   12 px a los costados y una línea suave entre renglones (con "table." adelante, por lo mismo) --- */
+table.standard-table tbody td,
+table.grilla-fg tbody td {
+    padding: var(--celda-alto) var(--celda-espacio);
+    font-size: var(--letra-celdas-tabla);
+    border-bottom: 1px solid var(--linea-renglones-tabla);
+}
+
+/* El último renglón, sin línea abajo */
+table.standard-table tbody tr:last-child td,
+table.grilla-fg tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Al pasar el mouse, el renglón se pinta de verde clarito */
+table.standard-table tbody tr:hover,
+table.grilla-fg tbody tr:hover {
+    background-color: var(--fila-encima);
+}
+
+/* El renglón de "Cargando…" o "No hay…" de una tabla */
+.loading-text {
+    text-align: center;
+    font-style: italic;
+    color: var(--texto-gris);
+    padding: 2rem;
+}
+
+/* Botones de las filas (Detalles / Editar / Borrar, Detalles / Pago / Anular):
+   pastillas de 34 px; el color lo pone cada pantalla */
+.grilla-fg .btn-detalle,
+.grilla-fg .btn-editar,
+.grilla-fg .btn-borrar,
+.grilla-fg .btn-detalles,
+.grilla-fg .btn-pago,
+.grilla-fg .btn-eliminar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--alto-boton-chico);
+  padding: 0 12px;
+  color: #fff;
+  border: none;
+  border-radius: var(--radio-pastilla);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+
+/* ===== 9. PAGINACIÓN (paginacion.js): ‹ 1 … 4 5 6 … 12 › debajo de las tablas ===== */
+
+/* La fila de botones, a la derecha */
+.paginacion {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 1rem 0 0.25rem;
+}
+
+/* Sin botones (lista vacía) no ocupa lugar */
+.paginacion:empty {
+    display: none;
+}
+
+/* Cada botón: un circulito blanco con borde finito */
+.paginacion-btn {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid var(--borde-gris);
+    border-radius: var(--radio-pastilla);
+    background: var(--blanco);
+    color: var(--texto);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.paginacion-btn:hover {
+    border-color: var(--verde-principal);
+}
+
+/* La página en la que se está: verde con letra blanca */
+.paginacion-btn.activa {
+    background: var(--verde-principal);
+    border-color: var(--verde-principal);
+    color: var(--blanco);
+    cursor: default;
+}
+
+/* Las flechas ‹ y › */
+.paginacion-flecha {
+    font-size: 15px;
+}
+
+/* Una flecha que no lleva a ningún lado (en la primera o la última página): clarita */
+.paginacion-btn:disabled {
+    border-color: var(--borde-gris);
+    opacity: .4;
+    cursor: default;
+}
+
+/* Los "..." entre números */
+.paginacion-puntos {
+    min-width: 18px;
+    font-size: 13px;
+    color: var(--color-muted);
+    text-align: center;
+    user-select: none;
+}
+
+
+/* ===== 10. UTILIDADES Y MENÚ VIEJO ===== */
+
+/* La fila de adentro del título: lo de la izquierda y lo de la derecha, separados */
 .container-centrado {
     display: flex;
     justify-content: space-between;
     align-items: center;
     width: 100%;
-    padding: 0 20px;
 }
 
 .icon {
@@ -319,18 +775,12 @@ footer {
     vertical-align: middle;
 }
 
-/* ===================================================
-   MENÚ LATERAL (SIDEBAR)
-   =================================================== */
+/* El botón ☰ viejo del título de Inicio (ya estaba escondido): ahora tampoco ocupa lugar */
 .menu-btn {
-    margin-right: 1rem;
-    border: none;
-    background: none;
-    font-size: 1.5rem;
-    color: var(--color-white);
-    cursor: pointer;
+    display: none;
 }
 
+/* Menú lateral viejo (.sidebar): ninguna pantalla lo usa hoy (el menú lo arma adminSidebar.js) */
 .sidebar {
     position: fixed;
     z-index: 1000;
@@ -360,27 +810,60 @@ footer {
     padding-left: 35px;
 }
 
-/* ===================================================
-   KEYFRAME BASE
-   =================================================== */
+
+/* ===== 11. ANIMACIONES ===== */
+
+/* Aparece subiendo un poquito (el título y sus links) */
 @keyframes fade-up {
     from { opacity: 0; transform: translateY(20px); }
     to   { opacity: 1; transform: translateY(0);    }
 }
 
-/* ===================================================
-   RESPONSIVE
-   =================================================== */
+/* Lo oscuro de atrás de una ventana aparece de a poco */
+@keyframes modal-overlay-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* La caja de una ventana baja un poquito al abrirse */
+@keyframes modal-spring-in {
+    from { opacity: 0; transform: translateY(-24px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+/* Si la compu pide "menos movimiento" (Accesibilidad), nada se mueve */
+@media (prefers-reduced-motion: reduce) {
+    header h1,
+    header nav a,
+    .modal,
+    .modal-content {
+        animation: none;
+    }
+}
+
+
+/* ===== 12. CELULAR (hasta 768 px) ===== */
 @media (max-width: 768px) {
+    /* El título: menos aire a los costados y un poco más chico */
     header {
-        padding: 0.8rem 1rem;
+        padding: 20px 16px 0;
         flex-wrap: wrap;
     }
 
-    header nav:not(.sidebar-nav):not(:first-of-type) {
-        display: none !important;
+    header h1 {
+        font-size: 26px;
     }
 
+    .page-container {
+        padding: 16px 16px 40px;
+    }
+
+    /* Si un título tuviera más de un menú (nav), en el celu se ve solo el primero */
+    header nav:not(.sidebar-nav):not(:first-of-type) {
+        display: none !important;   /* !important: así estaba antes; le gana al display que ponga cada pantalla */
+    }
+
+    /* La fila del título: lo de la derecha baja abajo si no entra */
     header > div {
         width: 100%;
         justify-content: space-between;
@@ -399,10 +882,6 @@ footer {
         margin-left: 0;
     }
 
-    header h1 {
-        font-size: 1.4rem;
-    }
-
     .section {
         padding: 3rem 1rem;
     }
@@ -419,119 +898,4 @@ footer {
         width: 92%;
         margin: 20% auto;
     }
-}
-
-/* ===================================================
-   PAGINACIÓN — Controles numéricos debajo de las tablas (paginacion.js)
-   ‹ 1 ... 4 5 6 ... 12 ›
-   =================================================== */
-.paginacion {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 2px;
-    padding: 1rem 0 0.25rem;
-}
-
-.paginacion:empty {
-    display: none;
-}
-
-.paginacion-btn {
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    border: none;
-    border-radius: 6px;
-    background: #f0f0f0;
-    color: #555;
-    font-family: var(--font-main);
-    font-size: 11px;
-    font-weight: 500;
-    line-height: 24px;
-    text-align: center;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-}
-
-.paginacion-btn:hover:not(:disabled):not(.activa) {
-    background: #e2e2e2;
-    color: var(--color-text);
-}
-
-.paginacion-btn.activa {
-    background: var(--color-primary);
-    color: var(--color-white);
-    font-weight: 600;
-    cursor: default;
-}
-
-.paginacion-flecha {
-    font-size: 14px;
-    background: transparent;
-}
-
-.paginacion-flecha:disabled {
-    color: #cfcfcf;
-    cursor: not-allowed;
-}
-
-.paginacion-puntos {
-    width: 18px;
-    font-size: 11px;
-    color: var(--color-muted);
-    text-align: center;
-    user-select: none;
-}
-
-/* =========================================
-   GRILLA DEL PANEL (clase compartida .grilla-fg)
-   El estilo de la grilla de Generar Receta: la usan Generar Receta y Consultar Pedidos.
-   Se escribe "table.grilla-fg" para ganarle a las reglas .standard-table de cada pantalla.
-   ========================================= */
-table.grilla-fg thead th {
-  background-color: #e8f5e9;
-  color: #4CAF50;
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.78rem;
-  padding: 0.9rem 0.4rem;
-  text-align: center;
-  letter-spacing: 0.05em;
-  border-bottom: 2px solid #28a745;
-}
-
-table.grilla-fg thead th:first-child { border-top-left-radius: 8px; }
-table.grilla-fg thead th:last-child  { border-top-right-radius: 8px; }
-
-table.grilla-fg tbody td {
-  padding: 0.75rem 0.4rem;
-  border-bottom: 1px solid #DEE2E6;
-  font-size: 0.82rem;
-  vertical-align: middle;
-  text-align: center;
-  word-wrap: break-word;
-}
-
-table.grilla-fg tbody tr:last-child td { border-bottom: none; }
-table.grilla-fg tbody tr:hover         { background-color: #f1f8f3; }
-
-/* Botones de las filas (Detalles / Editar / Borrar, Detalles / Pago / Anular):
-   forma y letra comunes; el color lo pone cada pantalla */
-.grilla-fg .btn-detalle,
-.grilla-fg .btn-editar,
-.grilla-fg .btn-borrar,
-.grilla-fg .btn-detalles,
-.grilla-fg .btn-pago,
-.grilla-fg .btn-eliminar {
-  padding: 0.3rem 0.7rem;
-  color: #fff;
-  border: none;
-  border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
 }

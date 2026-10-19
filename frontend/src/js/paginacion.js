@@ -11,7 +11,10 @@
 //     contenedorPaginacion, // <div id="paginacion"> debajo de la tabla
 //     funcionRenderFila,    // (item) => <tr>
 //     filaVacia,            // HTML a mostrar si no hay datos (opcional)
-//     paginaInicial         // por defecto 1 (opcional)
+//     paginaInicial,        // por defecto 1 (opcional)
+//     contenedorResumen,    // (opcional) donde escribir "Mostrando 15 de 40 pedidos". Hoy lo usa solo
+//                           //   Consultar Pedidos: las pantallas que no lo pasan quedan exactamente igual
+//     nombreDatos           // (opcional) cómo se llaman los datos en ese texto. Ej: 'pedidos'
 //   });
 // ============================================================
 
@@ -22,7 +25,9 @@ function crearPaginacion({
   contenedorPaginacion,
   funcionRenderFila,
   filaVacia = '',
-  paginaInicial = 1
+  paginaInicial = 1,
+  contenedorResumen = null,
+  nombreDatos = 'registros'
 }) {
   const totalPaginas = Math.max(1, Math.ceil(datos.length / porPagina));
   let paginaActual   = Math.min(Math.max(1, paginaInicial), totalPaginas);
@@ -86,6 +91,7 @@ function crearPaginacion({
   function renderizar() {
     contenedorTabla.innerHTML      = '';
     contenedorPaginacion.innerHTML = '';
+    if (contenedorResumen) contenedorResumen.textContent = '';   // (solo si la pantalla pasó dónde va el resumen)
 
     // Sin datos: mensaje de la pantalla y sin controles
     if (datos.length === 0) {
@@ -94,9 +100,15 @@ function crearPaginacion({
     }
 
     const inicio = (paginaActual - 1) * porPagina;
-    datos.slice(inicio, inicio + porPagina).forEach(item => {
+    const filasDeEstaPagina = datos.slice(inicio, inicio + porPagina);  // slice = los de esta página
+    filasDeEstaPagina.forEach(item => {
       contenedorTabla.appendChild(funcionRenderFila(item));
     });
+
+    // "Mostrando X de Y …": cuántos hay en esta página y cuántos en total. Ej: página 3 de 40 → "Mostrando 10 de 40 pedidos"
+    if (contenedorResumen) {
+      contenedorResumen.textContent = 'Mostrando ' + filasDeEstaPagina.length + ' de ' + datos.length + ' ' + nombreDatos;
+    }
 
     crearControles();
   }

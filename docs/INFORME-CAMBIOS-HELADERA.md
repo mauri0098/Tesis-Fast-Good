@@ -3595,8 +3595,304 @@ encabezado blanco en compu y en el celu. La portada del celu queda como estaba. 
 Las capturas están en `diseno-portada/capturas/`, que no se sube a git.
 
 **Ajustes (19/10):**
-- La foto entra más lenta (`--portada-foto-duracion: 2.2s`, zoom de 3,2 s, pastillas a 1,8 y 1,95 s), arranca corrida a la izquierda y se destapa hacia la derecha.
+- La animación de la foto se probó más lenta y hacia la derecha, y **después se volvió a como estaba**: entra desde la
+  derecha (`translateX(120px)` y `clip-path: inset(0 0 0 40%)`), `--portada-foto-duracion: 1.4s`, zoom de 2,2 s y las
+  pastillas a los 1,1 s y 1,25 s.
 - Degradé blanco abajo de la foto (`--portada-fundido-abajo: 30px`).
 - El logo del encabezado es la imagen redonda (40 px en compu, 34 px en el celu) + "Fast & Good" escrito.
 - En celus de 400 px o menos, el encabezado lleva márgenes de 12 px; de 380 px o menos, "Iniciar sesión" va en dos renglones.
 - `auth.js`: solo el texto "Iniciar Sesión" → "Iniciar sesión".
+
+---
+
+## 16. Panel: menú nuevo, `global.css` con el estilo del index y Consultar Pedidos (19/10, `diseno-panel-v2/`)
+**Qué se pidió** (`diseno-panel-v2/PROMPT.md` y tus respuestas del 19/10):
+- un menú lateral nuevo para todas las pantallas del panel;
+- Consultar Pedidos igual a la referencia (filtros, botones de estado, tabla y las 4 ventanas);
+- `global.css` con el estilo del index, para las 13 pantallas que lo cargan (las 12 del panel y el login).
+
+Solo cambia cómo se ve. Todo funciona igual que antes, salvo lo que decidiste: el menú agrupado, los botones de estado,
+una sola fecha, y sin pie ni emojis. No se tocó `server.js`, `sql/`, `roles.js`, `guard.js`, `fechas.js` ni el index.
+
+### 16.1 Tus decisiones (19/10)
+| # | Tema | Decisión |
+|---|---|---|
+| 1 | Pantallas que no estaban en la referencia | "Inicio" arriba de todo, sin grupo. "Asignar Cocineros" en Cocina. "Movimientos (viejo)" fuera del menú (se sigue pudiendo abrir con su dirección) |
+| 2 | "Pedir a cocina" y "Compras" | Afuera del menú hasta que tengan su propia pantalla (hoy son ventanas de Producción y de Movimientos de Stock) |
+| 3 | Nombres | Los de hoy, sin el emoji, cada uno en el grupo que mejor le queda |
+| 4 | El renglón "Producción de hoy (…) — pedidos con entrega el …" | Primero, chiquito y gris debajo de los filtros. Después, en el ajuste de la tarde (16.12), **se sacó** |
+| 5 | "Mostrando X de Y pedidos" | Opción nueva en `paginacion.js`. Las otras pantallas no la usan y funcionan igual |
+| 6 | `global.css` | Sigue en las 13 pantallas, con el estilo del index (letra Figtree). Las variables en inglés no cambian de nombre, solo de valor, y al lado van las perillas nuevas en español. Sin el pie "©". El login cambia sin tocar su HTML ni su lógica. Los `<style>` de las otras pantallas no se tocan |
+| 7 | Ajuste de la tarde | Los títulos de todas las tablas en verde, sin franja ni mayúsculas. Las celdas a 15 px. En Consultar Pedidos, cada celda con su clase `col-…` (16.12) |
+
+### 16.2 Qué archivos cambiaron
+| Tipo | Archivo | Qué cambió |
+|---|---|---|
+| — | `.gitignore` | `diseno-panel-v2/` (la referencia y las capturas no se suben) |
+| HTML | `admin.html` y las 11 pantallas de `pages/` | **Sin el pie "©"** (eran 12 pies, no 11: también lo tenía `admin.html`). El `<link>` de la letra Figtree. En 8 de ellas Poppins sigue cargada, porque su CSS propio (o los gráficos de `reportes.js`, en Inicio) todavía la usa |
+| HTML | `login.html` | Solo el `<link>` de la letra: Poppins → Figtree |
+| HTML | `pages/ConsultarPedidos.html` | Ver 16.5. Mismos ids que antes |
+| CSS | `src/css/global.css` | Reescrito por secciones con el estilo nuevo (16.4) |
+| CSS | `src/css/menuPanel.css` | **Nuevo**: el menú (16.3) |
+| CSS | `src/css/ConsultarPedidos.css` | Reescrito: solo lo de esta pantalla (16.5) y una regla para Asignar Cocineros en el celu |
+| CSS | `src/css/adminSidebar.css` | Ya no se carga (lo cargaba `adminSidebar.js`). El archivo quedó, sin borrar |
+| JS | `src/js/adminSidebar.js` | El HTML del menú, los grupos y la barra del celu (16.6) |
+| JS | `src/js/ListarPedidos.js` | Lo que dibuja: estados, fila, Detalles, títulos de las ventanas, avisos (16.6) |
+| JS | `src/js/pagoPedido.js` | 3 renglones: "Pedido #N" en Pago y en Confirmar pago, y "Suma correcta" (16.6) |
+| JS | `src/js/paginacion.js` | La opción nueva "Mostrando X de Y" (16.6) |
+
+### 16.3 El menú (`adminSidebar.js` + `menuPanel.css`)
+| Qué | ANTES | AHORA |
+|---|---|---|
+| Arriba | "📊 Panel Admin" en blanco sobre verde | El logo redondo de 38 px, "Fast **& Good**" ("& Good" en verde) y la etiqueta "PANEL" |
+| Fondo | Degradé verde de 250 px | Blanco, de 265 px (el ancho de la referencia a 1440), con una línea finita a la derecha |
+| Links | Los 12 de `roles.js`, en su orden, con emoji | Agrupados (tabla `MENU_PANEL`), con íconos de línea. La pantalla actual, en pastilla verde con letra blanca; al pasar el mouse, verde suave |
+| Grupos | — | El título de un grupo sale antes de su primera pantalla: si el rol no ve ninguna, no sale |
+| Abajo | "Usuario: -" y el ID, y "🚪 Cerrar Sesión" | Un círculo verde con la inicial, el nombre y el rol (de `roles.js`), y un botón redondo de salir. En las 11 pantallas de `pages/` antes salía "-" en el nombre (16.6) |
+| Menos de 900 px | Debajo de 768 px: un ☰ verde flotante | Una barra blanca arriba con el ☰ y el logo. El ☰ abre el menú desde la izquierda, con lo oscuro detrás (tocarlo lo cierra) |
+| Permisos | `FG_ROLES.pantallasDelRol` | **Igual**: el menú solo dibuja lo que `roles.js` deja. `guard.js` sigue bloqueando las direcciones |
+
+**El menú de cada rol, grupo por grupo** (probado entrando a las 13 pantallas con cada uno):
+| Rol | Menú |
+|---|---|
+| 6 Administrador del sistema · 5 Dueño | Inicio · **PEDIDOS** Consultar Pedidos · **REPARTO** Envíos del Día · **COCINA** Tareas de Cocina, Producción, Asignar Cocineros · **STOCK** Movimientos de Stock, Gestión de Stock · **CATÁLOGO** Combos, Generar Receta · **ADMINISTRACIÓN** Gestión de Usuarios |
+| 1 Administrador | **PEDIDOS** Consultar Pedidos · **REPARTO** Envíos del Día · **COCINA** Tareas de Cocina, Producción · **STOCK** Movimientos de Stock, Gestión de Stock |
+| 2 Cocinero | **COCINA** Tareas de Cocina, Producción |
+| 3 Repartidor | **REPARTO** Envíos del Día |
+| 4 Consumidor final | No entra al panel (`guard.js` lo manda al index, como antes) |
+
+"Movimientos (viejo)" no está en el menú, pero los roles 6, 5 y 1 la siguen abriendo con su dirección. Cualquier otra
+pantalla que no le toca a un rol lo manda a su pantalla principal, igual que antes.
+
+### 16.4 `global.css`
+**Secciones:** 0 Perillas · 1 Base · 2 Título de cada pantalla · 3 Pie · 4 Secciones y tarjetas · 5 Botones · 6 Casilleros y
+etiquetas · 7 Ventanas · 8 Tablas · 9 Paginación · 10 Utilidades y menú viejo · 11 Animaciones · 12 Celular.
+
+**Las variables de antes, en inglés** (siguen con el mismo nombre; ahora toman el valor de las perillas nuevas):
+| Variable | ANTES | AHORA |
+|---|---|---|
+| `--color-primary` | `#28a745` | `var(--verde-principal)` = `#12893a` |
+| `--color-primary-dark` | `#388E3C` | `var(--verde-hondo)` = `#0f7330` |
+| `--color-primary-glass` | `rgba(40, 167, 69, 0.97)` | `rgb(18 137 58 / .97)` |
+| `--color-secondary` | `#ff9800` | `var(--naranja)` = `#ff9800` (igual) |
+| `--color-accent` | `#00ff22` | `var(--verde-marca)` = `#26b04f` |
+| `--color-bg` | `#f8f9fa` | `var(--fondo)` = `#ffffff` |
+| `--color-text` | `#2a2a2a` | `var(--texto)` = `#111a14` |
+| `--color-muted` | `#9e9e9e` | `var(--texto-apagado)` = `#5f6b63` |
+| `--color-overlay` | `rgba(0, 0, 0, 0.52)` | `var(--fondo-ventana)` = `rgb(14 20 26 / .5)` |
+| `--font-main` | `'Poppins', sans-serif` | `var(--fuente)` = Figtree (la del index) |
+| `--radius-sm` / `-md` / `-pill` | 6 / 14 / 30 px | 12 / 16 / 999 px |
+| sombras | grises | `--sombra-suave` (la del index) y `--sombra-ventana` |
+
+**Qué cambia en las otras pantallas** (sin tocar sus HTML ni sus CSS):
+- la letra Figtree;
+- el título grande y gris oscuro, sobre el blanco: ya no hay barra verde, y el logo del título no se ve porque está en el menú;
+- sin pie;
+- las ventanas `.modal` con la caja blanca redondeada y la X en un círculo verde suave;
+- la paginación en circulitos;
+- las tablas `.standard-table` y `.grilla-fg` con los títulos verdes y las celdas de 15 px (16.12);
+- el login con la letra y los verdes nuevos.
+
+**Lo que NO cambió, por el CSS propio o el `<style>` de cada pantalla** (se arregla al rediseñar cada una):
+- **Letra Poppins** en lo que su CSS escribe con Poppins: los botones y casilleros de Gestión de Stock, Combos, Generar
+  Receta, Gestión de Usuarios, Tareas de Cocina y Producción, el select de Asignar Cocineros y los gráficos de Inicio.
+- **Colores propios:** los botones de cada pantalla (Editar verde, Eliminar rojo, "+ Incorporar nuevo insumo" azul, etc.),
+  las tarjetas de números de Inicio, las tarjetas de Envíos y las de Tareas de Cocina.
+- **El botón naranja "Iniciar Sesión" del login:** `login.css` lo pinta con `--color-secondary`, que es el naranja de siempre.
+- **El ancho del contenido:** varias pantallas tienen su contenido centrado de 1300 px como máximo (su CSS), así que en
+  pantallas muy anchas el título no queda justo alineado con lo de abajo.
+- **"Movimientos (viejo)":** sus ventanas son de su `<style>`.
+
+### 16.5 Consultar Pedidos
+**HTML (`ConsultarPedidos.html`), mismos ids que antes:**
+- **Arriba:** solo el título "Administración de Pedidos" (sin el logo, que ahora está en el menú).
+- **Barra de filtros:**
+  - "Buscar", con la lupa adentro y el texto "Nombre o N° de pedido";
+  - **una sola** "Fecha de entrega" (`FechaDesde`). `FechaHasta` sigue en el HTML, escondida (`hidden`);
+  - "Aplicar" (verde) y "Ver todos" (blanco con borde): son los mismos botones, con las clases nuevas.
+- **La tarjeta de la tabla:**
+  - arriba, los 6 botones de estado (`#filtros-estado`): cada uno con su puntito de color y su cantidad;
+  - la tabla de siempre adentro de `.caja-tabla`, que es la que se mueve de costado si no entra;
+  - abajo, "Mostrando X de Y pedidos" (`#resumenPaginacion`) y los números de página.
+- **Las 11 columnas, las mismas:** cada `<th>` tiene su clase `col-…`.
+- **Ventanas:** las mismas 4, con las piezas nuevas de `global.css` (`ventana`, `ventana-cabecera`, `boton-cerrar`…).
+  - Arriba del título, un renglón chiquito: "Realizado el …" en Detalles, y "Pedido #N" en Pago, Confirmar pago y Anular.
+  - Los métodos de pago, sin emoji.
+  - Mixto: los dos montos uno al lado del otro.
+  - Confirmar pago y Anular: los botones uno debajo del otro.
+  - "Anular pedido", "PIN de autorización" y "Confirmar anulación" en minúscula.
+  - El aviso de Anular: "Esta acción no se puede deshacer. Si el pedido no se entregó, las viandas vuelven a la heladera."
+- **Fuera del HTML:**
+  - el `<style>` del final se pasó a `ConsultarPedidos.css`;
+  - también el `<style>` de arriba ("no mostrar la página hasta que cargue");
+  - se sacó el `style="display:none"` del texto Mixto de Confirmar pago (`abrirConfirmarPago` lo decide antes de abrir).
+
+**CSS (`ConsultarPedidos.css`):** secciones 0 Perillas · 1 Mostrar la página cuando terminó de cargar · 2 El contenido ·
+3 Barra de filtros · 4 Tarjeta y botones de estado · 5 Tabla · 6 Pie de la tabla · 7 Ventanas · 8 Avisos flotantes ·
+9 Pantallas medianas y celular. Este archivo también lo carga Asignar Cocineros: por eso lo general de las tablas pasó a
+`global.css`, y queda una sola regla para ella (su tabla mide 1000 px en el celu, como antes).
+
+### 16.6 Las funciones: antes y ahora (JS, línea por línea)
+**`adminSidebar.js`** (corre al leerse; arma el menú):
+| Líneas | ANTES | AHORA | Por qué |
+|---|---|---|---|
+| 1–12 | Sin encabezado | La lista de funciones (CLAUDE.md) | Regla de cada archivo JS |
+| 19–25 | Cargaba `adminSidebar.css` | Carga `menuPanel.css` | El estilo nuevo |
+| 33–46 | — | `MENU_PANEL`: ruta, grupo, ícono y nombre de cada pantalla, en orden | Los grupos y los nombres sin emoji, en una tabla |
+| 48–62 | — | `ICONOS_MENU`: los dibujos de los íconos | Íconos de línea |
+| 64–82 | `pantallasDelRol(rol).map(…)` con el texto con emoji | Un objeto `{ ruta: pantalla }` con las del rol y un `forEach` sobre `MENU_PANEL`: si el rol no la ve, la saltea; el título del grupo va antes de su primera pantalla | Mismos permisos; un grupo vacío no muestra su título; sin forEach adentro de otro |
+| 84–114 | El HTML con "📊 Panel Admin", el ID y "🚪 Cerrar Sesión" | El logo, los links y abajo la inicial, el nombre y el rol. Siguen `admin-sidebar`, `sidebarUserName` y `sidebarLogoutBtn` | La referencia |
+| 121–128 | Marcaba el link actual con `active` | Igual, y además `aria-current="page"` | Para los lectores de pantalla |
+| 132–147 | El ☰ suelto en la página | El mismo ☰ (con `aria-expanded`), adentro de una barra con el logo, arriba del contenido | La barra de menos de 900 px |
+| 149–154 | `toggleAdminSidebar` | Igual, y actualiza `aria-expanded` | Para los lectores de pantalla |
+| 163–171 | Cerrar sesión | **Igual** | — |
+| 175–180 | `cargarDatosUsuario` usaba `obtenerDatosUsuario` (de `auth.js`, que solo está en Inicio): en las otras 11 decía "-" | Lee el nombre que guardó `auth.js` en el navegador (`usuario_nombre`, el mismo dato) y escribe la inicial | Que el nombre salga en todas |
+
+- **`toggleAdminSidebar(abrir)`**
+  - **Qué hace:** abre o cierra el menú en las pantallas chicas.
+  - **ENTRADA:** `true` (abrir), `false` (cerrar) o nada (lo contrario de cómo está).
+  - **SALIDA:** pone o saca `abierta` en el menú y `visible` en lo oscuro, y deja `aria-expanded` en "true" o "false".
+  - **Ejemplo:** en el celu, tocar ☰ → el menú entra desde la izquierda; tocar lo oscuro → se va.
+  - **Se conecta con:** el ☰, lo oscuro y cada link del menú.
+- **`cargarDatosUsuario()`**
+  - **ENTRADA:** nada (lee `usuario_nombre` del navegador).
+  - **SALIDA:** el nombre y su inicial abajo del menú.
+  - **Ejemplo:** "Mauricio" → "M" en el círculo verde y "Mauricio" al lado.
+  - **Se conecta con:** lo que guarda `manejarLogin` (`auth.js`) al iniciar sesión.
+
+**`ListarPedidos.js`:**
+| Función (líneas) | ANTES | AHORA | Por qué |
+|---|---|---|---|
+| Variables (31, 40–53) | `hoyISO`; `COLORES_ESTADO` = `{ bg, color }` | `filtroEstado` (nueva); `COLORES_ESTADO` = el nombre de la clase de color (ej. `estado-registrado`); `TEXTO_PASTILLA_METODO` (nueva, "Tarjeta Débito" → "Tarjeta"). `hoyISO` se sacó (era solo para el renglón de "Producción de hoy") | Los colores van en el CSS; el filtro de estados |
+| `iniciarConsultarPedidos` (84–91, 118–119) | — | Un solo "escuchador" para los 6 botones de estado: cambia `filtroEstado` y dibuja desde la página 1. El error del servidor, con la clase `texto-error` en vez de un `style` | Los botones de estado; nada de `style=""` |
+| `renderizarPedidos` (132–175) | Escribía el renglón "Producción de hoy…" (34 líneas); pasaba `visibles` a la tabla | Sin el renglón. Después del filtro de fecha y buscador llama a `renderizarFiltrosEstado(visibles)`, deja solo los del estado elegido (`delEstado`) y pasa `contenedorResumen` y `nombreDatos`. El mensaje vacío tiene un caso más: "No hay pedidos con ese estado" | Las cantidades salen de la misma lista que se ve, así siempre cuadran |
+| `renderizarFiltrosEstado` (186–208) | — | **Nueva** (abajo) | — |
+| `crearFilaPedido` (213–336) | "Detalles" en la columna Viandas; método + "PAGADO/PENDIENTE"; estilos escritos en las celdas | Solo el HTML de la fila: la cantidad de viandas (y "⚠ N personalizados"), "Delivery · barrio" o "Retiro en local" debajo de la dirección, la pastilla de pago con su detalle, Detalles en Acciones, la clase `col-…` en cada celda, `fila-cancelada` en los anulados y el nombre del select para los lectores de pantalla | La referencia |
+| `aplicarFechas` (364) | — | `inputHasta.value = inputDesde.value;` | Una sola fecha, con el filtro de siempre |
+| `pintarEstado` (491–494) | Escribía el fondo y la letra en el select | Le pone la clase de su color | Los colores en el CSS, como perillas |
+| `abrirDetalles` (512–582) | "Detalle del Pedido #N"; una tabla con "Cantidad / Plato / Precio unitario" | "Pedido #N", la fecha con " · " antes de la hora, un recuadro por combo con su precio y sus platos, los sueltos en su recuadro y el Total abajo | La referencia |
+| `abrirAnular` (594) | Título "Anular Pedido #N" | "Pedido #N" arriba del título fijo "Anular pedido" | La referencia |
+| `confirmarAnulacion` (663) | "Confirmar Anulación" | "Confirmar anulación" | Igual al texto del botón |
+| `mostrarCartel` (720–724) | El aviso amarillo con los estilos escritos en el JS | Las clases `cartel-alerta`, `cartel-alerta-titulo` y `cartel-alerta-cerrar` (estilo en el CSS) | Nada de estilos sueltos |
+
+- **`renderizarFiltrosEstado(pedidos)`** (nueva)
+  - **Qué hace:** escribe en cada botón de estado cuántos pedidos hay y marca en verde el elegido.
+  - **ENTRADA:** los pedidos que pasaron el filtro de fecha y el buscador (todavía sin el filtro de estado).
+  - **SALIDA:** nada. Cambia los números, la clase `boton-estado-elegido` y `aria-pressed`.
+  - **Por qué así:** se cuentan con un `forEach` en un objeto (`{ todos: 3, 1: 2, 4: 1 }`), sin rutas nuevas. Los botones ya están en el HTML (`data-estado`).
+  - **Ejemplo:** con fecha 21/10 → "Todos 5 · Registrado 1 · Cancelado 4", y los demás en 0.
+  - **Se conecta con:** la llama `renderizarPedidos` cada vez que dibuja la tabla.
+
+**`pagoPedido.js`:** línea 68, `abrirPago`, escribe "Pedido #N" (antes, el título "Pago del Pedido #N"). Línea 128,
+`mostrarOpcionesPago`: "Suma correcta: $ 20.000" (antes "✓ La suma coincide con el total"). Línea 237, `abrirConfirmarPago`:
+"Pedido #N" arriba de "Confirmar pago" (nuevo).
+
+**`paginacion.js`:** líneas 13–17 (cómo se usa), 29–30 (las opciones `contenedorResumen = null` y `nombreDatos`), 94 (borra
+el resumen), 103–104 (las filas de la página en una variable: el mismo `slice` de antes) y 109–111 (escribe "Mostrando X de Y
+…"). **Sin `contenedorResumen` hace exactamente lo de antes:** probado en Gestión de Stock, Producción, Generar Receta y las dos
+de Movimientos (mismos botones, la página 2 anda y no aparece ningún "Mostrando").
+
+### 16.7 Perillas nuevas
+- **`global.css`, colores:**
+  - `--verde-principal`, `--verde-texto`, `--verde-hondo`, `--verde-marca` y `--verde-suave`;
+  - `--titulo`, `--texto`, `--texto-gris` y `--texto-apagado`;
+  - `--borde-gris`, `--linea-suave`, `--gris-boton` y `--fondo`;
+  - `--naranja`, `--rojo`, `--rojo-suave`, `--rojo-texto` y `--fondo-ventana`.
+- **`global.css`, tamaños, letra y sombras:**
+  - `--alto-boton`, `--alto-boton-chico` y `--espacio-pantalla`;
+  - `--radio-pastilla`, `--radio-casillero`, `--radio-tarjeta` y `--radio-ventana`;
+  - `--titulo-pantalla`, `--fuente`, `--sombra-suave` y `--sombra-ventana`.
+- **`global.css`, tablas (16.12):**
+  - `--fondo-titulos-tabla`, `--color-titulos-tabla`, `--letra-titulos-tabla` y `--linea-titulos-tabla`;
+  - `--letra-celdas-tabla`, `--celda-alto`, `--celda-espacio`, `--linea-renglones-tabla` y `--fila-encima`.
+- **`menuPanel.css`:** `--menu-ancho` (265 px), `--menu-alto-link`, `--menu-icono`, `--menu-logo`, `--menu-barra-alto` y `--menu-duracion`.
+- **`ConsultarPedidos.css`:**
+  - los colores de cada estado (`--estado-…-fondo`, `-letra` y `-punto`);
+  - las pastillas suaves: `--naranja-suave`, `--azul-suave`, `--verde-pastilla`, `--apagado-letra` y `--aviso-personalizado`;
+  - la letra de las columnas: `--letra-numero`, `--letra-destacada`, `--letra-contacto`, `--letra-dato-chico`, `--letra-pastillas` y `--alto-pastillas`;
+  - los anchos: `--tabla-ancho-minimo`, `--ancho-minimo-cliente`, `--ancho-minimo-direccion` y `--ancho-minimo-contacto`;
+  - `--fila-cancelada-opacidad`, `--alto-boton-estado` y `--radio-recuadro`.
+
+### 16.8 Cómo se comprobó
+Todo con Chrome sin ventana, contra la copia del servidor en el 3001. El navegador solo dejaba pasar los cambios al pedido
+de prueba: cualquier otro se cortaba, y no hubo ninguno.
+| Prueba | Resultado |
+|---|---|
+| Las 13 pantallas, a 1440 y 390 px, antes y después | Abren todas con el menú nuevo, sin pie, sin scroll de costado y sin errores en la consola. El contenido empieza donde termina el menú |
+| Los 6 roles | Cada uno ve su menú (16.3); lo que no le toca lo manda a su pantalla principal. El 4 (consumidor final) va al index desde cualquier pantalla del panel |
+| ☰ a 390 px | Abre y cierra (también tocando lo oscuro); la página no se mueve de costado |
+| Cerrar sesión | Desde una pantalla de `pages/` y desde Inicio: vuelve a `/` sin la sesión |
+| Consultar Pedidos, solo leyendo (21 pruebas) | Al abrir, la fecha del próximo día hábil. Fecha 21/10, buscar por nombre y por número, buscar algo que no existe, "Ver todos" y cada estado: las cantidades de los botones suman "Todos" y coinciden con la lista. Página 2, ›, ‹ y los avisos: todo bien |
+| Consultar Pedidos con el pedido de prueba **#039** "PRUEBA – NO PREPARAR" (Combo semanal x5, retiro, Transferencia, entrega 21/10) | Detalles, Pago (Mixto, "Suma correcta", Cancelar no manda nada), Confirmar pago ("No" vuelve a Registrado; "Sí, ya pagó" lo dejó en Listo para Entregar y cobrado), Guardar el pago, Anular (PIN corto: error; el del `.env`: "Volvieron 5 viandas a la heladera") y la fila apagada. La heladera quedó igual |
+| Las ventanas a 390 px | Entran y se ven bien |
+| Anchos 1280, 1024 y 1920 | 1920 entra entera; 1440, 1280 y 1024 se mueven de costado solo adentro de la tabla |
+| Test HELADERA | **40/40** dos veces (#040, #041 y después #042, #043). Los 5 pedidos de prueba quedaron anulados |
+
+**Capturas:** `diseno-panel-v2/capturas/` (no se sube a git):
+- las 13 pantallas a 1440 y 390 (`final-…`);
+- `comparaciones/` (antes | después, referencia | nuestra, y las 13 a 390);
+- `ventanas/`;
+- el menú abierto a 390 y el menú de cada rol.
+
+### 16.9 Seguridad (qué protege cada cosa)
+- **Lo que viene de la base** pasa por `escHtml` o va con `textContent`. Así un nombre, una dirección o un "sin sal" con
+  `<script>` se muestra como texto y no se ejecuta (XSS). Vale para: nombre, dirección, teléfono, mail, barrio, combos,
+  platos, método de pago y personalizados. El nombre del menú también va con `textContent`.
+- **Las cantidades de los estados** se cuentan en la pantalla con los pedidos que ya llegaron de `GET /api/pedidos`. Esa ruta
+  sigue con `requireAuth` + `requireRol`: no hay rutas nuevas, así que no se abrió ninguna puerta.
+- **El menú solo ordena las pantallas.** `guard.js` bloquea las direcciones, y la protección de verdad sigue en el servidor:
+  token + rol en cada ruta. Un usuario que se cambie el rol en el navegador ve otro menú, pero el servidor le contesta
+  según su token.
+- **Pago y anulación:** los controla el servidor como antes (el total de la base, y el PIN, que no está en el frontend).
+- **Las pruebas:** el PIN, el usuario y la clave salen del `.env` y no se mostraron. Se usó un solo pedido de prueba y no se
+  tocó ningún pedido real.
+
+### 16.10 Lo que no quedó igual a la referencia (y por qué)
+- **El menú:**
+  - los nombres son los de hoy ("Envíos del Día", "Gestión de Usuarios", "Generar Receta"…);
+  - están "Inicio" y "Asignar Cocineros";
+  - no están "Pedir a cocina", "Compras" ni "Productos" (decisiones 1 a 3);
+  - el rol dice "Administrador del sistema" (el nombre de `roles.js`) y baja en 2 renglones; la referencia dice "Admin del sistema".
+- **Los títulos de la tabla:** verdes, sin mayúsculas y más grandes, como pediste en el ajuste (16.12). La referencia los
+  tiene grises, en mayúscula y de 12 px.
+- **A 1440 la tabla no entra:**
+  - con los datos reales y la letra nueva, la tabla mide unos 1420 px y la tarjeta 1094;
+  - se mueve de costado adentro de su tarjeta, y "Acciones" queda a la derecha (hay que mover la tabla para verla);
+  - la de la referencia tampoco entraba: medía 1264 px en 1109, y cortaba "Acciones";
+  - a 1920 entra entera;
+  - para que entre a 1440 habría que achicar cosas (ver 16.11).
+- **La fecha de entrega con el año** ("20/10/2026"): la referencia muestra "16/10". Es el dato tal cual se mostraba.
+- **"Mostrando 1 de 1 pedidos":** con uno solo, la palabra queda en plural.
+- **El aviso de Anular:** dice "Si el pedido no se entregó, las viandas vuelven a la heladera". La referencia dice que vuelven
+  siempre, pero un pedido entregado no devuelve viandas.
+- **Mixto:** el "$" queda adentro del casillero, como antes; la referencia lo pone en el texto gris.
+
+### 16.11 Avisos
+- **El pedido #013 (no es de prueba nuestro) cambió de "Entregado" a "Listo para Entregar"** entre las 10:50 y las 11:33 del
+  19/10. Ese rato yo solo estaba escribiendo archivos, sin pedirle nada al servidor, y el servidor no tiene tareas
+  automáticas. Fijate si fueron vos o tu prima desde la app.
+- **Producción:**
+  - su tabla es angosta (comparte la pantalla con "Últimos movimientos");
+  - con la letra y el aire nuevos, "MANTENIMIENTO" baja en 3 renglones (antes, en 2);
+  - se arregla al rediseñar esa pantalla, o bajando `--celda-espacio`.
+- **`roles.js` sigue con los textos con emoji** (`menu`): el menú ya no los usa (usa `MENU_PANEL`). No se tocó.
+- **`adminSidebar.css` no se usa más:** queda sin borrar, para decidir.
+- **Para que la tabla entre a 1440:**
+  - la fecha como la referencia (20/10), los botones de Acciones en dos renglones, celdas con menos aire o volver a la
+    letra de 14 px;
+  - aun juntando las tres primeras, sigue sin entrar;
+  - la otra opción es dejar "Acciones" siempre a la vista, pegada a la derecha, pero tapa "Costo" y "Estado" hasta que se
+    mueve la tabla.
+
+### 16.12 Ajuste (19/10, tarde): sin el renglón "Producción de hoy", títulos de tabla verdes y letra más grande
+- **Se sacó el renglón "Producción de hoy…":** su `<h2 id="tituloListado">` del HTML, la parte "1. El título" de
+  `renderizarPedidos` (34 líneas), `hoyISO` y su regla `.titulo-listado`. El filtro de fecha queda igual.
+- **Las tablas del panel** (`.standard-table` y `.grilla-fg`), en `global.css`:
+  - títulos con fondo blanco, verde `#127f36`, 14,5 px y negrita 800, sin mayúsculas, con una línea de 2 px `#cfe5d5`;
+  - celdas de 15 px, con 15 px de aire arriba y abajo y 12 px a los costados, y la línea `#edf1ec` entre renglones;
+  - al pasar el mouse, `#f6faf6`.
+- **En Consultar Pedidos**, cada celda con su clase `col-…`:
+  - N° verde de 15,5 px;
+  - Entrega, Cliente, Viandas y Costo en negro y negrita; Cliente y Costo de 16 px;
+  - Teléfono y Mail de 13,5 px, en gris;
+  - Estado, la pastilla de pago y los botones de 13,5 px y 35 px de alto.

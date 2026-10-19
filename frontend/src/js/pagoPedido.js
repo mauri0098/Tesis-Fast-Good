@@ -64,8 +64,8 @@ function abrirPago(pedidoId) {
   }
   pedidoPagoId = pedidoId;                                         // el pedido de la ventana
 
-  // 1. El título y el total (el total es solo para mostrar: el servidor usa el de la base)
-  document.getElementById('pagoTitulo').textContent = 'Pago del Pedido #' + String(pedidoId).padStart(3, '0');
+  // 1. "Pedido #N" arriba del título, y el total (el total es solo para mostrar: el servidor usa el de la base)
+  document.getElementById('pagoNumero').textContent = 'Pedido #' + String(pedidoId).padStart(3, '0');
   document.getElementById('pagoTotal').textContent = formatearPrecio(pedido.total);
 
   // 2. El método guardado, con las tablas de arriba. Sin método, Efectivo.
@@ -124,8 +124,8 @@ function mostrarOpcionesPago() {
   }
   const cargado = Math.round(Number(efectivo || 0) * 100) + Math.round(Number(transferencia || 0) * 100);  // en centavos
   const diferencia = Math.round(Number(pedido.total) * 100) - cargado;  // lo que falta (negativo = sobra)
-  if (diferencia === 0) {                                          // justo: en verde
-    suma.textContent = '✓ La suma coincide con el total';
+  if (diferencia === 0) {                                          // justo: en verde, con el total
+    suma.textContent = 'Suma correcta: ' + formatearPrecio(pedido.total);
     suma.className = 'pago-suma ok';
     return;
   }
@@ -232,6 +232,9 @@ async function guardarPago() {
 // ─────────────────────────────────────────────────────────────────────────────
 function abrirConfirmarPago(pedido, select, nuevoId, anteriorId) {
   confirmacionPago = { pedido: pedido, select: select, nuevoId: nuevoId, anteriorId: anteriorId };  // hasta que responda
+
+  // "Pedido #N" arriba del título
+  document.getElementById('confirmarPagoNumero').textContent = 'Pedido #' + String(pedido.id).padStart(3, '0');
 
   // Cuál de los dos textos se ve ('' = se ve · 'none' = no se ve)
   const esMixto = pedido.metodo_pago === 'Mixto';

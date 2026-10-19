@@ -1,4 +1,4 @@
-# Heladera — avance del refactor (17/10/2026)
+# Heladera — avance del refactor (19/10/2026)
 
 Leer junto con `ESTADO-PROYECTO.md`, `CLAUDE.md` y `docs/informe_heladera.md`. Este archivo dice **dónde estamos parados** en la heladera.
 Se actualiza al terminar cada paso: estado, resultados y el próximo prompt.
@@ -257,6 +257,20 @@ Nota: cada caso de mentira gasta números de id que no vuelven (H2: renglón 17 
 - **Consultar Pedidos trae como mucho 1000 pedidos** (límite de Supabase por consulta): `GET /api/pedidos` los ordena del más nuevo al más viejo, así que cuando haya más, los más viejos no se ven (salvo filtrando por fechas). Hace falta paginación más adelante (que el servidor mande de a una página). Lo mismo, mucho más lejos, para las reservadas de Producción: se suman como mucho 1000 renglones de pedidos sin entregar.
 
 ## Próximo prompt para Claude Code (🔴 MODO POTENTE, Effort Max)
+**Pantalla 3 (19/10): menú nuevo del panel, `global.css` y Consultar Pedidos (`diseno-panel-v2/`), escritos y comprobados.**
+1. Hacé el "Recorrido a mano (panel, 19/10)" (más abajo), en celu y compu. No hace falta reiniciar el servidor.
+2. Decidí qué hacer con la tabla a 1440 (no entra: INFORME 16.11).
+3. Después mandá:
+```
+Miré el panel nuevo (menú, global.css y Consultar Pedidos, diseno-panel-v2) en celu y compu:
+[qué se vio bien y qué no, pantalla por pantalla].
+La tabla a 1440: [la dejo con el scroll de costado / quiero (decí cuál de las opciones de INFORME 16.11)].
+Si algo falló, decime la causa y el plan, sin tocar nada sin mi OK. Si está todo bien, cerrá la Pantalla 3 en
+docs/HELADERA-AVANCE.md y en el INFORME, decime qué commiteo (archivos) y pasá al plan de la pantalla que sigue.
+No hagas commit.
+```
+
+(Anterior, de la Pantalla 1.)
 **Pantalla 1 (17/10): paso 1, paso 2, diseño final, limpieza e index final (`diseno-index-final2/`), escritos y
 comprobados.**
 1. Reiniciá el servidor del puerto 3000 (por el `server.js` nuevo).
@@ -301,7 +315,7 @@ el usuario). Recién ahí se pasa a la siguiente.
 |---|---|---|---|
 | 1 | Index (web nueva) | Paso 1: cambiar solo cómo se ve `index-combos.html` con el diseño de `docs/diseno-index/`. Paso 2: reemplazar el index viejo. Diseño final: `docs/diseno-final-index/` | ✍ **Paso 1, paso 2 y diseño final hechos (16/10)**: la web nueva es `index.html` (`/`), igual al diseño final v5, con animaciones y login en ventana (INFORME 13.9 a 13.11). Login y cerrar sesión llevan a donde corresponde. Pedido de prueba #27 desde la web (anulado, la heladera quedó igual) y test 40/40. **Limpieza hecha (17/10)**: se borró el index viejo y todo lo que no se usaba, y el index quedó con 1 HTML + 1 CSS (`index.css`); se ve igual (INFORME 14). **Index final hecho (17/10, `diseno-index-final2/`)**: CSS ordenado; compu con las tarjetas de categoría primero y la tarjeta nueva; celu con el flujo de la referencia (INFORME 15). Pedidos de prueba #34, #35 y #38 y test 40/40, todos anulados. Falta: tu recorrido a mano (el nuevo, más abajo) y reiniciar el servidor |
 | 2 | Login | `auth.js` muestra el nombre del usuario sin `escHtml` (en el botón de sesión del encabezado) y trae estilos fijos de letra blanca (para el encabezado verde viejo), que en la web nueva se pisan desde `index-combos.css`. Sus nombres están en inglés (`auth-btn-container`, `login-btn-header`, `auth-dropdown`): pasarlos a español en todos los archivos que los usan | ⏭ |
-| 3 | Consultar Pedidos | | ⏭ |
+| 3 | Consultar Pedidos | (con el menú nuevo del panel y `global.css` al estilo del index, para las 13 pantallas que lo cargan) | ✍ **Hecho (19/10, `diseno-panel-v2/`)**: menú lateral nuevo en las 12 pantallas del panel, `global.css` con el estilo del index (también el login), Consultar Pedidos como la referencia (filtros con una sola fecha, botones de estado, tabla y las 4 ventanas) y, a la tarde, títulos de tabla verdes y letra más grande en todas las tablas (INFORME 16). Pedido de prueba #039 y test 40/40 dos veces (#040 a #043), todos anulados. Falta: tu recorrido a mano (el del panel, más abajo) |
 | 4 | Tareas de Cocina | (el punto 8 ya está escrito: el plato primero y el plan entre paréntesis) | ⏭ |
 | 5 | Pedir a cocina + Producción | Cancelar un pedido a cocina pendiente (y limpiar los 9 de prueba del 08/10) | ⏭ |
 | 6 | Movimientos de Stock + Compras | Puntos 1 a 6 de "Ajustes después de probar a mano" (salidas, orden, repetidos, hora real, columnas, filtro de fecha) | ⏭ |
@@ -447,7 +461,7 @@ Detalle completo (funciones antes/ahora, lista de nombres "antes → ahora", pru
   - `diseno-portada/` está en el `.gitignore`;
   - el celu, igual (solo cambian el encabezado y los textos);
   - perillas nuevas: `--portada-alto`, `--portada-foto-desde`, `--portada-fundido` y `--titulo-portada-compu`.
-  - **Ajustes (19/10):** foto más lenta y hacia la derecha, degradé abajo, logo imagen + texto e "Iniciar sesión" con minúscula (INFORME 15.15).
+  - **Ajustes (19/10):** la animación de la foto se probó más lenta y hacia la derecha y después volvió a como estaba (desde la derecha, 1,4 s); degradé abajo, logo imagen + texto e "Iniciar sesión" con minúscula (INFORME 15.15).
 
 **Recorrido a mano (index final, 17/10).**
 1. **Primero, reiniciá tu servidor** (el del puerto 3000), para que tome el `server.js` nuevo.
@@ -491,6 +505,66 @@ En la compu (pantalla completa):
 | 9 | "Finalizar pedido" | La ventana grande de siempre (campos a la izquierda, resumen fijo a la derecha, la fecha con su campo) |
 | 10 | Confirmación (solo si hacés un pedido de prueba también desde la compu, y lo anulás después) | La ✓ con rebote; fecha, entrega y pago en 3 columnas |
 | 11 | "Más elegido" (opcional) | En Supabase, poné `destacado` = true en un combo y recargá: ese combo sale con la pastilla naranja "Más elegido", el borde naranja y "¡Lo quiero!" naranja. Después volvelo a false |
+
+### Pantalla 3 (19/10): menú nuevo del panel, `global.css` y Consultar Pedidos — qué se hizo y cómo mirarlo
+Detalle completo (decisiones, archivos, funciones antes/ahora línea por línea, perillas, pruebas, seguridad y lo que no
+quedó igual) en la sección 16 de `INFORME-CAMBIOS-HELADERA.md`.
+- **Menú lateral nuevo** (`adminSidebar.js` + `menuPanel.css`, nuevo) en las 12 pantallas:
+  - logo, "Fast & Good" y la etiqueta PANEL;
+  - grupos con íconos: Inicio · Pedidos · Reparto · Cocina · Stock · Catálogo · Administración;
+  - abajo, la inicial, el nombre y el rol;
+  - en menos de 900 px, una barra arriba con ☰;
+  - los permisos, los mismos de `roles.js`. "Movimientos (viejo)" salió del menú, pero se puede abrir.
+- **`global.css` con el estilo del index** (13 pantallas, también el login):
+  - letra Figtree;
+  - perillas en español (las de inglés cambian solo de valor);
+  - el título grande sin barra verde, botones pastilla, ventanas blancas y paginación en circulitos;
+  - sin el pie "©" (estaba en 12 pantallas, no en 11).
+  - Los `<style>` y CSS propios de las otras pantallas no se tocaron: sus detalles se arreglan al rediseñar cada una.
+- **Consultar Pedidos como la referencia:**
+  - Buscar con lupa y **una sola fecha de entrega** (el filtro de siempre, con Desde = Hasta);
+  - botones de estado con su cantidad, contados en la pantalla, sin rutas nuevas;
+  - la tabla con las 11 columnas, las pastillas de estado y pago, y "⚠ N personalizados";
+  - los cancelados apagados y con el costo tachado;
+  - "Mostrando X de Y pedidos";
+  - las 4 ventanas con el estilo nuevo. Sin el `<style>` ni los `style=""`.
+- **Ajuste (19/10, tarde):**
+  - se sacó el renglón "Producción de hoy…";
+  - los títulos de **todas** las tablas del panel, en verde `#127f36`, 14,5 px, sin franja ni mayúsculas, con una línea de 2 px `#cfe5d5`;
+  - las celdas de 15 px, con 15 y 12 px de aire;
+  - en Consultar Pedidos, cada celda con su clase `col-…`: N° verde; Cliente y Costo de 16 px; Teléfono y Mail chicos y grises (INFORME 16.12).
+- **Comprobado:**
+  - las 13 pantallas a 1440 y 390 px y los 6 roles: sin errores, sin pie y sin scroll de costado;
+  - 21 pruebas solo leyendo en Consultar Pedidos;
+  - el pedido de prueba #039 de punta a punta (anulado, la heladera quedó igual);
+  - test 40/40 dos veces (#040 a #043, anulados).
+  - **Capturas:** `diseno-panel-v2/capturas/`.
+- **Para decidir:**
+  - a 1440 la tabla **no entra** con los datos reales y la letra nueva (mide unos 1420 px y la tarjeta 1094): se mueve de
+    costado adentro de su tarjeta y "Acciones" queda a la derecha. Las opciones están en INFORME 16.11;
+  - `adminSidebar.css` quedó sin uso (sin borrar);
+  - el pedido #013 cambió de "Entregado" a "Listo para Entregar" el 19/10 entre las 10:50 y las 11:33, sin que lo tocaran
+    las pruebas: fijate si fueron vos o tu prima.
+
+**Recorrido a mano (panel, 19/10).** No hace falta reiniciar el servidor: solo cambiaron archivos del frontend. Ctrl+F5 en
+cada pantalla, con tu usuario. Para el celu: F12 → ícono del celular (Ctrl+Shift+M) → ancho 390. Cambiar un estado, cobrar o
+anular: **solo con un pedido "PRUEBA – NO PREPARAR"**.
+| # | Qué hacés | Qué tiene que pasar |
+|---|---|---|
+| 1 | Abrís cualquier pantalla del panel (compu) | El menú blanco a la izquierda: logo, "PANEL", los grupos y la pantalla actual en pastilla verde; abajo tu inicial, tu nombre y tu rol. Sin el pie "©" |
+| 2 | Tocás cada link del menú | Abre cada pantalla y su link queda en verde. Todo anda como antes |
+| 3 | Consultar Pedidos, al abrir | Sin el renglón "Producción de hoy"; la fecha de entrega con el próximo día hábil; los botones de estado con sus cantidades; los títulos de la tabla en verde |
+| 4 | Escribís un nombre o un número en Buscar | La lista y las cantidades de los estados cambian juntas |
+| 5 | Elegís una fecha y "Aplicar"; después "Ver todos" | Solo los pedidos con entrega ese día; con "Ver todos", todos (y la fecha queda vacía) |
+| 6 | Tocás cada botón de estado | Queda verde; la lista muestra solo ese estado y "Mostrando X de Y" coincide con su número |
+| 7 | Con "Ver todos", las páginas | ‹ 1 2 3 ›: cambia de página y dice "Mostrando 15 de N pedidos" |
+| 8 | "Detalles" de un pedido | "Realizado el … · hora", "Pedido #N", un recuadro por combo con su precio y el Total. La X, Escape o tocar afuera la cierran |
+| 9 | "Pago" de un pedido de prueba sin anular: Mixto con dos montos que sumen el total, y Cancelar | "Suma correcta: $ …" en verde. Cancelar no guarda nada |
+| 10 | Un pedido anulado | La fila apagada, el costo tachado, el estado y "Pago" apagados, y "Anulado" en gris |
+| 11 | Celu (390 px) | Arriba la barra con ☰ y el logo. El ☰ abre el menú y tocar lo oscuro lo cierra. La tabla se mueve de costado adentro de su tarjeta, y la página no |
+| 12 | Otras pantallas con tablas (Gestión de Stock, Gestión de Usuarios, Combos…) | Andan como antes, con los títulos de la tabla en verde sin mayúsculas y la letra más grande |
+| 13 | Login (`/login.html`) | La letra y los verdes nuevos; el botón "Iniciar Sesión" sigue naranja |
+| 14 | El botón redondo de cerrar sesión, abajo del menú | Vuelve a la web sin la sesión |
 
 ## Ajustes después de probar a mano (16/10) — de a uno, con freno
 (Desde el 16/10 se hacen cuando se llega a su pantalla: ver la tabla de arriba.)

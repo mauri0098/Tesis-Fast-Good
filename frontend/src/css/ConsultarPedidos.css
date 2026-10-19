@@ -1,336 +1,924 @@
-/* =========================================
-   VARIABLES & RESET
-   ========================================= */
+/* ============================================================
+   ConsultarPedidos.css — La pantalla "Consultar Pedidos" (pages/ConsultarPedidos.html)
+
+   Solo lo propio de esta pantalla. Lo común (letra, colores, botones, casilleros, ventanas,
+   tablas y paginación) está en global.css, y el menú de la izquierda en menuPanel.css.
+
+   OJO: este archivo también lo carga Asignar Cocineros (AsignarCocinero.html). Por eso acá no
+   hay reglas para las clases que usa ella (.standard-table, .table-wrapper, .filtro-input,
+   .loading-text): esas están en global.css.
+
+   Secciones:
+     0. Perillas de esta pantalla
+     1. Mostrar la página cuando terminó de cargar
+     2. El contenido de la pantalla
+     3. Barra de filtros
+     4. Tarjeta de la tabla y botones de estado
+     5. Tabla de pedidos
+     6. Pie de la tabla: "Mostrando X de Y pedidos" y las páginas
+     7. Ventanas
+     8. Avisos flotantes (verde y amarillo)
+     9. Pantallas medianas y celular
+   ============================================================ */
+
+
+/* ===== 0. PERILLAS DE ESTA PANTALLA ===== */
 :root {
-  --primary-green: #28a745;
-  --bg-color: #f4f6f9;
-  --white: #ffffff;
-  --text-dark: #343a40;
-  --text-muted: #6c757d;
-  --border-light: #DEE2E6;
-  --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --radius: 8px;
+    /* Colores de cada estado: el fondo y la letra de su pastilla, y el puntito de su botón de arriba */
+    --estado-registrado-fondo: #e4ecf7;    /* Registrado: azul */
+    --estado-registrado-letra: #1f3f6b;
+    --estado-registrado-punto: #3b6fb6;
+    --estado-preparacion-fondo: #fff1d6;   /* En preparación: naranja */
+    --estado-preparacion-letra: #7a4b00;
+    --estado-preparacion-punto: #e8a21a;
+    --estado-listo-fondo: #dff2e2;         /* Listo para entregar: verde claro */
+    --estado-listo-letra: #127f36;
+    --estado-listo-punto: #4cc06a;
+    --estado-entregado-fondo: #12893a;     /* Entregado: verde fuerte */
+    --estado-entregado-letra: #ffffff;
+    --estado-entregado-punto: #12893a;
+    --estado-cancelado-fondo: #f3e3e1;     /* Cancelado: rojo claro */
+    --estado-cancelado-letra: #8a2219;
+    --estado-cancelado-punto: #d9534f;
+
+    /* Pastillas suaves de la tabla */
+    --naranja-suave: #fff1d6;              /* "Detalles" y el pago por cobrar: fondo naranja suave… */
+    --naranja-letra: #7a4b00;              /* …con letra marrón */
+    --azul-suave: #e4ecf7;                 /* "Pago": fondo azul suave… */
+    --azul-letra: #1f3f6b;                 /* …con letra azul oscuro */
+    --verde-pastilla: #dff2e2;             /* el pago cobrado: fondo verde clarito (letra: --verde-texto) */
+    --apagado-letra: #8a958d;              /* letra de los botones apagados (sobre --gris-boton) */
+    --aviso-personalizado: #8a5200;        /* "⚠ 2 personalizados" y "⚠ sin sal": naranja oscuro */
+
+    /* Letra de las columnas de la tabla (la común de las celdas, 15 px, es --letra-celdas-tabla de global.css) */
+    --letra-numero: 15.5px;                /* N° de pedido (verde, en negrita) */
+    --letra-destacada: 16px;               /* Cliente y Costo: un poco más grandes que el resto */
+    --letra-contacto: 13.5px;              /* Teléfono y Mail: más chicos (y grises) */
+    --letra-dato-chico: 13px;              /* el renglón chiquito de abajo ("Delivery · Centro", "Sin confirmar"…) */
+    --letra-pastillas: 13.5px;             /* Estado, la pastilla de pago y los botones Detalles / Pago / Anular */
+    --alto-pastillas: 35px;                /* el alto de esos mismos: si lo subís, quedan más altos */
+
+    /* Tamaños */
+    --tabla-ancho-minimo: 1240px;          /* lo más angosta que puede quedar la tabla (la de la referencia mide 1264 px). Si la
+                                              pantalla es más chica, la tabla se mueve de costado adentro de su tarjeta.
+                                              Si lo bajás, entra en pantallas más chicas, pero los textos se aprietan (más renglones) */
+    --ancho-minimo-cliente: 130px;         /* lo más angosta que puede quedar la columna Cliente (así el nombre baja en 2 renglones,
+                                              no en 4): si lo bajás, la tabla queda más angosta pero el nombre baja más de renglón */
+    --ancho-minimo-direccion: 120px;       /* lo mismo para Dirección */
+    --ancho-minimo-contacto: 110px;        /* lo mismo para Teléfono y Mail (sin esto, el mail se parte de a 3 o 4 letras) */
+    --fila-cancelada-opacidad: .65;        /* qué tan apagada se ve la fila de un pedido cancelado (1 = normal, 0 = invisible) */
+    --alto-boton-estado: 40px;             /* alto de los botones de estado de arriba de la tabla */
+    --radio-recuadro: 14px;                /* esquinas de los recuadros de adentro de las ventanas */
 }
 
+
+/* ===== 1. MOSTRAR LA PÁGINA CUANDO TERMINÓ DE CARGAR ===== */
+/* Antes estaba en un <style> del HTML. Evita ver la pantalla a medio armar: el body aparece cuando
+   la página le pone la clase "cargada" (el <script> del final de ConsultarPedidos.html) */
 body {
-  font-family: 'Poppins', sans-serif;
-  background-color: var(--bg-color);
-  color: var(--text-dark);
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.15s ease-in;
 }
 
-/* =========================================
-   PAGE LAYOUT & CONTENEDORES GLOBALES
-   ========================================= */
-.page-container {
-  padding: 1.5rem 2rem;
-  max-width: 1300px;
-  margin: 0 auto;
-  width: 100%;
+body.cargada {
+    visibility: visible;
+    opacity: 1;
 }
 
-.table-wrapper {
-  background: var(--white);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 1.2rem;
-  overflow-x: auto;
+
+/* ===== 2. EL CONTENIDO DE LA PANTALLA ===== */
+
+/* El lugar de los dibujos de los íconos (lupa, ✓, billete y X): no se ve ni ocupa lugar */
+.iconos-pantalla {
+    position: absolute;
+    width: 0;
+    height: 0;
 }
 
-/* =========================================
-   MAIN TABLE LAYOUT (Simétrico)
-   Lo usan Consultar Pedidos y Asignar Cocineros (los dos cargan este CSS).
-   ========================================= */
-.standard-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  table-layout: fixed; /* Divide el espacio equitativamente */
+/* Una columna: los filtros y la tarjeta de la tabla, con 22 px entre los dos */
+.pagina-pedidos {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
 }
 
-/* Table Head - Letra Grande */
-.standard-table thead th {
-  background-color: #e8f5e9;
-  color: #4CAF50;
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.85rem; /* <-- LETRA GRANDE RECUPERADA */
-  padding: 0.9rem 0.4rem;
-  text-align: center;
-  letter-spacing: 0.05em;
-  border-bottom: 2px solid var(--primary-green);
-}
 
-.standard-table thead th:first-child { border-top-left-radius: var(--radius); }
-.standard-table thead th:last-child { border-top-right-radius: var(--radius); }
+/* ===== 3. BARRA DE FILTROS ===== */
 
-/* =========================================
-   TABLE BODY & TIPOGRAFÍA
-   ========================================= */
-.standard-table tbody td {
-  padding: 0.75rem 0.4rem;
-  border-bottom: 1px solid var(--border-light);
-  font-size: 0.85rem; /* <-- LETRA GRANDE RECUPERADA */
-  vertical-align: middle;
-  text-align: center;
-  word-wrap: break-word;
-}
-
-.standard-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.standard-table tbody tr:hover {
-  background-color: #f1f8f3;
-}
-
-.loading-text {
-  text-align: center;
-  font-style: italic;
-  color: var(--text-muted);
-  padding: 2rem;
-}
-
-/* Método Pago Info */
-.pago-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: center;
-}
-
-.metodo-tag {
-  font-weight: 600;
-  font-size: 0.82rem;
-}
-
-.status-paid {
-  color: var(--primary-green);
-  font-weight: 700;
-  font-size: 0.75rem; 
-}
-
-.status-pending {
-  color: #dc3545;
-  font-weight: 700;
-  font-size: 0.75rem; 
-}
-
-/* =========================================
-   SELECT ESTADO
-   ========================================= */
-.select-estado {
-  width: 100%;
-  padding: 0.4rem 0.1rem;
-  border: none;
-  border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.72rem; /* Tamaño optimizado para que no se corte el texto */
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: -0.02em;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  text-align: center;
-  outline: none;
-  transition: opacity 0.15s;
-}
-
-.select-estado:hover { opacity: 0.85; }
-.select-estado:focus { box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.35); }
-
-/* =========================================
-   FILTRO CLIENTE
-   ========================================= */
+/* La barra blanca con borde: Buscar, Fecha de entrega, Aplicar y Ver todos, alineados abajo */
 .filtros-container {
-  margin-bottom: 1rem;
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  flex-wrap: wrap;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--borde-gris);
+    border-radius: var(--radio-tarjeta);
+    background: var(--blanco);
 }
 
-.filtro-input {
-  padding: 0.55rem 0.9rem;
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.88rem;
-  background: #fff;
-  transition: border-color 0.2s;
-  width: 280px;
+/* "Buscar" ocupa todo lo que sobra de la fila (como mínimo 320 px; si no entra, baja de renglón) */
+.etiqueta-buscar {
+    flex: 1 1 320px;
 }
 
-.filtro-fecha { width: 150px; }
-
-/* Título del listado: "Producción de hoy — entregas del ..." */
-.titulo-listado {
-  margin: 0 0 0.75rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #2e7d32;
+/* La caja del buscador: la lupa queda adentro del casillero, a la izquierda */
+.caja-buscar {
+    position: relative;
+    display: block;
 }
 
-/* Botones de los filtros de fecha */
-.btn-filtro {
-  padding: 0.55rem 1.1rem;
-  border: none;
-  border-radius: 8px;
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-.btn-filtro-aplicar { background: #28a745; color: #fff; }
-.btn-filtro-aplicar:hover { background: #218838; }
-.btn-filtro-todos { background: #e9ecef; color: #495057; }
-.btn-filtro-todos:hover { background: #dee2e6; }
-.filtro-input:focus {
-  outline: none;
-  border-color: #28a745;
-  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.15);
+/* La lupa: 14 px desde la izquierda y en el medio del alto (44 de alto − 20 de la lupa = 24; la mitad: 12) */
+.icono-lupa {
+    position: absolute;
+    left: 14px;
+    top: 12px;
+    width: 20px;
+    height: 20px;
+    color: var(--texto-apagado);
+    pointer-events: none;   /* un clic sobre la lupa llega igual al casillero */
 }
 
-/* =========================================
-   GRILLA DE CONSULTAR PEDIDOS — mismo diseño que la de Generar Receta
-   Con prefijo propio (.pagina-pedidos / .tabla-pedidos) porque este CSS también
-   lo carga Asignar Cocineros, que tiene que quedar como está.
-   ========================================= */
-.pagina-pedidos.page-container {
-  max-width: 1400px;
-  width: 100%;
-  padding: 1.5rem 1rem;
+/* Los dos casilleros de la barra: redondos del todo y de 44 px de alto */
+.campo-buscar {
+    width: 100%;
+    min-height: var(--alto-boton);
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: 44px;     /* deja lugar a la lupa */
+    border-radius: var(--radio-pastilla);
 }
-.pagina-pedidos .table-wrapper { padding: 1rem; }
 
-/* Encabezado, celdas, bordes, hover y forma de los botones: clase compartida .grilla-fg
-   (global.css), la misma que usa Generar Receta. Acá solo lo propio de esta grilla. */
-.standard-table.tabla-pedidos { table-layout: auto; }
+.filtro-fecha {
+    width: auto;
+    min-width: 190px;
+    min-height: var(--alto-boton);
+    padding-top: 0;
+    padding-bottom: 0;
+    border-radius: var(--radio-pastilla);
+}
 
-/* N°, Entrega y Costo en un solo renglón (solo los datos; los encabezados pueden partirse) */
-.tabla-pedidos tbody td:nth-child(1),
-.tabla-pedidos tbody td:nth-child(2),
-.tabla-pedidos tbody td:nth-child(8) { white-space: nowrap; }
 
-.tabla-pedidos thead th:nth-child(1),
-.tabla-pedidos tbody td:nth-child(1)  { width: 5%;  }                    /* N° Pedido */
-.tabla-pedidos thead th:nth-child(2),
-.tabla-pedidos tbody td:nth-child(2)  { width: 7%;  }                    /* Entrega */
-.tabla-pedidos thead th:nth-child(3),
-.tabla-pedidos tbody td:nth-child(3)  { width: 12%; min-width: 115px; }  /* Cliente: 2 renglones como mucho */
-.tabla-pedidos thead th:nth-child(4),
-.tabla-pedidos tbody td:nth-child(4)  { width: 9%;  }                    /* Dirección */
-.tabla-pedidos thead th:nth-child(5),
-.tabla-pedidos tbody td:nth-child(5)  { width: 8%;  }                    /* Teléfono */
-.tabla-pedidos thead th:nth-child(6),
-.tabla-pedidos tbody td:nth-child(6)  { width: 13%; min-width: 120px; }  /* Mail: 2 renglones como mucho */
-.tabla-pedidos thead th:nth-child(7),
-.tabla-pedidos tbody td:nth-child(7)  { width: 7%;  }                    /* Viandas */
-.tabla-pedidos thead th:nth-child(8),
-.tabla-pedidos tbody td:nth-child(8)  { width: 6%;  }                    /* Costo */
-.tabla-pedidos thead th:nth-child(9),
-.tabla-pedidos tbody td:nth-child(9)  { width: 9%;  }                    /* Estado */
-.tabla-pedidos thead th:nth-child(10),
-.tabla-pedidos tbody td:nth-child(10) { width: 9%;  }                    /* Método Pago */
-.tabla-pedidos thead th:nth-child(11),
-.tabla-pedidos tbody td:nth-child(11) { width: 11%; }                    /* Acciones: Pago + Anular en fila */
+/* ===== 4. TARJETA DE LA TABLA Y BOTONES DE ESTADO ===== */
 
-/* Botones: los de Generar Receta, pero un poco más anchos; Pago y Anular del mismo ancho */
+/* La tarjeta de la tabla (el borde y el blanco salen de .table-wrapper, en global.css): sin aire adentro,
+   así los estados y la tabla llegan hasta el borde */
+.tarjeta-pedidos {
+    padding: 0;
+}
+
+/* La fila de los estados, arriba de la tabla, con una línea finita abajo */
+.filtros-estado {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 14px 14px 12px;
+    border-bottom: 1px solid var(--borde-gris);
+}
+
+/* Cada botón de estado: pastilla blanca con borde gris, el puntito de su color, el nombre y la cantidad */
+.boton-estado {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: var(--alto-boton-estado);
+    padding: 0 16px;
+    border: 2px solid var(--borde-gris);
+    border-radius: var(--radio-pastilla);
+    background: var(--blanco);
+    color: var(--texto);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.boton-estado:hover {
+    border-color: var(--verde-principal);
+}
+
+.boton-estado:focus-visible {
+    outline: 3px solid var(--verde-principal);
+    outline-offset: 2px;
+}
+
+/* El estado elegido: verde con letra blanca (la clase la pone ListarPedidos.js) */
+.boton-estado-elegido {
+    background: var(--verde-principal);
+    border-color: var(--verde-principal);
+    color: var(--blanco);
+}
+
+/* La cantidad: un numerito en una pastilla gris */
+.cantidad-estado {
+    display: inline-grid;
+    place-items: center;    /* el número en el medio */
+    min-width: 24px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: var(--radio-pastilla);
+    background: var(--gris-boton);
+    color: var(--texto);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+/* En el estado elegido, la cantidad va en blanco con letra verde */
+.boton-estado-elegido .cantidad-estado {
+    background: var(--blanco);
+    color: var(--verde-principal);
+}
+
+/* El puntito de color de cada estado */
+.punto-estado {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.punto-registrado     { background: var(--estado-registrado-punto); }
+.punto-en-preparacion { background: var(--estado-preparacion-punto); }
+.punto-listo          { background: var(--estado-listo-punto); }
+.punto-entregado      { background: var(--estado-entregado-punto); }
+.punto-cancelado      { background: var(--estado-cancelado-punto); }
+
+/* La caja de la tabla: si las 11 columnas no entran, la tabla se mueve de costado solo acá adentro */
+.caja-tabla {
+    overflow-x: auto;
+}
+
+
+/* ===== 5. TABLA DE PEDIDOS ===== */
+
+/* El ancho de cada columna sale de lo que tiene adentro (no todas iguales como en .standard-table).
+   Los textos largos (cliente, dirección, teléfono y mail) bajan de renglón. Si igual no entran, la tabla
+   no se aprieta más que --tabla-ancho-minimo: se mueve de costado adentro de .caja-tabla.
+   La letra de las celdas, su aire y los títulos verdes son los de todas las tablas (global.css, sección TABLAS) */
+.tabla-pedidos {
+    table-layout: auto;
+    min-width: var(--tabla-ancho-minimo);
+}
+
+/* Los títulos de las columnas, en un solo renglón */
+.tabla-pedidos th {
+    white-space: nowrap;
+}
+
+/* Viandas al medio, Costo y Acciones a la derecha (en el título y en las celdas).
+   Se escribe ".tabla-pedidos .col-…" para ganarle a las reglas de table.grilla-fg de global.css */
+.tabla-pedidos .col-viandas  { text-align: center; }
+.tabla-pedidos .col-costo    { text-align: right; }
+.tabla-pedidos .col-acciones { text-align: right; }
+
+/* Lo más angostas que pueden quedar las columnas de texto largo (si no, cuando la tabla no entra,
+   se aprietan hasta partir el mail de a 3 letras) */
+.tabla-pedidos .col-cliente   { min-width: var(--ancho-minimo-cliente); }
+.tabla-pedidos .col-direccion { min-width: var(--ancho-minimo-direccion); }
+.tabla-pedidos .col-contacto  { min-width: var(--ancho-minimo-contacto); }
+
+/* --- Cada columna de las filas (la clase col-… la pone crearFilaPedido en cada celda) ---
+   Se escribe ".tabla-pedidos tbody .col-…": así vale solo para las celdas de las filas (no para los
+   títulos de arriba) y le gana al tamaño de letra de las celdas de global.css */
+
+/* N° de pedido: verde, en negrita y un poco más grande */
+.tabla-pedidos tbody .col-numero {
+    color: var(--verde-texto);
+    font-size: var(--letra-numero);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;   /* todos los dígitos del mismo ancho */
+    white-space: nowrap;
+}
+
+/* Entrega y Viandas: en negro y en negrita, en un renglón */
+.tabla-pedidos tbody .col-entrega,
+.tabla-pedidos tbody .col-viandas {
+    color: var(--texto);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Cliente: en negro y más grande (la negrita la da el <strong> de adentro) */
+.tabla-pedidos tbody .col-cliente {
+    color: var(--texto);
+    font-size: var(--letra-destacada);
+}
+
+/* Costo: en negro, en negrita, más grande y en un renglón */
+.tabla-pedidos tbody .col-costo {
+    color: var(--texto);
+    font-size: var(--letra-destacada);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Teléfono y Mail: más chicos y grises. Si son largos, bajan de renglón donde haga falta (anywhere = en cualquier letra) */
+.tabla-pedidos tbody .col-contacto {
+    color: var(--texto-apagado);
+    font-size: var(--letra-contacto);
+    overflow-wrap: anywhere;
+}
+
+/* El renglón chiquito gris debajo de un dato ("Delivery · Centro", "Retiro en local", "Sin confirmar"…).
+   La Dirección queda con la letra común y esto chiquito abajo */
+.dato-chico {
+    display: block;
+    margin-top: 2px;
+    font-size: var(--letra-dato-chico);
+    font-weight: 400;
+    color: var(--texto-apagado);
+    white-space: normal;    /* puede bajar de renglón aunque el dato de arriba no */
+}
+
+/* Si el JS lo esconde (hidden: un pedido viejo sin forma de entrega), no se ve ni ocupa lugar.
+   Hace falta escribirlo porque el "display: block" de arriba le ganaría al hidden */
+.dato-chico[hidden] {
+    display: none;
+}
+
+/* "⚠ 2 personalizados", debajo de la cantidad de viandas: naranja oscuro */
+.aviso-personalizados {
+    font-weight: 700;
+    color: var(--aviso-personalizado);
+}
+
+/* --- Estado: el select, con forma de pastilla del color de su estado --- */
+.select-estado {
+    min-height: var(--alto-pastillas);
+    padding: 0 24px 0 10px;   /* a la derecha, lugar para la flechita del select */
+    border: 0;
+    border-radius: var(--radio-pastilla);
+    font-size: var(--letra-pastillas);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.select-estado:focus-visible {
+    outline: 3px solid var(--verde-principal);
+    outline-offset: 2px;
+}
+
+/* Un pedido cancelado no cambia más de estado: el select queda apagado */
+.select-estado:disabled {
+    cursor: not-allowed;
+}
+
+/* El color de cada estado (la clase la pone pintarEstado, en ListarPedidos.js) */
+.estado-registrado     { background: var(--estado-registrado-fondo);  color: var(--estado-registrado-letra); }
+.estado-en-preparacion { background: var(--estado-preparacion-fondo); color: var(--estado-preparacion-letra); }
+.estado-listo          { background: var(--estado-listo-fondo);       color: var(--estado-listo-letra); }
+.estado-entregado      { background: var(--estado-entregado-fondo);   color: var(--estado-entregado-letra); }
+.estado-cancelado      { background: var(--estado-cancelado-fondo);   color: var(--estado-cancelado-letra); }
+
+/* --- Método de pago: una pastilla (con ✓ si ya está cobrado) y abajo el detalle chiquito --- */
+.pastilla-pago {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: var(--alto-pastillas);
+    padding: 0 12px;
+    border-radius: var(--radio-pastilla);
+    font-size: var(--letra-pastillas);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.pago-cobrado    { background: var(--verde-pastilla); color: var(--verde-texto); }   /* ya pagó: verde */
+.pago-por-cobrar { background: var(--naranja-suave);  color: var(--naranja-letra); } /* falta cobrar: naranja */
+.pago-anulado    { background: var(--gris-boton);     color: var(--texto-gris); }    /* pedido cancelado: gris */
+
+/* El ícono de la pastilla (✓ o el billete) */
+.icono-pago {
+    flex: none;
+    width: 14px;
+    height: 14px;
+}
+
+/* --- Acciones: Detalles, Pago y Anular, en fila y a la derecha --- */
+.acciones-pedido {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+/* Detalles, Pago y Anular: la forma de pastilla está en global.css (en .grilla-fg); acá su tamaño
+   (13,5 px y 35 px de alto, como el Estado y la pastilla de pago), con un poco menos de aire a los
+   costados (10 px en vez de 12), y el color de cada uno.
+   Se escribe ".tabla-pedidos .btn-…" para ganarle al tamaño y al color blanco de la letra de global.css */
 .tabla-pedidos .btn-detalles,
 .tabla-pedidos .btn-pago,
-.tabla-pedidos .btn-eliminar { padding: 0.3rem 1rem; white-space: nowrap; }
-.tabla-pedidos .acciones-pedido .btn-pago,
-.tabla-pedidos .acciones-pedido .btn-eliminar { width: 84px; padding-left: 0; padding-right: 0; }  /* entra "Anulado" */
-
-/* Píldora de estado: ancho fijo (un poco más que un botón), un renglón, mismo alto que
-   los botones; si el texto no entra se corta con "…". Colores: aplicarColorEstado(). */
-.tabla-pedidos .select-estado {
-  width: 100px;
-  box-sizing: border-box;
-  height: 27px;
-  padding: 0 0.7rem;
-  border-radius: 50px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  line-height: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align-last: center;
-  vertical-align: middle;
+.tabla-pedidos .btn-eliminar {
+    min-height: var(--alto-pastillas);
+    padding: 0 10px;
+    font-size: var(--letra-pastillas);
 }
 
-/* El mail largo se corta donde haga falta (sin partirse en 3 renglones) */
-.tabla-pedidos tbody td:nth-child(6) { overflow-wrap: anywhere; }
+.tabla-pedidos .btn-detalles { background: var(--naranja-suave); color: var(--naranja-letra); }
+.tabla-pedidos .btn-pago     { background: var(--azul-suave);    color: var(--azul-letra); }
+.tabla-pedidos .btn-eliminar { background: var(--rojo-suave);    color: var(--rojo-texto); }
 
-/* Título "Producción de hoy — entregas del ..." */
-.pagina-pedidos .titulo-listado { font-size: 17px; }
-
-/* Notebooks (hasta 1440px, ej. 1366): para que las 11 columnas entren sin scroll se achica
-   solo el espacio a los costados (celdas y botones); letra y alto de fila, igual que Generar Receta */
-@media (max-width: 1440px) {
-  .pagina-pedidos .table-wrapper { padding: 0.5rem; }
-  table.grilla-fg.tabla-pedidos thead th,
-  table.grilla-fg.tabla-pedidos tbody td { padding-left: 3px; padding-right: 3px; }
-  .tabla-pedidos .btn-detalles { padding-left: 0.7rem; padding-right: 0.7rem; }
-  .tabla-pedidos .acciones-pedido .btn-pago,
-  .tabla-pedidos .acciones-pedido .btn-eliminar { width: 72px; }
-  .tabla-pedidos tbody td:nth-child(5) { overflow-wrap: anywhere; }  /* Teléfono largo: 2 renglones antes que scroll */
+/* Al pasar el mouse: un borde del color de su letra (inset = por adentro, no cambia el tamaño) */
+.tabla-pedidos .btn-detalles:hover,
+.tabla-pedidos .btn-pago:hover,
+.tabla-pedidos .btn-eliminar:hover {
+    box-shadow: inset 0 0 0 2px currentColor;
 }
 
-/* =========================================
-   RESPONSIVE — Mobile / Tablet
-   ========================================= */
-@media (max-width: 768px) {
-  .page-container {
-    padding: 1rem 0.75rem;
-  }
+/* Apagados (un pedido cancelado no se cobra ni se anula otra vez): gris y sin la manito */
+.tabla-pedidos .btn-pago:disabled,
+.tabla-pedidos .btn-eliminar:disabled {
+    background: var(--gris-boton);
+    color: var(--apagado-letra);
+    box-shadow: none;
+    cursor: not-allowed;
+}
 
-  .filtros-container {
+/* Con el teclado (Tab): un anillo verde alrededor del botón */
+.tabla-pedidos .btn-detalles:focus-visible,
+.tabla-pedidos .btn-pago:focus-visible,
+.tabla-pedidos .btn-eliminar:focus-visible {
+    outline: 3px solid var(--verde-principal);
+    outline-offset: 2px;
+}
+
+/* --- Pedido cancelado: la fila apagada y el costo tachado (la clase la pone crearFilaPedido) --- */
+.fila-cancelada {
+    opacity: var(--fila-cancelada-opacidad);
+}
+
+.fila-cancelada .col-costo {
+    text-decoration: line-through;
+}
+
+/* El renglón de error si no se pudo conectar con el servidor */
+.texto-error {
+    color: var(--rojo);
+    font-style: normal;
+}
+
+
+/* ===== 6. PIE DE LA TABLA: "MOSTRANDO X DE Y PEDIDOS" Y LAS PÁGINAS ===== */
+
+/* La fila de abajo: el texto a la izquierda y los números de página a la derecha */
+.pie-tabla {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-top: 1px solid var(--linea-suave);
+    font-size: 14px;
+    color: var(--texto-gris);
+}
+
+/* Los números de página, sin el aire de arriba que tienen en las otras pantallas */
+.paginacion-pedidos {
+    padding: 0;
+}
+
+
+/* ===== 7. VENTANAS ===== */
+/* Las piezas (caja, cabecera, X, cuerpo, pie y botones) están en global.css. Acá: cómo se abren,
+   el ancho de cada una y lo de adentro */
+
+/* Lo oscuro que tapa la pantalla, con la ventana en el medio. Se abre con la clase "visible" (la pone el JS) */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: var(--fondo-ventana);
+}
+
+.modal-overlay.visible {
+    display: flex;
+}
+
+/* El ancho de cada ventana (el de la referencia); en el celu, todo el ancho que haya */
+.ventana-detalles { width: 100%; max-width: 360px; }
+.ventana-pago     { width: 100%; max-width: 380px; }
+.ventana-chica    { width: 100%; max-width: 300px; }   /* Confirmar pago y Anular */
+
+/* Los botones del pie, uno debajo del otro y de todo el ancho (Confirmar pago y Anular) */
+.pie-en-columna {
     flex-direction: column;
     align-items: stretch;
-  }
+}
 
-  .filtro-input,
-  .filtro-fecha {
-    width: 100%;
-  }
+/* --- Detalles: un recuadro por combo, con sus platos, y el total abajo --- */
 
-  /* En pantallas chicas la tabla mantiene un ancho mínimo y .table-wrapper
-     scrollea horizontalmente, en vez de comprimir las 11 columnas. */
-  .standard-table {
-    min-width: 1000px;
-  }
+/* El recuadro de cada combo */
+.recuadro-combo {
+    padding: 12px 14px;
+    border: 1px solid var(--borde-gris);
+    border-radius: var(--radio-recuadro);
 }
-/* =========================================
-   VENTANA "DETALLES": platos agrupados por combo
-   (las reglas son más específicas que las de .modal-tabla del <style> de ConsultarPedidos.html)
-   ========================================= */
-/* Renglón del combo: nombre y precio cobrado */
-.modal-tabla tr.fila-combo td {
-  background: #f1f8f2;
-  border-top: 2px solid #b7dfc0;
-  font-weight: 700;
+
+/* Arriba del recuadro: el nombre del combo y su precio */
+.cabecera-combo {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-weight: 800;
 }
-/* Platos del combo: un poco hacia adentro, para que se vea que son del combo de arriba */
-.modal-tabla tr.fila-plato-combo td:nth-child(2) {
-  padding-left: 1.6rem;
+
+.precio-combo {
+    color: var(--verde-principal);
+    white-space: nowrap;
 }
-/* Texto de un plato personalizado (ej: "⚠ sin sal"), mismo color ámbar que en cocina */
+
+/* Los platos del combo, un renglón cada uno, con una línea finita entre ellos */
+.platos-combo {
+    margin-top: 6px;
+}
+
+.linea-plato {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--gris-boton);
+    font-size: 14px;
+}
+
+.linea-plato:last-child {
+    border-bottom: 0;
+}
+
+/* Un plato personalizado: "⚠ sin sal" a la derecha, en naranja oscuro */
 .plato-personalizado {
-  display: inline-block;
-  margin-left: 0.3rem;
-  padding: 0.05rem 0.4rem;
-  border-radius: 4px;
-  background: #fffbeb;
-  border: 1px solid #fbbf24;
-  color: #92400e;
-  font-size: 0.8rem;
-  font-weight: 700;
-  overflow-wrap: anywhere;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--aviso-personalizado);
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+/* El precio de un plato suelto (pedidos viejos, sin combo) */
+.precio-plato {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* El total del pedido, abajo de todo */
+.total-detalle {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 4px;
+    font-size: 16px;
+    font-weight: 800;
+}
+
+/* "Sin detalles" (un pedido sin platos) */
+.detalle-vacio {
+    padding: 8px 0;
+    color: var(--texto-gris);
+    text-align: center;
+}
+
+/* --- Pago del pedido --- */
+
+/* El total, en una franja verde suave */
+.pago-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    border-radius: var(--radio-recuadro);
+    background: var(--verde-suave);
+    color: var(--verde-texto);
+    font-weight: 600;
+}
+
+.pago-total strong {
+    font-size: 22px;
+    font-weight: 800;
+}
+
+/* "Método de pago" y "Tipo de tarjeta" */
+.pago-subtitulo {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--texto-gris);
+}
+
+/* Los 4 métodos, de a 2 por fila */
+.pago-metodos,
+.pago-tipos-tarjeta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));   /* 2 columnas iguales */
+    gap: 8px;
+}
+
+/* Cada método es un botón: el círculo del radio no se ve, pero sigue andando (con el mouse y con el teclado) */
+.pago-opcion {
+    position: relative;
+    display: block;
+    cursor: pointer;
+}
+
+.pago-opcion input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+/* El botón que se ve */
+.pago-opcion span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 46px;
+    padding: 0 10px;
+    border: 2px solid var(--borde-gris);
+    border-radius: var(--radio-recuadro);
+    background: var(--blanco);
+    font-size: 14px;
+    font-weight: 700;
+    transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.pago-opcion:hover span {
+    border-color: var(--verde-principal);
+}
+
+/* El elegido (input:checked + span = el botón que está justo después del radio marcado): verde */
+.pago-opcion input:checked + span {
+    border-color: var(--verde-principal);
+    background: var(--verde-suave);
+    color: var(--verde-principal);
+}
+
+/* Con el teclado (Tab): un anillo verde alrededor del botón */
+.pago-opcion input:focus-visible + span {
+    outline: 3px solid var(--verde-principal);
+    outline-offset: 2px;
+}
+
+/* Débito y Crédito, un poco más bajos */
+.pago-opcion-chica span {
+    min-height: 40px;
+}
+
+/* Las opciones de cada método: solo se ve la del elegido (la clase "visible" la pone pagoPedido.js) */
+.pago-sub {
+    display: none;
+}
+
+.pago-sub.visible {
+    display: block;
+}
+
+/* "Pago anticipado" (Efectivo): la casilla y su texto */
+.pago-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.pago-check input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--verde-principal);   /* la tilde, en verde */
+    cursor: pointer;
+}
+
+/* Mixto: los dos montos uno al lado del otro y, debajo, si la suma da el total */
+.pago-mixto {
+    display: none;
+}
+
+.pago-mixto.visible {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pago-montos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));   /* 2 columnas iguales */
+    gap: 10px;
+}
+
+/* Cada monto: su nombre arriba y el casillero abajo */
+.pago-monto {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--texto-gris);
+}
+
+/* El casillero del monto, con el "$" adentro a la izquierda */
+.pago-input-monto {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: var(--alto-boton);
+    padding: 0 12px;
+    border: 2px solid var(--borde-gris);
+    border-radius: var(--radio-casillero);
+    background: var(--blanco);
+    color: var(--texto-apagado);
+}
+
+/* Al escribir en el monto: el borde verde (focus-within = cuando el cursor está en el casillero de adentro) */
+.pago-input-monto:focus-within {
+    border-color: var(--verde-principal);
+    box-shadow: 0 0 0 3px var(--verde-suave);
+}
+
+.pago-input-monto input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--texto);
+    font-size: 15px;
+    font-weight: 400;
+}
+
+/* La suma del Mixto: verde si da justo, naranja si falta o sobra (las clases las pone pagoPedido.js) */
+.pago-suma {
+    min-height: 1.2em;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.pago-suma.ok {
+    color: var(--verde-texto);
+}
+
+.pago-suma.falta {
+    color: var(--aviso-personalizado);
+}
+
+/* El error de la ventana (Pago y Anular): rojo suave; solo se ve con la clase "visible" */
+.pago-error {
+    display: none;
+    padding: 10px 12px;
+    border-radius: var(--radio-casillero);
+    background: var(--rojo-suave);
+    color: var(--rojo-texto);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.pago-error.visible {
+    display: block;
+}
+
+/* --- Confirmar pago: el texto en una franja verde suave, con el método en verde --- */
+.confirmar-pago-texto {
+    margin: 0;
+    padding: 14px;
+    border-radius: var(--radio-recuadro);
+    background: var(--verde-suave);
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.confirmar-pago-texto strong {
+    color: var(--verde-texto);
+}
+
+/* --- Anular: el número del pedido en rojo, el aviso en rojo suave y el PIN centrado --- */
+.numero-anular {
+    color: var(--rojo);
+}
+
+.anular-texto {
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: var(--radio-recuadro);
+    background: var(--rojo-suave);
+    color: var(--rojo-texto);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* El PIN: grande, centrado y con los puntitos separados */
+.anular-pin {
+    text-align: center;
+    letter-spacing: .5em;
+    font-size: 20px;
+}
+
+
+/* ===== 8. AVISOS FLOTANTES (arriba a la derecha; los arma mostrarCartel) ===== */
+
+/* Verde: "salió bien" (ej: "✓ Pedido #005 anulado…") */
+.toast-exito {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 10000;
+    max-width: 420px;
+    padding: 14px 18px;
+    border-radius: var(--radio-recuadro);
+    background: var(--verde-suave);
+    color: var(--verde-texto);
+    box-shadow: var(--sombra-ventana);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+/* Amarillo: "atención" (ej: "⚠ Stock insuficiente"), con su título y una × para cerrarlo */
+.cartel-alerta {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 10000;
+    max-width: 420px;
+    padding: 14px 48px 14px 18px;   /* a la derecha, lugar para la × */
+    border-radius: var(--radio-recuadro);
+    background: var(--naranja-suave);
+    color: var(--naranja-letra);
+    box-shadow: var(--sombra-ventana);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.cartel-alerta-titulo {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.cartel-alerta-cerrar {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: var(--radio-pastilla);
+    background: transparent;
+    color: inherit;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+
+/* ===== 9. PANTALLAS MEDIANAS Y CELULAR ===== */
+
+/* Pantallas medianas (hasta 1100 px, ej: 1024): Buscar ocupa todo el primer renglón de la barra y
+   abajo van la fecha, Aplicar y Ver todos (así "Ver todos" no queda solo en un renglón) */
+@media (max-width: 1100px) {
+    .etiqueta-buscar {
+        flex-basis: 100%;
+    }
+}
+
+/* Celular (hasta 768 px) */
+@media (max-width: 768px) {
+    /* Buscar y la fecha, de todo el ancho; los dos botones, uno al lado del otro */
+    .etiqueta-buscar,
+    .filtros-container .etiqueta {
+        flex: 1 1 100%;
+    }
+
+    .filtro-fecha {
+        width: 100%;
+    }
+
+    .filtros-container .boton-principal,
+    .filtros-container .boton-secundario {
+        flex: 1 1 0;
+    }
+
+    /* Asignar Cocineros (que también carga este archivo): en el celu su tabla no se aprieta, mantiene
+       1000 px y se mueve de costado, como antes. Queda acá hasta que se rediseñe esa pantalla */
+    .standard-table {
+        min-width: 1000px;
+    }
+
+    /* …y la tabla de pedidos sigue con su propio ancho mínimo (va después, así le gana a la regla de arriba) */
+    .tabla-pedidos {
+        min-width: var(--tabla-ancho-minimo);
+    }
+
+    /* Los avisos flotantes, de lado a lado */
+    .toast-exito,
+    .cartel-alerta {
+        left: 16px;
+        right: 16px;
+        max-width: none;
+    }
 }

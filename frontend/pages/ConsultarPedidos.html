@@ -7,15 +7,10 @@
   <title>Tesis - Consultar Pedidos</title>
   <link rel="icon" href="../src/assets/img/logo.webp" type="image/webp"/>
 
-  <!-- Fonts -->
-  <!-- Evita el flash de contenido sin estilos (FOUC): el body se muestra cuando la página terminó de cargar -->
-  <style>
-    body { visibility: hidden; opacity: 0; transition: opacity 0.15s ease-in; }
-    body.cargada { visibility: visible; opacity: 1; }
-  </style>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <!-- Letra: Figtree, la misma del index (estilo nuevo, 19/10) -->
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
-  <!-- CSS -->
+  <!-- CSS (lo que antes estaba en un <style> acá adentro ahora está en ConsultarPedidos.css) -->
   <link rel="stylesheet" href="../src/css/global.css">
   <link rel="stylesheet" href="../src/css/ConsultarPedidos.css">
 </head>
@@ -29,42 +24,70 @@
 
 <div class="admin-content">
 
+  <!-- Los dibujos de los íconos de esta pantalla: no se ven acá, cada uno se usa con <use href="#…"> -->
+  <svg class="iconos-pantalla" aria-hidden="true">
+    <symbol id="icono-buscar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M20 20l-4-4"></path></symbol>
+    <symbol id="icono-cobrado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></symbol>
+    <symbol id="icono-por-cobrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle></symbol>
+    <symbol id="icono-cerrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></symbol>
+  </svg>
+
   <header>
     <div class="container-centrado">
-      <div style="display:flex; align-items:center; gap:1rem;">
-        <img src="../src/assets/img/logo.webp" alt="Fast Good" style="height:50px; border-radius:4px;" onerror="this.style.display='none'">
-        <h1>Administración de Pedidos</h1>
-      </div>
+      <h1>Administración de Pedidos</h1>
     </div>
   </header>
 
   <main class="page-container pagina-pedidos">
-    <div class="table-wrapper">
-      <!-- Qué se está mostrando: la producción de hoy, un rango de entregas o todo -->
-      <h2 id="tituloListado" class="titulo-listado"></h2>
 
-      <div class="filtros-container">
-        <input type="text"  id="CampoBusqueda" class="filtro-input" placeholder="Buscar por nombre o N° pedido..." autocomplete="one-time-code">
-        <!-- Filtran por fecha de entrega; se aplican con el botón "Aplicar" -->
-        <input type="date"  id="FechaDesde"    class="filtro-input filtro-fecha" title="Entrega desde">
-        <input type="date"  id="FechaHasta"    class="filtro-input filtro-fecha" title="Entrega hasta">
-        <button type="button" id="btnAplicarFechas" class="btn-filtro btn-filtro-aplicar">Aplicar</button>
-        <button type="button" id="btnVerTodos"      class="btn-filtro btn-filtro-todos">Ver todos</button>
+    <!-- FILTROS: Buscar + una sola fecha de entrega + Aplicar + Ver todos -->
+    <div class="filtros-container">
+      <label class="etiqueta etiqueta-buscar">Buscar
+        <span class="caja-buscar">
+          <svg class="icono-lupa" aria-hidden="true"><use href="#icono-buscar"></use></svg>
+          <input type="text" id="CampoBusqueda" class="filtro-input campo-buscar" placeholder="Nombre o N° de pedido" autocomplete="one-time-code">
+        </span>
+      </label>
+      <!-- Filtra por fecha de entrega; se aplica con el botón "Aplicar" -->
+      <label class="etiqueta">Fecha de entrega
+        <input type="date" id="FechaDesde" class="filtro-input filtro-fecha" title="Fecha de entrega">
+      </label>
+      <!-- "Hasta" no se ve: al tocar "Aplicar" toma la misma fecha de entrega (el filtro de siempre, con un solo día) -->
+      <input type="date" id="FechaHasta" class="filtro-input filtro-fecha" title="Entrega hasta" hidden>
+      <button type="button" id="btnAplicarFechas" class="btn-filtro btn-filtro-aplicar boton-principal">Aplicar</button>
+      <button type="button" id="btnVerTodos"      class="btn-filtro btn-filtro-todos boton-secundario">Ver todos</button>
+    </div>
+
+    <!-- LA TARJETA DE LA TABLA: arriba los estados, al medio la tabla y abajo las páginas -->
+    <div class="table-wrapper tarjeta-pedidos">
+
+      <!-- ESTADOS: filtran la lista. La cantidad de cada uno la escribe ListarPedidos.js -->
+      <div id="filtros-estado" class="filtros-estado" role="group" aria-label="Filtrar por estado">
+        <button type="button" class="boton-estado boton-estado-elegido" data-estado="todos" aria-pressed="true">Todos <span class="cantidad-estado">0</span></button>
+        <button type="button" class="boton-estado" data-estado="1" aria-pressed="false"><span class="punto-estado punto-registrado" aria-hidden="true"></span>Registrado <span class="cantidad-estado">0</span></button>
+        <button type="button" class="boton-estado" data-estado="2" aria-pressed="false"><span class="punto-estado punto-en-preparacion" aria-hidden="true"></span>En preparación <span class="cantidad-estado">0</span></button>
+        <button type="button" class="boton-estado" data-estado="3" aria-pressed="false"><span class="punto-estado punto-listo" aria-hidden="true"></span>Listo para entregar <span class="cantidad-estado">0</span></button>
+        <button type="button" class="boton-estado" data-estado="4" aria-pressed="false"><span class="punto-estado punto-entregado" aria-hidden="true"></span>Entregado <span class="cantidad-estado">0</span></button>
+        <button type="button" class="boton-estado" data-estado="5" aria-pressed="false"><span class="punto-estado punto-cancelado" aria-hidden="true"></span>Cancelado <span class="cantidad-estado">0</span></button>
       </div>
+
+      <!-- Si la tabla no entra a lo ancho, se mueve de costado solo acá adentro (nunca toda la página) -->
+      <div class="caja-tabla">
       <table class="standard-table tabla-pedidos grilla-fg">
         <thead>
+          <!-- Cada columna con su clase (col-…): la misma que lleva cada celda de la fila (crearFilaPedido) -->
           <tr>
-            <th>N° Pedido</th>
-            <th title="Fecha de entrega">Entrega</th>
-            <th>Cliente</th>
-            <th>Dirección</th>
-            <th>Teléfono</th>
-            <th>Mail</th>
-            <th>Viandas</th>
-            <th>Costo</th>
-            <th>Estado</th>
-            <th>Método Pago</th>
-            <th>Acciones</th>
+            <th class="col-numero">N° Pedido</th>
+            <th class="col-entrega" title="Fecha de entrega">Entrega</th>
+            <th class="col-cliente">Cliente</th>
+            <th class="col-direccion">Dirección</th>
+            <th class="col-contacto">Teléfono</th>
+            <th class="col-contacto">Mail</th>
+            <th class="col-viandas">Viandas</th>
+            <th class="col-costo">Costo</th>
+            <th class="col-estado">Estado</th>
+            <th class="col-pago">Método Pago</th>
+            <th class="col-acciones">Acciones</th>
           </tr>
         </thead>
         <tbody id="pedidosBody">
@@ -74,346 +97,194 @@
           </tr>
         </tbody>
       </table>
-      <div id="paginacion" class="paginacion"></div>
+      </div>
+
+      <!-- Abajo: "Mostrando X de Y pedidos" a la izquierda y los números de página a la derecha -->
+      <div class="pie-tabla">
+        <span id="resumenPaginacion" class="resumen-paginacion"></span>
+        <div id="paginacion" class="paginacion paginacion-pedidos"></div>
+      </div>
     </div>
   </main>
 
-  <footer>
-    <p>&copy; 2024 Fast Good - Panel de Administración Tesis</p>
-  </footer>
-
-  <!-- MODAL DETALLES DE PEDIDO -->
+  <!-- VENTANA DETALLES DEL PEDIDO -->
   <div id="modalDetalles" class="modal-overlay" onclick="cerrarVentana('modalDetalles', event)">
-    <div class="modal-box">
-      <div class="modal-header">
+    <div class="modal-box ventana ventana-detalles" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
+      <div class="modal-header ventana-cabecera">
         <div>
-          <h3 id="modalTitulo">Detalles del Pedido</h3>
+          <p class="modal-fecha-pedido ventana-numero">Realizado el <span id="modalFechaPedido"></span></p>
+          <h3 id="modalTitulo" class="ventana-titulo">Detalles del Pedido</h3>
         </div>
-        <button class="modal-close-btn" onclick="cerrarVentana('modalDetalles')">✕</button>
+        <button type="button" class="modal-close-btn boton-cerrar" onclick="cerrarVentana('modalDetalles')" aria-label="Cerrar">
+          <svg width="18" height="18" aria-hidden="true"><use href="#icono-cerrar"></use></svg>
+        </button>
       </div>
-      <div class="modal-body">
-        <table class="modal-tabla">
-          <p class="modal-fecha-pedido">Realizado el <span id="modalFechaPedido"></span></p>
-          <thead>
-            <tr>
-              <th class="col-cant">Cantidad</th>
-              <th>Plato</th>
-              <th class="col-precio">Precio unitario</th>
-            </tr>
-          </thead>
-          <tbody id="modalDetallesBody"></tbody>
-        </table>
-      </div>
+      <!-- Un recuadro por combo con sus platos, y el total abajo (lo arma abrirDetalles) -->
+      <div id="modalDetallesBody" class="modal-body ventana-cuerpo"></div>
     </div>
   </div>
 
-  <!-- MODAL PAGO DEL PEDIDO -->
+  <!-- VENTANA PAGO DEL PEDIDO -->
   <div id="modalPago" class="modal-overlay" onclick="cerrarVentana('modalPago', event)">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3 id="pagoTitulo">Pago del Pedido</h3>
-        <button class="modal-close-btn" onclick="cerrarVentana('modalPago')">✕</button>
+    <div class="modal-box ventana ventana-pago" role="dialog" aria-modal="true" aria-labelledby="pagoTitulo">
+      <div class="modal-header ventana-cabecera">
+        <div>
+          <p id="pagoNumero" class="ventana-numero"></p>
+          <h3 id="pagoTitulo" class="ventana-titulo">Pago del pedido</h3>
+        </div>
+        <button type="button" class="modal-close-btn boton-cerrar" onclick="cerrarVentana('modalPago')" aria-label="Cerrar">
+          <svg width="18" height="18" aria-hidden="true"><use href="#icono-cerrar"></use></svg>
+        </button>
       </div>
 
-      <div class="pago-total">
-        <span>Total del pedido</span>
-        <strong id="pagoTotal">$0</strong>
-      </div>
+      <div class="ventana-cuerpo">
+        <div class="pago-total">
+          <span>Total del pedido</span>
+          <strong id="pagoTotal">$0</strong>
+        </div>
 
-      <p class="pago-subtitulo">Método de pago</p>
-      <div class="pago-metodos">
-        <label class="pago-opcion">
-          <input type="radio" name="metodoPago" value="Efectivo">
-          <span>💵 Efectivo</span>
-        </label>
-        <label class="pago-opcion">
-          <input type="radio" name="metodoPago" value="Transferencia">
-          <span>🏦 Transferencia</span>
-        </label>
-        <label class="pago-opcion">
-          <input type="radio" name="metodoPago" value="Tarjeta">
-          <span>💳 Tarjeta</span>
-        </label>
-        <label class="pago-opcion">
-          <input type="radio" name="metodoPago" value="Mixto">
-          <span>🔀 Mixto</span>
-        </label>
-      </div>
+        <div class="pago-metodos-caja">
+          <p class="pago-subtitulo">Método de pago</p>
+          <div class="pago-metodos">
+            <label class="pago-opcion">
+              <input type="radio" name="metodoPago" value="Efectivo">
+              <span>Efectivo</span>
+            </label>
+            <label class="pago-opcion">
+              <input type="radio" name="metodoPago" value="Transferencia">
+              <span>Transferencia</span>
+            </label>
+            <label class="pago-opcion">
+              <input type="radio" name="metodoPago" value="Tarjeta">
+              <span>Tarjeta</span>
+            </label>
+            <label class="pago-opcion">
+              <input type="radio" name="metodoPago" value="Mixto">
+              <span>Mixto</span>
+            </label>
+          </div>
+        </div>
 
-      <!-- Sub-opción de Efectivo -->
-      <div id="pagoSubEfectivo" class="pago-sub">
-        <label class="pago-check">
-          <input type="checkbox" id="pagoAnticipado">
-          <span>Pago anticipado</span>
-        </label>
-      </div>
-
-      <!-- Sub-opción de Tarjeta -->
-      <div id="pagoSubTarjeta" class="pago-sub">
-        <p class="pago-subtitulo">Tipo de tarjeta</p>
-        <div class="pago-tipos-tarjeta">
-          <label class="pago-opcion pago-opcion-chica">
-            <input type="radio" name="tipoTarjeta" value="Débito">
-            <span>Débito</span>
-          </label>
-          <label class="pago-opcion pago-opcion-chica">
-            <input type="radio" name="tipoTarjeta" value="Crédito">
-            <span>Crédito</span>
+        <!-- Sub-opción de Efectivo -->
+        <div id="pagoSubEfectivo" class="pago-sub">
+          <label class="pago-check">
+            <input type="checkbox" id="pagoAnticipado">
+            <span>Pago anticipado</span>
           </label>
         </div>
-      </div>
 
-      <!-- Solo visible con Mixto -->
-      <div id="pagoMixto" class="pago-mixto">
-        <label for="pagoMontoEfectivo">💵 Monto en efectivo</label>
-        <div class="pago-input-monto">
-          <span>$</span>
-          <input type="number" id="pagoMontoEfectivo" min="0" step="0.01" placeholder="0">
+        <!-- Sub-opción de Tarjeta -->
+        <div id="pagoSubTarjeta" class="pago-sub">
+          <p class="pago-subtitulo">Tipo de tarjeta</p>
+          <div class="pago-tipos-tarjeta">
+            <label class="pago-opcion pago-opcion-chica">
+              <input type="radio" name="tipoTarjeta" value="Débito">
+              <span>Débito</span>
+            </label>
+            <label class="pago-opcion pago-opcion-chica">
+              <input type="radio" name="tipoTarjeta" value="Crédito">
+              <span>Crédito</span>
+            </label>
+          </div>
         </div>
 
-        <label for="pagoMontoTransferencia">🏦 Monto en transferencia</label>
-        <div class="pago-input-monto">
-          <span>$</span>
-          <input type="number" id="pagoMontoTransferencia" min="0" step="0.01" placeholder="0">
+        <!-- Solo visible con Mixto: los dos montos, uno al lado del otro, y debajo si la suma da el total -->
+        <div id="pagoMixto" class="pago-mixto">
+          <div class="pago-montos">
+            <div class="pago-monto">
+              <label for="pagoMontoEfectivo">Monto en efectivo</label>
+              <div class="pago-input-monto">
+                <span>$</span>
+                <input type="number" id="pagoMontoEfectivo" min="0" step="0.01" placeholder="0">
+              </div>
+            </div>
+            <div class="pago-monto">
+              <label for="pagoMontoTransferencia">Monto en transferencia</label>
+              <div class="pago-input-monto">
+                <span>$</span>
+                <input type="number" id="pagoMontoTransferencia" min="0" step="0.01" placeholder="0">
+              </div>
+            </div>
+          </div>
+
+          <div id="pagoSuma" class="pago-suma"></div>
         </div>
 
-        <div id="pagoSuma" class="pago-suma"></div>
+        <div id="pagoError" class="pago-error"></div>
       </div>
 
-      <div id="pagoError" class="pago-error"></div>
-
-      <div class="pago-acciones">
-        <button class="btn-pago-cancelar" onclick="cerrarVentana('modalPago')">Cancelar</button>
-        <button id="pagoGuardar" class="btn-pago-guardar" onclick="guardarPago()">Guardar</button>
+      <div class="pago-acciones ventana-pie">
+        <button type="button" class="btn-pago-cancelar boton-secundario" onclick="cerrarVentana('modalPago')">Cancelar</button>
+        <button type="button" id="pagoGuardar" class="btn-pago-guardar boton-principal" onclick="guardarPago()">Guardar</button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL CONFIRMAR PAGO (al pasar a En Preparación un pedido que no es en efectivo) -->
+  <!-- VENTANA CONFIRMAR PAGO (al pasar a En Preparación un pedido que no es en efectivo) -->
   <div id="modalConfirmarPago" class="modal-overlay" onclick="cerrarVentana('modalConfirmarPago', event)">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3>Confirmar Pago</h3>
-        <button class="modal-close-btn" onclick="cerrarVentana('modalConfirmarPago')">✕</button>
+    <div class="modal-box ventana ventana-chica" role="dialog" aria-modal="true" aria-labelledby="confirmarPagoTitulo">
+      <div class="modal-header ventana-cabecera">
+        <div>
+          <p id="confirmarPagoNumero" class="ventana-numero"></p>
+          <h3 id="confirmarPagoTitulo" class="ventana-titulo">Confirmar pago</h3>
+        </div>
+        <button type="button" class="modal-close-btn boton-cerrar" onclick="cerrarVentana('modalConfirmarPago')" aria-label="Cerrar">
+          <svg width="18" height="18" aria-hidden="true"><use href="#icono-cerrar"></use></svg>
+        </button>
       </div>
 
-      <!-- Transferencia / Tarjeta: se confirma el pago completo -->
-      <p id="confirmarPagoTextoCompleto" class="confirmar-pago-texto">
-        El método de pago de este pedido es <strong id="confirmarPagoMetodo"></strong>.
-        ¿Confirmás que el cliente ya realizó el pago?
-      </p>
+      <div class="ventana-cuerpo">
+        <!-- Transferencia / Tarjeta: se confirma el pago completo -->
+        <p id="confirmarPagoTextoCompleto" class="confirmar-pago-texto">
+          El método de pago de este pedido es <strong id="confirmarPagoMetodo"></strong>.
+          ¿Confirmás que el cliente ya realizó el pago?
+        </p>
 
-      <!-- Mixto: solo se confirma la transferencia; el efectivo se cobra al entregar -->
-      <p id="confirmarPagoTextoMixto" class="confirmar-pago-texto" style="display:none;">
-        ¿Confirmás que el cliente ya transfirió <strong id="confirmarPagoTransferencia"></strong>?
-        El efectivo (<strong id="confirmarPagoEfectivo"></strong>) se cobra al entregar.
-      </p>
+        <!-- Mixto: solo se confirma la transferencia; el efectivo se cobra al entregar.
+             Cuál de los dos textos se ve lo decide abrirConfirmarPago (pagoPedido.js) antes de abrir la ventana -->
+        <p id="confirmarPagoTextoMixto" class="confirmar-pago-texto">
+          ¿Confirmás que el cliente ya transfirió <strong id="confirmarPagoTransferencia"></strong>?
+          El efectivo (<strong id="confirmarPagoEfectivo"></strong>) se cobra al entregar.
+        </p>
+      </div>
 
-      <div class="pago-acciones">
-        <button class="btn-pago-cancelar" onclick="responderConfirmarPago(false)">No, todavía no pagó</button>
-        <button id="confirmarPagoSi" class="btn-pago-guardar" onclick="responderConfirmarPago(true)">Sí, ya pagó</button>
+      <div class="pago-acciones ventana-pie pie-en-columna">
+        <button type="button" id="confirmarPagoSi" class="btn-pago-guardar boton-principal" onclick="responderConfirmarPago(true)">Sí, ya pagó</button>
+        <button type="button" class="btn-pago-cancelar boton-secundario" onclick="responderConfirmarPago(false)">No, todavía no pagó</button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL ANULAR PEDIDO (requiere PIN, se valida en el servidor) -->
+  <!-- VENTANA ANULAR PEDIDO (pide el PIN, que se controla en el servidor) -->
   <div id="modalAnular" class="modal-overlay" onclick="cerrarVentana('modalAnular', event)">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3 id="anularTitulo">Anular Pedido</h3>
-        <button class="modal-close-btn" onclick="cerrarVentana('modalAnular')">✕</button>
+    <div class="modal-box ventana ventana-chica" role="dialog" aria-modal="true" aria-labelledby="anularTitulo">
+      <div class="modal-header ventana-cabecera">
+        <div>
+          <p id="anularNumero" class="ventana-numero numero-anular"></p>
+          <h3 id="anularTitulo" class="ventana-titulo">Anular pedido</h3>
+        </div>
+        <button type="button" class="modal-close-btn boton-cerrar" onclick="cerrarVentana('modalAnular')" aria-label="Cerrar">
+          <svg width="18" height="18" aria-hidden="true"><use href="#icono-cerrar"></use></svg>
+        </button>
       </div>
 
-      <p class="anular-texto">Esta acción es irreversible. Ingresá el PIN de autorización.</p>
+      <div class="ventana-cuerpo">
+        <p class="anular-texto">Esta acción no se puede deshacer. Si el pedido no se entregó, las viandas vuelven a la heladera.</p>
 
-      <label for="anularPin" class="anular-label">PIN</label>
-      <input type="password" id="anularPin" class="anular-pin" maxlength="8"
-             inputmode="numeric" pattern="[0-9]{4,8}" autocomplete="off" placeholder="••••">
+        <label for="anularPin" class="anular-label etiqueta">PIN de autorización
+          <input type="password" id="anularPin" class="anular-pin campo" maxlength="8"
+                 inputmode="numeric" pattern="[0-9]{4,8}" autocomplete="off" placeholder="••••">
+        </label>
 
-      <div id="anularError" class="pago-error"></div>
+        <div id="anularError" class="pago-error"></div>
+      </div>
 
-      <div class="pago-acciones">
-        <button class="btn-pago-cancelar" onclick="cerrarVentana('modalAnular')">Cancelar</button>
-        <button id="anularConfirmar" class="btn-anular-confirmar" onclick="confirmarAnulacion()">Confirmar Anulación</button>
+      <div class="pago-acciones ventana-pie pie-en-columna">
+        <button type="button" id="anularConfirmar" class="btn-anular-confirmar boton-peligro" onclick="confirmarAnulacion()">Confirmar anulación</button>
+        <button type="button" class="btn-pago-cancelar boton-secundario" onclick="cerrarVentana('modalAnular')">Cancelar</button>
       </div>
     </div>
   </div>
-
-  <style>
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.50);
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-    }
-    .modal-overlay.visible { display: flex; }
-    .modal-box {
-      background: #fff;
-      border-radius: 10px;
-      padding: 2rem;
-      width: 90%;
-      max-width: 520px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.22);
-    }
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 2px solid var(--color-primary);
-      padding-bottom: 0.75rem;
-      margin-bottom: 1.25rem;
-    }
-    .modal-header h3 { color: var(--color-primary); font-size: 1.05rem; }
-    .modal-close-btn {
-      background: none; border: none; font-size: 1.2rem;
-      cursor: pointer; color: #888; padding: 0.1rem 0.4rem; border-radius: 4px;
-    }
-    .modal-close-btn:hover { color: #d32f2f; background: #fdecea; }
-    .modal-fecha-pedido { margin: 2px 0 0; font-size: 12px; color: #999; }
-    .modal-tabla { width: 100%; border-collapse: collapse; }
-    .modal-tabla th {
-      background: #f5f5f5; padding: 0.55rem 0.8rem;
-      font-size: 0.82rem; color: #555; border-bottom: 2px solid #e0e0e0; text-align: left;
-    }
-    .modal-tabla td { padding: 0.55rem 0.8rem; border-bottom: 1px solid #f0f0f0; font-size: 0.9rem; }
-    .modal-tabla tbody tr:last-child td { border-bottom: none; }
-    .col-cant { width: 80px; text-align: center; }
-    .modal-tabla td.col-cant { text-align: center; font-weight: 700; }
-    .col-precio { text-align: right; }
-    .modal-tabla td.col-precio { text-align: right; font-weight: 600; color: var(--color-primary); white-space: nowrap; }
-    /* ── Botones de la grilla: forma y letra en .grilla-fg (global.css), igual que Generar Receta; acá el color ── */
-    .btn-detalles { background: var(--color-secondary); }
-    .btn-detalles:hover { background: #e08700; }
-    .btn-eliminar { background: #dc3545; }
-    .btn-eliminar:hover { background: #b02a37; }
-    .btn-eliminar:disabled { background: #adb5bd; cursor: not-allowed; }
-    .btn-pago { background: #0d6efd; }
-    .btn-pago:hover { background: #0b5ed7; }
-    /* Un pedido anulado no se cobra: "Pago" apagado (gris) */
-    .btn-pago:disabled { background: #adb5bd; cursor: not-allowed; }
-
-    /* ── Columna Acciones: Pago (azul) + Anular (rojo), en fila y del mismo ancho ── */
-    .acciones-pedido { display: flex; flex-direction: row; gap: 6px; align-items: center; justify-content: center; flex-wrap: nowrap; }
-
-    /* Desglose del pago mixto en la columna Método Pago */
-    .pago-detalle { font-size: 12px; line-height: 1.35; color: #6c757d; white-space: nowrap; text-align: center; }
-
-    /* ── Modal de pago ── */
-    #modalPago .modal-box { max-width: 440px; }
-    .pago-total {
-      display: flex; justify-content: space-between; align-items: center;
-      background: #e8f5e9; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.25rem;
-      font-size: 0.9rem; color: #2e7d32;
-    }
-    .pago-total strong { font-size: 1.25rem; }
-    .pago-subtitulo { font-size: 0.85rem; font-weight: 600; color: #555; margin: 0 0 0.5rem; }
-
-    .pago-metodos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
-    .pago-opcion { position: relative; cursor: pointer; }
-    .pago-opcion input { position: absolute; opacity: 0; pointer-events: none; }
-    .pago-opcion span {
-      display: block; text-align: center; padding: 0.6rem 0.2rem;
-      border: 1.5px solid #ddd; border-radius: 8px;
-      font-size: 0.78rem; font-weight: 600; color: #555; white-space: nowrap;
-      transition: border-color 0.15s, background 0.15s, color 0.15s;
-    }
-    .pago-opcion:hover span { border-color: var(--color-primary); }
-    .pago-opcion input:checked + span { border-color: var(--color-primary); background: var(--color-primary); color: white; }
-    .pago-opcion input:focus-visible + span { outline: 2px solid var(--color-primary); outline-offset: 2px; }
-
-    /* Sub-opciones: se muestran según el método elegido */
-    .pago-sub { display: none; margin-bottom: 1rem; }
-    .pago-sub.visible { display: block; }
-    .pago-check {
-      display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;
-      font-size: 0.88rem; font-weight: 500; color: #444;
-    }
-    .pago-check input { width: 17px; height: 17px; accent-color: var(--color-primary); cursor: pointer; }
-    .pago-tipos-tarjeta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
-    .pago-opcion-chica span { padding: 0.45rem 0.2rem; }
-
-    .pago-mixto { display: none; margin-bottom: 0.5rem; }
-    .pago-mixto.visible { display: block; }
-    .pago-mixto label { display: block; font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 0.3rem; }
-    .pago-input-monto {
-      display: flex; align-items: center; border: 1.5px solid #ddd; border-radius: 8px;
-      padding: 0 0.75rem; margin-bottom: 0.85rem; background: white;
-    }
-    .pago-input-monto:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(40,167,69,0.1); }
-    .pago-input-monto span { color: #888; font-weight: 600; }
-    .pago-input-monto input {
-      flex: 1; border: none; outline: none; padding: 0.6rem 0.5rem;
-      font-family: inherit; font-size: 0.95rem; background: transparent;
-    }
-    .pago-suma { font-size: 0.82rem; font-weight: 600; min-height: 1.2em; }
-    .pago-suma.ok    { color: #2e7d32; }
-    .pago-suma.falta { color: #b26a00; }
-
-    .pago-error {
-      display: none; color: #d32f2f; font-size: 0.85rem;
-      background: #fdecea; border-left: 3px solid #d32f2f;
-      padding: 0.5rem 0.75rem; border-radius: 6px; margin: 0.5rem 0;
-    }
-    .pago-error.visible { display: block; }
-
-    .pago-acciones { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1.25rem; }
-    .btn-pago-cancelar, .btn-pago-guardar {
-      border: none; border-radius: 8px; padding: 0.6rem 1.3rem; cursor: pointer;
-      font-family: inherit; font-size: 0.9rem; font-weight: 600; transition: background 0.2s;
-    }
-    .btn-pago-cancelar { background: #f0f0f0; color: #555; }
-    .btn-pago-cancelar:hover { background: #e2e2e2; }
-    .btn-pago-guardar { background: var(--color-primary); color: white; }
-    .btn-pago-guardar:hover { background: #218838; }
-    .btn-pago-guardar:disabled { background: #adb5bd; cursor: not-allowed; }
-
-    /* ── Modal de confirmación de pago ── */
-    #modalConfirmarPago .modal-box { max-width: 420px; }
-    .confirmar-pago-texto {
-      font-size: 0.92rem; line-height: 1.5; color: #444; margin: 0;
-      background: #e8f5e9; border-radius: 8px; padding: 0.85rem 1rem;
-    }
-    .confirmar-pago-texto strong { color: #2e7d32; }
-
-    /* ── Modal de anulación ── */
-    #modalAnular .modal-box { max-width: 400px; }
-    #modalAnular .modal-header { border-bottom-color: #dc3545; }
-    #modalAnular .modal-header h3 { color: #dc3545; }
-    .anular-texto {
-      font-size: 0.9rem; color: #721c24; background: #f8d7da;
-      border-radius: 8px; padding: 0.75rem 1rem; margin: 0 0 1rem;
-    }
-    .anular-label { display: block; font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 0.3rem; }
-    .anular-pin {
-      width: 100%; box-sizing: border-box; text-align: center; letter-spacing: 0.6rem;
-      border: 1.5px solid #ddd; border-radius: 8px; padding: 0.65rem;
-      font-family: inherit; font-size: 1.3rem; outline: none;
-    }
-    .anular-pin:focus { border-color: #dc3545; box-shadow: 0 0 0 3px rgba(220,53,69,0.12); }
-    .btn-anular-confirmar {
-      border: none; border-radius: 8px; padding: 0.6rem 1.3rem; cursor: pointer;
-      font-family: inherit; font-size: 0.9rem; font-weight: 600; transition: background 0.2s;
-      background: #dc3545; color: white;
-    }
-    .btn-anular-confirmar:hover { background: #b02a37; }
-    .btn-anular-confirmar:disabled { background: #adb5bd; cursor: not-allowed; }
-
-    /* Aviso de éxito */
-    .toast-exito {
-      position: fixed; top: 1.5rem; right: 1.5rem; z-index: 10000;
-      background: #d4edda; color: #155724; border-left: 4px solid var(--color-primary);
-      border-radius: 8px; padding: 0.9rem 1.25rem; box-shadow: 0 4px 12px rgba(0,0,0,.15);
-      font-size: 0.9rem; font-weight: 500;
-    }
-
-    /* Responsive — el modal se achica en mobile */
-    @media (max-width: 768px) {
-      .modal-box { padding: 1.25rem; width: 94%; }
-    }
-  </style>
 
   <script src="../src/js/global.js"></script>
   <script src="../src/js/paginacion.js"></script>
