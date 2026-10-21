@@ -2,7 +2,7 @@
    GLOBAL.CSS — Fast Good: lo común a todas las pantallas del panel (y al login)
    La cargan admin.html, login.html y las 11 pantallas de pages/. El index NO la carga.
 
-   Estilo nuevo (19/10/2026): el mismo del index. Letra Figtree, fondo blanco, los verdes del
+   Estilo nuevo (19/10/2026): el mismo del index. Letra Inter desde el 20/10 (el index sigue con Figtree), fondo blanco, los verdes del
    index, botones en forma de pastilla y tarjetas blancas con un borde finito.
    Solo cambia cómo se ve: no cambia ningún id, ninguna clase ni nada de JS.
 
@@ -62,16 +62,16 @@
     /* ── Tablas: los títulos de las columnas y las celdas (valen para TODAS las tablas del panel) ── */
     --fondo-titulos-tabla: #ffffff;               /* fondo de los títulos de las columnas: blanco (sin franja) */
     --color-titulos-tabla: var(--verde-texto);    /* letra de los títulos: el verde de los textos chicos (#127f36) */
-    --letra-titulos-tabla: 14.5px;                /* tamaño de la letra de los títulos: si lo subís, títulos más grandes */
+    --letra-titulos-tabla: 15.5px;                /* tamaño de la letra de los títulos: si lo subís, títulos más grandes */
     --linea-titulos-tabla: #cfe5d5;               /* la línea de 2 px debajo de los títulos: verde clarito */
-    --letra-celdas-tabla: 15px;                   /* tamaño de la letra de las celdas */
+    --letra-celdas-tabla: 13.5px;                 /* tamaño de la letra de las celdas */
     --celda-alto: 15px;                           /* aire arriba y abajo de cada celda: si lo subís, renglones más altos */
     --celda-espacio: 12px;                        /* aire a los costados de cada celda: si lo bajás, entran más columnas */
     --linea-renglones-tabla: var(--linea-suave);  /* la línea suave entre renglones (#edf1ec) */
     --fila-encima: #f6faf6;                       /* el renglón al pasar el mouse: verde clarito */
 
     /* ── Letra ──────────────────────────────────────────────────────────────────── */
-    --fuente: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;  /* la del index (se carga en el <head> de cada pantalla) */
+    --fuente: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;  /* la del panel (20/10; el index sigue con Figtree). Se carga en el <head> de cada pantalla */
 
     /* ── Sombras ────────────────────────────────────────────────────────────────── */
     --sombra-suave: 0 1px 2px rgb(22 50 30 / .06), 0 8px 24px rgb(22 50 30 / .08);  /* la de las tarjetas del index */
@@ -154,7 +154,7 @@ header {
     color: var(--titulo);
 }
 
-/* El título: Figtree 900, grande y gris oscuro */
+/* El título: grande, en negrita y gris oscuro */
 header h1 {
     font-size: var(--titulo-pantalla);
     font-weight: 900;

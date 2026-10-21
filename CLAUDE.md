@@ -54,6 +54,9 @@
 - CSS siempre en su archivo .css: nada de <style> en el HTML ni style="" sueltos.
 - Si para el diseño hace falta cambiar algo del JS o un nombre, PREGUNTAME antes.
 - Al terminar: node tests/test_e2e.js heladera tiene que dar 40/40, y me pasás el recorrido a mano (celu y compu).
+- En los cambios de DISEÑO (pantallas nuevas): NO actualizar docs/INFORME-CAMBIOS-HELADERA.md ni docs/HELADERA-AVANCE.md,
+  y no sacar capturas salvo que las pida. Al terminar, solo un resumen corto en el chat: qué archivos tocaste,
+  las funciones nuevas con ENTRADA/SALIDA en una línea cada una, el test y el recorrido a mano.
 
 ## Seguridad y cuidado
 - NUNCA hagas commit ni push. Los hago yo.

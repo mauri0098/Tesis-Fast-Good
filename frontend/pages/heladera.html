@@ -6,16 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fast Good — Producción</title>
   <link rel="icon" href="../src/assets/img/logo.webp" type="image/webp"/>
-  <!-- Evita el flash de contenido sin estilos (FOUC): el body se muestra cuando la página terminó de cargar -->
-  <style>
-    body { visibility: hidden; opacity: 0; transition: opacity 0.15s ease-in; }
-    body.cargada { visibility: visible; opacity: 1; }
-  </style>
-  <!-- Letra: Figtree, la misma del index (estilo nuevo, 19/10). Poppins queda porque el CSS propio de esta pantalla todavía la usa -->
-  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <!-- Letra: Inter, la del panel (20/10; el index sigue con Figtree) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- CSS: lo común (global.css), las tarjetas de "Pendientes de cocina" (pedidosCocina.css, compartido con Tareas de Cocina)
+       y lo propio de esta pantalla (heladera.css: también el "mostrar la página cuando terminó de cargar", que antes era un <style> acá) -->
   <link rel="stylesheet" href="../src/css/global.css">
-  <link rel="stylesheet" href="../src/css/stock.css">
   <link rel="stylesheet" href="../src/css/pedidosCocina.css">
   <link rel="stylesheet" href="../src/css/heladera.css">
 </head>
@@ -29,52 +24,140 @@
 
 <div class="admin-content">
 
-  <header>
-    <div class="container-centrado">
-      <div style="display:flex; align-items:center; gap:1rem;">
-        <img src="../src/assets/img/logo.webp" alt="Fast Good" style="height:40px; border-radius:4px;" onerror="this.style.display='none'">
-        <h1>Producción</h1>
-      </div>
+  <!-- Los dibujos de los íconos de esta pantalla: no se ven acá, cada uno se usa con <use href="#…"> -->
+  <svg class="iconos-pantalla" aria-hidden="true">
+    <symbol id="icono-buscar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M20 20l-4-4"></path></symbol>
+    <symbol id="icono-chevron-derecha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></symbol>
+    <symbol id="icono-mas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></symbol>
+    <symbol id="icono-menos" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path></symbol>
+    <symbol id="icono-filtros" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M7 12h10M10 17h4"></path></symbol>
+    <symbol id="icono-reloj" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></symbol>
+    <symbol id="icono-hecho" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 12.5l2.5 2.5 4.5-5"></path></symbol>
+    <symbol id="icono-historial" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"></path><path d="M3.5 4.5v4h4"></path><path d="M12 8v4l3 2"></path></symbol>
+    <symbol id="icono-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></symbol>
+    <symbol id="icono-lapiz" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></symbol>
+    <symbol id="icono-puntos" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="18" cy="12" r="1.6"></circle></symbol>
+    <symbol id="icono-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></symbol>
+    <symbol id="icono-cerrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></symbol>
+    <symbol id="icono-enviar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L10 14"></path><path d="M21 3l-6.5 18-4.5-7-7-4.5L21 3z"></path></symbol>
+    <symbol id="icono-heladera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"></rect><path d="M5 10h14M9 5.5v2M9 13v3"></path></symbol>
+    <symbol id="icono-basura" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M9 7V4h6v3"></path><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"></path></symbol>
+    <symbol id="icono-alerta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l9.5 16.5h-19L12 3.5z"></path><path d="M12 10v4M12 17h.01"></path></symbol>
+    <symbol id="icono-olla" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11h17"></path><path d="M5 11v2a7 7 0 0 0 14 0v-2"></path><path d="M9.5 4c0 1.5 1 1.5 1 3M13.5 4c0 1.5 1 1.5 1 3"></path></symbol>
+  </svg>
+
+  <!-- TÍTULO: migas ("Cocina › Producción"), el título, la frase y "+ Pedir a cocina" a la derecha -->
+  <header class="cabecera-produccion">
+    <div class="cabecera-textos">
+      <div class="migas"><span>Cocina</span><svg class="icono-miga" aria-hidden="true"><use href="#icono-chevron-derecha"></use></svg><span class="miga-actual">Producción</span></div>
+      <h1>Producción</h1>
+      <p class="cabecera-frase">Las viandas de la heladera y lo que hay que cocinar</p>
     </div>
+    <!-- Solo para quien puede pedir (heladera.js lo muestra a los roles 6, 5 y 1) -->
+    <button id="btnPedirCocina" type="button" class="boton-pedir-cocina" onclick="abrirPedirACocina()" hidden>
+      <svg class="icono-boton" aria-hidden="true"><use href="#icono-mas"></use></svg>Pedir a cocina
+    </button>
   </header>
 
-  <main class="page-container">
-    <!-- Aviso de faltantes: solo para quien puede pedir y solo si falta algo (lo maneja heladera.js) -->
-    <div id="avisoFaltantes" class="aviso-faltantes" style="display:none">
-      <span id="avisoTexto"></span>
-      <button class="btn-confirmar" onclick="abrirPedirACocina()">Pedir los que faltan</button>
+  <main class="page-container pagina-produccion">
+
+    <!-- PESTAÑAS DE ESTADO: Todos / Sin stock / Bajos / Bien, con cuántos hay (las arma heladera.js) -->
+    <div class="caja-pestanas">
+      <div id="filtrosEstado" class="filtros-estado pestanas-estado" role="group" aria-label="Filtrar por estado"></div>
     </div>
 
-    <!-- Dos columnas en escritorio: platos (ancha) y movimientos (angosta). En celular, una debajo de la otra -->
-    <div class="heladera-layout">
+    <!-- FILTROS: buscar, el filtro de plan y, a la derecha, las tres ventanas -->
+    <div class="zona-filtros">
+      <div class="fila-filtros">
+        <label class="buscador-platos">
+          <svg class="icono-lupa" aria-hidden="true"><use href="#icono-buscar"></use></svg>
+          <input type="text" id="filtroNombre" class="filtro-input campo-buscar-plato" placeholder="Buscar plato…" aria-label="Buscar plato">
+          <kbd class="atajo-teclado">Ctrl K</kbd>
+        </label>
 
-      <!-- VIANDAS EN HELADERA -->
-      <section class="table-wrapper">
-
-        <div class="tabla-header">
-          <div class="filtros-container">
-            <input type="text" id="filtroNombre" class="filtro-input" placeholder="Buscar plato...">
-          </div>
-          <div class="acciones-header">
-            <button id="btnPedirCocina" class="btn-nuevo-insumo btn-pedir-cocina" onclick="abrirPedirACocina()" style="display:none">+ Pedir a cocina</button>
-            <button id="btnPendientes" class="btn-secundario" onclick="cargarPendientesCocina(true)">Pendientes de cocina</button>
+        <!-- "Filtros": abre la lista de planes con casillas (la arma heladera.js) -->
+        <div class="caja-filtro-plan">
+          <button id="btnFiltroPlan" type="button" class="boton-filtros" aria-expanded="false" aria-controls="menuFiltroPlan">
+            <svg class="icono-boton" aria-hidden="true"><use href="#icono-filtros"></use></svg>Filtros
+            <span id="cantidadFiltroPlan" class="cantidad-filtros" hidden></span>
+          </button>
+          <div id="menuFiltroPlan" class="menu-filtro-plan" hidden>
+            <div class="menu-filtro-plan-buscar">
+              <input type="text" id="buscarPlan" class="campo-buscar-plan" placeholder="Buscar plan…" aria-label="Buscar plan">
+            </div>
+            <div id="listaFiltroPlan" class="lista-filtro-plan"></div>
+            <button id="btnLimpiarPlan" type="button" class="boton-limpiar-plan" hidden>Limpiar filtro</button>
           </div>
         </div>
 
-        <!-- Filtros por estado: los arma heladera.js con la cantidad de cada uno -->
-        <div id="filtrosEstado" class="filtros-estado"></div>
+        <div class="espacio-filtros"></div>
 
-        <table class="standard-table">
+        <!-- Las ventanas: Pendientes de cocina, Hecho hoy y Últimos movimientos (con cuántos hay) -->
+        <div class="botones-ventanas">
+          <button id="btnPendientes" type="button" class="boton-ventana" onclick="cargarPendientesCocina(true)">
+            <svg class="icono-boton" aria-hidden="true"><use href="#icono-reloj"></use></svg>Pendientes de cocina
+            <span id="cantidadPendientes" class="cantidad-ventana" hidden></span>
+          </button>
+          <button id="btnHechoHoy" type="button" class="boton-ventana" onclick="abrirHechoHoy()">
+            <svg class="icono-boton" aria-hidden="true"><use href="#icono-hecho"></use></svg>Hecho hoy
+            <span id="cantidadHechoHoy" class="cantidad-ventana" hidden></span>
+          </button>
+          <button id="btnMovimientos" type="button" class="boton-ventana" onclick="abrirMovimientos('')">
+            <svg class="icono-boton" aria-hidden="true"><use href="#icono-historial"></use></svg>Últimos movimientos
+          </button>
+        </div>
+      </div>
+
+      <!-- Los planes elegidos, cada uno con su ✕, y "Limpiar todo" (los arma heladera.js; sin planes elegidos no se ve) -->
+      <div id="chipsFiltros" class="fila-chips" hidden></div>
+    </div>
+
+    <!-- LA TARJETA DE LA TABLA. Si la tabla no entra a lo ancho, se mueve de costado solo acá adentro -->
+    <div class="tarjeta-tabla">
+      <div class="caja-tabla-produccion">
+        <table class="standard-table tabla-produccion">
           <thead>
             <tr>
-              <th>Plato</th>
-              <th>Plan</th>
-              <th title="Las que se pueden vender">Libres</th>
-              <th title="Ya son de un pedido que todavía no se entregó">Reservadas</th>
-              <th title="Libres + reservadas: lo que hay de verdad en la heladera">En heladera</th>
-              <th title="Con menos libres que esto, el plato queda Bajo (0 = sin control)">Mínimo</th>
-              <th>Estado</th>
-              <th>Acciones</th>
+              <!-- Plato, Plan, Estado, Disponibles y Total se ordenan tocando el título (heladera.js) -->
+              <th class="col-plato" aria-sort="none">
+                <button type="button" class="boton-ordenar" data-columna="nombre">Plato
+                  <svg class="icono-orden" viewBox="0 0 24 24" aria-hidden="true"><path class="flecha-sube" d="M8 10l4-4 4 4"></path><path class="flecha-baja" d="M8 14l4 4 4-4"></path></svg>
+                </button>
+              </th>
+              <th class="col-plan" aria-sort="none">
+                <button type="button" class="boton-ordenar" data-columna="plan">Plan
+                  <svg class="icono-orden" viewBox="0 0 24 24" aria-hidden="true"><path class="flecha-sube" d="M8 10l4-4 4 4"></path><path class="flecha-baja" d="M8 14l4 4 4-4"></path></svg>
+                </button>
+              </th>
+              <th class="col-estado" aria-sort="none">
+                <button type="button" class="boton-ordenar" data-columna="estado">Estado
+                  <svg class="icono-orden" viewBox="0 0 24 24" aria-hidden="true"><path class="flecha-sube" d="M8 10l4-4 4 4"></path><path class="flecha-baja" d="M8 14l4 4 4-4"></path></svg>
+                </button>
+              </th>
+              <!-- La ⓘ muestra su ayuda al pasar el mouse o al tocarla (solo CSS) -->
+              <th class="col-numero col-libres" aria-sort="none">
+                <span class="titulo-con-ayuda">
+                  <button type="button" class="boton-ordenar" data-columna="libres">Disponibles
+                    <svg class="icono-orden" viewBox="0 0 24 24" aria-hidden="true"><path class="flecha-sube" d="M8 10l4-4 4 4"></path><path class="flecha-baja" d="M8 14l4 4 4-4"></path></svg>
+                  </button>
+                  <span class="ayuda" tabindex="0" data-ayuda="Las que podés vender ahora." aria-label="Disponibles: las que podés vender ahora."><svg class="icono-ayuda" aria-hidden="true"><use href="#icono-info"></use></svg></span>
+                </span>
+              </th>
+              <th class="col-numero col-reservadas">
+                <span class="titulo-con-ayuda">Reservadas
+                  <span class="ayuda" tabindex="0" data-ayuda="Están en la heladera, pero ya son de un pedido." aria-label="Reservadas: están en la heladera, pero ya son de un pedido."><svg class="icono-ayuda" aria-hidden="true"><use href="#icono-info"></use></svg></span>
+                </span>
+              </th>
+              <th class="col-numero col-en-heladera" aria-sort="none">
+                <span class="titulo-con-ayuda">
+                  <button type="button" class="boton-ordenar" data-columna="en_heladera">Total
+                    <svg class="icono-orden" viewBox="0 0 24 24" aria-hidden="true"><path class="flecha-sube" d="M8 10l4-4 4 4"></path><path class="flecha-baja" d="M8 14l4 4 4-4"></path></svg>
+                  </button>
+                  <span class="ayuda" tabindex="0" data-ayuda="Lo que tenés en la heladera (disponibles + reservadas)." aria-label="Total: lo que tenés en la heladera (disponibles + reservadas)."><svg class="icono-ayuda" aria-hidden="true"><use href="#icono-info"></use></svg></span>
+                </span>
+              </th>
+              <th class="col-minimo">Mínimo</th>
+              <th class="col-menu"><span class="solo-lector">Acciones</span></th>
             </tr>
           </thead>
           <tbody id="heladeraBody">
@@ -83,105 +166,228 @@
             </tr>
           </tbody>
         </table>
-        <div id="paginacion" class="paginacion"></div>
+      </div>
+    </div>
 
-        <!-- HECHO HOY: platos de pedidos a cocina marcados hechos hoy (lo arma heladera.js) -->
-        <div class="hecho-hoy">
-          <h2 class="titulo-seccion">Hecho hoy</h2>
-          <ul id="listaHechoHoy" class="lista-hecho-hoy">
-            <li class="mov-vacio">Cargando...</li>
-          </ul>
-        </div>
-
-      </section>
-
-      <!-- ÚLTIMOS MOVIMIENTOS (lista compacta con scroll propio) -->
-      <aside class="table-wrapper panel-movimientos">
-        <h2 class="titulo-seccion">Últimos movimientos</h2>
-        <!-- Filtros por tipo: los arma heladera.js (Todos, Producción, Ventas, Devoluciones, Descartes) -->
-        <div id="filtrosMovimientos" class="filtros-estado filtros-movimientos"></div>
-        <ul id="listaMovimientos" class="lista-movimientos">
-          <li class="mov-vacio">Cargando...</li>
-        </ul>
-        <!-- "Ver más": trae los 50 siguientes (heladera.js lo muestra solo si puede haber más) -->
-        <button id="btnVerMas" type="button" class="btn-secundario btn-ver-mas" hidden>Ver más</button>
-      </aside>
-
+    <!-- PIE DE LA TABLA: "Mostrando X de Y platos" y las páginas -->
+    <div class="pie-produccion">
+      <span id="resumenPlatos" class="resumen-platos"></span>
+      <div id="paginacion" class="paginacion"></div>
     </div>
   </main>
 
-  <!-- MODAL: Pedir a cocina (se elige para cuándo y cuántas viandas de cada plato) -->
-  <div id="modalPedido" class="modal">
-    <div class="modal-content modal-stock modal-pedido">
-      <span class="close" onclick="cerrarVentana('modalPedido')">&times;</span>
-      <h3>Pedir a cocina</h3>
+  <!-- MENÚ ⋯ DE CADA FILA: uno solo para toda la tabla, se ubica al lado del ⋯ que se tocó (heladera.js) -->
+  <div id="menuFila" class="menu-fila" role="menu" hidden>
+    <button id="menuFilaMovimientos" type="button" class="opcion-menu-fila" role="menuitem">
+      <svg class="icono-boton" aria-hidden="true"><use href="#icono-historial"></use></svg>Ver movimientos del plato
+    </button>
+    <div class="separador-menu-fila"></div>
+    <button id="menuFilaDescartar" type="button" class="opcion-menu-fila opcion-descartar" role="menuitem">
+      <svg class="icono-boton" aria-hidden="true"><use href="#icono-basura"></use></svg>Descartar viandas
+    </button>
+  </div>
 
-      <!-- Una línea: para cuándo, filtro y cargar rápido -->
-      <div class="pedido-controles">
-        <label class="control-pedido">Para cuándo
-          <input id="pFecha" type="date">
-        </label>
-        <label class="control-pedido">Mostrar
-          <select id="pPlan"></select>
-        </label>
-        <!-- Cargar rápido: actúa sobre los platos que se ven con el filtro elegido -->
-        <div class="control-pedido">
-          <span>Cargar rápido</span>
+  <!-- VENTANA: Pedir a cocina (a la izquierda los platos, a la derecha "Tu pedido" con el total y Enviar) -->
+  <div id="modalPedido" class="modal">
+    <div class="modal-content ventana-produccion modal-pedido">
+      <div class="cabecera-ventana">
+        <span class="icono-ventana"><svg aria-hidden="true"><use href="#icono-enviar"></use></svg></span>
+        <div class="textos-ventana">
+          <h3>Pedir a cocina</h3>
+          <p class="frase-ventana">Elegí cuántas viandas cocinar de cada plato.</p>
+        </div>
+        <button type="button" class="boton-cerrar-ventana" onclick="cerrarVentana('modalPedido')" aria-label="Cerrar">
+          <svg aria-hidden="true"><use href="#icono-cerrar"></use></svg>
+        </button>
+      </div>
+
+      <div class="pedido-cuerpo">
+        <!-- Izquierda: aviso, controles, pestañas, cargar rápido y la tabla de platos -->
+        <div class="pedido-izquierda">
+          <!-- "N platos están abajo del mínimo" (lo escribe pedirCocina.js; si no falta nada, no se ve) -->
+          <div id="pAviso" class="aviso-pedido" hidden></div>
+
+          <div class="pedido-controles">
+            <label class="control-pedido">Para cuándo
+              <input id="pFecha" type="date">
+            </label>
+            <label class="control-pedido">Plan
+              <select id="pPlan"></select>
+            </label>
+            <label class="control-pedido">Buscar
+              <input id="pBuscar" type="text" placeholder="Buscar plato…">
+            </label>
+          </div>
+
+          <!-- Pestañas: se pueden elegir varias (arranca con Sin stock y Bajos). Las arma pedirCocina.js -->
+          <div class="caja-pestanas">
+            <div id="pPestanas" class="pestanas-pedido" role="group" aria-label="Mostrar por estado"></div>
+          </div>
+
+          <!-- Cargar rápido: actúa sobre los platos que se ven -->
           <div class="carga-rapida">
-            <input id="pRapidoCantidad" type="number" min="1" step="1" placeholder="Ej: 5">
+            <span class="carga-rapida-titulo">Cargar rápido a los que se ven</span>
+            <input id="pRapidoCantidad" type="number" min="1" step="1" placeholder="Cant." aria-label="Cantidad para cargar rápido">
             <button type="button" class="btn-rapido" onclick="cargaRapida('cada')">A cada uno</button>
             <button type="button" class="btn-rapido" onclick="cargaRapida('repartir')">Repartir</button>
             <button type="button" class="btn-rapido btn-limpiar" onclick="cargaRapida('limpiar')">Limpiar</button>
           </div>
+
+          <div class="caja-tabla-pedido">
+            <table class="tabla-pedido">
+              <thead>
+                <tr>
+                  <th class="col-plato">Plato</th>
+                  <th class="col-plan">Plan</th>
+                  <th class="col-numero">Disponibles</th>
+                  <th class="col-numero">Reservadas</th>
+                  <th class="col-numero">Mínimo</th>
+                  <th class="col-pedir">Pedir</th>
+                </tr>
+              </thead>
+              <tbody id="pPlatos" class="lista-pedido"></tbody>
+            </table>
+          </div>
         </div>
-      </div>
 
-      <div id="pPlatos" class="lista-pedido"></div>
+        <!-- Derecha: "Tu pedido" (lo que se va pidiendo), el total y los botones -->
+        <aside class="pedido-resumen">
+          <div class="pedido-resumen-cabecera">
+            <div class="pedido-resumen-titulo"><svg class="icono-boton" aria-hidden="true"><use href="#icono-enviar"></use></svg>Tu pedido</div>
+            <div id="pParaCuando" class="pedido-resumen-fecha"></div>
+          </div>
+          <div id="pResumenLista" class="pedido-resumen-lista"></div>
 
-      <div id="pError" class="modal-error"></div>
-
-      <!-- Siempre visible: total y enviar -->
-      <div class="pedido-pie">
-        <div class="pedido-total">
-          <span id="pTotal" class="pedido-total-numero"></span>
-          <span id="pTotalPlatos" class="pedido-total-platos"></span>
-        </div>
-        <button id="pEnviar" class="btn-confirmar btn-enviar-cocina" onclick="enviarPedidoACocina()" disabled>Enviar a cocina</button>
+          <div class="pedido-pie">
+            <div id="pError" class="modal-error"></div>
+            <div class="pedido-total">
+              <div class="pedido-total-textos">
+                <span class="pedido-total-titulo">Total</span>
+                <span id="pTotalPlatos" class="pedido-total-platos"></span>
+              </div>
+              <span id="pTotal" class="pedido-total-numero"></span>
+            </div>
+            <div class="botones-ventana">
+              <button type="button" class="btn-cancelar" onclick="cerrarVentana('modalPedido')">Cancelar</button>
+              <button id="pEnviar" type="button" class="btn-confirmar btn-enviar-cocina" onclick="enviarPedidoACocina()" disabled>Enviar a cocina</button>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: Pendientes de cocina (lo pedido que todavía no se cocinó, agrupado por cocinero) -->
+  <!-- VENTANA: Pendientes de cocina (lo pedido que todavía no se cocinó, por cocinero: lo arma pedidosCocina.js) -->
   <div id="modalPendientes" class="modal">
-    <div class="modal-content modal-stock modal-pendientes">
-      <span class="close" onclick="cerrarVentana('modalPendientes')">&times;</span>
-      <h3>Pendientes de cocina</h3>
-      <div id="listaPendientes" class="lista-pendientes">
+    <div class="modal-content ventana-produccion modal-pendientes">
+      <div class="cabecera-ventana">
+        <span class="icono-ventana"><svg aria-hidden="true"><use href="#icono-reloj"></use></svg></span>
+        <div class="textos-ventana">
+          <h3>Pendientes de cocina</h3>
+          <p class="frase-ventana">Lo que falta cocinar, por cocinero.</p>
+        </div>
+        <button type="button" class="boton-cerrar-ventana" onclick="cerrarVentana('modalPendientes')" aria-label="Cerrar">
+          <svg aria-hidden="true"><use href="#icono-cerrar"></use></svg>
+        </button>
+      </div>
+      <div id="listaPendientes" class="lista-pendientes cuerpo-ventana">
         <p class="mov-vacio">Cargando...</p>
       </div>
+      <div class="botones-ventana pie-ventana">
+        <button type="button" class="btn-cancelar" onclick="cerrarVentana('modalPendientes')">Cerrar</button>
+        <!-- Solo para quien puede pedir (heladera.js lo muestra junto con "+ Pedir a cocina") -->
+        <button id="btnPedirDesdePendientes" type="button" class="btn-confirmar" onclick="cerrarVentana('modalPendientes'); abrirPedirACocina()" hidden>Pedir a cocina</button>
+      </div>
     </div>
   </div>
 
-  <!-- MODAL: Descartar viandas -->
+  <!-- VENTANA: Hecho hoy (lo que la cocina marcó hecho hoy: lo arma heladera.js) -->
+  <div id="modalHechoHoy" class="modal">
+    <div class="modal-content ventana-produccion ventana-hecho-hoy">
+      <div class="cabecera-ventana">
+        <span class="icono-ventana"><svg aria-hidden="true"><use href="#icono-hecho"></use></svg></span>
+        <div class="textos-ventana">
+          <h3>Hecho hoy</h3>
+          <p class="frase-ventana">Lo que se cocinó y entró a la heladera hoy.</p>
+        </div>
+        <button type="button" class="boton-cerrar-ventana" onclick="cerrarVentana('modalHechoHoy')" aria-label="Cerrar">
+          <svg aria-hidden="true"><use href="#icono-cerrar"></use></svg>
+        </button>
+      </div>
+      <div class="cuerpo-ventana">
+        <!-- "Entraron a la heladera: N viandas" (lo escribe heladera.js; si no hay nada hecho, no se ve) -->
+        <div id="resumenHechoHoy" class="resumen-hecho-hoy" hidden></div>
+        <ul id="listaHechoHoy" class="lista-hecho-hoy">
+          <li class="mov-vacio">Cargando...</li>
+        </ul>
+      </div>
+      <div class="botones-ventana pie-ventana">
+        <button type="button" class="btn-cancelar" onclick="cerrarVentana('modalHechoHoy')">Cerrar</button>
+        <button type="button" class="btn-confirmar" onclick="cerrarVentana('modalHechoHoy'); abrirMovimientos('')">Ver movimientos</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL DE LA DERECHA: Últimos movimientos (lo de adentro lo arma heladera.js) -->
+  <div id="panelMovimientos" class="modal modal-movimientos">
+    <aside class="panel-movimientos" aria-label="Últimos movimientos">
+      <!-- Arriba: título y ✕, los filtros por tipo y "Plato: … ✕" -->
+      <div class="cabecera-movimientos">
+        <div class="fila-titulo-movimientos">
+          <div class="textos-ventana">
+            <h3 class="titulo-movimientos">Últimos movimientos</h3>
+            <p class="frase-ventana">Entradas y salidas de la heladera.</p>
+          </div>
+          <button type="button" class="boton-cerrar-ventana" onclick="cerrarVentana('panelMovimientos')" aria-label="Cerrar">
+            <svg aria-hidden="true"><use href="#icono-cerrar"></use></svg>
+          </button>
+        </div>
+        <!-- Filtros por tipo: los arma heladera.js (Todos, Producción, Ventas, Devoluciones, Descartes) -->
+        <div id="filtrosMovimientos" class="filtros-estado filtros-movimientos"></div>
+        <!-- "Plato: fideos ✕" cuando se llegó desde el ⋯ de una fila (lo escribe heladera.js) -->
+        <div id="chipPlatoMovimientos" class="chip-plato-movimientos" hidden></div>
+      </div>
+      <ul id="listaMovimientos" class="lista-movimientos">
+        <li class="mov-vacio">Cargando...</li>
+      </ul>
+      <!-- "Ver más": trae los 50 siguientes (heladera.js lo muestra solo si puede haber más) -->
+      <div class="pie-movimientos">
+        <button id="btnVerMas" type="button" class="btn-secundario btn-ver-mas" hidden>Ver más</button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- VENTANA: Descartar viandas -->
   <div id="modalDescarte" class="modal">
-    <div class="modal-content modal-stock">
-      <span class="close" onclick="cerrarVentana('modalDescarte')">&times;</span>
-      <h3>Descartar viandas</h3>
-      <p id="dInfo"></p>
-
-      <div class="modal-grid">
-        <label>Cantidad *</label>
-        <input id="dCantidad" type="number" min="1" step="1" placeholder="Ej: 2">
-
-        <label>Motivo *</label>
-        <input id="dMotivo" type="text" maxlength="200" placeholder="Ej: Vencidas">
+    <div class="modal-content ventana-produccion ventana-descarte">
+      <div class="cabecera-ventana">
+        <span class="icono-ventana icono-ventana-peligro"><svg aria-hidden="true"><use href="#icono-basura"></use></svg></span>
+        <div class="textos-ventana">
+          <h3>Descartar viandas</h3>
+          <p id="dInfo" class="frase-ventana"></p>
+        </div>
+        <button type="button" class="boton-cerrar-ventana" onclick="cerrarVentana('modalDescarte')" aria-label="Cerrar">
+          <svg aria-hidden="true"><use href="#icono-cerrar"></use></svg>
+        </button>
       </div>
 
-      <div id="dError" class="modal-error"></div>
+      <div class="cuerpo-descarte">
+        <div class="campos-descarte">
+          <label class="campo-descarte">Cantidad
+            <input id="dCantidad" type="number" min="1" step="1" placeholder="Ej: 2">
+          </label>
+          <label class="campo-descarte">Motivo
+            <input id="dMotivo" type="text" maxlength="200" placeholder="Ej: Vencidas">
+          </label>
+        </div>
+        <!-- "Hay N disponibles; las N reservadas no se pueden descartar." (lo escribe heladera.js) -->
+        <p class="info-descarte"><svg class="icono-boton" aria-hidden="true"><use href="#icono-info"></use></svg><span id="dDisponibles"></span></p>
+        <div id="dError" class="modal-error"></div>
+      </div>
 
-      <div class="modal-actions">
-        <button class="btn-cancelar" onclick="cerrarVentana('modalDescarte')">Cancelar</button>
-        <button id="dConfirmar" class="btn-confirmar" onclick="confirmarDescarte()">Confirmar descarte</button>
+      <div class="botones-ventana pie-ventana">
+        <button type="button" class="btn-cancelar" onclick="cerrarVentana('modalDescarte')">Cancelar</button>
+        <button id="dConfirmar" type="button" class="btn-confirmar boton-peligro" onclick="confirmarDescarte()">Confirmar descarte</button>
       </div>
     </div>
   </div>

@@ -2540,7 +2540,8 @@ function leerMotivoVianda(valor, obligatorio) {
 // GET /api/viandas-stock → los platos activos con sus viandas (pantalla Producción)
 // ENTRADA: nada (solo el usuario logueado, con rol 6, 5, 1 o 2)
 // SALIDA:  una lista con un objeto por plato activo:
-//          { id, nombre, stock_heladera, reservadas, en_heladera, stock_minimo, id_plan, plan_nombre, plan_activo, tiene_receta }
+//          { id, nombre, descripcion, stock_heladera, reservadas, en_heladera, stock_minimo, id_plan, plan_nombre, plan_activo, tiene_receta }
+//            descripcion    = la frase corta del plato ('' si no tiene): la tabla la muestra debajo del nombre
 //            stock_heladera = las LIBRES: las que se pueden vender
 //            reservadas     = las que ya son de un pedido en 1, 2 o 3 (todavía no se entregó)
 //            en_heladera    = libres + reservadas: lo que hay de verdad en la heladera
@@ -2553,7 +2554,7 @@ app.get('/api/viandas-stock', requireAuth, requireRol(...ROLES_HELADERA), async 
     // 1. Los platos activos, con su plan y los insumos de su receta
     const { data: platos, error: errPlatos } = await supabase     // pide a la base...
       .from('productos')                                          // ...la tabla de platos
-      .select('id, nombre, stock_heladera, stock_minimo, id_plan, planes ( nombre, activo ), producto_insumo ( id_insumo )')  // el plato, su plan y su receta
+      .select('id, nombre, descripcion, stock_heladera, stock_minimo, id_plan, planes ( nombre, activo ), producto_insumo ( id_insumo )')  // el plato (con su descripción), su plan y su receta
       .eq('activo', true)                                         // solo los activos
       .order('nombre', { ascending: true });                      // ordenados por nombre
     if (errPlatos) return errorInterno(res, errPlatos);           // si falló la base: 500 con un mensaje simple
@@ -2587,7 +2588,8 @@ app.get('/api/viandas-stock', requireAuth, requireRol(...ROLES_HELADERA), async 
       resultado.push({                                            // se agrega a la respuesta:
         id:             plato.id,                                 // número del plato
         nombre:         plato.nombre,                             // su nombre
-        stock_heladera: libres,                                   // las libres
+        descripcion:    plato.descripcion || '',                  // su descripción ('' si no tiene)
+        stock_heladera: libres,                                  // las libres
         reservadas:     reservadas,                               // las reservadas
         en_heladera:    libres + reservadas,                      // lo que hay de verdad en la heladera
         stock_minimo:   Number(plato.stock_minimo || 0),          // el mínimo (0 = sin control)

@@ -317,7 +317,7 @@ el usuario). Recién ahí se pasa a la siguiente.
 | 2 | Login | `auth.js` muestra el nombre del usuario sin `escHtml` (en el botón de sesión del encabezado) y trae estilos fijos de letra blanca (para el encabezado verde viejo), que en la web nueva se pisan desde `index-combos.css`. Sus nombres están en inglés (`auth-btn-container`, `login-btn-header`, `auth-dropdown`): pasarlos a español en todos los archivos que los usan | ⏭ |
 | 3 | Consultar Pedidos | (con el menú nuevo del panel y `global.css` al estilo del index, para las 13 pantallas que lo cargan) | ✍ **Hecho (19/10, `diseno-panel-v2/`)**: menú lateral nuevo en las 12 pantallas del panel, `global.css` con el estilo del index (también el login), Consultar Pedidos como la referencia (filtros con una sola fecha, botones de estado, tabla y las 4 ventanas) y, a la tarde, títulos de tabla verdes y letra más grande en todas las tablas (INFORME 16). Pedido de prueba #039 y test 40/40 dos veces (#040 a #043), todos anulados. Falta: tu recorrido a mano (el del panel, más abajo) |
 | 4 | Tareas de Cocina | (el punto 8 ya está escrito: el plato primero y el plan entre paréntesis) | ⏭ |
-| 5 | Pedir a cocina + Producción | Cancelar un pedido a cocina pendiente (y limpiar los 9 de prueba del 08/10) | ⏭ |
+| 5 | Pedir a cocina + Producción | Cancelar un pedido a cocina pendiente (y limpiar los 9 de prueba del 08/10) | ✍ **Paso 1 hecho (20/10, `diseno-produccion/`)**: menú lateral y barra de arriba nuevos para todo el panel (lista sin títulos, menú achicable, buscador solo visual, globito de Tareas de Cocina escondido) y letra Inter en el panel (el index sigue con Figtree). Test 40/40 (INFORME 17). Falta: tu prueba del Paso 1 y el Paso 2 (Producción) |
 | 6 | Movimientos de Stock + Compras | Puntos 1 a 6 de "Ajustes después de probar a mano" (salidas, orden, repetidos, hora real, columnas, filtro de fecha) | ⏭ |
 | 7 | Combos | Punto 7 (filtros por plan y por nombre) | ⏭ |
 | 8 | Productos y Recetas | | ⏭ |
@@ -533,6 +533,7 @@ quedó igual) en la sección 16 de `INFORME-CAMBIOS-HELADERA.md`.
   - los títulos de **todas** las tablas del panel, en verde `#127f36`, 14,5 px, sin franja ni mayúsculas, con una línea de 2 px `#cfe5d5`;
   - las celdas de 15 px, con 15 y 12 px de aire;
   - en Consultar Pedidos, cada celda con su clase `col-…`: N° verde; Cliente y Costo de 16 px; Teléfono y Mail chicos y grises (INFORME 16.12).
+- **Ajuste (19/10, noche):** títulos de las tablas a 15,5 px y celdas a 13,5 px (solo perillas de `global.css`); la tabla de Consultar Pedidos sigue con el scroll de costado en notebooks (decisión tuya).
 - **Comprobado:**
   - las 13 pantallas a 1440 y 390 px y los 6 roles: sin errores, sin pie y sin scroll de costado;
   - 21 pruebas solo leyendo en Consultar Pedidos;

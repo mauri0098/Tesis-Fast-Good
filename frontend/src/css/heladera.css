@@ -1,501 +1,2711 @@
-/* =========================================
-   HELADERA — estilos propios de la pantalla
-   La base (tabla, modales, botones, toast) sale de global.css y stock.css;
-   acá solo va lo que esas dos no tienen.
-   ========================================= */
+/* ============================================================
+   heladera.css — La pantalla "Producción" (pages/heladera.html)
 
-/* =========================================
-   LAYOUT: tabla de platos a la izquierda, movimientos a la derecha
-   ========================================= */
-.heladera-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 1.5rem;
-  align-items: start;
+   Solo lo propio de esta pantalla. Lo común (letra, colores, tabla base, ventanas base y paginación)
+   está en global.css, el menú en menuPanel.css y las tarjetas de "Pendientes de cocina" en
+   pedidosCocina.css (compartido con Tareas de Cocina: acá solo se le cambia el aspecto adentro de
+   la ventana de esta pantalla, con reglas que empiezan con .modal-pendientes).
+   Esta pantalla ya no usa stock.css: lo que tomaba de ahí (botones de las ventanas, error y aviso flotante) está acá.
+
+   Secciones:
+     0. Perillas de esta pantalla
+     1. Mostrar la página cuando terminó de cargar
+     2. Piezas generales (íconos, escondidos)
+     3. Título: migas, título, frase y "+ Pedir a cocina"
+     4. Pestañas de estado
+     5. Fila de filtros: buscar, "Filtros" (planes), las tres ventanas y los ✕
+     6. Tabla de platos
+     7. Pie de la tabla: "Mostrando X de Y platos" y las páginas
+     8. Menú ⋯ de las filas
+     9. Ventanas (lo común)
+    10. Ventana "Pedir a cocina"
+    11. Ventana "Pendientes de cocina"
+    12. Ventana "Hecho hoy"
+    13. Panel "Últimos movimientos"
+    14. Ventana "Descartar viandas"
+    15. Aviso flotante
+    16. Celular
+   ============================================================ */
+
+
+/* ===== 0. PERILLAS DE ESTA PANTALLA ===== */
+:root {
+    /* Colores de esta pantalla */
+    --prod-verde: #12893a;           /* botones verdes y lo elegido */
+    --prod-verde-hondo: #0f7a33;     /* el verde al pasar el mouse */
+    --prod-verde-texto: #127f36;     /* textos verdes chicos */
+    --prod-verde-suave: #e8f5eb;     /* fondos verdes clarito */
+    --prod-verde-borde: #cfe7d6;     /* bordes verdes clarito */
+    --prod-rojo: #c9372c;            /* "Confirmar descarte" y las salidas */
+    --prod-rojo-hondo: #b02e24;
+    --prod-borde: #e3e9e1;           /* bordes de tarjetas, casilleros y botones blancos */
+    --prod-borde-casillero: #d9e1d7; /* bordes de los casilleros de las ventanas */
+    --prod-gris-fondo: #f2f5f1;      /* el fondo de las pestañas */
+    --prod-gris-encima: #f4f7f3;     /* botones blancos al pasar el mouse */
+    --prod-titulos-fondo: #f5f7f4;   /* la franja de los títulos de la tabla */
+    --prod-titulos-linea: #e6ebe4;   /* la línea debajo de esa franja */
+    --prod-renglon-linea: #edf1ec;   /* la línea entre renglones */
+    --prod-texto: #111a14;           /* texto común */
+    --prod-titulo: #3a4640;          /* títulos y texto de botones */
+    --prod-gris: #4a564d;            /* textos secundarios */
+    --prod-apagado: #7a857d;         /* textos muy suaves (placeholder, Ctrl K) */
+    --prod-icono: #8a948d;           /* íconos suaves (ⓘ, ✎, la X de las ventanas) */
+    --prod-fondo-ventana: rgba(40, 44, 41, .72);   /* lo oscuro detrás de las ventanas */
+    --prod-sombra-tarjeta: 0 0 0 1px rgba(17, 26, 20, .07), 0 2px 4px rgba(17, 26, 20, .03), 0 16px 40px -20px rgba(17, 26, 20, .18);
+    --prod-sombra-chica: 0 1px 2px rgba(17, 26, 20, .04);
+    --prod-sombra-lista: 0 0 0 1px rgba(17, 26, 20, .07), 0 6px 18px -12px rgba(17, 26, 20, .16);
+
+    /* Tamaños */
+    --prod-radio: 12px;              /* esquinas de botones, casilleros y menús */
+    --prod-radio-tarjeta: 16px;      /* esquinas de la tarjeta de la tabla y de las ventanas */
+    --prod-alto-control: 40px;       /* alto del buscador y de los botones de la fila de filtros */
+    --prod-tabla-ancho-minimo: 1094px;  /* lo más angosta que queda la tabla: si la pantalla es más chica, se mueve de costado */
+    --prod-ancho-plato: 29%;            /* el ancho de la columna Plato (las demás se reparten el resto) */
+    --prod-celda-costado: 14px;         /* aire a los costados de cada celda de la tabla */
+
+    /* Lo que necesita pedidosCocina.css (antes lo daba stock.css) */
+    --primary-green: var(--prod-verde);
+    --radius: var(--prod-radio);
 }
 
-/* En pantallas angostas el panel de movimientos pasa abajo, a todo el ancho */
-@media (max-width: 900px) {
-  .heladera-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
+/* Los colores de cada estado: fondo, letra, puntito y borde de su pastilla */
+.estado-bien       { --punto-estado: #12893a; background: #e6f4ea; color: #0f6a2d; box-shadow: inset 0 0 0 1px #cfe8d6; }
+.estado-bajo       { --punto-estado: #e8890c; background: #fdf0cf; color: #6b4300; box-shadow: inset 0 0 0 1px #f3dca0; }
+.estado-sin        { --punto-estado: #d23b2e; background: #fde3e0; color: #9b1f16; box-shadow: inset 0 0 0 1px #f5c9c4; }
+.estado-sincontrol { --punto-estado: #8a948d; background: #eef1ee; color: #4f5a52; box-shadow: inset 0 0 0 1px #dde3dc; }
+
+/* El fondo de cada fila según su estado (y al pasar el mouse). Lo usan la tabla y la ventana "Pedir a cocina" */
+.fila-bien, .fila-sincontrol { --fondo-fila: #ffffff; --fondo-fila-encima: #fbfcfb; }
+.fila-bajo                   { --fondo-fila: #fffaeb; --fondo-fila-encima: #fff6db; }
+.fila-sin                    { --fondo-fila: #fff3f1; --fondo-fila-encima: #ffebe8; }
+
+/* El color fijo del puntito de cada plan (heladera.js elige punto-plan-0 a -5 con el número del plan) */
+.punto-plan-0 { background: #12893a; }   /* verde */
+.punto-plan-1 { background: #7c4dcc; }   /* violeta */
+.punto-plan-2 { background: #2c6fb6; }   /* azul */
+.punto-plan-3 { background: #d9822b; }   /* naranja */
+.punto-plan-4 { background: #c2417a; }   /* rosa */
+.punto-plan-5 { background: #2a9d8f; }   /* verde agua */
+
+
+/* ===== 1. MOSTRAR LA PÁGINA CUANDO TERMINÓ DE CARGAR ===== */
+/* Antes estaba en un <style> del HTML. El body aparece cuando el <script> del final le pone "cargada" */
+body {
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.15s ease-in;
 }
 
-/* Botones de la cabecera: "+ Pedir a cocina" (principal) y "Pendientes de cocina" (secundario) */
-.acciones-header {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
+body.cargada {
+    visibility: visible;
+    opacity: 1;
 }
 
-.btn-secundario {
-  padding: 0.55rem 1.2rem;
-  background-color: transparent;
-  color: var(--primary-green);
-  border: 2px solid var(--primary-green);
-  border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
+
+/* ===== 2. PIEZAS GENERALES ===== */
+
+/* Lo que tiene "hidden" no se ve nunca (aunque su clase le ponga display: flex). !important: le gana a esas clases */
+[hidden] {
+    display: none !important;
 }
 
-.btn-secundario:hover {
-  background-color: var(--primary-green);
-  color: #fff;
+/* El lugar de los dibujos de los íconos: no se ve ni ocupa lugar */
+.iconos-pantalla {
+    position: absolute;
+    width: 0;
+    height: 0;
 }
 
-.btn-confirmar:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-borrar:disabled { opacity: 0.4; cursor: not-allowed; }
-
-/* =========================================
-   PANEL "ÚLTIMOS MOVIMIENTOS"
-   Lista compacta con alto fijo y scroll propio (no estira la página)
-   ========================================= */
-.panel-movimientos {
-  overflow-x: hidden;
+/* Todos los íconos de la pantalla miden 18 px, salvo que su clase diga otra cosa
+   (:where no suma fuerza: cualquier clase de abajo le gana) */
+:where(.cabecera-produccion, .pagina-produccion, .modal, .menu-fila) svg {
+    width: 18px;
+    height: 18px;
+    flex: none;
 }
 
-.titulo-seccion {
-  margin: 0 0 0.8rem;
-  font-size: 1.05rem;
+/* Un texto que solo leen los lectores de pantalla (el título "Acciones" de la columna ⋯) */
+.solo-lector {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
 }
 
-.lista-movimientos {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 560px;
-  overflow-y: auto;
+/* Los mensajes de error de las listas y la tabla */
+.texto-error {
+    color: var(--rojo);
 }
 
-.mov-item {
-  padding: 0.55rem 0.2rem;
-  border-bottom: 1px solid #e9ecef;
-  font-size: 0.82rem;
+/* La página: una columna con 22 px entre cada parte */
+.pagina-produccion {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    min-width: 0;
 }
 
-.mov-item:last-child { border-bottom: none; }
 
-.mov-linea {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
+/* ===== 3. TÍTULO: MIGAS, TÍTULO, FRASE Y "+ PEDIR A COCINA" ===== */
+
+/* Los textos a la izquierda y el botón a la derecha, alineados abajo. Si no entran, el botón baja */
+.cabecera-produccion {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
 }
 
-.mov-cantidad {
-  min-width: 2.8rem;
-  font-weight: 700;
+.cabecera-textos {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
-.mov-cantidad.entrada { color: #155724; }
-.mov-cantidad.salida  { color: #721c24; }
-
-.mov-plato {
-  font-weight: 600;
-  overflow-wrap: anywhere;
+/* "Cocina › Producción" */
+.migas {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--prod-gris);
 }
 
-.mov-detalle {
-  margin-left: 3.3rem;
-  color: #6c757d;
-  font-size: 0.75rem;
+.icono-miga {
+    width: 14px;
+    height: 14px;
 }
 
-.mov-motivo {
-  margin-left: 3.3rem;
-  color: #868e96;
-  font-size: 0.72rem;
-  font-style: italic;
-  overflow-wrap: anywhere;
+.miga-actual {
+    color: var(--prod-texto);
+    font-weight: 500;
 }
 
-.mov-vacio {
-  padding: 1rem 0;
-  text-align: center;
-  color: #6c757d;
-  font-size: 0.85rem;
-}
-
-/* Botones rápidos de "Cargar rápido" (ventana de pedir) */
-.btn-rapido {
-  padding: 0.4rem 0.9rem;
-  background-color: #e9f7ef;
-  color: #155724;
-  border: 1px solid #b7e1c4;
-  border-radius: var(--radius);
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.btn-rapido:hover { background-color: #d4edda; }
-
-/* Etiqueta "sin receta" de los renglones de la ventana de pedir */
-.etiqueta-sin-receta {
-  margin-left: 0.4rem;
-  font-size: 0.72rem;
-  font-style: italic;
-}
-
-/* Botón principal "+ Pedir a cocina": verde, para distinguirlo del resto */
-.btn-pedir-cocina { background-color: var(--primary-green); }
-.btn-pedir-cocina:hover { background-color: #1e7e34; }
-
-/* =========================================
-   CRUZ DE CERRAR (ventanas de pedir y de pendientes)
-   Fija arriba a la derecha, por encima del contenido y con 44px para tocarla.
-   El float de global.css no sirve en .modal-pedido, que es una columna flex.
-   ========================================= */
-/* El fondo oscuro de estas dos ventanas va por encima del encabezado (capa 1000),
-   del menú lateral (999) y del botón hamburguesa (1001). Los avisos (10000) siguen arriba. */
-#modalPedido,
-#modalPendientes { z-index: 1100; }
-
-/* Ventana centrada en horizontal y en vertical: absoluta sobre todo el fondo con margin auto.
-   height: fit-content hace que tome el alto de su contenido; max-height la achica si no entra,
-   dejando 1.5rem parejo arriba y abajo. No usa transform: lo usa la animación de entrada.
-   Al ser absoluta, también sirve de referencia para ubicar la cruz. */
-.modal-pedido,
-.modal-pendientes {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  height: fit-content;
-  max-height: calc(100% - 3rem);
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-pedido .close,
-.modal-pendientes .close {
-  position: absolute;
-  top: 0.6rem;
-  right: 0.6rem;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  float: none;
-  border-radius: 50%;
-}
-
-.modal-pedido .close:hover,
-.modal-pendientes .close:hover { background-color: #f1f3f5; }
-
-/* Que el título no quede debajo de la cruz */
-.modal-pedido h3,
-.modal-pendientes h3 { padding-right: 48px; }
-
-/* =========================================
-   AVISO DE FALTANTES (franja arriba de todo)
-   ========================================= */
-.aviso-faltantes {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-bottom: 1.2rem;
-  padding: 0.9rem 1.2rem;
-  background-color: #fff3cd;
-  border: 1px solid #ffe08a;
-  border-left: 5px solid #e0a800;
-  border-radius: var(--radius);
-  color: #7a5300;
-  font-weight: 600;
-}
-
-/* =========================================
-   FILTROS POR ESTADO (arriba de la tabla)
-   ========================================= */
-.filtros-estado {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
-}
-
-.btn-filtro-estado {
-  padding: 0.4rem 1rem;
-  background-color: #fff;
-  color: var(--text-dark);
-  border: 1px solid var(--border-light);
-  border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.btn-filtro-estado:hover { border-color: var(--primary-green); }
-
-.btn-filtro-estado.activo {
-  background-color: var(--primary-green);
-  border-color: var(--primary-green);
-  color: #fff;
-}
-
-/* Número de "En stock": grande y en negrita */
-.celda-stock { font-size: 1.15rem; font-weight: 700; }
-
-/* =========================================
-   ETIQUETAS DE ESTADO (tabla y ventana de pedir)
-   ========================================= */
-.etiqueta-estado {
-  display: inline-block;
-  padding: 0.15rem 0.6rem;
-  border-radius: 50px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.estado-sin  { background-color: #f8d7da; color: #721c24; }
-.estado-bajo { background-color: #fff3cd; color: #7a5300; }
-.estado-bien { background-color: #d4edda; color: #155724; }
-
-.estado-sincontrol { color: #adb5bd; font-size: 0.8rem; white-space: nowrap; }
-
-/* =========================================
-   VENTANA PENDIENTES DE COCINA
-   ========================================= */
-.modal-pendientes { max-width: 720px; }
-
-/* La lista toma el alto que sobra debajo del título y scrollea adentro */
-.lista-pendientes { flex: 1; min-height: 0; overflow-y: auto; }
-
-/* Las tarjetas y renglones de la lista están en pedidosCocina.css (compartido con Tareas de Cocina) */
-
-/* =========================================
-   VENTANA PEDIR A COCINA
-   Columna: controles arriba, lista con scroll propio y pie fijo abajo
-   ========================================= */
-.modal-pedido {
-  width: 92%;
-  max-width: 900px;
-  padding: 1.8rem 2rem 1.4rem;
-}
-
-/* Para cuándo · Filtro · Cargar rápido */
-.pedido-controles {
-  display: flex;
-  align-items: flex-end;
-  gap: 1rem 1.4rem;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.control-pedido {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.control-pedido select { min-width: 220px; }
-
-.carga-rapida { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-.carga-rapida input { width: 90px; }
-
-.btn-limpiar { background-color: #f1f3f5; color: #495057; border-color: #dee2e6; }
-.btn-limpiar:hover { background-color: #e9ecef; }
-
-.pedido-controles input,
-.pedido-controles select,
-.pp-cantidad input {
-  padding: 0.55rem 0.75rem;
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius);
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.95rem;
-}
-
-/* Lista de platos: toma el alto que sobra y tiene su propio scroll */
-.lista-pedido {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  border: 1px solid #e9ecef;
-  border-radius: var(--radius);
-}
-
-/* Renglón: info a la izquierda, − cantidad + a la derecha */
-.plato-pedido {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.8rem 1rem;
-  border-bottom: 1px solid #f1f3f5;
-  transition: background-color 0.15s;
-}
-
-.plato-pedido:last-child { border-bottom: none; }
-.plato-pedido.con-cantidad { background-color: #f1faf3; }
-
-.pp-info    { min-width: 0; }
-.pp-nombre  { font-size: 1.02rem; font-weight: 600; overflow-wrap: anywhere; }
-.pp-nombre .etiqueta-estado { margin-left: 0.4rem; vertical-align: middle; }
-.pp-detalle { margin-top: 0.15rem; color: #6c757d; font-size: 0.8rem; }
-
-.pp-cantidad { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
-
-.pp-cantidad input {
-  width: 64px;
-  text-align: center;
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--text-dark);
-}
-
-.pp-cantidad input.invalido { border-color: #dc3545; background-color: #fff5f5; }
-
-/* Botones redondos − y + */
-.btn-paso {
-  width: 40px;
-  height: 40px;
-  background-color: #fff;
-  color: var(--primary-green);
-  border: 1px solid var(--border-light);
-  border-radius: 50%;
-  font-size: 1.3rem;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.btn-paso:hover { background-color: #e9f7ef; border-color: var(--primary-green); }
-
-.pedido-vacio { padding: 1.2rem; text-align: center; color: #6c757d; }
-
-/* Pie: total a la izquierda, botón grande a la derecha */
-.pedido-pie {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e9ecef;
-}
-
-.pedido-total        { display: flex; flex-direction: column; }
-.pedido-total-numero { font-size: 1.35rem; font-weight: 700; }
-.pedido-total-platos { color: #6c757d; font-size: 0.85rem; }
-
-.btn-enviar-cocina { padding: 0.85rem 2.2rem; font-size: 1.05rem; }
-
-/* Celular: pantalla completa, controles uno debajo del otro, botones de 44px */
-@media (max-width: 600px) {
-  /* Pantalla completa: ocupa todo el fondo (que ya cubre la pantalla) */
-  .modal-pedido {
-    width: 100%;
-    max-width: none;
-    height: 100%;
-    max-height: none;
+.cabecera-produccion h1 {
     margin: 0;
-    padding: 1.2rem 1rem;
-    border-radius: 0;
-  }
-
-  .pedido-controles { flex-direction: column; align-items: stretch; }
-  .control-pedido select { min-width: 0; }
-
-  /* Cargar rápido: el casillero en una línea y los tres botones debajo */
-  .carga-rapida input { flex: 1 1 100%; width: auto; }
-  .carga-rapida .btn-rapido { flex: 1; min-height: 44px; }
-
-  /* Si el nombre es largo, la cantidad baja a su propia línea */
-  .plato-pedido { flex-wrap: wrap; padding: 0.7rem 0.8rem; }
-  .pp-cantidad { margin-left: auto; }
-
-  .btn-paso { width: 44px; height: 44px; }
-  .pp-cantidad input { width: 56px; min-height: 44px; }
-
-  .btn-enviar-cocina { flex: 1; }
+    font-size: 36px;
+    line-height: 1.1;
+    font-weight: 800;
+    letter-spacing: -.03em;
+    color: var(--prod-titulo);
 }
 
-/* =========================================
-   HECHO HOY (debajo de la tabla)
-   ========================================= */
-.hecho-hoy {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e9ecef;
+.cabecera-frase {
+    margin: 0;
+    font-size: 15.5px;
+    line-height: 1.55;
+    color: var(--prod-gris);
 }
 
-.lista-hecho-hoy { list-style: none; margin: 0; padding: 0; }
-
-.lista-hecho-hoy li {
-  display: flex;
-  align-items: baseline;
-  gap: 0.7rem;
-  padding: 0.4rem 0.2rem;
-  border-bottom: 1px solid #f1f3f5;
-  font-size: 0.85rem;
+/* "+ Pedir a cocina": verde, con sombra verde */
+.boton-pedir-cocina {
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 20px;
+    border: 0;
+    border-radius: var(--prod-radio);
+    background: var(--prod-verde);
+    color: #fff;
+    font: inherit;
+    font-size: 14.5px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 6px 16px -6px rgba(18, 137, 58, .55);
+    transition: transform .15s, box-shadow .15s, background .15s;
 }
 
-.lista-hecho-hoy li:last-child { border-bottom: none; }
-.lista-hecho-hoy li.mov-vacio  { display: block; }
+.boton-pedir-cocina:hover {
+    background: var(--prod-verde-hondo);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px -8px rgba(18, 137, 58, .6);
+}
 
-.hh-hora     { min-width: 2.8rem; color: #6c757d; }
-.hh-cantidad { min-width: 2rem; font-weight: 700; text-align: right; }
-.hh-plato    { flex: 1; font-weight: 600; overflow-wrap: anywhere; }
-.hh-plan     { color: #6c757d; font-weight: 400; }
-.hh-quien    { color: #6c757d; font-size: 0.8rem; white-space: nowrap; }
+.icono-boton {
+    width: 17px;
+    height: 17px;
+}
 
-/* =========================================
-   TABLA: Reservadas, En heladera y el mínimo que se puede cambiar (paso H8)
-   ========================================= */
-/* Reservadas y En heladera: en gris, para que "Libres" (lo que se puede vender) resalte */
-.celda-secundaria { color: #6c757d; font-weight: 600; }
 
-/* El casillero del mínimo con su botón ✓ */
+/* ===== 4. PESTAÑAS DE ESTADO ===== */
+
+/* Si no entran a lo ancho (celular), se mueven de costado */
+.caja-pestanas {
+    flex: none;                 /* adentro de una columna con scroll no se achica (si no, desaparece) */
+    display: flex;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+/* El riel gris con las pestañas */
+.pestanas-estado {
+    display: flex;
+    flex: none;
+    padding: 3px;
+    background: var(--prod-gris-fondo);
+    border: 1px solid var(--prod-borde);
+    border-radius: 999px;
+}
+
+/* Cada pestaña: "Bajos 3" */
+.pestana-estado {
+    width: 124px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--prod-gris);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color .25s, background .25s, box-shadow .25s;
+}
+
+.pestana-estado:hover {
+    color: var(--prod-texto);
+}
+
+/* La elegida: blanca, con borde y sombrita */
+.pestana-estado.activo {
+    background: #fff;
+    border-color: var(--prod-borde-casillero);
+    color: var(--prod-texto);
+    box-shadow: 0 1px 3px rgba(17, 26, 20, .1);
+}
+
+/* El número de cada pestaña (también lo usan las de "Pedir a cocina") */
+.cantidad-pestana {
+    min-width: 20px;
+    height: 18px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(17, 26, 20, .07);
+    color: var(--prod-gris);
+    font-size: 11.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.pestana-estado.activo .cantidad-pestana {
+    background: var(--prod-verde-suave);
+    color: var(--prod-verde-texto);
+}
+
+
+/* ===== 5. FILA DE FILTROS ===== */
+
+/* La fila de filtros y, debajo, la de los ✕ */
+.zona-filtros {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.fila-filtros {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* "Buscar plato…" con la lupa y "Ctrl K" */
+.buscador-platos {
+    flex: 1 1 260px;
+    max-width: 380px;
+    height: var(--prod-alto-control);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 8px 0 12px;
+    border: 1px solid var(--prod-borde);
+    border-radius: var(--prod-radio);
+    background: #fff;
+    color: var(--prod-apagado);
+    box-shadow: var(--prod-sombra-chica);
+    cursor: text;
+    transition: border-color .15s, box-shadow .15s;
+}
+
+.buscador-platos:focus-within {
+    border-color: var(--prod-verde);
+    box-shadow: 0 0 0 3px var(--prod-verde-suave);
+}
+
+/* El casillero de adentro: sin borde (el borde es el de la caja). Se escribe "input." para ganarle a .filtro-input de global.css */
+input.campo-buscar-plato {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    height: auto;
+    padding: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    box-shadow: none;
+    color: var(--prod-texto);
+    font: inherit;
+    font-size: 14px;
+}
+
+input.campo-buscar-plato:focus {
+    box-shadow: none;
+}
+
+.icono-lupa {
+    width: 18px;
+    height: 18px;
+}
+
+/* "Ctrl K" (solo de adorno, como el buscador de arriba) */
+.atajo-teclado {
+    padding: 2px 6px;
+    border: 1px solid var(--prod-borde);
+    border-radius: 6px;
+    color: var(--prod-apagado);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* El botón "Filtros" y su lista de planes (que se abre debajo) */
+.caja-filtro-plan {
+    position: relative;
+}
+
+/* Los botones blancos de la fila: "Filtros", "Pendientes de cocina", "Hecho hoy" y "Últimos movimientos" */
+.boton-filtros,
+.boton-ventana {
+    height: var(--prod-alto-control);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 13px;
+    border: 1px solid var(--prod-borde);
+    border-radius: var(--prod-radio);
+    background: #fff;
+    color: var(--prod-titulo);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: var(--prod-sombra-chica);
+    transition: background .15s, border-color .15s;
+}
+
+.boton-filtros {
+    padding: 0 14px;
+}
+
+.boton-filtros:hover,
+.boton-ventana:hover,
+.boton-filtros[aria-expanded="true"] {
+    background: var(--prod-gris-encima);
+    border-color: #d3ddd1;
+}
+
+/* El número verde de "Filtros" (cuántos planes hay elegidos) */
+.cantidad-filtros {
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--prod-verde);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+/* El número de "Pendientes de cocina" y "Hecho hoy" */
+.cantidad-ventana {
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--prod-verde-suave);
+    color: var(--prod-verde-texto);
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+/* La lista de planes: debajo del botón, alineada a su derecha */
+.menu-filtro-plan {
+    position: absolute;
+    top: 46px;
+    right: 0;
+    z-index: 31;
+    width: 264px;
+    overflow: hidden;
+    border: 1px solid var(--prod-borde);
+    border-radius: var(--prod-radio);
+    background: #fff;
+    box-shadow: 0 16px 40px -12px rgba(17, 26, 20, .22);
+}
+
+.menu-filtro-plan-buscar {
+    padding: 8px;
+    border-bottom: 1px solid var(--prod-borde);
+}
+
+.campo-buscar-plan {
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid var(--prod-borde);
+    border-radius: var(--prod-radio);
+    font: inherit;
+    font-size: 13.5px;
+    outline: none;
+}
+
+.campo-buscar-plan:focus {
+    border-color: var(--prod-verde);
+}
+
+.lista-filtro-plan {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 6px;
+}
+
+/* Cada plan: casilla, puntito de color, nombre y cuántos platos tiene */
+.opcion-plan {
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 8px;
+    border-radius: var(--prod-radio);
+    color: var(--prod-texto);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.opcion-plan:hover {
+    background: var(--prod-gris-encima);
+}
+
+.casilla-plan {
+    width: 17px;
+    height: 17px;
+    margin: 0;
+    flex: none;
+    accent-color: var(--prod-verde);   /* la casilla tildada, en verde */
+    cursor: pointer;
+}
+
+.nombre-plan {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.cantidad-plan {
+    color: var(--prod-gris);
+    font-size: 12.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.plan-vacio {
+    margin: 0;
+    padding: 10px;
+    color: var(--prod-gris);
+    font-size: 13px;
+    text-align: center;
+}
+
+.boton-limpiar-plan {
+    width: 100%;
+    height: 38px;
+    border: 0;
+    border-top: 1px solid var(--prod-borde);
+    background: #fff;
+    color: var(--prod-verde-texto);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.boton-limpiar-plan:hover {
+    background: var(--prod-gris-encima);
+}
+
+/* El espacio que empuja las tres ventanas a la derecha */
+.espacio-filtros {
+    flex: 1;
+}
+
+.botones-ventanas {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* Debajo de los filtros: "Plan: Mantenimiento ✕" y "Limpiar todo" */
+.fila-chips {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* Cada filtro elegido (también "Plato: fideos ✕" del panel de movimientos) */
+.chip-filtro,
+.chip-plato-movimientos {
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 5px 0 12px;
+    border: 1px solid var(--prod-verde-borde);
+    border-radius: 999px;
+    background: var(--prod-verde-suave);
+    color: var(--prod-verde-texto);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* La ✕ de cada filtro */
+.quitar-chip {
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.quitar-chip:hover {
+    background: rgba(18, 137, 58, .12);
+}
+
+.quitar-chip svg {
+    width: 14px;
+    height: 14px;
+}
+
+.boton-limpiar-todo {
+    height: 30px;
+    padding: 0 8px;
+    border: 0;
+    background: transparent;
+    color: var(--prod-gris);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.boton-limpiar-todo:hover {
+    color: var(--prod-texto);
+}
+
+
+/* ===== 6. TABLA DE PLATOS ===== */
+
+/* La tarjeta blanca, con sombra suave */
+.tarjeta-tabla {
+    border-radius: var(--prod-radio-tarjeta);
+    background: #fff;
+    box-shadow: var(--prod-sombra-tarjeta);
+}
+
+/* Si la tabla no entra a lo ancho, se mueve de costado solo acá adentro (nunca toda la página).
+   position: relative: lo escondido de adentro (el texto "Acciones" y las ayudas ⓘ) se ubica respecto de esta caja;
+   sin esto, en el celu estiraba la página de costado */
+.caja-tabla-produccion {
+    position: relative;
+    overflow-x: auto;
+    border-radius: var(--prod-radio-tarjeta);
+}
+
+/* "table." adelante: así les gana a las reglas de tablas de global.css */
+table.tabla-produccion {
+    width: 100%;
+    min-width: var(--prod-tabla-ancho-minimo);
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 14px;
+}
+
+/* Los títulos: franja gris clarita, letra gris chica */
+table.tabla-produccion thead th {
+    padding: 13px var(--prod-celda-costado);
+    background: var(--prod-titulos-fondo);
+    border-bottom: 1px solid var(--prod-titulos-linea);
+    color: var(--prod-gris);
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: .015em;
+    text-align: left;
+    text-transform: none;
+    white-space: nowrap;
+}
+
+/* El ancho de cada columna: Plato fijo en un 30 % (entra el nombre y la descripción) y las demás con lo justo
+   para su título; si sobra lugar, se lo reparten entre todas */
+table.tabla-produccion thead .col-plato       { width: var(--prod-ancho-plato); }
+table.tabla-produccion thead .col-plan        { width: 166px; }   /* entra "MANTENIMIENTO" en un renglón */
+table.tabla-produccion thead .col-estado      { width: 120px; }   /* entra "Sin stock" */
+table.tabla-produccion thead .col-libres      { width: 138px; }   /* Disponibles */
+table.tabla-produccion thead .col-reservadas  { width: 120px; }
+table.tabla-produccion thead .col-en-heladera { width: 96px; }    /* Total */
+table.tabla-produccion thead .col-minimo      { width: 82px; }
+table.tabla-produccion thead .col-menu        { width: 54px; }
+
+/* Los números (Disponibles, Reservadas, Total y Mínimo), a la derecha */
+table.tabla-produccion .col-numero,
+table.tabla-produccion .col-minimo {
+    text-align: right;
+}
+
+/* Los títulos que ordenan: el texto con sus dos flechitas */
+.boton-ordenar {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.boton-ordenar:hover,
+.boton-ordenar.orden-sube,
+.boton-ordenar.orden-baja {
+    color: var(--prod-texto);
+}
+
+/* Las dos flechitas: grises; la de la columna elegida, marcada */
+.tabla-produccion .icono-orden {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.icono-orden path {
+    opacity: .5;
+}
+
+.orden-sube .flecha-sube,
+.orden-baja .flecha-baja {
+    opacity: 1;
+}
+
+.orden-sube .flecha-baja,
+.orden-baja .flecha-sube {
+    opacity: .15;
+}
+
+/* El título con su ⓘ */
+.titulo-con-ayuda {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* La ⓘ: al pasar el mouse (o al tocarla) aparece su ayuda debajo, en un cartelito oscuro */
+.ayuda {
+    position: relative;
+    display: inline-flex;
+    color: var(--prod-icono);
+    cursor: help;
+    outline: none;
+}
+
+.ayuda:hover,
+.ayuda:focus-visible {
+    color: var(--prod-titulo);
+}
+
+.icono-ayuda {
+    width: 14px;
+    height: 14px;
+}
+
+/* El cartelito: el texto sale de data-ayuda (attr = "el valor de ese atributo") */
+.ayuda::after {
+    content: attr(data-ayuda);
+    position: absolute;
+    top: calc(100% + 8px);
+    right: -10px;
+    z-index: 5;
+    width: max-content;
+    max-width: 220px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: var(--prod-texto);
+    color: #fff;
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: normal;
+    text-align: left;
+    white-space: normal;
+    box-shadow: 0 10px 24px -10px rgba(17, 26, 20, .45);
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
+    transition: opacity .15s, transform .15s;
+}
+
+.ayuda:hover::after,
+.ayuda:focus::after {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Las celdas: el fondo sale del estado de la fila (sección 0) y una línea suave arriba */
+table.tabla-produccion tbody td {
+    padding: 12px var(--prod-celda-costado);
+    border-top: 1px solid var(--prod-renglon-linea);
+    border-bottom: 0;
+    background: var(--fondo-fila, #fff);
+    font-size: 14px;
+    vertical-align: middle;
+    transition: background .2s;
+}
+
+table.tabla-produccion tbody tr:first-child td {
+    border-top: 0;
+}
+
+table.tabla-produccion tbody tr:hover td {
+    background: var(--fondo-fila-encima, #fff);
+}
+
+/* Plato: el nombre en un renglón y la descripción en otro, con "…" si no entran */
+.plato-nombre,
+.plato-descripcion {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.plato-nombre {
+    color: var(--prod-texto);
+    font-size: 15.5px;
+    font-weight: 700;
+    line-height: 22px;
+    letter-spacing: -.005em;
+}
+
+.plato-descripcion {
+    margin-top: 2px;
+    color: var(--prod-gris);
+    font-size: 13px;
+    line-height: 20px;
+}
+
+.plato-descripcion:empty {
+    display: none;
+}
+
+/* Plan: el puntito de color y el nombre */
+.plan-con-punto {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--prod-titulo);
+    font-size: 13.5px;
+    font-weight: 500;
+}
+
+.punto-plan {
+    width: 8px;
+    height: 8px;
+    flex: none;
+    border-radius: 50%;
+}
+
+/* Estado: la pastilla suave con su puntito (los colores, en la sección 0) */
+.etiqueta-estado {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px 3px 8px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.punto-estado {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--punto-estado);
+}
+
+/* Disponibles, Reservadas, Total y Mínimo: todos iguales (15 px, semibold, cifras del mismo ancho) */
+table.tabla-produccion tbody .numero-libres,
+table.tabla-produccion tbody .numero-secundario,
+.boton-minimo,
+.numero-minimo {
+    color: #26312a;
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Mínimo: el ✎ y el número (al tocarlo aparece el casillero con ✓).
+   row-reverse = el ✎ va a la izquierda, así el número queda alineado a la derecha como los demás.
+   margin-right: -8px = el número queda justo donde terminan los de las otras columnas */
+.boton-minimo {
+    height: 34px;
+    display: inline-flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    gap: 6px;
+    margin-right: -8px;
+    padding: 0 8px;
+    border: 1px solid transparent;
+    border-radius: var(--prod-radio);
+    background: transparent;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background .2s, border-color .2s;
+}
+
+.boton-minimo:hover {
+    background: #fff;
+    border-color: var(--prod-borde-casillero);
+}
+
+.icono-lapiz {
+    width: 14px;
+    height: 14px;
+    color: var(--prod-icono);
+}
+
 .minimo-editar {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
+    display: flex;
+    justify-content: flex-end;     /* a la derecha, como el número */
+    align-items: center;
+    gap: 6px;
 }
 
 .input-minimo {
-  width: 4.2rem;
-  padding: 0.3rem 0.4rem;
-  border: 1px solid var(--border-light);
-  border-radius: 6px;
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.85rem;
+    width: 54px;
+    height: 34px;
+    padding: 0 4px;
+    border: 1px solid var(--prod-verde);
+    border-radius: var(--prod-radio);
+    background: #fff;
+    box-shadow: 0 0 0 3px var(--prod-verde-suave);
+    color: var(--prod-texto);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    outline: none;
+    -moz-appearance: textfield;      /* sin las flechitas de los números (Firefox) */
+    appearance: textfield;
 }
 
-.input-minimo:focus { outline: none; border-color: var(--primary-green); }
-.input-minimo:disabled { opacity: 0.5; }
+.input-minimo::-webkit-inner-spin-button,
+.input-minimo::-webkit-outer-spin-button {
+    -webkit-appearance: none;        /* sin las flechitas de los números (Chrome) */
+    margin: 0;
+}
 
+.input-minimo:disabled {
+    opacity: .5;
+}
+
+/* El ✓ verde que guarda */
 .btn-guardar-minimo {
-  width: 30px;
-  height: 30px;
-  background-color: #e9f7ef;
-  color: #155724;
-  border: 1px solid #b7e1c5;
-  border-radius: 50%;
-  font-weight: 700;
-  cursor: pointer;
+    width: 34px;
+    height: 34px;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: var(--prod-radio);
+    background: var(--prod-verde);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 4px 10px -4px rgba(18, 137, 58, .55);
 }
 
-.btn-guardar-minimo:hover { background-color: var(--primary-green); color: #fff; }
+.btn-guardar-minimo:hover {
+    background: var(--prod-verde-hondo);
+}
 
-/* =========================================
-   ÚLTIMOS MOVIMIENTOS: filtros por tipo y "Ver más" (paso H8)
-   ========================================= */
-.filtros-movimientos { margin-bottom: 0.6rem; gap: 0.35rem; }
-.filtros-movimientos .btn-filtro-estado { padding: 0.25rem 0.7rem; font-size: 0.75rem; }
+.btn-guardar-minimo svg {
+    width: 16px;
+    height: 16px;
+}
 
-.btn-ver-mas { display: block; width: 100%; margin-top: 0.6rem; }
-.btn-ver-mas[hidden] { display: none; }
+/* La columna ⋯ */
+table.tabla-produccion tbody .col-menu {
+    padding: 12px 14px;
+    text-align: right;
+}
+
+.boton-menu-fila {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--prod-radio);
+    background: transparent;
+    color: var(--prod-titulo);
+    cursor: pointer;
+    transition: background .18s, border-color .18s;
+}
+
+.boton-menu-fila:hover,
+.boton-menu-fila:focus-visible {
+    background: #fff;
+    border-color: var(--prod-borde-casillero);
+}
+
+/* Cuando no hay platos para mostrar: el dibujo, el texto y "Limpiar filtros" */
+table.tabla-produccion tbody tr.fila-vacia:hover td {
+    background: #fff;
+}
+
+.tabla-vacia {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 56px 24px;
+    text-align: center;
+}
+
+.icono-vacio {
+    width: 64px;
+    height: 64px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--prod-verde-suave);
+    color: var(--prod-verde);
+    box-shadow: 0 0 0 8px #f4faf5;
+}
+
+.icono-vacio svg {
+    width: 28px;
+    height: 28px;
+}
+
+.tabla-vacia-titulo {
+    margin-top: 6px;
+    color: var(--prod-titulo);
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.tabla-vacia-texto {
+    max-width: 320px;
+    color: var(--prod-gris);
+    font-size: 14px;
+}
+
+.boton-limpiar-filtros {
+    height: 38px;
+    margin-top: 4px;
+    padding: 0 16px;
+    border: 1px solid var(--prod-borde);
+    border-radius: var(--prod-radio);
+    background: #fff;
+    color: var(--prod-verde-texto);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.boton-limpiar-filtros:hover {
+    background: var(--prod-verde-suave);
+    border-color: var(--prod-verde-borde);
+}
+
+
+/* ===== 7. PIE DE LA TABLA: "MOSTRANDO X DE Y PLATOS" Y LAS PÁGINAS ===== */
+
+.pie-produccion {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.resumen-platos {
+    color: var(--prod-gris);
+    font-size: 14px;
+}
+
+/* Los botones de paginacion.js, con el aspecto del diseño (paginacion.js no se toca: es de todas las pantallas) */
+.pie-produccion .paginacion {
+    gap: 6px;
+    padding: 0;
+}
+
+.pie-produccion .paginacion-btn {
+    min-width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 10px;
+    border-radius: var(--prod-radio);
+    color: var(--prod-titulo);
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: normal;
+}
+
+.pie-produccion .paginacion-btn.activa {
+    color: #fff;
+    font-weight: 800;
+    box-shadow: 0 4px 10px -4px rgba(18, 137, 58, .5);
+}
+
+/* Las flechas con su palabra: "‹ Anterior" y "Siguiente ›" (la palabra la agrega el CSS) */
+.pie-produccion .paginacion-flecha {
+    padding: 0 12px;
+    font-size: 15px;
+}
+
+.pie-produccion .paginacion-flecha[aria-label="Página anterior"]::after {
+    content: "Anterior";
+    font-size: 13.5px;
+}
+
+.pie-produccion .paginacion-flecha[aria-label="Página siguiente"]::before {
+    content: "Siguiente";
+    font-size: 13.5px;
+}
+
+.pie-produccion .paginacion-btn:disabled {
+    opacity: 1;
+    color: #9aa59d;
+}
+
+
+/* ===== 8. MENÚ ⋯ DE LAS FILAS ===== */
+
+/* Uno solo, flotando al lado del ⋯ que se tocó (heladera.js le pone top y left) */
+.menu-fila {
+    position: fixed;
+    z-index: 1050;
+    width: 236px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px;
+    border: 1px solid var(--prod-borde);
+    border-radius: var(--prod-radio);
+    background: #fff;
+    box-shadow: 0 16px 40px -12px rgba(17, 26, 20, .24);
+}
+
+.opcion-menu-fila {
+    height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: var(--prod-radio);
+    background: transparent;
+    color: var(--prod-texto);
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.opcion-menu-fila:hover {
+    background: var(--prod-gris-encima);
+}
+
+/* "Descartar viandas", en rojo */
+.opcion-descartar {
+    color: #b3261e;
+}
+
+.opcion-descartar:hover {
+    background: #fdecea;
+}
+
+/* Sin libres no se puede descartar: apagado */
+.opcion-menu-fila:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+
+.opcion-menu-fila:disabled:hover {
+    background: transparent;
+}
+
+.separador-menu-fila {
+    height: 1px;
+    margin: 2px 4px;
+    background: var(--prod-borde);
+}
+
+
+/* ===== 9. VENTANAS (LO COMÚN) ===== */
+
+/* Lo oscuro de atrás, por encima del menú (999), de la barra de arriba y del ☰ (1001) */
+.modal {
+    z-index: 1100;
+    background: var(--prod-fondo-ventana);
+}
+
+/* La caja blanca, centrada a lo alto y a lo ancho. Si es más alta que la pantalla, su cuerpo se mueve adentro */
+.ventana-produccion {
+    position: absolute;
+    inset: 0;
+    width: calc(100% - 32px);
+    height: fit-content;
+    max-height: calc(100% - 32px);
+    margin: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+    border-radius: var(--prod-radio-tarjeta);
+    text-align: left;
+    box-shadow: 0 28px 60px -14px rgba(17, 26, 20, .32), 0 0 0 1px rgba(17, 26, 20, .05);
+}
+
+/* Arriba: el ícono en su cuadradito, el título, la frase y la X */
+.cabecera-ventana {
+    position: relative;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 24px 24px 20px;
+    border-bottom: 1px solid var(--prod-borde);
+}
+
+.icono-ventana {
+    width: 46px;
+    height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--prod-verde-borde);
+    border-radius: var(--prod-radio);
+    background: #fff;
+    color: var(--prod-verde);
+    box-shadow: 0 1px 2px rgba(17, 26, 20, .06);
+}
+
+.icono-ventana svg {
+    width: 22px;
+    height: 22px;
+}
+
+/* El de "Descartar", en rojo */
+.icono-ventana-peligro {
+    border-color: #f5c9c4;
+    color: var(--prod-rojo);
+}
+
+.textos-ventana {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-right: 32px;
+}
+
+.ventana-produccion h3 {
+    margin: 0;
+    color: var(--prod-texto);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    text-align: left;
+}
+
+/* "p." adelante: le gana a .modal-content p de global.css */
+p.frase-ventana {
+    margin: 0;
+    color: var(--prod-gris);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* La X de cerrar, arriba a la derecha */
+.boton-cerrar-ventana {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--prod-icono);
+    cursor: pointer;
+}
+
+.boton-cerrar-ventana:hover {
+    background: var(--prod-gris-encima);
+    color: var(--prod-titulo);
+}
+
+.boton-cerrar-ventana svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* El cuerpo: toma el alto que sobra y se mueve adentro si hace falta */
+.cuerpo-ventana {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px 24px 22px;
+}
+
+/* Abajo: los botones, del mismo ancho (si uno está escondido, el otro ocupa todo) */
+.pie-ventana {
+    flex: none;
+    padding: 20px 24px 24px;
+    border-top: 1px solid var(--prod-borde);
+}
+
+.botones-ventana {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 12px;
+}
+
+/* Cancelar / Cerrar: blanco con borde */
+.btn-cancelar {
+    height: 44px;
+    padding: 0 16px;
+    border: 1px solid var(--prod-borde-casillero);
+    border-radius: var(--prod-radio);
+    background: #fff;
+    color: var(--prod-titulo);
+    font: inherit;
+    font-size: 14.5px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(17, 26, 20, .05);
+}
+
+.btn-cancelar:hover {
+    background: var(--prod-gris-encima);
+}
+
+/* El botón principal: verde */
+.btn-confirmar {
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: var(--prod-radio);
+    background: var(--prod-verde);
+    color: #fff;
+    font: inherit;
+    font-size: 14.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 6px 14px -6px rgba(18, 137, 58, .55);
+    transition: background .2s, box-shadow .2s;
+}
+
+.btn-confirmar:hover {
+    background: var(--prod-verde-hondo);
+}
+
+.btn-confirmar:disabled {
+    background: #a3d3b2;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+/* "Confirmar descarte": rojo */
+.boton-peligro {
+    background: var(--prod-rojo);
+    box-shadow: 0 6px 14px -6px rgba(201, 55, 44, .55);
+}
+
+.boton-peligro:hover {
+    background: var(--prod-rojo-hondo);
+}
+
+.boton-peligro:disabled {
+    background: #e7a29c;
+}
+
+/* El error de una ventana (lo muestra el JS con display: block) */
+.modal-error {
+    display: none;
+    padding: 10px 12px;
+    border: 1px solid #f5c9c4;
+    border-radius: var(--prod-radio);
+    background: #fdecea;
+    color: #9b1f16;
+    font-size: 13.5px;
+}
+
+/* Los mensajes de "Cargando…" y "No hay…" de las listas */
+.mov-vacio {
+    padding: 24px 16px;
+    color: var(--prod-gris);
+    font-size: 14.5px;
+    text-align: center;
+    list-style: none;
+}
+
+
+/* ===== 10. VENTANA "PEDIR A COCINA" ===== */
+
+/* Grande: 1220 × 860 (o lo que entre) */
+.modal-pedido {
+    max-width: 1220px;
+    height: 860px;
+    max-height: 94vh;
+}
+
+/* Dos columnas: los platos y "Tu pedido" */
+.pedido-cuerpo {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 330px;
+}
+
+.pedido-izquierda {
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 18px 24px 24px;
+}
+
+/* "3 platos están abajo del mínimo": amarillo suave */
+.aviso-pedido {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid #f1e2ad;
+    border-radius: var(--prod-radio);
+    background: #fffaeb;
+    color: #6b4e00;
+    font-size: 14px;
+}
+
+.icono-aviso {
+    width: 28px;
+    height: 28px;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #fff1c7;
+}
+
+.icono-aviso svg {
+    width: 15px;
+    height: 15px;
+}
+
+/* Para cuándo · Plan · Buscar */
+.pedido-controles {
+    flex: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+}
+
+.control-pedido {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: var(--prod-titulo);
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.control-pedido input,
+.control-pedido select {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--prod-borde);
+    border-radius: var(--prod-radio);
+    background: #fff;
+    color: var(--prod-texto);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    outline: none;
+}
+
+.control-pedido input:focus,
+.control-pedido select:focus {
+    border-color: var(--prod-verde);
+    box-shadow: 0 0 0 3px var(--prod-verde-suave);
+}
+
+/* Las pestañas de la ventana (se pueden elegir varias): las elegidas, verdes */
+.pestanas-pedido {
+    flex: none;
+    display: flex;
+    gap: 2px;
+    padding: 4px;
+    border: 1px solid var(--prod-borde);
+    border-radius: 999px;
+    background: var(--prod-gris-fondo);
+}
+
+.pestana-pedido {
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 13px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--prod-titulo);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background .2s, color .2s;
+}
+
+.pestana-pedido:hover {
+    background: rgba(17, 26, 20, .05);
+}
+
+.pestana-pedido.activo {
+    background: var(--prod-verde);
+    color: #fff;
+    box-shadow: 0 4px 10px -4px rgba(18, 137, 58, .55);
+}
+
+.pestana-pedido.activo .cantidad-pestana {
+    background: rgba(255, 255, 255, .22);
+    color: #fff;
+}
+
+/* "Cargar rápido a los que se ven": la franja gris con el casillero y los botones */
+.carga-rapida {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    border: 1px solid var(--prod-borde);
+    border-radius: var(--prod-radio);
+    background: var(--prod-gris-encima);
+}
+
+.carga-rapida-titulo {
+    margin-right: 4px;
+    color: var(--prod-titulo);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+#pRapidoCantidad {
+    width: 76px;
+    height: 34px;
+    border: 1px solid var(--prod-borde-casillero);
+    border-radius: var(--prod-radio);
+    background: #fff;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    outline: none;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+#pRapidoCantidad::-webkit-inner-spin-button,
+#pRapidoCantidad::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+#pRapidoCantidad:focus {
+    border-color: var(--prod-verde);
+}
+
+.btn-rapido {
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--prod-borde-casillero);
+    border-radius: var(--prod-radio);
+    background: #fff;
+    color: var(--prod-titulo);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-rapido:hover {
+    border-color: var(--prod-verde);
+    color: var(--prod-verde-texto);
+}
+
+/* "Limpiar": sin borde */
+.btn-rapido.btn-limpiar {
+    border: 0;
+    background: transparent;
+    color: var(--prod-gris);
+}
+
+.btn-rapido.btn-limpiar:hover {
+    color: var(--prod-texto);
+}
+
+/* La tabla de platos de la ventana */
+.caja-tabla-pedido {
+    flex: none;
+    overflow-x: auto;
+    border-radius: var(--prod-radio-tarjeta);
+    box-shadow: 0 0 0 1px rgba(17, 26, 20, .07), 0 8px 24px -16px rgba(17, 26, 20, .16);
+}
+
+.tabla-pedido {
+    width: 100%;
+    min-width: 700px;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 14px;
+}
+
+.tabla-pedido th {
+    padding: 13px 18px;
+    background: var(--prod-titulos-fondo);
+    border-bottom: 1px solid var(--prod-titulos-linea);
+    color: var(--prod-gris);
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: .015em;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.tabla-pedido td {
+    padding: 10px 18px;
+    border-top: 1px solid var(--prod-borde);
+    background: var(--fondo-fila, #fff);
+    vertical-align: middle;
+    transition: background .15s;
+}
+
+.tabla-pedido tbody tr:first-child td {
+    border-top: 0;
+}
+
+/* Disponibles, Reservadas y Mínimo: todos iguales, como en la tabla principal (15 px, semibold, cifras del mismo ancho) */
+.tabla-pedido .col-numero {
+    text-align: right;               /* títulos y números, a la derecha */
+}
+
+.tabla-pedido td.col-numero {        /* td = solo los números (los títulos quedan como los demás) */
+    color: #26312a;
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.tabla-pedido th.col-pedir {
+    width: 150px;
+    text-align: center;
+}
+
+/* Un plato con cantidad: verde clarito (le gana al color de su estado) */
+.plato-pedido.con-cantidad {
+    --fondo-fila: #f1faf3;
+}
+
+.pp-nombre {
+    color: var(--prod-texto);
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.pp-etiquetas {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 3px;
+}
+
+.pp-etiquetas .etiqueta-estado {
+    padding: 1px 8px 1px 6px;
+    font-size: 11.5px;
+}
+
+.etiqueta-sin-receta {
+    color: var(--prod-apagado);
+    font-size: 11.5px;
+    font-style: italic;
+}
+
+/* − cantidad +: tres piezas pegadas */
+.pp-cantidad {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-paso {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--prod-borde-casillero);
+    border-radius: var(--prod-radio) 0 0 var(--prod-radio);
+    background: #fff;
+    color: var(--prod-titulo);
+    cursor: pointer;
+}
+
+.btn-paso-mas {
+    border-radius: 0 var(--prod-radio) var(--prod-radio) 0;
+    color: var(--prod-verde);
+}
+
+.btn-paso:hover {
+    background: var(--prod-gris-encima);
+}
+
+.btn-paso svg {
+    width: 15px;
+    height: 15px;
+}
+
+.pp-cantidad input {
+    width: 50px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid var(--prod-borde-casillero);
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+    background: #fff;
+    color: var(--prod-texto);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 800;
+    text-align: center;
+    outline: none;
+}
+
+.pp-cantidad input:focus {
+    background: #f4faf5;
+}
+
+.pp-cantidad input.invalido {
+    border-color: #d23b2e;
+    background: #fff5f5;
+    color: #9b1f16;
+}
+
+.pedido-vacio {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 40px 24px;
+    text-align: center;
+}
+
+/* Derecha: "Tu pedido", sobre gris clarito */
+.pedido-resumen {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--prod-borde);
+    background: #f8faf7;
+}
+
+.pedido-resumen-cabecera {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 20px 22px 12px;
+}
+
+.pedido-resumen-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--prod-titulo);
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.pedido-resumen-titulo svg {
+    color: var(--prod-verde);
+}
+
+.pedido-resumen-fecha {
+    color: var(--prod-gris);
+    font-size: 13px;
+}
+
+/* La lista de lo pedido: se mueve adentro si es larga */
+.pedido-resumen-lista {
+    flex: 1;
+    min-height: 120px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px 14px 12px;
+}
+
+.item-resumen {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 6px 8px 12px;
+    border: 1px solid var(--prod-borde);
+    border-radius: var(--prod-radio);
+    background: #fff;
+    box-shadow: var(--prod-sombra-chica);
+}
+
+.item-resumen-textos {
+    flex: 1;
+    min-width: 0;
+}
+
+.item-resumen-nombre {
+    overflow: hidden;
+    color: var(--prod-texto);
+    font-size: 13.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.item-resumen-plan {
+    color: var(--prod-gris);
+    font-size: 12px;
+}
+
+.item-resumen-cantidad {
+    color: var(--prod-verde-texto);
+    font-size: 15px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.quitar-del-pedido {
+    width: 26px;
+    height: 26px;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: var(--prod-radio);
+    background: transparent;
+    color: var(--prod-apagado);
+    cursor: pointer;
+}
+
+.quitar-del-pedido:hover {
+    background: var(--prod-gris-encima);
+    color: var(--prod-rojo);
+}
+
+.quitar-del-pedido svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Sin nada pedido: el recuadro punteado con la olla */
+.resumen-vacio {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+    padding: 26px 16px;
+    border: 1.5px dashed #d3ddd1;
+    border-radius: 14px;
+    color: var(--prod-gris);
+    font-size: 13.5px;
+    text-align: center;
+}
+
+.resumen-vacio .icono-vacio {
+    width: 44px;
+    height: 44px;
+    box-shadow: none;
+}
+
+.resumen-vacio .icono-vacio svg {
+    width: 22px;
+    height: 22px;
+}
+
+.resumen-vacio strong {
+    color: var(--prod-verde-texto);
+}
+
+/* Abajo de "Tu pedido": el error, el total y los botones */
+.pedido-pie {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 22px 20px;
+    border-top: 1px solid var(--prod-borde);
+    background: #fff;
+}
+
+.pedido-total {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.pedido-total-textos {
+    display: flex;
+    flex-direction: column;
+}
+
+.pedido-total-titulo {
+    color: var(--prod-titulo);
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.pedido-total-platos {
+    color: var(--prod-gris);
+    font-size: 12.5px;
+}
+
+.pedido-total-numero {
+    color: var(--prod-gris);
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.total-numero {
+    color: var(--prod-texto);
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* ===== 11. VENTANA "PENDIENTES DE COCINA" ===== */
+/* Las tarjetas las arma pedidosCocina.js (compartido con Tareas de Cocina): acá solo cambia cómo se ven en ESTA ventana */
+
+.modal-pendientes {
+    max-width: 660px;
+}
+
+.modal-pendientes .lista-pendientes {
+    gap: 20px;
+}
+
+.modal-pendientes .pend-resumen {
+    margin: 0;
+    color: var(--prod-gris);
+    font-size: 13.5px;
+    font-weight: 500;
+}
+
+/* Cada cocinero: su nombre arriba y sus platos en una tarjeta blanca */
+.modal-pendientes .tarjeta-cocinero {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.modal-pendientes .tarjeta-cabecera {
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+
+.modal-pendientes .tarjeta-nombre {
+    color: var(--prod-titulo);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.modal-pendientes .tarjeta-resumen {
+    color: var(--prod-gris);
+    font-size: 13px;
+    font-weight: 400;
+}
+
+.modal-pendientes .pend-platos {
+    overflow: hidden;
+    border-radius: var(--prod-radio-tarjeta);
+    box-shadow: var(--prod-sombra-lista);
+}
+
+.modal-pendientes .pend-platos li {
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--prod-borde);
+    border-radius: 0;
+    background: #fff;
+}
+
+.modal-pendientes .pend-platos li:first-child {
+    border-top: 0;
+}
+
+/* Para hoy (amarillo clarito) o atrasado (rojo clarito) */
+.modal-pendientes .pend-platos li.pend-hoy      { background: #fffaeb; }
+.modal-pendientes .pend-platos li.pend-atrasado { background: #fff3f1; }
+
+.modal-pendientes .pend-cantidad {
+    min-width: 46px;
+    color: var(--prod-texto);
+    font-size: 16px;
+    font-weight: 800;
+    text-align: left;
+    font-variant-numeric: tabular-nums;
+}
+
+.modal-pendientes .pend-info {
+    min-width: 160px;
+}
+
+.modal-pendientes .pend-plato {
+    font-size: 14.5px;
+}
+
+.modal-pendientes .pend-plan,
+.modal-pendientes .pend-detalle,
+.modal-pendientes .pend-numero {
+    color: var(--prod-gris);
+    font-size: 13px;
+}
+
+.modal-pendientes .pend-detalle {
+    margin-top: 2px;
+}
+
+.modal-pendientes .marca-urgencia {
+    border-radius: 999px;
+    font-size: 11px;
+}
+
+/* "✓ Hecho": blanco con borde verde */
+.modal-pendientes .btn-hecho {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+    border: 1px solid var(--prod-verde);
+    border-radius: var(--prod-radio);
+    background: #fff;
+    color: var(--prod-verde-texto);
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.modal-pendientes .btn-hecho::before {
+    content: "✓";
+}
+
+.modal-pendientes .btn-hecho:hover {
+    background: var(--prod-verde-suave);
+}
+
+.modal-pendientes .aviso-hecho {
+    margin: 0;
+    border-radius: var(--prod-radio);
+}
+
+.modal-pendientes .pend-vacio {
+    padding: 36px 0;
+    font-size: 14.5px;
+}
+
+
+/* ===== 12. VENTANA "HECHO HOY" ===== */
+
+.ventana-hecho-hoy {
+    max-width: 620px;
+}
+
+/* "Entraron a la heladera: 45 viandas": la franja verde */
+.resumen-hecho-hoy {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--prod-verde-borde);
+    border-radius: var(--prod-radio);
+    background: var(--prod-verde-suave);
+    color: var(--prod-verde-texto);
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.resumen-hecho-hoy strong {
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.icono-resumen {
+    width: 22px;
+    height: 22px;
+}
+
+/* La lista, en una tarjeta blanca */
+.lista-hecho-hoy {
+    flex: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    list-style: none;
+    border-radius: var(--prod-radio-tarjeta);
+    box-shadow: var(--prod-sombra-lista);
+}
+
+/* Cada renglón: "+20" · plato y quién · la hora */
+.hecho-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 11px 14px;
+    border-top: 1px solid var(--prod-borde);
+}
+
+.hecho-item:first-child {
+    border-top: 0;
+}
+
+.hh-cantidad {
+    min-width: 40px;
+    color: var(--prod-verde-texto);
+    font-size: 15px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.hh-info {
+    flex: 1;
+    min-width: 150px;
+}
+
+.hh-plato {
+    color: var(--prod-texto);
+    font-size: 14.5px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.hh-plan {
+    color: var(--prod-gris);
+    font-size: 13px;
+    font-weight: 400;
+}
+
+.hh-quien {
+    margin-top: 2px;
+    color: var(--prod-gris);
+    font-size: 13px;
+}
+
+.hh-hora {
+    color: var(--prod-gris);
+    font-size: 13.5px;
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* ===== 13. PANEL "ÚLTIMOS MOVIMIENTOS" ===== */
+
+/* Lo de atrás, más clarito que en las ventanas */
+.modal-movimientos {
+    background: rgba(17, 26, 20, .32);
+}
+
+/* El panel: pegado a la derecha, de arriba a abajo */
+.panel-movimientos {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 460px;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--prod-borde);
+    background: #fff;
+    box-shadow: -24px 0 56px -16px rgba(17, 26, 20, .28);
+    animation: panel-entra 0.3s var(--easing-out) both;
+}
+
+/* Entra desde la derecha */
+@keyframes panel-entra {
+    from { opacity: 0; transform: translateX(40px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+.cabecera-movimientos {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px 22px 14px;
+    border-bottom: 1px solid var(--prod-borde);
+}
+
+.fila-titulo-movimientos {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.fila-titulo-movimientos .textos-ventana {
+    flex: 1;
+    padding-right: 0;
+}
+
+.titulo-movimientos {
+    margin: 0;
+    color: var(--prod-titulo);
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -.015em;
+}
+
+/* Acá la X va en la fila del título (no flotando) */
+.cabecera-movimientos .boton-cerrar-ventana {
+    position: static;
+    flex: none;
+}
+
+/* Los filtros por tipo: pastillas; la elegida, verde */
+.filtros-movimientos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.filtros-movimientos .btn-filtro-estado {
+    height: 30px;
+    padding: 0 12px;
+    border: 1px solid var(--prod-borde);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--prod-titulo);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.filtros-movimientos .btn-filtro-estado:hover {
+    border-color: #d3ddd1;
+    background: var(--prod-gris-encima);
+}
+
+.filtros-movimientos .btn-filtro-estado.activo {
+    border-color: var(--prod-verde);
+    background: var(--prod-verde);
+    color: #fff;
+}
+
+/* "Plato: fideos ✕" (el resto de su aspecto, con los ✕ de la sección 5) */
+.chip-plato-movimientos {
+    align-self: flex-start;
+}
+
+/* La lista: toma el alto que sobra y se mueve adentro */
+.lista-movimientos {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* Cada movimiento: la cantidad a la izquierda y lo demás a la derecha */
+.mov-item {
+    display: flex;
+    gap: 14px;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--prod-borde);
+}
+
+.mov-cantidad {
+    min-width: 42px;
+    font-size: 15px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.mov-cantidad.entrada { color: var(--prod-verde-texto); }   /* entra: verde */
+.mov-cantidad.salida  { color: var(--prod-rojo); }          /* sale: rojo */
+
+.mov-cuerpo {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mov-linea {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.mov-plato {
+    color: var(--prod-texto);
+    font-size: 14.5px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+/* La pastillita del tipo, con su color */
+.mov-tipo {
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+.tipo-produccion { background: #e8f5eb; color: #127f36; }
+.tipo-venta      { background: #eaf0f6; color: #2c5577; }
+.tipo-devolucion { background: #fff4d6; color: #7a5600; }
+.tipo-descarte   { background: #fdecea; color: #b3261e; }
+.tipo-ajuste,
+.tipo-otro       { background: #eef1ee; color: #4f5a52; }
+
+.mov-detalle,
+.mov-motivo {
+    color: var(--prod-gris);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+/* "Ver más" abajo (si no hay más, no se ve la franja) */
+.pie-movimientos {
+    flex: none;
+    padding: 14px 22px;
+    border-top: 1px solid var(--prod-borde);
+}
+
+.pie-movimientos:has(.btn-ver-mas[hidden]) {
+    display: none;
+}
+
+.btn-ver-mas {
+    width: 100%;
+    height: 40px;
+    border: 1px solid var(--prod-borde);
+    border-radius: var(--prod-radio);
+    background: #fff;
+    color: var(--prod-verde-texto);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-ver-mas:hover {
+    background: var(--prod-gris-encima);
+}
+
+
+/* ===== 14. VENTANA "DESCARTAR VIANDAS" ===== */
+
+.ventana-descarte {
+    max-width: 440px;
+}
+
+/* Acá la cabecera no tiene línea abajo */
+.ventana-descarte .cabecera-ventana {
+    padding-bottom: 4px;
+    border-bottom: 0;
+}
+
+.cuerpo-descarte {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px 24px 0;
+}
+
+/* Cantidad (angosta) y Motivo (el resto) */
+.campos-descarte {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 12px;
+}
+
+.campo-descarte {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: var(--prod-titulo);
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.campo-descarte input {
+    width: 100%;
+    height: 42px;
+    padding: 0 12px;
+    border: 1px solid var(--prod-borde-casillero);
+    border-radius: var(--prod-radio);
+    background: #fff;
+    color: var(--prod-texto);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    outline: none;
+    box-shadow: var(--prod-sombra-chica);
+}
+
+.campo-descarte input:focus {
+    border-color: var(--prod-verde);
+    box-shadow: 0 0 0 3px var(--prod-verde-suave);
+}
+
+/* "ⓘ Hay 61 libres; las 10 reservadas no se pueden descartar." */
+p.info-descarte {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    color: var(--prod-gris);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.info-descarte svg {
+    width: 16px;
+    height: 16px;
+    margin-top: 1px;
+}
+
+.info-descarte strong {
+    color: var(--prod-texto);
+}
+
+.ventana-descarte .pie-ventana {
+    border-top: 0;
+}
+
+
+/* ===== 15. AVISO FLOTANTE (abajo a la derecha, se va solo) ===== */
+
+.toast-stock {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 10000;
+    padding: 12px 18px;
+    border-radius: var(--prod-radio);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: 0 10px 28px -8px rgba(17, 26, 20, .35);
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity .25s, transform .25s;
+}
+
+.toast-stock.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.toast-stock.exito { background: var(--prod-verde); }
+.toast-stock.error { background: var(--prod-rojo); }
+
+
+/* Si la compu pide "menos movimiento" (Accesibilidad), el panel no se desliza */
+@media (prefers-reduced-motion: reduce) {
+    .panel-movimientos {
+        animation: none;
+    }
+}
+
+
+/* ===== 16. CELULAR (hasta 768 px) ===== */
+@media (max-width: 768px) {
+    .cabecera-produccion h1 {
+        font-size: 32px;
+    }
+
+    /* El buscador ocupa todo el ancho; "Filtros" y las ventanas bajan */
+    .buscador-platos {
+        flex-basis: 100%;
+        max-width: none;
+    }
+
+    .espacio-filtros {
+        display: none;
+    }
+
+    /* La lista de planes se abre hacia la derecha (el botón queda a la izquierda) */
+    .menu-filtro-plan {
+        left: 0;
+        right: auto;
+    }
+
+    .pie-produccion {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    /* Las ventanas: casi todo el ancho */
+    .ventana-produccion {
+        width: calc(100% - 24px);
+        max-height: calc(100% - 24px);
+    }
+
+    .cabecera-ventana {
+        padding: 20px 18px 16px;
+    }
+
+    .cuerpo-ventana {
+        padding: 16px 18px 18px;
+    }
+
+    .pie-ventana {
+        padding: 16px 18px 18px;
+    }
+
+    /* "Pedir a cocina": pantalla completa, todo en una columna y el total pegado abajo */
+    .modal-pedido {
+        width: 100%;
+        height: 100%;
+        max-height: none;
+        border-radius: 0;
+    }
+
+    .pedido-cuerpo {
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+    }
+
+    .pedido-izquierda {
+        flex: none;             /* no se achica: el que se mueve es todo el cuerpo */
+        overflow: visible;
+        padding: 16px;
+    }
+
+    /* "Tu pedido" se suelta: así su pie (total y botones) queda pegado abajo mientras se baja */
+    .pedido-resumen {
+        display: contents;
+    }
+
+    .pedido-resumen-cabecera {
+        padding: 16px 16px 8px;
+        border-top: 1px solid var(--prod-borde);
+        background: #f8faf7;
+    }
+
+    .pedido-resumen-lista {
+        flex: none;
+        min-height: 0;
+        padding: 4px 16px 16px;
+        background: #f8faf7;
+    }
+
+    .pedido-pie {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        padding: 12px 16px 16px;
+        box-shadow: 0 -8px 20px -12px rgba(17, 26, 20, .25);
+    }
+
+    /* La tabla de la ventana pasa a tarjetas: nombre y − + arriba; plan y números abajo */
+    .caja-tabla-pedido {
+        overflow: visible;
+    }
+
+    .tabla-pedido,
+    .tabla-pedido tbody {
+        display: block;
+        min-width: 0;
+    }
+
+    .tabla-pedido thead {
+        display: none;
+    }
+
+    .tabla-pedido tr {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 14px;
+        padding: 12px 14px;
+        border-top: 1px solid var(--prod-borde);
+        background: var(--fondo-fila, #fff);
+    }
+
+    .tabla-pedido tbody tr:first-child {
+        border-top: 0;
+    }
+
+    .tabla-pedido td {
+        padding: 0;
+        border: 0;
+        background: transparent;
+    }
+
+    .tabla-pedido td.col-plato {
+        flex: 1 1 calc(100% - 160px);   /* deja lugar para − cantidad + en el mismo renglón */
+        min-width: 0;
+    }
+
+    .tabla-pedido td.col-pedir {
+        flex: none;
+    }
+
+    .tabla-pedido tr.fila-vacia td {
+        flex: 1 1 100%;
+    }
+
+    /* Plan, Libres, Reservadas y Mínimo: en una línea chica, cada número con su nombre */
+    .tabla-pedido td.col-plan,
+    .tabla-pedido td.col-numero {
+        order: 3;
+        color: var(--prod-gris);
+        font-size: 12.5px;
+    }
+
+    .tabla-pedido td.col-numero {
+        font-weight: 600;
+    }
+
+    .tabla-pedido .col-libres::before     { content: "Disponibles "; font-weight: 400; }
+    .tabla-pedido .col-reservadas::before { content: "Reservadas "; font-weight: 400; }
+    .tabla-pedido .col-minimo::before     { content: "Mínimo "; font-weight: 400; }
+
+    /* − y +: un poco más grandes, para el dedo */
+    .btn-paso {
+        width: 40px;
+        height: 40px;
+    }
+
+    .pp-cantidad input {
+        height: 40px;
+    }
+
+    /* Descartar: Cantidad y Motivo uno debajo del otro */
+    .campos-descarte {
+        grid-template-columns: 1fr;
+    }
+
+    .toast-stock {
+        right: 16px;
+        left: 16px;
+        bottom: 16px;
+    }
+}

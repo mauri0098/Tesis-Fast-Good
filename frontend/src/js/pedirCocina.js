@@ -2,32 +2,42 @@
 // pedirCocina.js — Ventana "Pedir a cocina" de la pantalla Producción (pages/heladera.html)
 //
 // Funciones:
-//   abrirPedirACocina     → abre la ventana: fecha (mañana), el filtro "Mostrar" y la lista limpia
-//   platosDelFiltro       → los platos que se ven con el filtro elegido, ya ordenados
-//   renderizarListaPedido → dibuja la lista de platos con −, casillero y + (y el total)
-//   alCambiarCantidad     → lo que pasa al escribir o tocar − / + en un plato: guarda, pinta el renglón y actualiza el total
-//   leerCantidadPedida    → lo escrito para un plato: 0 si está vacío, el número, o null si es inválido
-//   actualizarTotalPedido → "Total: N viandas en M platos" y si se puede enviar
-//   cargaRapida           → "A cada uno", "Repartir" o "Limpiar" sobre los platos que se ven
-//   enviarPedidoACocina   → manda el pedido (POST /api/ordenes-produccion)
+//   abrirPedirACocina        → abre la ventana: fecha (mañana), el aviso de los que faltan, el filtro de plan y la lista limpia
+//   platosDelFiltro          → los platos que se ven con el plan, las pestañas y lo buscado, ya ordenados
+//   renderizarPestanasPedido → dibuja las pestañas Todos / Sin stock / Bajos / Bien (se pueden elegir varias)
+//   renderizarListaPedido    → dibuja la tabla de platos con −, casillero y + (y el total)
+//   alCambiarCantidad        → lo que pasa al escribir o tocar − / + en un plato: guarda, pinta el renglón y actualiza el total
+//   leerCantidadPedida       → lo escrito para un plato: 0 si está vacío, el número, o null si es inválido
+//   actualizarTotalPedido    → "Tu pedido" (lo pedido, para cuándo y el total) y si se puede enviar
+//   cargaRapida              → "A cada uno", "Repartir" o "Limpiar" sobre los platos que se ven
+//   enviarPedidoACocina      → manda el pedido (POST /api/ordenes-produccion)
 //
-// Usa de heladera.js: todosPlatos, estadoDelPlato, ESTADOS_STOCK, cerrarVentana, mostrarToast y cargarPendientesCocina.
-// Usa de pedidosCocina.js: conPlural. De fechas.js: fechaLocalISO.
+// Usa de heladera.js: todosPlatos, estadoDelPlato, ESTADOS_STOCK, CANTIDAD_COLORES_PLAN, cerrarVentana, mostrarToast
+// y cargarPendientesCocina. Usa de pedidosCocina.js: conPlural. De fechas.js: fechaLocalISO.
 // Lo escrito en cada plato se guarda en cantidadesPedido: así no se pierde al cambiar el filtro.
 // Acá no se calculan insumos: los gasta la cocina cuando toca "Hecho".
 // ============================================================================
 
 let cantidadesPedido = {};   // lo escrito en cada plato, tal como se escribió: { id_producto: '3' }
+let estadosPedido = [];      // las pestañas elegidas: ej ['sin', 'bajo']. [] = "Todos"
 
-// Los valores de "Mostrar" que no son un plan
-const FILTROS_PEDIDO_SIN_PLAN = ['faltan', 'sin', 'bajo', ''];
+// Las pestañas de estado de la ventana (además de "Todos")
+const PESTANAS_PEDIDO = [
+  { valor: 'sin',  texto: 'Sin stock' },
+  { valor: 'bajo', texto: 'Bajos' },
+  { valor: 'bien', texto: 'Bien' }
+];
+
+// Los meses en corto, para "Para 21 oct 2026" (el 0 es enero)
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 
 // ─────────────────────────────────────────────────────────────────────────────
 // abrirPedirACocina → abre la ventana "Pedir a cocina"
-// ENTRADA: nada (la llaman "+ Pedir a cocina" y "Pedir los que faltan")
-// SALIDA:  nada (pone la fecha de mañana, arma el filtro "Mostrar", borra lo escrito antes y dibuja la lista)
-// Ej: con 2 platos sin stock y 3 bajos, "Mostrar" arranca en "Los que faltan (5)"
+// ENTRADA: nada (la llaman "+ Pedir a cocina" y "Pedir a cocina" de la ventana Pendientes)
+// SALIDA:  nada (pone la fecha de mañana, el aviso de los que faltan, arma el filtro de plan,
+//          elige las pestañas, borra lo escrito antes y dibuja la lista)
+// Ej: con 2 platos sin stock y 3 bajos → "5 platos están abajo del mínimo" y arranca con "Sin stock" y "Bajos" elegidas
 // ─────────────────────────────────────────────────────────────────────────────
 function abrirPedirACocina() {
   // 1. Para cuándo: arranca en mañana y no deja elegir días pasados
@@ -37,13 +47,20 @@ function abrirPedirACocina() {
   inputFecha.min = fechaLocalISO(hoy);                                              // no deja elegir antes de hoy
   inputFecha.value = fechaLocalISO(manana);                                         // arranca en mañana
 
-  // 2. Cuántos platos faltan, con la misma regla de la tabla (los "sin control" no cuentan).
+  // 2. Cuántos platos faltan, con la misma regla de la tabla (los "sin mínimo" no cuentan).
   //    filter arma una lista con los que cumplen y length dice cuántos son. Ej: [fideos (sin), tarta (bien)] → 1 sin stock
   const sinStock = todosPlatos.filter(plato => estadoDelPlato(plato) === 'sin').length;   // cuántos sin stock
   const bajos = todosPlatos.filter(plato => estadoDelPlato(plato) === 'bajo').length;     // cuántos bajos
   const faltan = sinStock + bajos;                                                  // los que faltan
 
-  // 3. Los planes activos que tienen platos activos, sin repetir: { id_plan: { id, nombre } }
+  // 3. El aviso de arriba: "5 platos están abajo del mínimo" (si no falta nada, no se ve).
+  //    conPlural da un número y una palabra nuestra: no hace falta escHtml
+  const aviso = document.getElementById('pAviso');
+  aviso.innerHTML = '<span class="icono-aviso"><svg aria-hidden="true"><use href="#icono-alerta"></use></svg></span>'
+    + '<span><strong>' + conPlural(faltan, 'plato', 'platos') + '</strong> están abajo del mínimo</span>';
+  aviso.hidden = faltan === 0;
+
+  // 4. Los planes activos que tienen platos activos, sin repetir: { id_plan: { id, nombre } }
   const planesPorId = {};                                                           // arranca vacío
   todosPlatos.forEach(plato => {                                                    // por cada plato...
     if (!plato.id_plan) return;                                                     // sin plan: saltear (return = seguir con el siguiente)
@@ -55,60 +72,50 @@ function abrirPedirACocina() {
   const planes = Object.values(planesPorId);                                        // Object.values = lo que hay adentro. Ej: { 3: {…}, 5: {…} } → [{…}, {…}]
   planes.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));                    // por nombre
 
-  // 4. El filtro "Mostrar": "Los que faltan (N)", "Sin stock (N)", "Bajos (N)", "Todos los planes" y cada plan
-  const opciones = [
-    { valor: 'faltan', texto: 'Los que faltan (' + faltan + ')' },
-    { valor: 'sin',    texto: 'Sin stock (' + sinStock + ')' },
-    { valor: 'bajo',   texto: 'Bajos (' + bajos + ')' },
-    { valor: '',       texto: 'Todos los planes' }
-  ];
-  planes.forEach(plan => {                                                          // cada plan, al final
-    opciones.push({ valor: String(plan.id), texto: plan.nombre });
-  });
+  // 5. El filtro "Plan": "Todos los planes" y cada plan
   const select = document.getElementById('pPlan');                                  // el desplegable
   select.innerHTML = '';                                                            // se borran las opciones de antes
+  const opciones = [{ valor: '', texto: 'Todos los planes' }];                      // la primera: todos
+  planes.forEach(plan => {                                                          // después, cada plan
+    opciones.push({ valor: String(plan.id), texto: plan.nombre });
+  });
   opciones.forEach(opcion => {                                                      // por cada opción...
     const option = document.createElement('option');                               // ...una opción del desplegable
     option.value = opcion.valor;                                                    // su valor
     option.textContent = opcion.texto;                                              // su texto (textContent: el nombre del plan no se interpreta como HTML)
     select.appendChild(option);
   });
-  select.value = faltan > 0 ? 'faltan' : '';                                        // arranca en "Los que faltan" si falta algo; si no, "Todos los planes"
+  select.value = '';                                                                // arranca en "Todos los planes"
 
-  // 5. Todo limpio, se dibuja y se abre
+  // 6. Las pestañas: arranca con "Sin stock" y "Bajos" si falta algo (lo que antes era "Los que faltan"); si no, "Todos"
+  estadosPedido = faltan > 0 ? ['sin', 'bajo'] : [];
+
+  // 7. Todo limpio, se dibuja y se abre
+  document.getElementById('pBuscar').value = '';                                    // "Buscar" vacío
   document.getElementById('pRapidoCantidad').value = '';                            // "Cargar rápido" vacío
   document.getElementById('pError').style.display = 'none';                         // sin error
   cantidadesPedido = {};                                                            // nada escrito
-  renderizarListaPedido();                                                          // la lista
+  renderizarListaPedido();                                                          // la lista (y las pestañas y el total)
   document.getElementById('modalPedido').style.display = 'block';                   // se abre la ventana
 }
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// platosDelFiltro → los platos que se ven con el filtro elegido en "Mostrar", ya ordenados
-// ENTRADA: nada (lee el filtro elegido y todosPlatos)
-// SALIDA:  una lista nueva de platos (todosPlatos no se toca). Orden: por estado (Sin stock, Bajo, Bien, Sin control),
+// platosDelFiltro → los platos que se ven en la ventana, ya ordenados
+// ENTRADA: nada (lee el plan elegido, las pestañas elegidas, lo buscado y todosPlatos)
+// SALIDA:  una lista nueva de platos (todosPlatos no se toca). Orden: por estado (Sin stock, Bajo, Bien, Sin mínimo),
 //          después por plan (los sin plan al final) y por nombre
-// Ej: "Los que faltan" con fideos (bajo) y canelones (sin stock) → [canelones, fideos]
+// Ej: pestañas "Sin stock" + "Bajos" con fideos (bajo) y canelones (sin stock) → [canelones, fideos]
 // La usan renderizarListaPedido (para dibujar) y cargaRapida (para cargar solo los que se ven).
 // ─────────────────────────────────────────────────────────────────────────────
 function platosDelFiltro() {
-  const filtro = document.getElementById('pPlan').value;                            // lo elegido en "Mostrar"
+  const planElegido = document.getElementById('pPlan').value;                       // '' = todos los planes
+  const textoBuscado = document.getElementById('pBuscar').value.trim().toLowerCase();  // lo escrito en "Buscar"
   const platos = todosPlatos.filter(plato => {                                      // filter = arma una lista nueva con los que cumplen
-    const estado = estadoDelPlato(plato);                                           // el estado del plato
-    // Cada case responde con return (return ya sale del switch: no hace falta break)
-    switch (filtro) {
-      case 'faltan':                                                                // según sea "Los que faltan": sin stock o bajos
-        return estado === 'sin' || estado === 'bajo';
-      case 'sin':                                                                   // según sea "Sin stock": solo esos
-        return estado === 'sin';
-      case 'bajo':                                                                  // según sea "Bajos": solo esos
-        return estado === 'bajo';
-      case '':                                                                      // según sea "Todos los planes": todos
-        return true;
-      default:                                                                      // si no, es un plan: los de ese plan
-        return plato.id_plan === Number(filtro);
-    }
+    const coincidePlan = planElegido === '' || plato.id_plan === Number(planElegido);       // es del plan elegido
+    const coincideEstado = estadosPedido.length === 0 || estadosPedido.includes(estadoDelPlato(plato));  // su estado está elegido
+    const coincideNombre = (plato.nombre || '').toLowerCase().includes(textoBuscado);       // tiene lo buscado
+    return coincidePlan && coincideEstado && coincideNombre;                        // queda si cumple las tres cosas
   });
   platos.sort((a, b) => {                                                           // se ordenan...
     const porEstado = ESTADOS_STOCK[estadoDelPlato(a)].orden - ESTADOS_STOCK[estadoDelPlato(b)].orden;  // ...por estado
@@ -125,60 +132,105 @@ function platosDelFiltro() {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// renderizarListaPedido → dibuja la lista de la ventana: un renglón por plato con −, casillero y +
+// renderizarPestanasPedido → dibuja las pestañas de la ventana: Todos, Sin stock, Bajos y Bien, con cuántos hay
+// ENTRADA: nada (usa todosPlatos y estadosPedido)
+// SALIDA:  nada (dibuja las pestañas; las elegidas quedan verdes. Al tocar una se elige o se saca, y "Todos" saca todas)
+// Ej: elegidas "Sin stock" y "Bajos"; toca "Bajos" → queda solo "Sin stock"; toca "Sin stock" → queda "Todos"
+// ─────────────────────────────────────────────────────────────────────────────
+function renderizarPestanasPedido() {
+  // 1. Cuántos platos hay en cada estado. Ej: { sin: 1, bajo: 2, bien: 1, sincontrol: 1 }
+  const cuenta = { sin: 0, bajo: 0, bien: 0, sincontrol: 0 };
+  todosPlatos.forEach(plato => {
+    cuenta[estadoDelPlato(plato)] += 1;
+  });
+
+  // 2. "Todos" primero y después las de cada estado
+  const pestanas = [{ valor: 'todos', texto: 'Todos', cantidad: todosPlatos.length, elegida: estadosPedido.length === 0 }];
+  PESTANAS_PEDIDO.forEach(pestana => {
+    pestanas.push({ valor: pestana.valor, texto: pestana.texto, cantidad: cuenta[pestana.valor], elegida: estadosPedido.includes(pestana.valor) });
+  });
+
+  const contenedor = document.getElementById('pPestanas');                          // donde van las pestañas
+  contenedor.innerHTML = '';                                                        // se borran las de antes
+  pestanas.forEach(pestana => {                                                     // por cada pestaña...
+    const boton = document.createElement('button');
+    boton.type = 'button';
+    boton.className = 'pestana-pedido';
+    if (pestana.elegida) boton.classList.add('activo');                             // la elegida, verde
+    boton.setAttribute('aria-pressed', String(pestana.elegida));                    // para los lectores de pantalla
+    // Los textos son nuestros (de la lista de arriba) y la cantidad es un número: no hace falta escHtml
+    boton.innerHTML = `${pestana.texto}<span class="cantidad-pestana">${Number(pestana.cantidad)}</span>`;
+    boton.addEventListener('click', () => {                                         // al tocarla...
+      const esTodos = pestana.valor === 'todos';
+      estadosPedido = estadosPedido.filter(valor => valor !== pestana.valor);       // ...si estaba elegida, se saca
+      if (!pestana.elegida) estadosPedido.push(pestana.valor);                      // ...si no estaba, se agrega
+      if (esTodos) estadosPedido = [];                                              // ..."Todos" saca todas las demás
+      renderizarListaPedido();                                                      // ...y se dibuja la lista
+    });
+    contenedor.appendChild(boton);
+  });
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// renderizarListaPedido → dibuja la tabla de la ventana: una fila por plato con −, casillero y +
 // ENTRADA: nada (usa platosDelFiltro y cantidadesPedido)
-// SALIDA:  nada (dibuja la lista y el total). Al escribir o tocar − / + se guarda lo escrito sin redibujar la lista
-//          (así no se pierde el lugar ni el cursor)
-// Ej: "fideos  [Bajo]" / "Libres: 3 · mínimo 5 · Mantenimiento" / [−] [ 4 ] [+]
+// SALIDA:  nada (dibuja las pestañas, la tabla y el total). Al escribir o tocar − / + se guarda lo escrito sin redibujar
+//          la tabla (así no se pierde el lugar ni el cursor)
+// Ej: "fideos [● Bajo]" · "● Mantenimiento" · 3 · 1 · 5 · [−] [ 4 ] [+]
 // ─────────────────────────────────────────────────────────────────────────────
 function renderizarListaPedido() {
-  const contenedor = document.getElementById('pPlatos');                            // donde va la lista
+  renderizarPestanasPedido();                                                       // las pestañas (cuáles están elegidas)
+  const contenedor = document.getElementById('pPlatos');                            // donde van las filas
   const platos = platosDelFiltro();                                                 // los que se ven
-  const filtroEsPlan = !FILTROS_PEDIDO_SIN_PLAN.includes(document.getElementById('pPlan').value);  // si se eligió un plan, no se repite en cada renglón
   contenedor.innerHTML = '';                                                        // se borra lo de antes
 
   if (platos.length === 0) {                                                        // si no hay ninguno...
-    contenedor.innerHTML = '<div class="pedido-vacio">No hay platos para este filtro</div>';
+    contenedor.innerHTML = `
+      <tr class="fila-vacia"><td colspan="6">
+        <div class="pedido-vacio">
+          <div class="tabla-vacia-titulo">No hay platos para mostrar</div>
+          <div class="tabla-vacia-texto">Probá con otro filtro o buscá el plato por otro nombre.</div>
+        </div>
+      </td></tr>`;
     actualizarTotalPedido();                                                        // ...igual se actualiza el total
     return;
   }
 
   platos.forEach(plato => {                                                         // por cada plato...
-    // a. Las etiquetas: el estado solo si falta (Sin stock / Bajo), y "sin receta"
+    // a. Lo que va en cada celda, calculado antes (nada de "? :" adentro del HTML)
     const estado = estadoDelPlato(plato);
-    const falta = estado === 'sin' || estado === 'bajo';
-    const etiquetaEstado = falta
-      ? '<span class="etiqueta-estado ' + ESTADOS_STOCK[estado].clase + '">' + ESTADOS_STOCK[estado].texto + '</span>'
-      : '';
+    const datosEstado = ESTADOS_STOCK[estado];                                      // su texto y su color
     const etiquetaReceta = plato.tiene_receta ? '' : '<span class="etiqueta-sin-receta">sin receta</span>';
-    const etiquetas = etiquetaEstado + etiquetaReceta;
-
-    // b. La línea gris: "Libres: 3 · mínimo 5 · Mantenimiento" (el plan solo si el filtro no es un plan)
-    const textoMinimo = estado === 'sincontrol' ? ' · sin control' : ' · mínimo ' + Number(plato.stock_minimo);
     const plan = plato.plan_nombre || 'Sin plan';
-    const textoPlan = filtroEsPlan ? '' : ' · ' + plan;
-    const detalle = 'Libres: ' + Number(plato.stock_heladera) + textoMinimo + textoPlan;
+    const clasePunto = 'punto-plan-' + (Number(plato.id_plan || 0) % CANTIDAD_COLORES_PLAN);  // el color fijo de su plan
 
-    // c. El renglón
-    const fila = document.createElement('div');
-    fila.className = 'plato-pedido';
+    // b. La fila, pintada según su estado
+    const fila = document.createElement('tr');
+    fila.className = 'plato-pedido fila-' + estado;
     fila.innerHTML = `
-      <div class="pp-info">
-        <div class="pp-nombre">${escHtml(plato.nombre)}${etiquetas}</div>
-        <div class="pp-detalle">${escHtml(detalle)}</div>
-      </div>
-      <div class="pp-cantidad">
-        <button type="button" class="btn-paso" data-paso="-1" aria-label="Uno menos">−</button>
-        <input type="text" inputmode="numeric" placeholder="0" aria-label="Cantidad a pedir">
-        <button type="button" class="btn-paso" data-paso="1" aria-label="Uno más">+</button>
-      </div>`;
+      <td class="col-plato">
+        <div class="pp-nombre">${escHtml(plato.nombre)}</div>
+        <div class="pp-etiquetas"><span class="etiqueta-estado ${datosEstado.clase}"><span class="punto-estado"></span>${datosEstado.texto}</span>${etiquetaReceta}</div>
+      </td>
+      <td class="col-plan"><span class="plan-con-punto"><span class="punto-plan ${clasePunto}"></span>${escHtml(plan)}</span></td>
+      <td class="col-numero col-libres pp-libres">${Number(plato.stock_heladera)}</td>
+      <td class="col-numero col-reservadas">${Number(plato.reservadas)}</td>
+      <td class="col-numero col-minimo">${Number(plato.stock_minimo)}</td>
+      <td class="col-pedir">
+        <div class="pp-cantidad">
+          <button type="button" class="btn-paso" data-paso="-1" aria-label="Uno menos"><svg aria-hidden="true"><use href="#icono-menos"></use></svg></button>
+          <input type="text" inputmode="numeric" placeholder="0" aria-label="Cantidad a pedir de ${escHtml(plato.nombre)}">
+          <button type="button" class="btn-paso btn-paso-mas" data-paso="1" aria-label="Uno más"><svg aria-hidden="true"><use href="#icono-mas"></use></svg></button>
+        </div>
+      </td>`;
     const input = fila.querySelector('input');                                      // el casillero
     input.value = cantidadesPedido[plato.id] || '';                                 // lo que ya tenía escrito (o vacío)
 
-    // d. Al escribir: se guarda, se pinta el renglón y se actualiza el total
+    // c. Al escribir: se guarda, se pinta el renglón y se actualiza el total
     input.addEventListener('input', () => alCambiarCantidad(plato.id, input, fila));
 
-    // e. "−" y "+": suman o restan 1 (nunca bajan de 0; si había algo inválido, arrancan de 0)
+    // d. "−" y "+": suman o restan 1 (nunca bajan de 0; si había algo inválido, arrancan de 0)
     fila.querySelectorAll('.btn-paso').forEach(boton => {
       boton.addEventListener('click', () => {
         const actual = leerCantidadPedida(plato.id) || 0;                           // lo que hay (inválido = null → arranca de 0)
@@ -189,14 +241,14 @@ function renderizarListaPedido() {
       });
     });
 
-    // f. Se pinta con lo que ya tenía y se agrega a la lista
+    // e. Se pinta con lo que ya tenía y se agrega a la tabla
     const cantidadInicial = leerCantidadPedida(plato.id);
     input.classList.toggle('invalido', cantidadInicial === null);
     fila.classList.toggle('con-cantidad', cantidadInicial > 0);
     contenedor.appendChild(fila);
   });
 
-  actualizarTotalPedido();                                                          // el total de abajo
+  actualizarTotalPedido();                                                          // "Tu pedido" y el total
 }
 
 
@@ -212,7 +264,7 @@ function alCambiarCantidad(idProducto, input, fila) {
   const cantidad = leerCantidadPedida(idProducto);                                  // como número (null si es inválido)
   input.classList.toggle('invalido', cantidad === null);                            // rojo si es inválido
   fila.classList.toggle('con-cantidad', cantidad > 0);                              // verde suave si tiene más de 0
-  actualizarTotalPedido();                                                          // el total de abajo
+  actualizarTotalPedido();                                                          // "Tu pedido" y el total
 }
 
 
@@ -232,16 +284,17 @@ function leerCantidadPedida(idProducto) {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// actualizarTotalPedido → el total de la ventana y si se puede enviar
+// actualizarTotalPedido → "Tu pedido" (lo pedido y para cuándo), el total y si se puede enviar
 // ENTRADA: nada (cuenta TODOS los platos, también los que no se ven con el filtro)
-// SALIDA:  nada (escribe "Total: N viandas" y "en M platos", muestra el error si hay algo inválido,
-//          y prende "Enviar a cocina" solo si hay algo pedido y nada inválido)
-// Ej: 4 fideos y 6 canelones → "Total: 10 viandas" · "en 2 platos"
+// SALIDA:  nada (escribe "Para 21 oct 2026", la lista de lo pedido con su ✕, "N viandas" y "de M platos",
+//          muestra el error si hay algo inválido y prende "Enviar a cocina" solo si hay algo pedido y nada inválido)
+// Ej: 4 fideos y 6 canelones → "fideos × 4", "canelones × 6" · "10 viandas" · "de 2 platos"
 // ─────────────────────────────────────────────────────────────────────────────
 function actualizarTotalPedido() {
   let total = 0;                                               // viandas pedidas
   let platos = 0;                                              // en cuántos platos
   let hayInvalida = false;                                     // si algún casillero tiene algo inválido
+  let htmlResumen = '';                                        // los renglones de "Tu pedido"
   todosPlatos.forEach(plato => {                               // por cada plato...
     const cantidad = leerCantidadPedida(plato.id);             // ...lo escrito
     if (cantidad === null) {                                   // ...si es inválido, se anota
@@ -249,12 +302,47 @@ function actualizarTotalPedido() {
       return;                                                  // (return = saltear este plato y seguir con el siguiente)
     }
     total += cantidad;                                         // ...se suma
-    if (cantidad > 0) platos += 1;                             // ...y si tiene algo, cuenta como plato pedido
+    if (cantidad === 0) return;                                // ...sin nada pedido: saltear (no va a "Tu pedido")
+    platos += 1;                                               // ...cuenta como plato pedido
+    const plan = plato.plan_nombre || 'Sin plan';
+    htmlResumen += `
+      <div class="item-resumen">
+        <div class="item-resumen-textos">
+          <div class="item-resumen-nombre">${escHtml(plato.nombre)}</div>
+          <div class="item-resumen-plan">${escHtml(plan)}</div>
+        </div>
+        <span class="item-resumen-cantidad">× ${cantidad}</span>
+        <button type="button" class="quitar-del-pedido" data-id="${Number(plato.id)}" aria-label="Sacar ${escHtml(plato.nombre)} del pedido"><svg aria-hidden="true"><use href="#icono-cerrar"></use></svg></button>
+      </div>`;
   });
 
-  document.getElementById('pTotal').textContent = 'Total: ' + conPlural(total, 'vianda', 'viandas');
-  document.getElementById('pTotalPlatos').textContent = 'en ' + conPlural(platos, 'plato', 'platos');
+  // 1. "Tu pedido": lo pedido (cada uno con su ✕ para sacarlo) o, si no hay nada, cómo empezar
+  const vacio = `
+    <div class="resumen-vacio">
+      <span class="icono-vacio"><svg aria-hidden="true"><use href="#icono-olla"></use></svg></span>
+      <span>Sumá platos con el <strong>+</strong> para armar el pedido.</span>
+    </div>`;
+  const listaResumen = document.getElementById('pResumenLista');
+  listaResumen.innerHTML = htmlResumen || vacio;               // || = si no hay renglones, el aviso de vacío
+  listaResumen.querySelectorAll('.quitar-del-pedido').forEach(boton => {
+    boton.addEventListener('click', () => {                    // al tocar ✕...
+      delete cantidadesPedido[Number(boton.dataset.id)];       // ...se borra lo escrito en ese plato
+      renderizarListaPedido();                                 // ...y se redibuja (el casillero queda vacío)
+    });
+  });
 
+  // 2. Para cuándo: '2026-10-21' → "Para 21 oct 2026" (split parte el texto en los guiones: ['2026', '10', '21'])
+  const fecha = document.getElementById('pFecha').value;
+  const partes = fecha.split('-');
+  const fechaLinda = Number(partes[2]) + ' ' + MESES_CORTOS[Number(partes[1]) - 1] + ' ' + partes[0];
+  document.getElementById('pParaCuando').textContent = fecha ? 'Para ' + fechaLinda : 'Elegí para cuándo';
+
+  // 3. El total: "10 viandas" (el número grande) y "de 2 platos". Solo números y palabras nuestras: sin escHtml
+  const palabraViandas = total === 1 ? 'vianda' : 'viandas';
+  document.getElementById('pTotal').innerHTML = '<strong class="total-numero">' + total + '</strong> ' + palabraViandas;
+  document.getElementById('pTotalPlatos').textContent = 'de ' + conPlural(platos, 'plato', 'platos');
+
+  // 4. El error y el botón
   const errorVentana = document.getElementById('pError');      // el lugar del error
   if (hayInvalida) errorVentana.textContent = 'Hay una cantidad inválida: tiene que ser un número entero mayor o igual a 0.';
   errorVentana.style.display = hayInvalida ? 'block' : 'none'; // con algo inválido se ve; si no, se esconde

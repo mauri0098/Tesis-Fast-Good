@@ -3896,3 +3896,57 @@ de prueba: cualquier otro se cortaba, y no hubo ninguno.
   - Entrega, Cliente, Viandas y Costo en negro y negrita; Cliente y Costo de 16 px;
   - Teléfono y Mail de 13,5 px, en gris;
   - Estado, la pastilla de pago y los botones de 13,5 px y 35 px de alto.
+- **Ajuste (19/10, noche):** solo las perillas de `global.css`: títulos de las tablas de 14,5 a **15,5 px** (`--letra-titulos-tabla`) y celdas de 15 a **13,5 px** (`--letra-celdas-tabla`). Vale para todas las tablas del panel. Capturas: `diseno-panel-v2/capturas/letra-1440-…`. La tabla de Consultar Pedidos sigue sin entrar entera a 1366/1440: queda el scroll de costado adentro de la tabla (decisión del usuario).
+
+---
+
+## 17. Producción y panel nuevos (`diseno-produccion/`) — Paso 1: el panel (20/10)
+**Qué se pidió:** el menú lateral y la barra de arriba como el diseño, y la letra Inter en el panel. El index no se toca.
+
+| Archivo | Qué cambió |
+|---|---|
+| `.gitignore` | `diseno-produccion/` |
+| `src/js/adminSidebar.js` | Solo el HTML que arma, más la función nueva `achicarMenu` (abajo). Los permisos siguen saliendo de `roles.js` |
+| `src/css/menuPanel.css` | Reescrito: menú de 264 px, menú achicado de 76 px, barra de arriba y celu |
+| `src/css/global.css` | `--fuente: "Inter", …` (antes Figtree) y 2 comentarios |
+| `login.html`, `admin.html` y las 11 de `pages/` | El link de Google Fonts: Figtree → Inter (400;500;600;700;800). Poppins sigue donde el CSS propio la usa |
+
+**El menú:**
+- logo redondo, "Fast & Good" y PANEL;
+- la lista **sin títulos de grupo** (los grupos se separan con 10 px de aire: clase `menu-link-grupo-nuevo`);
+- íconos de línea más finos;
+- la pantalla actual con fondo verde suave y letra verde;
+- abajo el avatar, el nombre, el rol (con "…" si no entra) y salir;
+- la flechita del borde para achicarlo.
+Las mismas pantallas y nombres de hoy, con "Inicio" arriba; sin Pedir a cocina, Compras ni Productos.
+
+**El globito de Tareas de Cocina:** `#menuContadorCocina`, preparado y **escondido** (`hidden`). No se le pide nada al
+servidor. Para usarlo: escribir el número y sacarle el `hidden`.
+
+**La barra de arriba** (en todas las pantallas del panel):
+- blanca, con una línea finita;
+- a la izquierda, el buscador "Buscar… Ctrl K", **solo visual** (no busca y Ctrl K no hace nada);
+- a la derecha, el avatar con la inicial (`#barraAvatar`, lo escribe `cargarDatosUsuario`);
+- en menos de 900 px, el ☰ a la izquierda.
+Lleva las clases `barra-menu-celu` (el nombre de antes) y `barra-panel` (el estilo).
+
+**`achicarMenu(achicar)`** (nueva, `adminSidebar.js`):
+- **Qué hace:** achica el menú a solo íconos (76 px) o lo vuelve a su ancho (264 px). Solo en compu.
+- **ENTRADA:** `true` (achicar), `false` (agrandar) o nada (lo contrario de cómo está).
+- **SALIDA:** pone o saca `menu-achicado` en el `<body>` (el CSS cambia `--menu-ancho` y se corren la barra y el
+  contenido), cambia el texto del botón y guarda la elección en el navegador (`menu_achicado`). Si no se puede guardar,
+  el menú anda igual.
+- **Ejemplo:** tocar la flechita → solo íconos; abrir otra pantalla → sigue achicado; tocarla otra vez → vuelve.
+- **Se conecta con:** la flechita `#menuBotonAchicar`. Al abrir cada pantalla se llama con lo que estaba guardado.
+
+`cargarDatosUsuario` además escribe la inicial en el avatar de la barra.
+
+**Comprobado** (copia del servidor en el 3001, cortando todo lo que no fuera GET):
+- las 13 pantallas a 1440 y 390 px: menú, barra y contenido en su lugar, sin scroll de costado y sin errores;
+- menú achicado (76 px) que se acuerda al cambiar de pantalla;
+- en el celu, el ☰ abre el menú entero (272 px) aunque en compu estuviera achicado, y lo oscuro lo cierra;
+- la barra del celu entra a 360 y 390 px;
+- los roles 1, 2, 3 y 5 ven su menú y abren solo lo suyo;
+- el panel con Inter y el index con Figtree;
+- test 40/40.
+Capturas: `diseno-produccion/capturas/paso1/`.

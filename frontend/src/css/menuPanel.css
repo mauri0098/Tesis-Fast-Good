@@ -1,39 +1,47 @@
 /* ============================================================
-   menuPanel.css — El menú de la izquierda de todas las pantallas del panel
-   Lo carga adminSidebar.js, que es el que arma el menú (reemplaza a adminSidebar.css).
+   menuPanel.css — El menú de la izquierda y la barra de arriba de todas las pantallas del panel
+   Lo carga adminSidebar.js, que es el que arma el menú y la barra (reemplaza a adminSidebar.css).
    Los colores salen de las perillas de global.css (--verde-principal, --borde-gris…).
 
-   En compu: el menú queda fijo a la izquierda y el contenido de la pantalla, a su derecha.
-   En pantallas de menos de 900 px: el menú se esconde a la izquierda y arriba aparece una
-   barra con el logo y el botón ☰, que lo abre.
+   En compu: el menú queda fijo a la izquierda (se puede achicar a solo íconos con la flechita del
+   borde) y, a su derecha, la barra blanca de arriba (buscador y avatar) y el contenido de la pantalla.
+   En pantallas de menos de 900 px: el menú se esconde a la izquierda y en la barra de arriba
+   aparece el botón ☰, que lo abre.
 
    Secciones:
      0. Perillas del menú
      1. El menú (la columna blanca de la izquierda)
-     2. Logo de arriba
-     3. Links y grupos
+     2. Logo de arriba y la flechita para achicar
+     3. Links y el globito con la cantidad
      4. Usuario y cerrar sesión (abajo)
-     5. Lugar del contenido (a la derecha del menú)
-     6. Pantallas de menos de 900 px: la barra de arriba y el menú que se abre
-     7. Al imprimir
+     5. La barra de arriba (buscador y avatar)
+     6. Lugar del contenido (a la derecha del menú)
+     7. Menú achicado (solo íconos, en compu)
+     8. Pantallas de menos de 900 px: el ☰ y el menú que se abre
+     9. Al imprimir
    ============================================================ */
 
 
 /* ===== 0. PERILLAS DEL MENÚ ===== */
 :root {
-    --menu-ancho: 265px;          /* ancho del menú en compu (el de la referencia): si lo subís, el menú queda más ancho y el contenido más angosto */
-    --menu-alto-link: 44px;       /* alto de cada link (44 px es lo cómodo para el dedo) */
-    --menu-icono: 20px;           /* tamaño de los íconos de los links */
+    --menu-ancho: 264px;          /* ancho del menú en compu (el del diseño): si lo subís, el menú queda más ancho y el contenido más angosto */
+    --menu-ancho-achicado: 76px;  /* ancho del menú achicado (solo los íconos) */
+    --menu-ancho-celu: 272px;     /* ancho del menú cuando se abre con el ☰ en el celu */
+    --menu-alto-link: 38px;       /* alto de cada link */
+    --menu-icono: 18px;           /* tamaño de los íconos de los links */
     --menu-logo: 38px;            /* tamaño del logo redondo de arriba */
-    --menu-barra-alto: 64px;      /* alto de la barra de arriba en pantallas chicas */
-    --menu-duracion: .3s;         /* lo que tarda el menú en entrar desde la izquierda en pantallas chicas */
+    --menu-barra-alto: 64px;      /* alto de la barra blanca de arriba (y de la fila del logo, para que queden parejas) */
+    --menu-link-fondo-encima: #f4f7f3;  /* fondo de un link al pasar el mouse: gris verdoso muy clarito */
+    --menu-texto-link: #3a4640;   /* letra de los links */
+    --menu-gris-logo: #5d6a61;    /* "Fast" del logo */
+    --menu-duracion: .2s;         /* lo que tarda el menú en achicarse o en entrar desde la izquierda en el celu */
 }
 
 
 /* ===== 1. EL MENÚ (la columna blanca de la izquierda) ===== */
 
 /* Fijo a la izquierda, del alto de la pantalla, con una línea finita a la derecha.
-   Es una columna: el logo arriba, los links al medio y el usuario abajo del todo.
+   Es una columna: el logo arriba, los links al medio (con su propio scroll si no entran) y el usuario abajo.
    z-index 999: queda arriba del contenido, pero debajo de las ventanas que se abran */
 .menu-panel {
     position: fixed;
@@ -42,16 +50,14 @@
     z-index: 999;
     display: flex;
     flex-direction: column;
-    gap: 4px;
     width: var(--menu-ancho);
     height: 100vh;               /* el alto de la pantalla… */
     height: 100dvh;              /* …y en el celu, el alto que se ve sin la barra del navegador (si el navegador no lo entiende, usa el de arriba) */
-    padding: 20px 14px;
-    overflow-y: auto;            /* si no entra todo (pantalla bajita), el menú tiene su propio scroll */
     background: var(--blanco);
     border-right: 1px solid var(--borde-gris);
     color: var(--texto);
     line-height: 1.2;
+    transition: width var(--menu-duracion) ease;
 }
 
 /* El lugar de los dibujos de los íconos (no se ve: los links los usan con <use>) */
@@ -62,31 +68,46 @@
 }
 
 
-/* ===== 2. LOGO DE ARRIBA ===== */
+/* ===== 2. LOGO DE ARRIBA Y LA FLECHITA PARA ACHICAR ===== */
 
-/* La fila del logo: el círculo, "Fast & Good" y la etiqueta PANEL */
+/* La fila del logo: del mismo alto que la barra de arriba, con una línea finita abajo */
 .menu-logo {
     display: flex;
+    flex: none;
     align-items: center;
     gap: 10px;
-    padding: 4px 8px 16px;
+    height: var(--menu-barra-alto);
+    padding: 0 16px;
+    border-bottom: 1px solid var(--borde-gris);
+    overflow: hidden;            /* con el menú achicado, nada se sale de la fila */
 }
 
-/* El logo redondo */
+/* El logo redondo, con un aro verde clarito */
 .menu-logo-imagen {
     flex: none;                  /* no se achica */
     width: var(--menu-logo);
     height: var(--menu-logo);
     border-radius: 50%;
+    box-shadow: 0 0 0 1px var(--borde-gris);
 }
 
-/* "Fast" en gris oscuro… */
-.menu-logo-texto {
-    font-size: 21px;
-    font-weight: 900;
-    letter-spacing: -.035em;
-    color: var(--titulo);
+/* "Fast & Good" y la etiqueta PANEL, uno al lado del otro */
+.menu-logo-textos {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     white-space: nowrap;
+}
+
+.menu-logo-texto {
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+}
+
+/* "Fast" en gris… */
+.menu-logo-gris {
+    color: var(--menu-gris-logo);
 }
 
 /* …y "& Good" en verde */
@@ -96,64 +117,104 @@
 
 /* La etiqueta chiquita "PANEL", en verde sobre verde suave */
 .menu-etiqueta-panel {
-    padding: 3px 8px;
+    padding: 3px 7px;
     border-radius: var(--radio-pastilla);
     background: var(--verde-suave);
+    color: var(--verde-texto);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+}
+
+/* La flechita redonda en el borde derecho del menú, que lo achica o lo agranda (solo en compu).
+   right: -13px = la mitad del botón (26 px) queda afuera del menú, montada sobre la línea */
+.menu-boton-achicar {
+    position: absolute;
+    top: 78px;
+    right: -13px;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid var(--borde-gris);
+    border-radius: 50%;
+    background: var(--blanco);
+    color: var(--texto-gris);
+    box-shadow: 0 1px 2px rgb(17 26 20 / .06);
+    cursor: pointer;
+}
+
+.menu-boton-achicar:hover {
+    border-color: var(--verde-principal);
     color: var(--verde-principal);
-    font-size: 11px;
-    font-weight: 800;
+}
+
+.menu-boton-achicar:focus-visible {
+    outline: 3px solid var(--verde-principal);
+    outline-offset: 2px;
+}
+
+/* La flecha del botón: apunta a la izquierda (achicar); con el menú achicado se da vuelta (sección 7) */
+.menu-icono-flecha {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 
-/* ===== 3. LINKS Y GRUPOS ===== */
+/* ===== 3. LINKS Y EL GLOBITO CON LA CANTIDAD ===== */
 
-/* La lista de links, uno debajo del otro */
+/* La lista de links, uno debajo del otro. Ocupa lo que sobra del menú y, si no entra, tiene su propio scroll */
 .menu-links {
     display: flex;
+    flex: 1;
     flex-direction: column;
     gap: 2px;
-}
-
-/* El título de cada grupo ("PEDIDOS", "COCINA"…): chiquito, en mayúscula y gris */
-.menu-grupo {
-    margin: 18px 12px 6px;
-    font-size: 12px;
-    font-weight: 800;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    color: var(--texto-apagado);
-}
-
-/* Si el menú arranca con un grupo (los roles que no tienen "Inicio"), ese título va sin aire arriba */
-.menu-grupo:first-child {
-    margin-top: 0;
+    padding: 14px 12px;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 /* Cada link: el ícono y el nombre de la pantalla */
 .menu-link {
+    position: relative;
     display: flex;
+    flex: none;
     align-items: center;
     gap: 12px;
     min-height: var(--menu-alto-link);
-    padding: 0 12px;
+    padding: 0 10px;
     border-radius: 12px;
-    color: var(--texto-gris);
-    font-size: 15px;
-    font-weight: 600;
+    color: var(--menu-texto-link);
+    font-size: 14.5px;
+    font-weight: 500;
     text-decoration: none;
+    white-space: nowrap;
     transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-/* Al pasar el mouse: fondo verde suave */
+/* La primera pantalla de otro grupo (Reparto, Cocina, Stock…): un poco de aire arriba, sin título */
+.menu-link-grupo-nuevo {
+    margin-top: 10px;
+}
+
+/* Al pasar el mouse: fondo gris verdoso clarito */
 .menu-link:hover {
-    background: var(--verde-suave);
+    background: var(--menu-link-fondo-encima);
     color: var(--texto);
 }
 
-/* La pantalla en la que se está: pastilla verde con letra blanca (la clase "active" la pone adminSidebar.js) */
+/* La pantalla en la que se está: fondo verde suave y letra verde (la clase "active" la pone adminSidebar.js) */
 .menu-link.active {
-    background: var(--verde-principal);
-    color: var(--blanco);
+    background: var(--verde-suave);
+    color: var(--verde-texto);
+    font-weight: 600;
 }
 
 /* Con el teclado (Tab): un anillo verde alrededor del link */
@@ -169,17 +230,43 @@
     height: var(--menu-icono);
 }
 
+/* El nombre de la pantalla: ocupa lo que sobra, así el globito queda a la derecha */
+.menu-link-texto {
+    flex: 1;
+    min-width: 0;
+}
+
+/* El globito con la cantidad (Tareas de Cocina). Hoy está escondido: adminSidebar.js lo arma con hidden */
+.menu-contador {
+    display: grid;
+    place-items: center;
+    flex: none;
+    min-width: 22px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: var(--radio-pastilla);
+    background: var(--verde-suave);
+    color: var(--verde-texto);
+    font-size: 11.5px;
+    font-weight: 700;
+}
+
+/* Escondido (hidden), no se ve. Hace falta escribirlo porque el "display: grid" de arriba le ganaría al hidden */
+.menu-contador[hidden] {
+    display: none;
+}
+
 
 /* ===== 4. USUARIO Y CERRAR SESIÓN (abajo) ===== */
 
-/* La fila del usuario, pegada abajo del menú (margin-top: auto la empuja hasta abajo) */
+/* La fila del usuario, abajo del menú, con una línea finita arriba */
 .menu-usuario {
     display: flex;
+    flex: none;
     align-items: center;
     gap: 10px;
-    margin-top: auto;
-    padding-top: 16px;
-    border-top: 1px solid var(--linea-suave);
+    padding: 14px 16px;
+    border-top: 1px solid var(--borde-gris);
 }
 
 /* El círculo verde con la inicial del nombre */
@@ -187,50 +274,56 @@
     display: grid;
     place-items: center;         /* la letra en el medio */
     flex: none;
-    width: 40px;
-    height: 40px;
+    width: 38px;
+    height: 38px;
     border-radius: var(--radio-pastilla);
     background: var(--verde-principal);
     color: var(--blanco);
-    font-weight: 800;
+    font-size: 15px;
+    font-weight: 700;
 }
 
 /* El nombre y el rol, uno arriba del otro (ocupan lo que sobra de la fila) */
 .menu-usuario-datos {
     display: flex;
     flex-direction: column;
-    flex-grow: 1;
+    flex: 1;
     min-width: 0;                /* si el nombre es largo, se corta en vez de empujar el botón */
 }
 
 .menu-usuario-nombre {
-    font-size: 15px;
+    font-size: 14px;
+    font-weight: 600;
     overflow-wrap: anywhere;     /* un nombre larguísimo baja de renglón en vez de salirse */
 }
 
+/* El rol, en un renglón: si no entra, termina en "…" */
 .menu-usuario-rol {
-    font-size: 13px;
+    overflow: hidden;
+    font-size: 12px;
     color: var(--texto-gris);
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
-/* El botón redondo de cerrar sesión (gris; al pasar el mouse, verde) */
+/* El botón de cerrar sesión: sin fondo; al pasar el mouse, gris clarito */
 .menu-boton-salir {
     display: grid;
     place-items: center;
     flex: none;
-    width: 40px;
-    height: 40px;
+    width: 34px;
+    height: 34px;
     border: 0;
-    border-radius: var(--radio-pastilla);
-    background: var(--gris-boton);
-    color: var(--texto);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--texto-gris);
     cursor: pointer;
     transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .menu-boton-salir:hover {
-    background: var(--verde-suave);
-    color: var(--verde-principal);
+    background: var(--menu-link-fondo-encima);
+    color: var(--texto);
 }
 
 .menu-boton-salir:focus-visible {
@@ -239,7 +332,123 @@
 }
 
 
-/* ===== 5. LUGAR DEL CONTENIDO (a la derecha del menú) ===== */
+/* ===== 5. LA BARRA DE ARRIBA (buscador y avatar) ===== */
+
+/* La barra blanca con una línea finita abajo. Queda pegada arriba al bajar (sticky).
+   Empieza donde termina el menú. z-index 997: arriba del contenido; lo oscuro (998) y el menú (999) la tapan */
+.barra-panel {
+    position: sticky;
+    top: 0;
+    z-index: 997;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: var(--menu-barra-alto);
+    margin-left: var(--menu-ancho);
+    padding: 0 var(--espacio-pantalla);
+    background: var(--blanco);
+    border-bottom: 1px solid var(--borde-gris);
+    transition: margin-left var(--menu-duracion) ease;
+}
+
+/* El buscador general (por ahora solo se ve: todavía no busca): la lupa, el casillero y "Ctrl K" */
+.barra-buscador {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;                /* en el celu se puede achicar, así el avatar entra a la derecha */
+    max-width: 340px;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--borde-gris);
+    border-radius: 12px;
+    color: var(--texto-apagado);
+    cursor: text;
+}
+
+.barra-icono-lupa {
+    flex: none;
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+}
+
+/* El casillero, sin borde propio (el borde es el de la caja de afuera) */
+.barra-buscador-campo {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--texto);
+    font-size: 14px;
+}
+
+/* La cajita "Ctrl K" (el atajo de teclado, cuando ande) */
+.barra-atajo {
+    padding: 2px 6px;
+    border: 1px solid var(--borde-gris);
+    border-radius: 5px;
+    color: var(--texto-apagado);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* El espacio del medio, que empuja el avatar a la derecha */
+.barra-espacio {
+    flex: 1;
+}
+
+/* El avatar redondo, con la inicial del usuario */
+.barra-avatar {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border: 1px solid #d3e8d8;   /* verde clarito, un poco más fuerte que el fondo */
+    border-radius: 50%;
+    background: var(--verde-suave);
+    color: var(--verde-texto);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+/* El botón ☰ (lo crea adminSidebar.js adentro de la barra). En compu no se ve (sección 8) */
+.sidebar-toggle-btn {
+    display: none;
+    place-items: center;
+    flex: none;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 1px solid var(--borde-gris);
+    border-radius: 12px;
+    background: var(--blanco);
+    color: var(--menu-texto-link);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.sidebar-toggle-btn:hover {
+    border-color: var(--verde-principal);
+    color: var(--verde-principal);
+}
+
+.sidebar-toggle-btn:focus-visible {
+    outline: 3px solid var(--verde-principal);
+    outline-offset: 2px;
+}
+
+
+/* ===== 6. LUGAR DEL CONTENIDO (a la derecha del menú) ===== */
 
 /* La página, sin márgenes */
 .admin-layout {
@@ -252,19 +461,52 @@
     flex-direction: column;
     min-height: 100vh;
     margin-left: var(--menu-ancho);
+    transition: margin-left var(--menu-duracion) ease;
 }
 
-/* La barra de arriba y lo oscuro de atrás del menú solo existen en pantallas chicas (sección 6) */
-.barra-menu-celu,
+/* Lo oscuro de atrás del menú solo existe en pantallas chicas (sección 8) */
 .sidebar-overlay {
     display: none;
 }
 
 
-/* ===== 6. PANTALLAS DE MENOS DE 900 PX: LA BARRA DE ARRIBA Y EL MENÚ QUE SE ABRE ===== */
+/* ===== 7. MENÚ ACHICADO (solo íconos, en compu) ===== */
+/* La clase menu-achicado la pone achicarMenu (adminSidebar.js) en el <body>. Solo vale en compu:
+   en el celu el menú siempre se abre entero */
+@media (min-width: 900px) {
+    /* El ancho del menú pasa a 76 px: así se corren solos la barra de arriba y el contenido */
+    .menu-achicado {
+        --menu-ancho: var(--menu-ancho-achicado);
+    }
+
+    /* Se esconden los textos: el logo escrito, los nombres, el globito, el nombre y el rol, y salir */
+    .menu-achicado .menu-logo-textos,
+    .menu-achicado .menu-link-texto,
+    .menu-achicado .menu-contador,
+    .menu-achicado .menu-usuario-datos,
+    .menu-achicado .menu-boton-salir {
+        display: none;
+    }
+
+    /* Los íconos, el logo y la inicial, en el medio */
+    .menu-achicado .menu-logo,
+    .menu-achicado .menu-link,
+    .menu-achicado .menu-usuario {
+        justify-content: center;
+    }
+
+    /* La flechita se da vuelta: ahora apunta a la derecha (agrandar) */
+    .menu-achicado .menu-icono-flecha {
+        transform: rotate(180deg);
+    }
+}
+
+
+/* ===== 8. PANTALLAS DE MENOS DE 900 PX: EL ☰ Y EL MENÚ QUE SE ABRE ===== */
 @media (max-width: 899px) {
     /* El menú se esconde a la izquierda (translateX(-100%) = corrido todo su ancho afuera de la pantalla) */
     .menu-panel {
+        width: var(--menu-ancho-celu);
         transform: translateX(-100%);
         transition: transform var(--menu-duracion) ease;
     }
@@ -275,28 +517,33 @@
         box-shadow: var(--sombra-ventana);
     }
 
-    /* El contenido ocupa todo el ancho */
+    /* En el celu no hay flechita para achicar */
+    .menu-boton-achicar {
+        display: none;
+    }
+
+    /* La barra de arriba y el contenido ocupan todo el ancho */
+    .barra-panel {
+        margin-left: 0;
+        padding: 0 16px;
+    }
+
     .admin-content {
         margin-left: 0;
     }
 
-    /* La barra blanca de arriba: el botón ☰ y el logo. Queda pegada arriba al bajar (sticky) */
-    .barra-menu-celu {
-        position: sticky;
-        top: 0;
-        z-index: 997;            /* arriba del contenido; lo oscuro (998) y el menú (999) la tapan */
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        height: var(--menu-barra-alto);
-        padding: 0 12px;
-        background: var(--blanco);
-        border-bottom: 1px solid var(--borde-gris);
+    /* El ☰ aparece a la izquierda del buscador */
+    .sidebar-toggle-btn {
+        display: grid;
     }
 
-    /* El logo de la barra, sin el aire de abajo que tiene en el menú */
-    .barra-menu-celu .menu-logo {
-        padding: 0;
+    /* Sin el espacio del medio: el buscador ocupa todo lo que sobra entre el ☰ y el avatar */
+    .barra-espacio {
+        display: none;
+    }
+
+    .barra-buscador {
+        max-width: none;
     }
 
     /* Lo oscuro que tapa el contenido mientras el menú está abierto (tocarlo cierra el menú) */
@@ -309,45 +556,21 @@
     }
 }
 
-/* El botón ☰ (lo crea adminSidebar.js adentro de la barra): redondo, de 44 px */
-.sidebar-toggle-btn {
-    display: grid;
-    place-items: center;
-    flex: none;
-    width: 44px;
-    height: 44px;
-    border: 0;
-    border-radius: var(--radio-pastilla);
-    background: var(--gris-boton);
-    color: var(--texto);
-    font-size: 22px;
-    line-height: 1;
-    cursor: pointer;
-}
-
-.sidebar-toggle-btn:hover {
-    background: var(--verde-suave);
-    color: var(--verde-principal);
-}
-
-.sidebar-toggle-btn:focus-visible {
-    outline: 3px solid var(--verde-principal);
-    outline-offset: 2px;
-}
-
-/* Si la compu pide "menos movimiento" (Accesibilidad), el menú aparece sin deslizarse */
+/* Si la compu pide "menos movimiento" (Accesibilidad), el menú cambia sin deslizarse */
 @media (prefers-reduced-motion: reduce) {
-    .menu-panel {
+    .menu-panel,
+    .barra-panel,
+    .admin-content {
         transition: none;
     }
 }
 
 
-/* ===== 7. AL IMPRIMIR ===== */
+/* ===== 9. AL IMPRIMIR ===== */
 /* Se imprime solo el contenido: sin menú ni barra, y de todo el ancho de la hoja */
 @media print {
     .menu-panel,
-    .barra-menu-celu,
+    .barra-panel,
     .sidebar-overlay {
         display: none;
     }

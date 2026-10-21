@@ -50,7 +50,7 @@
     --apagado-letra: #8a958d;              /* letra de los botones apagados (sobre --gris-boton) */
     --aviso-personalizado: #8a5200;        /* "⚠ 2 personalizados" y "⚠ sin sal": naranja oscuro */
 
-    /* Letra de las columnas de la tabla (la común de las celdas, 15 px, es --letra-celdas-tabla de global.css) */
+    /* Letra de las columnas de la tabla (la común de las celdas, 13,5 px, es --letra-celdas-tabla de global.css) */
     --letra-numero: 15.5px;                /* N° de pedido (verde, en negrita) */
     --letra-destacada: 16px;               /* Cliente y Costo: un poco más grandes que el resto */
     --letra-contacto: 13.5px;              /* Teléfono y Mail: más chicos (y grises) */
