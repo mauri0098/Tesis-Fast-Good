@@ -27,7 +27,6 @@
   <!-- Los dibujos de los íconos de esta pantalla: no se ven acá, cada uno se usa con <use href="#…"> -->
   <svg class="iconos-pantalla" aria-hidden="true">
     <symbol id="icono-buscar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M20 20l-4-4"></path></symbol>
-    <symbol id="icono-chevron-derecha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></symbol>
     <symbol id="icono-mas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></symbol>
     <symbol id="icono-menos" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path></symbol>
     <symbol id="icono-filtros" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M7 12h10M10 17h4"></path></symbol>
@@ -46,74 +45,71 @@
     <symbol id="icono-olla" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11h17"></path><path d="M5 11v2a7 7 0 0 0 14 0v-2"></path><path d="M9.5 4c0 1.5 1 1.5 1 3M13.5 4c0 1.5 1 1.5 1 3"></path></symbol>
   </svg>
 
-  <!-- TÍTULO: migas ("Cocina › Producción"), el título, la frase y "+ Pedir a cocina" a la derecha -->
+  <!-- TÍTULO: a la izquierda el título y la bajada; a la derecha las tres ventanas y "+ Pedir a cocina" -->
   <header class="cabecera-produccion">
     <div class="cabecera-textos">
-      <div class="migas"><span>Cocina</span><svg class="icono-miga" aria-hidden="true"><use href="#icono-chevron-derecha"></use></svg><span class="miga-actual">Producción</span></div>
       <h1>Producción</h1>
-      <p class="cabecera-frase">Las viandas de la heladera y lo que hay que cocinar</p>
+      <p class="cabecera-frase">Controlá las viandas que hay en la heladera, cuáles ya están reservadas para pedidos y pedile a la cocina lo que falta.</p>
     </div>
-    <!-- Solo para quien puede pedir (heladera.js lo muestra a los roles 6, 5 y 1) -->
-    <button id="btnPedirCocina" type="button" class="boton-pedir-cocina" onclick="abrirPedirACocina()" hidden>
-      <svg class="icono-boton" aria-hidden="true"><use href="#icono-mas"></use></svg>Pedir a cocina
-    </button>
+
+    <!-- Los 4 botones de arriba (en el celu, en 2 columnas) -->
+    <div class="botones-cabecera">
+      <button id="btnPendientes" type="button" class="boton-ventana" onclick="cargarPendientesCocina(true)">
+        <svg class="icono-boton" aria-hidden="true"><use href="#icono-reloj"></use></svg>Pendientes de cocina
+        <span id="cantidadPendientes" class="cantidad-ventana" hidden></span>
+      </button>
+      <button id="btnHechoHoy" type="button" class="boton-ventana" onclick="abrirHechoHoy()">
+        <svg class="icono-boton" aria-hidden="true"><use href="#icono-hecho"></use></svg>Hecho hoy
+        <span id="cantidadHechoHoy" class="cantidad-ventana" hidden></span>
+      </button>
+      <button id="btnMovimientos" type="button" class="boton-ventana" onclick="abrirMovimientos('')">
+        <svg class="icono-boton" aria-hidden="true"><use href="#icono-historial"></use></svg>Últimos movimientos
+      </button>
+      <!-- Solo para quien puede pedir (heladera.js lo muestra a los roles 6, 5 y 1) -->
+      <button id="btnPedirCocina" type="button" class="boton-pedir-cocina" onclick="abrirPedirACocina()" hidden>
+        <svg class="icono-boton" aria-hidden="true"><use href="#icono-mas"></use></svg>Pedir a cocina
+      </button>
+    </div>
   </header>
 
   <main class="page-container pagina-produccion">
 
-    <!-- PESTAÑAS DE ESTADO: Todos / Sin stock / Bajos / Bien, con cuántos hay (las arma heladera.js) -->
-    <div class="caja-pestanas">
-      <div id="filtrosEstado" class="filtros-estado pestanas-estado" role="group" aria-label="Filtrar por estado"></div>
-    </div>
-
-    <!-- FILTROS: buscar, el filtro de plan y, a la derecha, las tres ventanas -->
-    <div class="zona-filtros">
-      <div class="fila-filtros">
-        <label class="buscador-platos">
-          <svg class="icono-lupa" aria-hidden="true"><use href="#icono-buscar"></use></svg>
-          <input type="text" id="filtroNombre" class="filtro-input campo-buscar-plato" placeholder="Buscar plato…" aria-label="Buscar plato">
-          <kbd class="atajo-teclado">Ctrl K</kbd>
-        </label>
-
-        <!-- "Filtros": abre la lista de planes con casillas (la arma heladera.js) -->
-        <div class="caja-filtro-plan">
-          <button id="btnFiltroPlan" type="button" class="boton-filtros" aria-expanded="false" aria-controls="menuFiltroPlan">
-            <svg class="icono-boton" aria-hidden="true"><use href="#icono-filtros"></use></svg>Filtros
-            <span id="cantidadFiltroPlan" class="cantidad-filtros" hidden></span>
-          </button>
-          <div id="menuFiltroPlan" class="menu-filtro-plan" hidden>
-            <div class="menu-filtro-plan-buscar">
-              <input type="text" id="buscarPlan" class="campo-buscar-plan" placeholder="Buscar plan…" aria-label="Buscar plan">
-            </div>
-            <div id="listaFiltroPlan" class="lista-filtro-plan"></div>
-            <button id="btnLimpiarPlan" type="button" class="boton-limpiar-plan" hidden>Limpiar filtro</button>
-          </div>
+    <!-- LA TARJETA: arriba la barra (pestañas, buscador y Plan), los filtros elegidos, y la tabla.
+         Si la tabla no entra a lo ancho, se mueve de costado solo acá adentro -->
+    <div class="tarjeta-tabla">
+      <div class="barra-tarjeta">
+        <!-- PESTAÑAS DE ESTADO: Todos / Sin stock / Bajos / Bien, con su puntito y cuántos hay (las arma heladera.js) -->
+        <div class="caja-pestanas">
+          <div id="filtrosEstado" class="filtros-estado pestanas-estado" role="group" aria-label="Filtrar por estado"></div>
         </div>
 
-        <div class="espacio-filtros"></div>
+        <div class="filtros-tarjeta">
+          <label class="buscador-tabla">
+            <svg class="icono-lupa" aria-hidden="true"><use href="#icono-buscar"></use></svg>
+            <input type="text" id="filtroNombre" class="filtro-input campo-buscar-plato" placeholder="Buscar plato…" aria-label="Buscar plato">
+            <kbd class="atajo-teclado">Ctrl K</kbd>
+          </label>
 
-        <!-- Las ventanas: Pendientes de cocina, Hecho hoy y Últimos movimientos (con cuántos hay) -->
-        <div class="botones-ventanas">
-          <button id="btnPendientes" type="button" class="boton-ventana" onclick="cargarPendientesCocina(true)">
-            <svg class="icono-boton" aria-hidden="true"><use href="#icono-reloj"></use></svg>Pendientes de cocina
-            <span id="cantidadPendientes" class="cantidad-ventana" hidden></span>
-          </button>
-          <button id="btnHechoHoy" type="button" class="boton-ventana" onclick="abrirHechoHoy()">
-            <svg class="icono-boton" aria-hidden="true"><use href="#icono-hecho"></use></svg>Hecho hoy
-            <span id="cantidadHechoHoy" class="cantidad-ventana" hidden></span>
-          </button>
-          <button id="btnMovimientos" type="button" class="boton-ventana" onclick="abrirMovimientos('')">
-            <svg class="icono-boton" aria-hidden="true"><use href="#icono-historial"></use></svg>Últimos movimientos
-          </button>
+          <!-- "Plan": abre la lista de planes con casillas (la arma heladera.js) -->
+          <div class="caja-filtro-plan">
+            <button id="btnFiltroPlan" type="button" class="boton-filtros" aria-expanded="false" aria-controls="menuFiltroPlan">
+              <svg class="icono-boton" aria-hidden="true"><use href="#icono-filtros"></use></svg>Plan
+              <span id="cantidadFiltroPlan" class="cantidad-filtros" hidden></span>
+            </button>
+            <div id="menuFiltroPlan" class="menu-filtro-plan" hidden>
+              <div class="menu-filtro-plan-buscar">
+                <input type="text" id="buscarPlan" class="campo-buscar-plan" placeholder="Buscar plan…" aria-label="Buscar plan">
+              </div>
+              <div id="listaFiltroPlan" class="lista-filtro-plan"></div>
+              <button id="btnLimpiarPlan" type="button" class="boton-limpiar-plan" hidden>Limpiar filtro</button>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Los planes elegidos, cada uno con su ✕, y "Limpiar todo" (los arma heladera.js; sin planes elegidos no se ve) -->
       <div id="chipsFiltros" class="fila-chips" hidden></div>
-    </div>
 
-    <!-- LA TARJETA DE LA TABLA. Si la tabla no entra a lo ancho, se mueve de costado solo acá adentro -->
-    <div class="tarjeta-tabla">
       <div class="caja-tabla-produccion">
         <table class="standard-table tabla-produccion">
           <thead>
@@ -172,7 +168,7 @@
     <!-- PIE DE LA TABLA: "Mostrando X de Y platos" y las páginas -->
     <div class="pie-produccion">
       <span id="resumenPlatos" class="resumen-platos"></span>
-      <div id="paginacion" class="paginacion"></div>
+      <div id="paginacion" class="paginacion paginacion-con-palabras"></div>
     </div>
   </main>
 
@@ -180,6 +176,10 @@
   <div id="menuFila" class="menu-fila" role="menu" hidden>
     <button id="menuFilaMovimientos" type="button" class="opcion-menu-fila" role="menuitem">
       <svg class="icono-boton" aria-hidden="true"><use href="#icono-historial"></use></svg>Ver movimientos del plato
+    </button>
+    <!-- Solo para quien puede pedir: abre "Pedir a cocina" con este plato ya buscado -->
+    <button id="menuFilaPedir" type="button" class="opcion-menu-fila" role="menuitem" hidden>
+      <svg class="icono-boton" aria-hidden="true"><use href="#icono-enviar"></use></svg>Pedir a cocina
     </button>
     <div class="separador-menu-fila"></div>
     <button id="menuFilaDescartar" type="button" class="opcion-menu-fila opcion-descartar" role="menuitem">
@@ -189,7 +189,7 @@
 
   <!-- VENTANA: Pedir a cocina (a la izquierda los platos, a la derecha "Tu pedido" con el total y Enviar) -->
   <div id="modalPedido" class="modal">
-    <div class="modal-content ventana-produccion modal-pedido">
+    <div class="modal-content ventana-panel modal-pedido">
       <div class="cabecera-ventana">
         <span class="icono-ventana"><svg aria-hidden="true"><use href="#icono-enviar"></use></svg></span>
         <div class="textos-ventana">
@@ -279,7 +279,7 @@
 
   <!-- VENTANA: Pendientes de cocina (lo pedido que todavía no se cocinó, por cocinero: lo arma pedidosCocina.js) -->
   <div id="modalPendientes" class="modal">
-    <div class="modal-content ventana-produccion modal-pendientes">
+    <div class="modal-content ventana-panel modal-pendientes">
       <div class="cabecera-ventana">
         <span class="icono-ventana"><svg aria-hidden="true"><use href="#icono-reloj"></use></svg></span>
         <div class="textos-ventana">
@@ -303,7 +303,7 @@
 
   <!-- VENTANA: Hecho hoy (lo que la cocina marcó hecho hoy: lo arma heladera.js) -->
   <div id="modalHechoHoy" class="modal">
-    <div class="modal-content ventana-produccion ventana-hecho-hoy">
+    <div class="modal-content ventana-panel ventana-hecho-hoy">
       <div class="cabecera-ventana">
         <span class="icono-ventana"><svg aria-hidden="true"><use href="#icono-hecho"></use></svg></span>
         <div class="textos-ventana">
@@ -330,7 +330,7 @@
 
   <!-- PANEL DE LA DERECHA: Últimos movimientos (lo de adentro lo arma heladera.js) -->
   <div id="panelMovimientos" class="modal modal-movimientos">
-    <aside class="panel-movimientos" aria-label="Últimos movimientos">
+    <aside class="panel-lateral panel-movimientos" aria-label="Últimos movimientos">
       <!-- Arriba: título y ✕, los filtros por tipo y "Plato: … ✕" -->
       <div class="cabecera-movimientos">
         <div class="fila-titulo-movimientos">
@@ -359,7 +359,7 @@
 
   <!-- VENTANA: Descartar viandas -->
   <div id="modalDescarte" class="modal">
-    <div class="modal-content ventana-produccion ventana-descarte">
+    <div class="modal-content ventana-panel ventana-descarte">
       <div class="cabecera-ventana">
         <span class="icono-ventana icono-ventana-peligro"><svg aria-hidden="true"><use href="#icono-basura"></use></svg></span>
         <div class="textos-ventana">
@@ -377,7 +377,14 @@
             <input id="dCantidad" type="number" min="1" step="1" placeholder="Ej: 2">
           </label>
           <label class="campo-descarte">Motivo
-            <input id="dMotivo" type="text" maxlength="200" placeholder="Ej: Vencidas">
+            <select id="dMotivo">
+              <option value="">Elegí el motivo</option>
+              <option value="Vencido">Vencido</option>
+              <option value="En mal estado">En mal estado</option>
+              <option value="Envase roto">Envase roto</option>
+              <option value="Error de carga">Error de carga</option>
+              <option value="Otro">Otro</option>
+            </select>
           </label>
         </div>
         <!-- "Hay N disponibles; las N reservadas no se pueden descartar." (lo escribe heladera.js) -->

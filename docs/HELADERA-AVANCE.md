@@ -1,4 +1,4 @@
-# Heladera — avance del refactor (19/10/2026)
+# Heladera — avance del refactor (21/10/2026)
 
 Leer junto con `ESTADO-PROYECTO.md`, `CLAUDE.md` y `docs/informe_heladera.md`. Este archivo dice **dónde estamos parados** en la heladera.
 Se actualiza al terminar cada paso: estado, resultados y el próximo prompt.
@@ -566,6 +566,58 @@ anular: **solo con un pedido "PRUEBA – NO PREPARAR"**.
 | 12 | Otras pantallas con tablas (Gestión de Stock, Gestión de Usuarios, Combos…) | Andan como antes, con los títulos de la tabla en verde sin mayúsculas y la letra más grande |
 | 13 | Login (`/login.html`) | La letra y los verdes nuevos; el botón "Iniciar Sesión" sigue naranja |
 | 14 | El botón redondo de cerrar sesión, abajo del menú | Vuelve a la web sin la sesión |
+
+### Pantalla 4 (21/10): Producción con el diseño nuevo — qué se hizo y cómo mirarlo
+Detalle completo (decisiones, archivos, JS línea por línea, perillas, pruebas, seguridad y lo que no quedó igual) en la
+sección 18 de `INFORME-CAMBIOS-HELADERA.md`.
+- **Arriba:**
+  - "Producción" con la bajada nueva;
+  - a la derecha, los 4 botones: Pendientes de cocina (con su número), Hecho hoy (con su número), Últimos movimientos
+    y + Pedir a cocina (verde).
+- **La tarjeta:**
+  - las pestañas Todos · Sin stock · Bajos · Bien, con puntito de color y cantidad; la elegida toma el color de su estado;
+  - el buscador y "Plan" a la derecha, y los planes elegidos debajo, adentro de la tarjeta;
+  - la tabla con los títulos verdes de `global.css` y Plato al 27 %.
+- **Menú ⋯:** Ver movimientos del plato · **Pedir a cocina** (nuevo: abre la ventana con ese plato ya buscado; el cocinero
+  no lo ve) · Descartar viandas.
+- **Descartar:** el Motivo es una lista (Elegí el motivo · Vencido · En mal estado · Envase roto · Error de carga · Otro).
+- **Lo que se repite en otras pantallas** pasó a `global.css` (sección 13). Ninguna otra pantalla cambia hasta que use
+  esas clases.
+- **Celu:**
+  - título arriba y los 4 botones en 2 columnas;
+  - pestañas, buscador y "Plan" uno debajo del otro;
+  - la tabla con scroll adentro de su tarjeta;
+  - las ventanas a pantalla completa.
+- **Comprobado:**
+  - 34 de 34 controles a 1440, 1280, 1024 y 390, y como cocinero;
+  - lo que la pantalla manda (mínimo, pedido a cocina, descarte, Hecho) igual que antes, **atajado en el navegador: nada
+    llegó a la base**;
+  - Pendientes con una lista falsa "PRUEBA – NO PREPARAR";
+  - test 40/40.
+  - **Capturas:** `diseno-produccion/capturas-resultado/`.
+- **Quedó para después:** la inicial del cocinero y los textos "Para hoy · Pedido a cocina #N" en Pendientes (se hacen con
+  Tareas de Cocina, porque `pedidosCocina.js` es compartido).
+
+**Recorrido a mano (Producción, 21/10).** No hace falta reiniciar el servidor: solo cambiaron archivos del frontend.
+Ctrl+F5 en Producción, con tu usuario. Para el celu: F12 → ícono del celular (Ctrl+Shift+M) → ancho 390.
+**Enviar a cocina, "Hecho" y "Confirmar descarte" escriben en la base de verdad:** hacelos solo con un plato de prueba (y
+sabiendo que "Hecho" suma viandas y gasta insumos), o cancelá antes de confirmar.
+| # | Qué hacés | Qué tiene que pasar |
+|---|---|---|
+| 1 | Abrís Producción (compu) | "Producción" y la bajada a la izquierda; los 4 botones a la derecha con sus números; la tarjeta con las pestañas, el buscador y "Plan"; los títulos de la tabla en verde |
+| 2 | Tocás "Bien", "Bajos" y "Todos" | La elegida se pinta con el color de su estado y la tabla muestra solo esos |
+| 3 | Escribís en "Buscar plato…" | La tabla se filtra; con algo que no existe, "No hay platos para mostrar" y "Limpiar filtros" |
+| 4 | "Plan" → tildás uno | Aparece "Plan: X ✕" adentro de la tarjeta y el botón con borde verde y un 1. El ✕ lo saca |
+| 5 | Tocás "Disponibles" dos veces | Ordena de menos a más y al revés |
+| 6 | Pasás el mouse por las ⓘ | Los cartelitos de Disponibles, Reservadas y Total |
+| 7 | ✎ en Mínimo, cambiás el número y Enter (o Escape para no guardar) | Se guarda y avisa abajo (con Escape vuelve el de antes) |
+| 8 | ⋯ de un plato → "Pedir a cocina" | Se abre la ventana con ese plato en Buscar y la pestaña "Todos". Cancelar |
+| 9 | "+ Pedir a cocina" | La ventana con "N platos están abajo del mínimo" (si falta algo) y las pestañas Sin stock + Bajos elegidas; los títulos de su tabla en verde. Cancelar |
+| 10 | ⋯ → "Descartar viandas" → "Confirmar descarte" sin elegir motivo | "Elegí el motivo." y no se descarta nada. Cancelar |
+| 11 | "Pendientes de cocina", "Hecho hoy" y "Últimos movimientos" | Se abren como antes, con el estilo nuevo. "Ver movimientos" de Hecho hoy abre el panel de la derecha |
+| 12 | Con un usuario cocinero | No ve "+ Pedir a cocina", ni ✎, ni "Pedir a cocina" en el ⋯ |
+| 13 | Celu (390 px) | Título arriba, los 4 botones en 2 columnas, pestañas, buscador y Plan uno debajo del otro; la tabla se mueve de costado adentro de su tarjeta. Cada ventana ocupa toda la pantalla |
+| 14 | Otra pantalla (Consultar Pedidos, Gestión de Stock) | Igual que antes |
 
 ## Ajustes después de probar a mano (16/10) — de a uno, con freno
 (Desde el 16/10 se hacen cuando se llega a su pantalla: ver la tabla de arriba.)

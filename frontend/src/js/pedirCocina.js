@@ -3,6 +3,7 @@
 //
 // Funciones:
 //   abrirPedirACocina        → abre la ventana: fecha (mañana), el aviso de los que faltan, el filtro de plan y la lista limpia
+//                              (si se le pasa un plato, abre con ese plato ya buscado)
 //   platosDelFiltro          → los platos que se ven con el plan, las pestañas y lo buscado, ya ordenados
 //   renderizarPestanasPedido → dibuja las pestañas Todos / Sin stock / Bajos / Bien (se pueden elegir varias)
 //   renderizarListaPedido    → dibuja la tabla de platos con −, casillero y + (y el total)
@@ -34,12 +35,16 @@ const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 's
 
 // ─────────────────────────────────────────────────────────────────────────────
 // abrirPedirACocina → abre la ventana "Pedir a cocina"
-// ENTRADA: nada (la llaman "+ Pedir a cocina" y "Pedir a cocina" de la ventana Pendientes)
+// ENTRADA: nombrePlato (opcional): el plato del menú ⋯ de una fila. Sin nada ("+ Pedir a cocina" y la ventana
+//          Pendientes) abre con todos los platos
 // SALIDA:  nada (pone la fecha de mañana, el aviso de los que faltan, arma el filtro de plan,
 //          elige las pestañas, borra lo escrito antes y dibuja la lista)
 // Ej: con 2 platos sin stock y 3 bajos → "5 platos están abajo del mínimo" y arranca con "Sin stock" y "Bajos" elegidas
+//     abrirPedirACocina('fideos') → arranca en "Todos" con "fideos" escrito en Buscar
 // ─────────────────────────────────────────────────────────────────────────────
-function abrirPedirACocina() {
+function abrirPedirACocina(nombrePlato) {
+  const platoBuscado = nombrePlato || '';                                           // '' = sin plato elegido
+
   // 1. Para cuándo: arranca en mañana y no deja elegir días pasados
   const hoy = new Date();                                                           // hoy, en la computadora
   const manana = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1);    // mañana
@@ -87,11 +92,13 @@ function abrirPedirACocina() {
   });
   select.value = '';                                                                // arranca en "Todos los planes"
 
-  // 6. Las pestañas: arranca con "Sin stock" y "Bajos" si falta algo (lo que antes era "Los que faltan"); si no, "Todos"
-  estadosPedido = faltan > 0 ? ['sin', 'bajo'] : [];
+  // 6. Las pestañas: arranca con "Sin stock" y "Bajos" si falta algo (lo que antes era "Los que faltan"); si no, "Todos".
+  //    Si se eligió un plato, arranca en "Todos" (así se ve ese plato, esté como esté)
+  const arrancaConFaltantes = faltan > 0 && !platoBuscado;
+  estadosPedido = arrancaConFaltantes ? ['sin', 'bajo'] : [];
 
   // 7. Todo limpio, se dibuja y se abre
-  document.getElementById('pBuscar').value = '';                                    // "Buscar" vacío
+  document.getElementById('pBuscar').value = platoBuscado;                          // "Buscar": el plato elegido (o vacío)
   document.getElementById('pRapidoCantidad').value = '';                            // "Cargar rápido" vacío
   document.getElementById('pError').style.display = 'none';                         // sin error
   cantidadesPedido = {};                                                            // nada escrito

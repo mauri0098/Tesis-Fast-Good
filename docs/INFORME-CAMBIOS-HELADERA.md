@@ -3950,3 +3950,216 @@ Lleva las clases `barra-menu-celu` (el nombre de antes) y `barra-panel` (el esti
 - el panel con Inter y el index con Figtree;
 - test 40/40.
 Capturas: `diseno-produccion/capturas/paso1/`.
+
+
+## 18. Producción con el diseño nuevo (21/10, `diseno-produccion/`)
+**Qué se pidió:** pasar a la pantalla real el diseño aprobado de Producción (la pantalla y sus 5 ventanas), con estas
+excepciones: el menú y la barra de arriba quedan como están, los títulos de las tablas siguen el estilo de `global.css`,
+"Libres" se llama "Disponibles", y el celu se arma aparte (el del diseño estaba roto).
+Lo de los días 20/10 y 21/10 a la mañana (Producción "Paso 2", los ajustes de la tabla y los nombres Disponibles / Total)
+no se anotó acá por la regla de los cambios de diseño; esta vez se anota porque lo pediste.
+
+### 18.1 Tus decisiones (21/10)
+1. **Letra:** queda **Inter** en el panel (no se carga Figtree; el index sigue con Figtree).
+2. Dos clases que eran solo de CSS se renombraron para llevarlas a `global.css`: `ventana-produccion` → `ventana-panel` y
+   `buscador-platos` → `buscador-tabla`. El JS no las usaba.
+3. Las flechas de orden: quedan las 5 de hoy (Plato, Plan, Estado, Disponibles y Total).
+4. **Motivo del descarte:** una lista con un primer renglón "Elegí el motivo" (Vencido, En mal estado, Envase roto,
+   Error de carga, Otro). Si no se elige, el error dice "Elegí el motivo.".
+5. Lo nuevo: **sí** a "Pedir a cocina" en el menú ⋯ (abre la ventana con ese plato ya buscado). **No** al botón ⇅
+   "Ordenar por", **no** a la fecha "20 oct 2026", y **por ahora no** a la inicial del cocinero ni a los textos
+   "Para hoy · Pedido a cocina #N" (están en `pedidosCocina.js`, que es compartido con Tareas de Cocina).
+6. La tabla: si no entraba en 1440, Plato baja a **27 %** y los títulos siguen con el estilo de `global.css`. No entraba
+   (con 29 % faltaban unos 12 px y se cortaban Disponibles, Reservadas y Total), así que quedó en 27 %.
+7. La pestaña "Sin mínimo" queda como hoy (aparece solo si hay platos sin mínimo).
+
+### 18.2 Qué archivos cambiaron
+| Archivo | Qué cambió |
+|---|---|
+| `pages/heladera.html` | El título (sin las migas, con la bajada nueva y los 4 botones a la derecha); la tarjeta con la barra (pestañas, buscador y "Plan") y los filtros elegidos adentro; "Pedir a cocina" en el menú ⋯; el Motivo como lista; las 2 clases renombradas; `paginacion-con-palabras`; `panel-lateral` en el panel de movimientos |
+| `src/css/global.css` | Perillas nuevas (sección 0) y la sección 13 nueva con las piezas que se repiten. **No cambia ninguna otra pantalla**: cada pieza tiene su clase propia |
+| `src/css/heladera.css` | Reescrito: solo lo propio de Producción. Sin `!important`, sin `:has()`, sin `:where()` |
+| `src/js/heladera.js` | 7 líneas que hacen algo (más comentarios): ver 18.4 |
+| `src/js/pedirCocina.js` | `abrirPedirACocina` recibe un plato opcional: ver 18.4 |
+
+No cambió: `server.js`, las rutas, `sql/`, `pedidosCocina.js`, `paginacion.js`, ningún id, ninguna validación, ni lo que se
+manda al servidor.
+
+### 18.3 HTML (`heladera.html`)
+| Antes | Ahora | Por qué |
+|---|---|---|
+| Migas "Cocina › Producción", título y frase; "+ Pedir a cocina" solo a la derecha | Título "Producción", la bajada "Controlá las viandas que hay en la heladera…" y a la derecha **los 4 botones**: Pendientes de cocina, Hecho hoy, Últimos movimientos y + Pedir a cocina (`div.botones-cabecera`) | Como el diseño. Los botones son los mismos (mismos ids y `onclick`), solo cambiaron de lugar |
+| Pestañas, buscador y "Filtros" sueltos arriba de la tabla | Adentro de la tarjeta, en `div.barra-tarjeta`: las pestañas a la izquierda y el buscador con "Plan" a la derecha (`div.filtros-tarjeta`). Los chips de los planes, debajo, también adentro | Como el diseño |
+| Botón "Filtros" | El mismo botón (`#btnFiltroPlan`) dice "Plan" | Como el diseño |
+| Menú ⋯: Ver movimientos · Descartar | Ver movimientos · **Pedir a cocina** (`#menuFilaPedir`, escondido para el cocinero) · Descartar | Aprobado (18.1, punto 5) |
+| `<input id="dMotivo" type="text">` | `<select id="dMotivo">` con "Elegí el motivo" (vacío) y los 5 motivos | Aprobado (18.1, punto 4). El JS lo lee igual (`.value.trim()`) y el servidor recibe el texto igual que antes |
+| `class="… ventana-produccion"` (4 ventanas) | `class="… ventana-panel"` | Aprobado (18.1, punto 2): ahora está en `global.css` |
+| `label.buscador-platos` | `label.buscador-tabla` | Ídem |
+| `<div id="paginacion" class="paginacion">` | `class="paginacion paginacion-con-palabras"` | "‹ Anterior 1 Siguiente ›" de `global.css` sin tocar `paginacion.js` (las otras pantallas siguen con los circulitos) |
+| `<aside class="panel-movimientos">` | `class="panel-lateral panel-movimientos"` | El panel que entra por la derecha está en `global.css` |
+| Ícono `icono-chevron-derecha` (de las migas) | Sacado | Ya no se usaba |
+
+### 18.4 JS, línea por línea
+**`heladera.js`**
+| Dónde | Antes | Ahora | Por qué |
+|---|---|---|---|
+| `iniciarProduccion`, paso 1 | — | `document.getElementById('menuFilaPedir').hidden = !puedeAdministrar;` | "Pedir a cocina" del ⋯ solo para los roles 6, 5 y 1 (igual que "+ Pedir a cocina"). **Seguridad:** es solo para que no se vea; el servidor igual revisa el rol en `POST /api/ordenes-produccion` |
+| `iniciarProduccion`, paso 5 | 2 opciones del menú | 3ª opción: busca el plato del menú (`find`), cierra el menú y llama `abrirPedirACocina(plato.nombre)` | Lo nuevo aprobado |
+| `renderizarTabla`, pestañas | `className = 'btn-filtro-estado pestana-estado'` | `… + ' pestana-' + opcion.valor` (ej: `pestana-bajo`) | Solo para mostrar: la pestaña elegida toma el color de su estado |
+| `renderizarTabla`, pestañas | `innerHTML = texto + cantidad` | `const puntito = …` (vacío en "Todos") y `innerHTML = puntito + texto + cantidad` | Solo para mostrar: el puntito de color del diseño. Texto nuestro y número: sin datos de la base |
+| `renderizarFiltroPlan` | — | `btnFiltroPlan.classList.toggle('con-filtros', hayElegidos)` | Solo para mostrar: "Plan" con borde verde si hay planes elegidos |
+| `confirmarDescarte` | `'Escribí el motivo del descarte.'` | `'Elegí el motivo.'` | El motivo ahora se elige de una lista. El control es el mismo (`!motivo`) |
+| Comentarios | "dos opciones", "el motivo, vacío" | "tres opciones", "Elegí el motivo (la opción vacía)" | Que digan lo que pasa |
+
+**`pedirCocina.js` — `abrirPedirACocina(nombrePlato)`**
+- **Antes:** `abrirPedirACocina()` sin datos: arrancaba con "Sin stock" y "Bajos" si faltaba algo, y Buscar vacío.
+- **Ahora:**
+  - **Qué hace:** lo mismo, y si se le pasa un plato, abre con ese plato ya buscado.
+  - **ENTRADA:** `nombrePlato`, opcional. Sin nada lo llaman "+ Pedir a cocina" y la ventana Pendientes (en el HTML se
+    llama `abrirPedirACocina()`, así que llega vacío).
+  - **SALIDA:** la ventana abierta. Con un plato: Buscar = su nombre y la pestaña "Todos" (para verlo esté como esté).
+  - **Por qué:** se arrancaba en "Sin stock + Bajos": un plato "Bien" no se vería. Cambian 3 líneas:
+    `const platoBuscado = nombrePlato || '';`, `const arrancaConFaltantes = faltan > 0 && !platoBuscado;` y
+    `pBuscar.value = platoBuscado`.
+  - **Ejemplo:** ⋯ de canelones → "Pedir a cocina" → la ventana con "canelones" en Buscar y solo esa fila.
+  - **Se conecta con:** `iniciarProduccion` (la opción del ⋯), el botón de arriba y la ventana Pendientes. Lo que manda
+    al servidor (`enviarPedidoACocina`) no cambió.
+
+### 18.5 CSS
+**`global.css`, sección 13 (nueva).** Cada pieza con su clase: una pantalla la usa solo si pone esa clase.
+| Pieza | Clases |
+|---|---|
+| Botones de arriba (blanco con número y el verde) | `boton-ventana`, `cantidad-ventana`, `boton-pedir-cocina`, `icono-boton` |
+| Pestañas de estado (con puntito y número; la elegida con el color de su estado) | `pestanas-estado`, `pestana-estado`, `pestana-todos/-sin/-bajo/-bien/-sincontrol`, `punto-pestana`, `cantidad-pestana` |
+| Buscador de una tarjeta | `buscador-tabla` (con `icono-lupa` y `atajo-teclado` adentro) |
+| Pastillas de estado | `etiqueta-estado`, `estado-bien/-bajo/-sin/-sincontrol` (el `.punto-estado` se escribe adentro de `.etiqueta-estado`, porque Consultar Pedidos tiene otro `.punto-estado`) |
+| Filtros elegidos | `chip-filtro`, `quitar-chip`, `boton-limpiar-todo` |
+| Ventanas nuevas | `ventana-panel`, `cabecera-ventana`, `icono-ventana`, `icono-ventana-peligro`, `textos-ventana`, `frase-ventana`, `boton-cerrar-ventana`, `cuerpo-ventana`, `pie-ventana`, `botones-ventana`; y `.btn-cancelar`, `.btn-confirmar`, `.boton-peligro` y `.modal-error` **solo adentro de `.ventana-panel`** (las otras pantallas tienen los suyos) |
+| Panel que entra por la derecha | `panel-lateral` (y su animación) |
+| Paginación con palabras | `paginacion-con-palabras` |
+| Celu | Las ventanas nuevas a pantalla completa, y su cuerpo mide lo que tiene adentro (sin hueco entre el contenido y los botones) |
+
+**`heladera.css` (reescrito):**
+- perillas propias (sección 0);
+- el título y los 4 botones;
+- la tarjeta con su barra;
+- la tabla: anchos, colores de fila y números (15 px semibold, ✎ a la izquierda);
+- el menú ⋯;
+- lo de adentro de cada ventana: Pedir a cocina, Pendientes (con reglas `.modal-pendientes …`), Hecho hoy, el panel de
+  movimientos y Descartar;
+- el aviso flotante;
+- el celu.
+
+**Cosas que se sacaron:**
+- `[hidden] { display: none !important; }` → ahora va una regla `[hidden]` chiquita por cada clase que lo necesita;
+- `.pie-movimientos:has(…)` → "Ver más" lleva su propio margen y el pie no ocupa lugar cuando está escondido;
+- `:where(…) svg` → cada ícono tiene su tamaño.
+
+La tabla ya no pisa los títulos: toma los de `global.css` (verdes, 15,5 px, línea verde de 2 px). La de "Pedir a cocina"
+usa las mismas perillas.
+
+### 18.6 Perillas nuevas
+**`global.css` (sección 0, "Piezas del panel nuevo"):**
+| Perilla | Valor | Para qué |
+|---|---|---|
+| `--borde-casillero` | `#d9e1d7` | borde de casilleros y botones de las ventanas |
+| `--gris-encima` | `#f4f7f3` | fondo de los botones blancos al pasar el mouse |
+| `--texto-suave` | `#7a857d` | ejemplos de los casilleros, "Ctrl K", números de las pestañas |
+| `--icono-suave` | `#8a948d` | la ⓘ, el ✎ y la X |
+| `--verde-borde` | `#cfe7d6` | borde verde clarito |
+| `--alto-boton-panel` | `40px` | alto de los botones de arriba |
+| `--alto-control-panel` | `34px` | alto del buscador y de "Plan" |
+| `--radio-boton-panel` | `12px` | esquinas de botones, casilleros y menús |
+| `--radio-chico` | `10px` | esquinas de pestañas, buscador y "Plan" |
+| `--sombra-chica`, `--sombra-tarjeta-panel` | — | la sombrita de los botones y la de la tarjeta de la tabla |
+| `--fondo-ventana-panel` | `rgba(40,44,41,.72)` | lo oscuro detrás de las ventanas nuevas |
+| `--ancho-panel-lateral` | `460px` | ancho del panel de la derecha |
+| `--estado-bien/-bajo/-sin/-nada-fondo/-letra/-punto/-borde` | — | los colores de cada estado (pastillas y pestañas) |
+
+**`heladera.css` (sección 0):**
+| Perilla | Valor | Para qué |
+|---|---|---|
+| `--prod-tabla-ancho-minimo` | `1088px` | lo más angosta que queda la tabla (si no entra, se mueve de costado adentro de su tarjeta) |
+| `--prod-ancho-plato` | `27%` | ancho de Plato |
+| `--prod-ancho-plan / -estado / -disponibles / -reservadas / -total / -minimo / -menu` | 160 / 106 / 152 / 134 / 100 / 86 / 54 px | lo justo para cada título |
+| `--prod-fila-alto` | `10px` | aire arriba y abajo de cada fila |
+| `--prod-letra-numeros`, `--prod-color-numeros` | `15px`, `#26312a` | Disponibles, Reservadas, Total y Mínimo |
+| `--prod-fila-bajo / -sin (+ -encima)`, `--prod-fila-encima` | amarillo / rojo suaves | el fondo de las filas |
+
+### 18.7 Cómo se comprobó
+Con la copia del servidor en el 3001 y un Chrome sin ventana. **Nada llegó a la base:** cada POST y PUT se atajó en el
+navegador, se guardó lo que la pantalla iba a mandar y se le contestó una respuesta falsa. "Pendientes de cocina" se probó
+con una lista falsa de 2 platos "PRUEBA – NO PREPARAR". Así no se tocó ningún pedido real, ni los 9 del 08/10, ni insumos ni
+viandas de verdad.
+
+34 de 34 controles bien y consola sin errores:
+- **1440:**
+  - los 4 botones arriba, sin migas, las pestañas con puntito, el buscador y "Plan" adentro de la tarjeta;
+  - los títulos verdes de `global.css` y la letra Inter;
+  - ningún `style=""` y sin `stock.css`;
+  - la tabla entera, sin scroll de costado, y ningún ícono sin tamaño.
+- **Pestañas, orden y ayudas:**
+  - pestaña "Bien" con su color;
+  - ordenar por Disponibles (sube y baja) y el orden se mantiene al recargar;
+  - el cartelito de la ⓘ.
+- **Plan:** tildar uno → el chip adentro de la tarjeta y el botón marcado; su ✕ lo saca.
+- **Lo que la pantalla manda** (atajado), lo mismo que antes:
+  - **Mínimo:** ✎ → 7 → Enter → `PUT /api/viandas-stock/3/minimo {"stock_minimo":7}`.
+  - **⋯ → Pedir a cocina:** abre con el plato buscado y en "Todos"; + + → Enviar →
+    `POST /api/ordenes-produccion {"fecha_para":"2026-10-22","items":[{"id_producto":2,"cantidad":2}]}`, y la ventana se cierra.
+  - **Descartar:**
+    - el Motivo es la lista y arranca en "Elegí el motivo";
+    - sin elegir → "Elegí el motivo." y no manda nada;
+    - con "Vencido" → `POST /api/viandas-stock/descarte {"id_producto":3,"cantidad":1,"motivo":"Vencido"}`.
+  - **Pendientes:** tarjetas por cocinero, sin la línea de resumen; "Hecho" → `POST /api/ordenes-produccion/detalles/990001/hecho` (plato falso).
+- **Hecho hoy, movimientos y búsqueda:**
+  - "Hecho hoy" → "Ver movimientos" abre el panel;
+  - el filtro Ventas y "Ver movimientos del plato" muestran solo eso;
+  - buscar algo que no existe → "No hay platos" con "Limpiar filtros".
+- **1280 y 1024:** la página sin scroll de costado y los botones de arriba enteros. La tabla se mueve de costado adentro
+  de su tarjeta (151 y 407 px).
+- **Cocinero:** sin "+ Pedir a cocina", sin ✎ y sin "Pedir a cocina" en el ⋯.
+- **390 (celu):**
+  - el título arriba y los 4 botones en 2 columnas;
+  - las pestañas, el buscador y "Plan" uno debajo del otro, del ancho de la tarjeta;
+  - la tabla con scroll adentro y la página sin scroll de costado;
+  - las 5 ventanas a pantalla completa.
+- `node tests/test_e2e.js heladera`: **40/40**.
+
+Capturas: `diseno-produccion/capturas-resultado/` (1440 y 390: la pantalla y cada ventana).
+
+### 18.8 Seguridad (qué protege cada cosa)
+- Los nombres de los platos y de los planes siguen pasando por `escHtml` antes del `innerHTML`, también en el buscado de
+  "Pedir a cocina" (va con `.value`, que no interpreta HTML). Protege de que alguien guarde código en un nombre y se
+  ejecute en el panel (XSS).
+- "Pedir a cocina" del ⋯ se esconde para el cocinero, pero eso es solo lo que se ve. El que decide es el servidor: la ruta
+  sigue con `requireAuth` + `requireRol` y vuelve a controlar platos, cantidades y fecha. Protege de alguien que se
+  saltee la pantalla y mande el pedido a mano.
+- El Motivo ahora es una lista, pero el servidor lo sigue validando como antes (texto no vacío, hasta 200 caracteres).
+  Protege de alguien que mande otro texto a mano.
+
+### 18.9 Lo que no quedó igual al diseño (y por qué)
+- **Letra Inter** (decisión tuya). En el diseño también es Inter: el pedido decía Figtree, pero quedó Inter.
+- **Menú y barra de arriba:** los nuestros (excepción).
+- **Títulos de las tablas:** verdes, 15,5 px y con línea verde (los de `global.css`, excepción). El diseño los tiene grises y
+  chicos sobre una franja gris. Por eso Plato quedó en 27 % y no en 29 %.
+- **Números:** 15 px semibold todos iguales (excepción); en el diseño son de 14 px normales.
+- **Flechas de orden** en 5 títulos (decisión tuya); el diseño solo la tiene en Plato.
+- **Sin el botón ⇅ "Ordenar por"** (decisión tuya).
+- **"Para cuándo"** es el campo de fecha del navegador (22/10/2026), no "20 oct 2026" con ícono (decisión tuya).
+- **Pendientes:**
+  - sin la inicial del cocinero;
+  - con "para el 21/10 HOY · pedido #6" y el plan entre paréntesis, en vez de "Para hoy · Pedido a cocina #6";
+  - cada tarjeta dice "1 plato · 3 viandas".
+  Es lo que arma `pedidosCocina.js`, compartido (decisión tuya). Los renglones de "hoy" y "atrasado" siguen pintados de
+  amarillo y rojo clarito, como antes.
+- **"Mostrando 4 de 4 platos"** sin los números en negrita: el texto lo escribe `paginacion.js` (compartido) como texto
+  común.
+- **La descripción chiquita debajo del plato** no se ve: hoy ningún plato tiene descripción cargada. Las filas quedan más
+  bajas que en el diseño.
+- **Los planes en mayúsculas** ("MANTENIMIENTO"): vienen así de la base.
+- **"Ctrl K"** del buscador: de adorno (como el de la barra de arriba).
+- **"Pedir a cocina" en el ⋯:** no está en la referencia (la pediste vos). Va entre "Ver movimientos" y la raya de "Descartar".
+- **Celu:** armado aparte, como pediste (el del diseño estaba roto).
+
+**Ajuste (21/10, noche):** los títulos de TODAS las tablas del panel quedaron como el diseño de Producción (franja `#f5f7f4`, letra `#4a564d` de 12,5 px y peso 500, `.015em`, aire 9/18 px con la perilla nueva `--aire-titulos-tabla`, línea de 1 px `#e6ebe4`; flechitas de 13 px grises), solo con las perillas de `global.css` (secciones 0 y 8), y Plato volvió a 29 % porque ahora entra todo en 1440.

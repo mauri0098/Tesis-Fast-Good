@@ -10,7 +10,7 @@
 //   limpiarFiltros         → saca todos los filtros: planes, buscador y pestaña (vuelve a "Todos")
 //   ordenarPor             → ordena la tabla por una columna (tocar otra vez la misma da vuelta el orden)
 //   crearFilaPlato         → arma la fila de un plato, con su mínimo (✎ para quien administra) y su ⋯
-//   abrirMenuFila          → abre el menú ⋯ de una fila: "Ver movimientos del plato" y "Descartar viandas"
+//   abrirMenuFila          → abre el menú ⋯ de una fila: "Ver movimientos del plato", "Pedir a cocina" y "Descartar viandas"
 //   guardarMinimo          → manda el mínimo nuevo de un plato (PUT /api/viandas-stock/:id/minimo) y redibuja
 //   abrirMovimientos       → abre el panel "Últimos movimientos" (de todos los platos o de uno solo)
 //   cargarMovimientos      → pide y dibuja "Últimos movimientos" con el filtro de tipo; "Ver más" agrega 50 más
@@ -105,6 +105,7 @@ function iniciarProduccion() {
   puedeAdministrar = rolesQueAdministran.includes(rol);                                         // includes = "está en la lista"
   document.getElementById('btnPedirCocina').hidden = !puedeAdministrar;                         // "+ Pedir a cocina" (hidden = escondido)
   document.getElementById('btnPedirDesdePendientes').hidden = !puedeAdministrar;                // y el de la ventana "Pendientes"
+  document.getElementById('menuFilaPedir').hidden = !puedeAdministrar;                          // y el del menú ⋯ de las filas
 
   // 2. El buscador de la tabla: al escribir se vuelve a dibujar desde la página 1
   document.getElementById('filtroNombre').addEventListener('input', () => renderizarTabla(false));
@@ -128,11 +129,16 @@ function iniciarProduccion() {
     boton.addEventListener('click', () => ordenarPor(boton.dataset.columna));    // data-columna dice por qué columna
   });
 
-  // 5. Las dos opciones del menú ⋯ de las filas (el menú es uno solo; platoDelMenu dice de qué plato es)
+  // 5. Las tres opciones del menú ⋯ de las filas (el menú es uno solo; platoDelMenu dice de qué plato es)
   document.getElementById('menuFilaMovimientos').addEventListener('click', () => {
     const plato = todosPlatos.find(p => p.id === platoDelMenu);                  // find = el plato del menú (o undefined)
     document.getElementById('menuFila').hidden = true;                           // se cierra el menú
     if (plato) abrirMovimientos(plato.nombre);                                   // y se ven los movimientos de ese plato
+  });
+  document.getElementById('menuFilaPedir').addEventListener('click', () => {
+    const plato = todosPlatos.find(p => p.id === platoDelMenu);                  // find = el plato del menú (o undefined)
+    document.getElementById('menuFila').hidden = true;                           // se cierra el menú
+    if (plato) abrirPedirACocina(plato.nombre);                                  // y se abre "Pedir a cocina" con ese plato ya buscado
   });
   document.getElementById('menuFilaDescartar').addEventListener('click', () => {
     document.getElementById('menuFila').hidden = true;                           // se cierra el menú
@@ -278,11 +284,13 @@ function renderizarTabla(mantenerPagina) {
     const elegida = opcion.valor === filtroEstado;                           // ¿es la elegida?
     const boton = document.createElement('button');                         // ...se crea
     boton.type = 'button';                                                   // no envía ningún formulario
-    boton.className = 'btn-filtro-estado pestana-estado';                    // su estilo
+    boton.className = 'btn-filtro-estado pestana-estado pestana-' + opcion.valor;  // su estilo (ej: "pestana-bajo" = amarilla si está elegida)
     if (elegida) boton.classList.add('activo');                              // la elegida queda blanca
     boton.setAttribute('aria-pressed', String(elegida));                     // para los lectores de pantalla
+    // El puntito de color va en todas menos "Todos" (calculado antes: nada de "? :" adentro del HTML)
+    const puntito = opcion.valor === 'todos' ? '' : '<span class="punto-pestana"></span>';
     // Los textos son nuestros (de la lista de arriba) y la cantidad es un número: no hace falta escHtml
-    boton.innerHTML = `${opcion.texto}<span class="cantidad-pestana">${Number(opcion.cantidad)}</span>`;
+    boton.innerHTML = `${puntito}${opcion.texto}<span class="cantidad-pestana">${Number(opcion.cantidad)}</span>`;
     boton.addEventListener('click', () => {                                  // al tocarla...
       filtroEstado = opcion.valor;                                           // ...se elige ese filtro
       renderizarTabla(false);                                                // ...y se dibuja desde la página 1
@@ -404,6 +412,7 @@ function renderizarFiltroPlan() {
   document.getElementById('cantidadFiltroPlan').textContent = String(planesElegidos.length);
   document.getElementById('cantidadFiltroPlan').hidden = !hayElegidos;
   document.getElementById('btnLimpiarPlan').hidden = !hayElegidos;
+  document.getElementById('btnFiltroPlan').classList.toggle('con-filtros', hayElegidos);   // "Plan" con borde verde si hay elegidos
 
   // 5. Debajo de los filtros: "Plan: Mantenimiento ✕" por cada plan elegido, y "Limpiar todo"
   const chips = document.getElementById('chipsFiltros');                    // la fila de los ✕
@@ -538,9 +547,9 @@ function crearFilaPlato(plato) {
 // ─────────────────────────────────────────────────────────────────────────────
 // abrirMenuFila → abre el menú ⋯ de una fila, al lado del botón que se tocó
 // ENTRADA: boton (el ⋯ tocado) e idProducto (el plato de esa fila)
-// SALIDA:  nada (muestra el menú con "Ver movimientos del plato" y "Descartar viandas"; tocar el mismo ⋯ otra vez lo cierra)
+// SALIDA:  nada (muestra el menú con "Ver movimientos del plato", "Pedir a cocina" y "Descartar viandas"; tocar el mismo ⋯ otra vez lo cierra)
 // Ej: ⋯ de fideos con 0 libres → el menú se abre con "Descartar viandas" apagado
-// El menú es uno solo para toda la tabla: platoDelMenu dice de qué plato es (lo usan sus dos opciones, en iniciarProduccion).
+// El menú es uno solo para toda la tabla: platoDelMenu dice de qué plato es (lo usan sus tres opciones, en iniciarProduccion).
 // ─────────────────────────────────────────────────────────────────────────────
 function abrirMenuFila(boton, idProducto) {
   const plato = todosPlatos.find(p => p.id === idProducto);                 // find = el plato con ese número (o undefined)
@@ -848,7 +857,7 @@ function abrirDescarte(idProducto) {
   document.getElementById('dDisponibles').innerHTML = 'Hay <strong>' + conPlural(libres, 'disponible', 'disponibles') + '</strong>' + aclaracion;
   document.getElementById('dCantidad').value = '';                     // la cantidad, vacía
   document.getElementById('dCantidad').max = plato.stock_heladera;     // el casillero no deja pasar de las libres
-  document.getElementById('dMotivo').value = '';                       // el motivo, vacío
+  document.getElementById('dMotivo').value = '';                       // el motivo: "Elegí el motivo" (la opción vacía)
   document.getElementById('dError').style.display = 'none';            // sin error
   document.getElementById('dConfirmar').disabled = false;              // el botón, prendido
   document.getElementById('modalDescarte').style.display = 'block';    // se abre
@@ -875,7 +884,7 @@ async function confirmarDescarte() {
   const controles = [
     { estaMal: cantidadInvalida, mensaje: 'La cantidad tiene que ser un número entero mayor a 0.' },
     { estaMal: cantidad > Number(platoDescarte.stock_heladera), mensaje: 'No podés descartar más viandas de las disponibles.' },
-    { estaMal: !motivo, mensaje: 'Escribí el motivo del descarte.' }
+    { estaMal: !motivo, mensaje: 'Elegí el motivo.' }
   ];
   const controlQueFalla = controles.find(control => control.estaMal);  // find = el primero que está mal (o undefined)
   if (controlQueFalla) {                                               // si hay un problema...
