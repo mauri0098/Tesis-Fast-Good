@@ -118,13 +118,14 @@
         <table id="tablaPedidos" class="standard-table tabla-cocina tabla-clientes">
           <thead>
             <tr>
-              <!-- 29/10: una fila por plato personalizado (las del mismo pedido, juntas): Código · Plato (+ ⚠) · Cantidad ·
-                   Estado · Fecha de entrega. El N° de pedido y las viandas del stock, solo en Detalles -->
+              <!-- 29/10: una fila por plato personalizado (las del mismo pedido, juntas). El N° de pedido, solo en Detalles.
+                   24/10: Código · Plato (+ ⚠) · Viandas ("A cocinar: 1" y, en la primera fila del pedido, "De la heladera: 9") ·
+                   Estado · Cocinar (el día de cocina, con su color, y abajo la entrega) -->
               <th class="col-codigo">Código</th>
               <th class="col-plato-personalizado">Plato</th>
-              <th class="col-cantidad">Cantidad</th>
+              <th class="col-viandas">Viandas</th>
               <th class="col-estado">Estado</th>
-              <th class="col-fecha-entrega">Fecha entrega</th>
+              <th class="col-cocinar">Cocinar</th>
               <th class="col-botones-clientes"><span class="solo-lector">Acciones</span></th>
             </tr>
           </thead>

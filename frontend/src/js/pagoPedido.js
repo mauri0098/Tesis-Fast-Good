@@ -14,7 +14,7 @@
 // ============================================================================
 
 let pedidoPagoId = null;               // el pedido de la ventana "Pago del Pedido" (mientras está abierta)
-let confirmacionPago = null;           // { pedido, select, nuevoId, anteriorId } mientras "Confirmar Pago" está abierta
+let confirmacionPago = null;           // { pedido, select, nuevoId, anteriorId, aunqueFaltenInsumos } mientras "Confirmar Pago" está abierta
 
 // Los dos montos del pago Mixto, en el mismo orden que monto_efectivo y monto_transferencia
 const CAMPOS_MIXTO = ['pagoMontoEfectivo', 'pagoMontoTransferencia'];
@@ -225,13 +225,14 @@ async function guardarPago() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // abrirConfirmarPago → pregunta "¿ya pagó?" antes de pasar a En Preparación un pedido que no es en efectivo
-// ENTRADA: pedido, select (el de su fila), nuevoId y anteriorId (los guarda hasta la respuesta)
+// ENTRADA: pedido, select (el de su fila), nuevoId, anteriorId y aunqueFaltenInsumos (24/10: true = ya se dijo
+//          "Sí, pasarlo igual" en "Faltan insumos"). Los guarda hasta la respuesta.
 // SALIDA:  nada (la ventana abierta: con Transferencia o Tarjeta pregunta por el pago completo; con Mixto,
 //          solo por la transferencia, porque el efectivo se cobra al entregar)
-// La llama alCambiarEstado (ListarPedidos.js), después de ver que alcanzan los insumos.
+// La llama seguirCambioEstado (ListarPedidos.js), después de los insumos.
 // ─────────────────────────────────────────────────────────────────────────────
-function abrirConfirmarPago(pedido, select, nuevoId, anteriorId) {
-  confirmacionPago = { pedido: pedido, select: select, nuevoId: nuevoId, anteriorId: anteriorId };  // hasta que responda
+function abrirConfirmarPago(pedido, select, nuevoId, anteriorId, aunqueFaltenInsumos) {
+  confirmacionPago = { pedido: pedido, select: select, nuevoId: nuevoId, anteriorId: anteriorId, aunqueFaltenInsumos: aunqueFaltenInsumos };  // hasta que responda
 
   // "Pedido #N" arriba del título
   document.getElementById('confirmarPagoNumero').textContent = 'Pedido #' + String(pedido.id).padStart(3, '0');
@@ -265,6 +266,7 @@ async function responderConfirmarPago(yaPago) {
   const select = confirmacionPago.select;
   const nuevoId = confirmacionPago.nuevoId;
   const anteriorId = confirmacionPago.anteriorId;
+  const aunqueFaltenInsumos = confirmacionPago.aunqueFaltenInsumos;  // 24/10: si ya se dijo "Sí, pasarlo igual"
   confirmacionPago = null;                                         // ya se respondió
   document.getElementById('modalConfirmarPago').classList.remove('visible');  // se cierra
 
@@ -276,7 +278,7 @@ async function responderConfirmarPago(yaPago) {
   }
 
   // 2. "Sí, ya pagó": primero el estado (el servidor controla los insumos y que no esté anulado)
-  const cambio = await guardarEstado(pedido, select, nuevoId, anteriorId);
+  const cambio = await guardarEstado(pedido, select, nuevoId, anteriorId, aunqueFaltenInsumos);
   if (!cambio) return;                                             // no se pudo: guardarEstado ya avisó
 
   // 3. Después se registra el pago: en el Mixto solo la transferencia; si no, el pago completo

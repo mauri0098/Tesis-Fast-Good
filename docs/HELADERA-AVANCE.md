@@ -777,6 +777,48 @@ Detalle en la sección 23 de `INFORME-CAMBIOS-HELADERA.md`. Capturas en `diseno-
 | 10 | Combos → Menú | La pastillita en el menú; en "Agregar", el código primero |
 | 11 | Index → un combo → Armá tu combo | La pastillita adelante de cada plato |
 
+### Pedidos personalizados y fechas de entrega (24/10)
+Detalle en la sección 24 de `INFORME-CAMBIOS-HELADERA.md`. Capturas en `diseno-codigo/resultado/personalizados/`. Sin SQL.
+- **No pasa a 3 ni a 4 con un personalizado sin hacer:**
+  - el servidor responde 400 "La vianda personalizada todavía no está hecha. La tiene que marcar la cocina como lista.";
+  - el único camino a 3 es el "✓ Listo para entregar" del cocinero;
+  - un pedido todo de heladera sigue igual.
+- **Pasar a "En preparación" con personalizados:**
+  - se revisan los insumos;
+  - si faltan, la ventana "Faltan insumos" dice cuáles y cuánto, y pregunta "¿Pasarlo igual?". No bloquea.
+- **Tareas de Cocina · Pedidos de clientes:**
+  - el día de cocina es el día hábil anterior a la entrega (entrega lunes → se cocina el viernes);
+  - las pestañas y el Resumen van por ese día;
+  - la fila dice "Cocinar: mar 27/10" y "Entrega: 28/10", y "A cocinar: 1" / "De la heladera: 9" (este último solo en la primera fila del pedido);
+  - en Detalles: "Se cocina aparte" y "Sale de la heladera".
+- **Entregas:**
+  - todo de heladera, cualquier día hábil desde hoy (antes, 48 hs);
+  - con algún personalizado, un día de producción en el medio: pide el martes, se cocina el miércoles y se entrega desde el jueves;
+  - se cambiaron los textos de la web.
+- **Comprobado:**
+  - servidor: 28/28 controles con 2 pedidos "PRUEBA – NO PREPARAR", anulados al terminar y nunca en 3;
+  - pantallas: con datos falsos y la fecha simulada solo en el navegador;
+  - consola: sin errores;
+  - test HELADERA: 40/40.
+- **Dudas anotadas** (INFORME 24.6):
+  - el `POST /api/pedidos` viejo quedó con 48 hs;
+  - no hay horario de corte para entregar el mismo día;
+  - los feriados siguen sin activar.
+- **Hay que reiniciar el servidor.**
+
+**Recorrido a mano (24/10).** Reiniciá el servidor y Ctrl+F5. Usá solo pedidos de prueba.
+| # | Qué hacés | Qué tiene que pasar |
+|---|---|---|
+| 1 | Web: armás un combo sin personalizar y vas a "Finalizar" | La primera fecha es hoy (o el lunes, si es fin de semana). Los textos ya no dicen "48 hs" |
+| 2 | Web: agregás un personalizado | La primera fecha pasa a 2 días hábiles, con la aclaración "un día de producción en el medio" |
+| 3 | Consultar Pedidos: un pedido con personalizado en "Registrado" → "Listo para Entregar" | Aviso "La vianda personalizada todavía no está hecha…" y el select vuelve |
+| 4 | El mismo pedido → "En Preparación" | Si faltan insumos: ventana "Faltan insumos" con lo que falta. "No" lo deja como estaba; "Sí" lo pasa |
+| 5 | Un pedido todo de heladera → "En Preparación" | Como siempre: pasa directo a "Listo para Entregar" |
+| 6 | Tareas de Cocina → Pedidos de clientes | "Cocinar: [día] dd/mm" con su color y "Entrega: dd/mm" abajo; las pestañas por día de cocina; "A cocinar" y "De la heladera" |
+| 7 | "Detalles" de un pedido de cliente | Cocinar · Entrega · A cocinar · De la heladera; "Se cocina aparte" y "Sale de la heladera" |
+| 8 | "Resumen del turno" | Los personalizados que se COCINAN hoy |
+| 9 | El cocinero toca "✓ Listo para entregar" | El pedido pasa a "Listo para Entregar" (el único camino para los personalizados) |
+
 ## Ajustes después de probar a mano (16/10) — de a uno, con freno
 (Desde el 16/10 se hacen cuando se llega a su pantalla: ver la tabla de arriba.)
 Detalle de cada uno en la sección 12 de `INFORME-CAMBIOS-HELADERA.md`. Decisiones del usuario (16/10): motivo de las salidas

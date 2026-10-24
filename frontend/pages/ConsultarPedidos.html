@@ -277,6 +277,33 @@
     </div>
   </div>
 
+  <!-- VENTANA FALTAN INSUMOS (24/10): al pasar a En Preparación un pedido con platos personalizados, si no alcanzan
+       los insumos para cocinarlos. No bloquea (se pueden comprar): pregunta si se pasa igual. La abre ListarPedidos.js -->
+  <div id="modalFaltanInsumos" class="modal-overlay" onclick="cerrarVentana('modalFaltanInsumos', event)">
+    <div class="modal-box ventana ventana-chica ventana-faltan-insumos" role="dialog" aria-modal="true" aria-labelledby="faltanInsumosTitulo">
+      <div class="modal-header ventana-cabecera">
+        <div>
+          <p id="faltanInsumosNumero" class="ventana-numero"></p>
+          <h3 id="faltanInsumosTitulo" class="ventana-titulo">Faltan insumos</h3>
+        </div>
+        <button type="button" class="modal-close-btn boton-cerrar" onclick="cerrarVentana('modalFaltanInsumos')" aria-label="Cerrar">
+          <svg width="18" height="18" aria-hidden="true"><use href="#icono-cerrar"></use></svg>
+        </button>
+      </div>
+
+      <div class="ventana-cuerpo">
+        <!-- El aviso del servidor: "Faltan 200 g de Carne para la vianda personalizada." (lo escribe ListarPedidos.js) -->
+        <p id="faltanInsumosTexto" class="faltan-insumos-texto"></p>
+        <p class="faltan-insumos-pregunta">¿Pasarlo igual a En preparación?</p>
+      </div>
+
+      <div class="pago-acciones ventana-pie pie-en-columna">
+        <button type="button" id="faltanInsumosSi" class="btn-pago-guardar boton-principal" onclick="responderFaltanInsumos(true)">Sí, pasarlo igual</button>
+        <button type="button" class="btn-pago-cancelar boton-secundario" onclick="responderFaltanInsumos(false)">No, dejarlo como está</button>
+      </div>
+    </div>
+  </div>
+
   <!-- VENTANA ANULAR PEDIDO (pide el PIN, que se controla en el servidor) -->
   <div id="modalAnular" class="modal-overlay" onclick="cerrarVentana('modalAnular', event)">
     <div class="modal-box ventana ventana-chica" role="dialog" aria-modal="true" aria-labelledby="anularTitulo">

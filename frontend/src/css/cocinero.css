@@ -26,7 +26,7 @@
 /* ===== 0. PERILLAS DE ESTA PANTALLA ===== */
 :root {
     /* Las tablas: lo más angostas que quedan (más chica la pantalla, se mueven de costado adentro de su tarjeta) */
-    --cocina-tabla-ancho-minimo: 840px;    /* 29/10: 900 → 840 (menos columnas) */
+    --cocina-tabla-ancho-minimo: 880px;    /* 29/10: 900 → 840 (menos columnas) · 24/10: 880, por Viandas y Cocinar de clientes */
 
     /* Los anchos de las columnas (con "table-layout: fixed": Plato se lleva lo que sobra). 29/10: el ancho justo de cada
        una; las grillas quedan Código · Plato · Cantidad · Estado · Fecha entrega · botones */
@@ -36,6 +36,8 @@
     --cocina-ancho-fecha-entrega: 126px;   /* Fecha entrega (el título entra en un renglón; la pastilla "28/10") */
     --cocina-ancho-botones-stock: 170px;   /* Detalles y ✓ Hecho */
     --cocina-ancho-botones-clientes: 240px;  /* Detalles y ✓ Listo para entregar (miden 213 px + el aire de la celda) */
+    --cocina-ancho-viandas: 136px;         /* Viandas de clientes (24/10): "A cocinar: 1" y "De la heladera: 9" */
+    --cocina-ancho-cocinar: 170px;         /* Cocinar (24/10): la pastilla "Cocinar: mié 28/10" y abajo "Entrega: 29/10" */
 
     /* El selector de vistas (la caja gris con "Para stock" y "Pedidos de clientes") */
     --cocina-fondo-selector: #f1f3f0;      /* la caja gris de atrás */
@@ -314,6 +316,8 @@ table.tabla-cocina {
 .tabla-cocina .col-fecha-entrega       { width: var(--cocina-ancho-fecha-entrega); }
 .tabla-cocina .col-botones-stock       { width: var(--cocina-ancho-botones-stock); }
 .tabla-cocina .col-botones-clientes    { width: var(--cocina-ancho-botones-clientes); }
+.tabla-cocina .col-viandas             { width: var(--cocina-ancho-viandas); }
+.tabla-cocina .col-cocinar             { width: var(--cocina-ancho-cocinar); }
 
 /* Estado, al medio (el título y la pastilla) */
 table.tabla-cocina th.col-estado,
@@ -386,6 +390,31 @@ table.tabla-cocina td.celda-plato {
 
 .pastilla-cantidad b {
     font-weight: 700;
+}
+
+/* Pedidos de clientes (24/10): "A cocinar: 1" (el número en negrita) y abajo, chiquito y gris, "De la heladera: 9"
+   (el renglón chico es el .dato-chico de global.css) */
+.a-cocinar {
+    display: block;
+    color: var(--texto);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.a-cocinar b {
+    color: var(--verde-texto);
+    font-weight: 700;
+}
+
+/* Pedidos de clientes (24/10): la pastilla "Cocinar: mar 27/10" (con el color de su día) y abajo "Entrega: 28/10".
+   La pastilla un poco más baja (22 px) para que la fila no crezca de más con los dos renglones */
+.celda-cocinar .pastilla-fecha {
+    height: 22px;
+}
+
+.celda-cocinar .dato-chico,
+.celda-viandas .dato-chico {
+    white-space: nowrap;
 }
 
 /* La etiqueta roja ("SIN SAL"): en MAYÚSCULA; si es muy larga, se corta con "…" */

@@ -24,6 +24,9 @@
 // 29/10 (para leer rápido): las dos grillas quedan Código · Plato · Cantidad · Estado · Fecha de entrega · botones.
 // El número de pedido y la fecha del pedido van solo en "Detalles". Los números se escriben "Pedido #057" / "Cocina #112"
 // (numeroPedido, de escape.js).
+// 24/10 (Pedidos de clientes): cada personalizado se cocina el DÍA HÁBIL ANTERIOR a la entrega (diaHabilAnterior, de
+// fechas.js). Las pestañas, el color, el orden y el Resumen van por ese día de cocina. La fila dice "Cocinar: mar 27/10"
+// y "Entrega: 28/10", y "A cocinar: 1" / "De la heladera: 9" (este último, solo en la primera fila de cada pedido).
 // "✓ Hecho" lo hace marcarHecho (pedidosCocina.js, el mismo de Producción): no se toca.
 // Necesita antes: roles.js, api.js, escape.js, fechas.js, paginacion.js y pedidosCocina.js.
 // Todo lo que viene de la base pasa por escHtml (o se pone con textContent).
@@ -62,22 +65,23 @@ const VISTAS = {
 };
 
 const NOMBRES_DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const NOMBRES_DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];   // para "Cocinar: mar 27/10" (24/10)
 
 // El nombre de la pestaña de hoy, mañana y lo atrasado (lo que viene después lleva el nombre del día)
 const ETIQUETAS_DIA = { atrasado: 'Atrasados', hoy: 'Hoy', manana: 'Mañana' };
 
 // Un pedido sin fecha de entrega (no debería pasar): va a su propia pestaña
-const SIN_FECHA = { clave: 'sin-fecha', etiqueta: 'Sin fecha', tipo: 'despues', diaMes: '—' };
+const SIN_FECHA = { clave: 'sin-fecha', etiqueta: 'Sin fecha', tipo: 'despues', diaMes: '—', diaCorto: '' };
 
 
 // ─────────────────────────────────────────────────────────────────────────────
 // describirDia → todo lo que la pantalla muestra de una fecha
-// ENTRADA: fechaISO, 'AAAA-MM-DD' (la fecha de entrega o la de un pedido)
-// SALIDA:  { clave, etiqueta, tipo, diaMes }
+// ENTRADA: fechaISO, 'AAAA-MM-DD' (la fecha de entrega, la de cocina o la de un pedido)
+// SALIDA:  { clave, etiqueta, tipo, diaMes, diaCorto }
 //          clave: la pestaña ('atrasado', 'hoy', 'manana' o la misma fecha) · etiqueta: su nombre
-//          tipo: 'atrasado' | 'hoy' | 'manana' | 'despues' (el color) · diaMes: "25/10"
-// Ej (hoy 28/10): '2026-10-29' → { clave: 'manana', etiqueta: 'Mañana', tipo: 'manana', diaMes: '29/10' }
-//                 '2026-11-03' → { clave: '2026-11-03', etiqueta: 'Martes', tipo: 'despues', diaMes: '03/11' }
+//          tipo: 'atrasado' | 'hoy' | 'manana' | 'despues' (el color) · diaMes: "25/10" · diaCorto (24/10): "mar"
+// Ej (hoy 28/10): '2026-10-29' → { clave: 'manana', etiqueta: 'Mañana', tipo: 'manana', diaMes: '29/10', diaCorto: 'jue' }
+//                 '2026-11-03' → { clave: '2026-11-03', etiqueta: 'Martes', tipo: 'despues', diaMes: '03/11', diaCorto: 'mar' }
 // ─────────────────────────────────────────────────────────────────────────────
 function describirDia(fechaISO) {
   const fecha = parseFechaLocal(fechaISO);                        // la fecha, a medianoche (fechas.js)
@@ -95,7 +99,7 @@ function describirDia(fechaISO) {
   const nombreDia = distancia <= 6 ? NOMBRES_DIAS[fecha.getDay()] : diaMes;
   const etiqueta = ETIQUETAS_DIA[tipo] || nombreDia;
   const clave = tipo === 'despues' ? fechaISO : tipo;             // lo atrasado va todo junto en una pestaña
-  return { clave: clave, etiqueta: etiqueta, tipo: tipo, diaMes: diaMes };
+  return { clave: clave, etiqueta: etiqueta, tipo: tipo, diaMes: diaMes, diaCorto: NOMBRES_DIAS_CORTOS[fecha.getDay()] };
 }
 
 
@@ -153,13 +157,15 @@ function dibujarTabla(vista) {
   const filtro = filtrosVista[vista];
 
   // Pedidos de clientes (29/10): una fila por PLATO personalizado; las del mismo pedido quedan juntas (los pedidos ya
-  // vienen ordenados por fecha de entrega). Cada fila sabe su pedido y si la que sigue es del mismo (para la línea).
+  // vienen ordenados por día de cocina). Cada fila sabe su pedido, si es la primera del pedido (24/10: ahí va
+  // "De la heladera") y si la que sigue es del mismo (para la línea).
   // flatMap: [{ id: 57, pedido_detalles: [A, B] }] → [{ pedido: 57, det: A, sigueElMismo: true }, { pedido: 57, det: B, sigueElMismo: false }]
   const filasClientes = _tareasActivas.flatMap(pedido =>
     pedido.pedido_detalles.map((det, posicion) => ({
       pedido: pedido,                                             // el pedido de este plato
       det: det,                                                   // el plato
-      dia: pedido.dia,                                            // la fecha de entrega (para las pestañas)
+      dia: pedido.dia,                                            // el DÍA DE COCINA (24/10; para las pestañas)
+      primeraDelPedido: posicion === 0,                           // ¿es la primera fila de su pedido?
       sigueElMismo: posicion < pedido.pedido_detalles.length - 1, // ¿la fila de abajo es del mismo pedido?
       busqueda: ('#' + pedido.id + ' ' + numeroPedido(pedido.id, 'cliente') + ' ' + (det?.productos?.codigo_plato || '') + ' '
         + (det?.productos?.nombre || '') + ' ' + (det.observaciones_plato || '')).toLowerCase()  // ej: "#57 pedido #057 f4 merluza sin sal"
@@ -253,10 +259,13 @@ function crearFilaStock(plato) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // crearFilaCliente → la fila de UN plato personalizado de un pedido de cliente (29/10: antes, una fila por pedido)
-// ENTRADA: fila, una de las que arma dibujarTabla: { pedido, det, sigueElMismo }
-// SALIDA:  el <tr>: Código · plato (+ ⚠ y lo que hay que hacer, ej: "SIN SAL") · "1 vianda" · Por hacer · fecha de entrega · botones
-// Ej: plato F4 "Merluza con calabaza" sin lácteos, 1 vianda, para el 28/10 → "F4 | Merluza con calabaza ⚠ SIN LÁCTEOS | 1 vianda | Por hacer | 28/10"
-// El número de pedido y las viandas del stock ya no van acá: están en "Detalles".
+// ENTRADA: fila, una de las que arma dibujarTabla: { pedido, det, primeraDelPedido, sigueElMismo }
+// SALIDA:  el <tr>: Código · plato (+ ⚠ y lo que hay que hacer, ej: "SIN SAL") · Viandas · Por hacer · Cocinar · botones
+//          24/10: Viandas = "A cocinar: 1" y, solo en la primera fila del pedido, "De la heladera: 9" ·
+//          Cocinar = "Cocinar: mar 27/10" (el día de cocina, con el color de hoy/mañana) y abajo "Entrega: 28/10"
+// Ej: plato F4 "Merluza con calabaza" sin lácteos, 1 vianda, entrega miércoles 28/10, 9 de la heladera →
+//     "F4 | Merluza con calabaza ⚠ SIN LÁCTEOS | A cocinar: 1 / De la heladera: 9 | Por hacer | Cocinar: mar 27/10 / Entrega: 28/10"
+// El número de pedido va en "Detalles".
 // Cada fila lleva data-pedido-id: así confirmarListo y quitarPedidoDeLaTabla encuentran TODAS las del pedido, igual que antes.
 // ─────────────────────────────────────────────────────────────────────────────
 function crearFilaCliente(fila) {
@@ -267,7 +276,13 @@ function crearFilaCliente(fila) {
   // Lo que va en la fila, calculado antes. El texto personalizado lo escribe el cliente: escHtml
   const nombre = det?.productos?.nombre || '—';                    // ?. = "si vino el producto, su nombre"
   const cantidad = Number(det.cantidad);
-  const palabraViandas = cantidad === 1 ? 'vianda' : 'viandas';
+  // "De la heladera: 9": solo en la primera fila del pedido (así el 9 no se repite en cada plato del mismo pedido)
+  const deLaHeladera = fila.primeraDelPedido
+    ? '<span class="dato-chico">De la heladera: ' + Number(pedido.viandas_stock) + '</span>'
+    : '';
+  // El día de cocina ("mar 27/10") y la entrega ("28/10")
+  const diaCocina = pedido.dia.diaCorto + ' ' + pedido.dia.diaMes;
+  const entrega = pedido.diaEntrega.diaMes;
   const textoPersonalizado = det.observaciones_plato || 'personalizado';   // ej: "sin sal" (sin texto: "personalizado")
   const etiqueta = det.personalizado
     ? ' <span class="etiqueta-personalizado">⚠ ' + escHtml(textoPersonalizado) + '</span>'
@@ -285,9 +300,12 @@ function crearFilaCliente(fila) {
   tr.innerHTML = `
     <td class="col-codigo">${pastillaCodigo(det?.productos?.codigo_plato, '')}</td>
     <td class="celda-plato"><span class="nombre-plato">${escHtml(nombre)}</span>${etiqueta}</td>
-    <td><span class="pastilla-cantidad"><b>${cantidad}</b> ${palabraViandas}</span></td>
+    <td class="celda-viandas"><span class="a-cocinar">A cocinar: <b>${cantidad}</b></span>${deLaHeladera}</td>
     <td class="col-estado"><span class="etiqueta-estado estado-por-hacer">Por hacer</span></td>
-    <td><span class="pastilla-fecha fecha-${pedido.dia.tipo}">${escHtml(pedido.dia.diaMes)}</span></td>
+    <td class="celda-cocinar">
+      <span class="pastilla-fecha fecha-${pedido.dia.tipo}">Cocinar: ${escHtml(diaCocina)}</span>
+      <span class="dato-chico">Entrega: ${escHtml(entrega)}</span>
+    </td>
     <td class="celda-botones">
       <div class="botones-fila">
         <button type="button" class="boton-detalles-cocina btn-detalles" onclick="abrirDetallesPedido(${idPedido})">Detalles</button>${accion}
@@ -322,7 +340,7 @@ function cambiarVista(vista) {
 // ENTRADA: tareas, los pedidos de clientes (_tareasActivas). Usa también _platosParaStock y _hechosHoy.
 // SALIDA:  nada. Escribe "Avance: 2 de 8 hechos", la barra y la lista "Platos a cocinar hoy":
 //          primero lo de stock (lo hecho hoy, tachado y con ✓) y después los personalizados de clientes.
-//          "Hoy" = fecha de entrega de hoy.
+//          "Hoy": en stock, lo que es para hoy; en clientes (24/10), los que se COCINAN hoy (el día hábil anterior a la entrega).
 // Ej: "☐ Canelones de verdura / para stock  12" · "☑ ~~Albóndigas~~ / para stock  10" · "☐ Pollo con arroz · SIN SAL / pedido #55  2"
 // ─────────────────────────────────────────────────────────────────────────────
 function construirResumen(tareas) {
@@ -343,14 +361,14 @@ function construirResumen(tareas) {
   renglones.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'));
   // (28/10: cada renglón lleva también su código, para la pastillita: { codigo: 'F3', … })
 
-  // 2. Los personalizados de los pedidos que se entregan hoy.
+  // 2. Los personalizados que se cocinan hoy (24/10: por día de cocina; antes, por fecha de entrega).
   //    flatMap: de cada pedido saca sus platos y los junta en una sola lista (así no hay un forEach adentro de otro).
   //    Ej: [{ id: 53, platos: [A, B] }, { id: 54, platos: [C] }] → [A (del 53), B (del 53), C (del 54)]
   const platosClientes = tareas.flatMap(pedido =>
-    pedido.pedido_detalles.map(det => ({ det: det, idPedido: pedido.id, fechaEntrega: pedido.fecha_entrega }))
+    pedido.pedido_detalles.map(det => ({ det: det, idPedido: pedido.id, diaCocina: pedido.dia_cocina }))
   );
   platosClientes.forEach(item => {
-    if (item.fechaEntrega !== hoy) return;                        // no se entrega hoy (return = saltear y seguir)
+    if (item.diaCocina !== hoy) return;                           // no se cocina hoy (return = saltear y seguir)
     renglones.push({
       codigo: item.det?.productos?.codigo_plato,
       nombre: item.det?.productos?.nombre || '—',
@@ -560,7 +578,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Cada cocinero ve solo sus platos pendientes dentro del pedido (es_mio lo marca el servidor).
     // Así la tabla y el resumen cuentan solo lo que le falta cocinar.
-    // Aparte se guardan las viandas que salen del stock (los platos normales: nacen listos), para "9 del stock".
+    // Aparte se guardan las viandas que salen de la heladera (los platos normales: nacen listos), para "De la heladera: 9".
     enPrep = enPrep
       .map(pedido => {
         const detalles = pedido.pedido_detalles || [];
@@ -587,20 +605,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   contadorBadge.textContent = enPrep.length;
 
-  // ── 2. Ordenar por fecha de entrega (y número) y preparar el día y la búsqueda de cada pedido ──
+  // ── 2. El DÍA DE COCINA de cada pedido (24/10): el día hábil anterior a la entrega (diaHabilAnterior, de
+  //       fechas.js: saltea sábados y domingos; los feriados de su lista, que hoy está vacía).
+  //       Ej: entrega miércoles 28/10 → se cocina el martes 27/10 · entrega lunes 26/10 → el viernes 23/10.
+  //       pedido.dia_cocina = 'AAAA-MM-DD' · pedido.dia = cómo se muestra (pestaña y color) · pedido.diaEntrega = la entrega.
+  //       Sin fecha de entrega (no debería pasar): "Sin fecha". Lo que encuentra el buscador lo arma dibujarTabla.
+  enPrep.forEach(pedido => {
+    const diaCocina = pedido.fecha_entrega ? fechaLocalISO(diaHabilAnterior(parseFechaLocal(pedido.fecha_entrega))) : '';
+    pedido.dia_cocina = diaCocina;
+    pedido.dia = diaCocina ? describirDia(diaCocina) : SIN_FECHA;
+    pedido.diaEntrega = pedido.fecha_entrega ? describirDia(pedido.fecha_entrega) : SIN_FECHA;
+  });
+
+  // ── 3. Ordenar por día de cocina (y número) ──
   // sort compara de a dos: negativo = a va antes. "AAAA-MM-DD" se compara como texto; sin fecha, al final.
   enPrep.sort((a, b) => {
-    const fechaA = a.fecha_entrega || '9999-12-31';
-    const fechaB = b.fecha_entrega || '9999-12-31';
+    const fechaA = a.dia_cocina || '9999-12-31';
+    const fechaB = b.dia_cocina || '9999-12-31';
     if (fechaA !== fechaB) return fechaA.localeCompare(fechaB);
     return Number(a.id) - Number(b.id);
   });
-  // El día de cada pedido (lo que encuentra el buscador lo arma dibujarTabla, en cada fila: 29/10)
-  enPrep.forEach(pedido => {
-    pedido.dia = pedido.fecha_entrega ? describirDia(pedido.fecha_entrega) : SIN_FECHA;
-  });
 
-  // ── 3. Sincronizar estado, dibujar la tabla y pintar el panel de resumen ──
+  // ── 4. Sincronizar estado, dibujar la tabla y pintar el panel de resumen ──
   _tareasActivas = enPrep;
   dibujarTabla('clientes');
   construirResumen(_tareasActivas);
@@ -640,8 +666,8 @@ document.addEventListener('keydown', e => {
 // ── Ventana "Detalles" de un pedido de cliente ────────────────────────────────
 // Muestra lo que la pantalla ya tiene en memoria (_tareasActivas): los platos que ve cada cocinero
 // (los suyos sin terminar) o, para la administración, todos. No pide nada al servidor.
-// Arriba: fecha de entrega · viandas · estado. Después los personalizados (con su etiqueta y "Por hacer"),
-// las viandas que salen del stock y las observaciones del pedido.
+// 24/10: arriba Cocinar ("mar 27/10") · Entrega ("28/10") · A cocinar · De la heladera. Después "Se cocina aparte"
+// (los personalizados, con su etiqueta y "Por hacer"), "Sale de la heladera" y las observaciones del pedido.
 window.abrirDetallesPedido = function (pedidoId) {
   // find devuelve el pedido con ese número, o undefined si ya no está (por ejemplo, ya se marcó listo)
   const pedido = _tareasActivas.find(p => Number(p.id) === Number(pedidoId));
@@ -672,7 +698,7 @@ window.abrirDetallesPedido = function (pedidoId) {
     htmlStock += `<div class="renglon-detalles"><span>${pastillaCodigo(det?.productos?.codigo_plato, nombre)}${escHtml(det.cantidad)} ${escHtml(nombre)}</span></div>`;
   });
   const seccionStock = htmlStock
-    ? '<p class="titulo-seccion-ventana">Viandas listas · se sacan del stock</p>' + htmlStock
+    ? '<p class="titulo-seccion-ventana">Sale de la heladera</p>' + htmlStock
     : '';
 
   // Las observaciones del pedido (las escribe el cliente)
@@ -680,15 +706,17 @@ window.abrirDetallesPedido = function (pedidoId) {
     ? '<div class="observaciones-detalles"><b>Observaciones:</b> ' + escHtml(pedido.observaciones) + '</div>'
     : '';
 
-  const totalViandas = viandasCocina + Number(pedido.viandas_stock);
+  // Los 4 datos de arriba (24/10): el día de cocina, la entrega, cuántas se cocinan y cuántas salen de la heladera
+  const diaCocina = pedido.dia.diaCorto + ' ' + pedido.dia.diaMes;   // ej: "mar 27/10"
   document.getElementById('modalPlatosTitulo').textContent = numeroPedido(idPedido, 'cliente');   // ej: "Pedido #057" (29/10)
   document.getElementById('modalPlatosBody').innerHTML = `
     <div class="datos-detalles">
-      <div class="dato-detalles"><span class="nombre-dato">Fecha de entrega</span><span class="valor-dato">${escHtml(pedido.dia.diaMes)}</span></div>
-      <div class="dato-detalles"><span class="nombre-dato">Viandas</span><span class="valor-dato">${totalViandas}</span></div>
-      <div class="dato-detalles"><span class="nombre-dato">Estado</span><span class="valor-dato">Por hacer</span></div>
+      <div class="dato-detalles"><span class="nombre-dato">Cocinar</span><span class="valor-dato">${escHtml(diaCocina)}</span></div>
+      <div class="dato-detalles"><span class="nombre-dato">Entrega</span><span class="valor-dato">${escHtml(pedido.diaEntrega.diaMes)}</span></div>
+      <div class="dato-detalles"><span class="nombre-dato">A cocinar</span><span class="valor-dato">${viandasCocina}</span></div>
+      <div class="dato-detalles"><span class="nombre-dato">De la heladera</span><span class="valor-dato">${Number(pedido.viandas_stock)}</span></div>
     </div>
-    <p class="titulo-seccion-ventana">Plato personalizado · se prepara aparte</p>
+    <p class="titulo-seccion-ventana">Se cocina aparte</p>
     ${htmlPersonalizados}
     ${seccionStock}
     ${seccionObservaciones}`;

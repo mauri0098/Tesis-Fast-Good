@@ -16,7 +16,8 @@
 //   cerrarModalCombo             → pregunta "¿Salir?" si hay platos elegidos; si no, cierra y limpia
 //
 // Personalizado: mismo precio, NO sale de la heladera (no tiene tope de stock), va a cocina
-// y se entrega 1 día hábil más tarde. Un renglón personalizado = un plato + un texto.
+// y (24/10) tiene un día de producción en el medio: el pedido se entrega desde 2 días hábiles después.
+// Un renglón personalizado = un plato + un texto.
 //
 // Necesita antes: escape.js (escHtml) y combosCatalogo.js (combosDisponibles, IMAGEN_POR_DEFECTO, armarFotoTarjeta).
 // Los límites de acá son una AYUDA para el cliente: el servidor los vuelve a controlar
@@ -230,7 +231,7 @@ function renderizarMenuCombo() {
   if (personalizados.length > 0) {
     html += `
       <li class="nota">
-        Los platos personalizados se cocinan aparte: se entregan 1 día hábil más tarde.
+        Los platos personalizados se cocinan aparte: hay un día de producción en el medio (si pedís un martes, se cocina el miércoles y te llega desde el jueves).
       </li>`;
   }
   lista.innerHTML = html;

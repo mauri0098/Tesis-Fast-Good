@@ -9,7 +9,11 @@
 //   mostrarListaEstados     → abre o cierra la lista de "Estado" de la barra de filtros
 //   crearFilaPedido         → arma la fila de un pedido (la llama crearPaginacion por cada pedido de la página)
 //   aplicarFechas           → "Aplicar" (la fecha de entrega) o "Ver todos"
-//   alCambiarEstado         → cambió el select de estado: si hace falta, pregunta si ya pagó; si no, guarda
+//   alCambiarEstado         → cambió el select de estado: a "En Preparación" con personalizados revisa los insumos
+//                             (24/10) y después sigue con seguirCambioEstado
+//   buscarInsumosFaltantes  → (24/10) GET /api/pedidos/:id/verificar-stock: el aviso de lo que falta, o null
+//   seguirCambioEstado      → si hace falta, pregunta si ya pagó; si no, guarda
+//   abrirFaltanInsumos / responderFaltanInsumos → (24/10) la ventana "Faltan insumos": "¿Pasarlo igual?"
 //   guardarEstado           → manda el estado nuevo (PUT /api/pedidos/:id/estado) y muestra el que quedó guardado
 //   pintarEstado            → pinta el select con el color de su estado
 //   abrirDetalles           → la ventana "Detalles" (un recuadro por combo con sus platos, y el total)
@@ -18,8 +22,8 @@
 //   cerrarVentana           → cierra una ventana (si es "Confirmar pago", cuenta como "No, todavía no pagó")
 //   mostrarCartel           → un aviso flotante: verde (salió bien) o amarillo (atención)
 //   formatearPrecio         → un número como precio. Ej: 137000 → "$ 137.000"
-// Son 15 porque la pantalla tiene la grilla, sus filtros (fecha, buscador y la lista de estados) y 4 ventanas
-// (Detalles, Pago, Confirmar pago y Anular).
+// Son 19 porque la pantalla tiene la grilla, sus filtros (fecha, buscador y la lista de estados) y 5 ventanas
+// (Detalles, Pago, Confirmar pago, Faltan insumos y Anular).
 // El pago (ventanas "Pago del Pedido" y "Confirmar Pago") está aparte, en pagoPedido.js.
 //
 // Necesita antes: api.js (apiFetch), escape.js (escHtml), paginacion.js (crearPaginacion) y fechas.js.
@@ -32,6 +36,7 @@ let paginacionPedidos = null;          // lo que devuelve crearPaginacion: sirve
 let filtroFechas = { modo: 'todos', desde: '', hasta: '' };  // 'hoy' (al abrir), 'entrega' ("Aplicar") o 'todos'
 let filtroEstado = 'todos';            // el botón de estado elegido arriba de la tabla: 'todos' o el número del estado ('1' a '5')
 let pedidoAnularId = null;             // el pedido que se está anulando (mientras la ventana está abierta)
+let cambioConFaltantes = null;         // { pedido, select, nuevoId, anteriorId } mientras "Faltan insumos" está abierta (24/10)
 
 const ESTADO_EN_PREPARACION = 2;       // "En Preparación"
 const ESTADO_CANCELADO = 5;            // "Cancelado" (anulado): no cambia más de estado ni se cobra
@@ -106,7 +111,7 @@ async function iniciarConsultarPedidos() {
   document.addEventListener('keydown', evento => {                 // al apretar una tecla...
     if (evento.key !== 'Escape') return;                           // ...si no es Escape, nada
     mostrarListaEstados(false);                                    // la lista de "Estado", si estaba abierta, se cierra
-    ['modalDetalles', 'modalPago', 'modalAnular', 'modalConfirmarPago'].forEach(idVentana => {  // por cada ventana...
+    ['modalDetalles', 'modalPago', 'modalAnular', 'modalConfirmarPago', 'modalFaltanInsumos'].forEach(idVentana => {  // por cada ventana...
       const abierta = document.getElementById(idVentana).classList.contains('visible');
       if (abierta) cerrarVentana(idVentana);                       // ...si está abierta, se cierra
     });
@@ -429,70 +434,134 @@ function aplicarFechas(modo) {
 // ─────────────────────────────────────────────────────────────────────────────
 // alCambiarEstado → se eligió otro estado en el select de un pedido
 // ENTRADA: pedido y select (el de su fila)
-// SALIDA:  nada. Si pasa a "En Preparación" con un pago que no es efectivo y todavía no se confirmó, primero
-//          mira si alcanzan los insumos y después pregunta "¿ya pagó?" (pagoPedido.js). Si no, guarda directo.
-// Ej: pedido por Transferencia de 1 a 2 → ventana "Confirmar Pago". Pedido en Efectivo de 1 a 2 → se guarda.
+// SALIDA:  nada. 24/10: si pasa a "En Preparación" y tiene platos personalizados, primero mira si alcanzan los insumos
+//          para cocinarlos; si no alcanzan, abre "Faltan insumos" ("¿Pasarlo igual?"). Si alcanzan (o es todo de
+//          heladera, o es otro estado), sigue con seguirCambioEstado (el pago y guardar), como siempre.
+// Ej: pedido con un "sin sal" de 1 a 2 y falta Carne → ventana "Faltan 200 g de Carne para la vianda personalizada".
+//     Pedido todo de heladera de 1 a 2 → no se revisa nada (el servidor lo deja en 3).
 // ─────────────────────────────────────────────────────────────────────────────
 async function alCambiarEstado(pedido, select) {
   const nuevoId = parseInt(select.value, 10);                      // el estado elegido
   const anteriorId = parseInt(select.dataset.estadoActual, 10);    // el que tenía
 
-  // 1. ¿Hay que confirmar el pago antes? Con Transferencia o Tarjeta, el pago completo; con Mixto, la transferencia.
-  const metodo = pedido.metodo_pago || 'Efectivo';                 // sin método = Efectivo
-  const pagoPrevioConfirmado = metodo === 'Mixto' ? pedido.transferencia_confirmada : pedido.pagado;
-  const hayQueConfirmar = nuevoId === ESTADO_EN_PREPARACION && METODOS_PAGO_PREVIO.includes(metodo) && !pagoPrevioConfirmado;
-  if (!hayQueConfirmar) {                                          // si no hace falta confirmar nada...
-    guardarEstado(pedido, select, nuevoId, anteriorId);            // ...se guarda directo
+  // 1. ¿Hay que revisar los insumos? Solo a "En Preparación" y si tiene algún personalizado
+  //    (some = "al menos uno cumple". Ej: [{ personalizado: false }, { personalizado: true }] → true)
+  const tienePersonalizados = (pedido.pedido_detalles || []).some(detalle => detalle.personalizado);
+  const revisarInsumos = nuevoId === ESTADO_EN_PREPARACION && tienePersonalizados;
+  const faltantes = revisarInsumos ? await buscarInsumosFaltantes(pedido, select) : null;  // el aviso, o null si alcanza
+
+  // 2. Si faltan: se pregunta (no bloquea, se pueden comprar). Si no: sigue como siempre
+  if (faltantes) {
+    abrirFaltanInsumos(pedido, select, nuevoId, anteriorId, faltantes);
     return;
   }
+  seguirCambioEstado(pedido, select, nuevoId, anteriorId, false);
+}
 
-  // 2. Primero los insumos: si no alcanzan, no tiene sentido preguntar por el pago.
-  //    Si no se pudo consultar, se sigue: el servidor vuelve a controlar al guardar el estado.
+
+// ─────────────────────────────────────────────────────────────────────────────
+// buscarInsumosFaltantes → ¿alcanzan los insumos para cocinar los personalizados del pedido? (24/10) Solo lee.
+// ENTRADA: pedido y select (se apaga mientras se consulta)
+// SALIDA:  el aviso del servidor si falta algo (ej: "Faltan 200 g de Carne para la vianda personalizada"), o null si
+//          alcanza. Si no se pudo consultar, también null: el servidor vuelve a controlar al guardar el estado.
+// ─────────────────────────────────────────────────────────────────────────────
+async function buscarInsumosFaltantes(pedido, select) {
   select.disabled = true;                                          // mientras se consulta, no se puede tocar
-  let errorStock = null;                                           // el aviso de insumos (null = alcanza)
+  let aviso = null;                                                // null = alcanza
   try {
     const respuesta = await apiFetch(`/api/pedidos/${pedido.id}/verificar-stock`);  // ¿alcanzan?
     const datos = await respuesta.json().catch(() => ({}));        // la respuesta (si no es JSON, un objeto vacío)
     const noAlcanza = respuesta.ok && datos.ok === false;          // se pudo consultar y no alcanza
-    errorStock = noAlcanza ? datos.error : null;
+    aviso = noAlcanza ? datos.error : null;
   } catch (error) {
     // Sin conexión: no se avisa nada acá. El servidor vuelve a controlar al guardar el estado.
   }
   select.disabled = false;
-  if (errorStock) {                                                // si no alcanza...
-    mostrarCartel('alerta', errorStock, '⚠ Stock insuficiente');    // ...se avisa
-    select.value = anteriorId;                                     // ...y el select vuelve a como estaba
-    pintarEstado(select, anteriorId);
+  return aviso;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// seguirCambioEstado → lo de siempre después de los insumos: si hace falta, pregunta si ya pagó; si no, guarda
+// ENTRADA: pedido, select, nuevoId, anteriorId y aunqueFaltenInsumos (true = la persona ya dijo "Sí, pasarlo igual")
+// SALIDA:  nada. Con un pago que no es efectivo y todavía no confirmado, abre "Confirmar Pago" (pagoPedido.js);
+//          si no, guarda directo.
+// Ej: pedido por Transferencia de 1 a 2 → ventana "Confirmar Pago". Pedido en Efectivo de 1 a 2 → se guarda.
+// ─────────────────────────────────────────────────────────────────────────────
+function seguirCambioEstado(pedido, select, nuevoId, anteriorId, aunqueFaltenInsumos) {
+  // ¿Hay que confirmar el pago antes? Con Transferencia o Tarjeta, el pago completo; con Mixto, la transferencia.
+  const metodo = pedido.metodo_pago || 'Efectivo';                 // sin método = Efectivo
+  const pagoPrevioConfirmado = metodo === 'Mixto' ? pedido.transferencia_confirmada : pedido.pagado;
+  const hayQueConfirmar = nuevoId === ESTADO_EN_PREPARACION && METODOS_PAGO_PREVIO.includes(metodo) && !pagoPrevioConfirmado;
+  if (hayQueConfirmar) {                                           // si hay que confirmar el pago...
+    abrirConfirmarPago(pedido, select, nuevoId, anteriorId, aunqueFaltenInsumos);  // ...se pregunta (pagoPedido.js)
     return;
   }
+  guardarEstado(pedido, select, nuevoId, anteriorId, aunqueFaltenInsumos);  // si no, se guarda directo
+}
 
-  // 3. Se pregunta si ya pagó (la ventana está en pagoPedido.js)
-  abrirConfirmarPago(pedido, select, nuevoId, anteriorId);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// abrirFaltanInsumos → abre "Faltan insumos" (24/10)
+// ENTRADA: pedido, select, nuevoId, anteriorId (se guardan hasta la respuesta) y aviso (el texto del servidor)
+// SALIDA:  nada (la ventana abierta: "Pedido #015", el aviso y "¿Pasarlo igual a En preparación?")
+// ─────────────────────────────────────────────────────────────────────────────
+function abrirFaltanInsumos(pedido, select, nuevoId, anteriorId, aviso) {
+  cambioConFaltantes = { pedido: pedido, select: select, nuevoId: nuevoId, anteriorId: anteriorId };  // hasta que responda
+  document.getElementById('faltanInsumosNumero').textContent = numeroPedido(pedido.id, 'cliente');  // "Pedido #015"
+  document.getElementById('faltanInsumosTexto').textContent = aviso + '.';   // textContent: el aviso, como texto
+  document.getElementById('modalFaltanInsumos').classList.add('visible');    // se abre
+  document.getElementById('faltanInsumosSi').focus();                        // el cursor en "Sí"
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// responderFaltanInsumos → la respuesta de "Faltan insumos" (24/10)
+// ENTRADA: seguir: true = "Sí, pasarlo igual" · false = "No, dejarlo como está" (también la ×, Escape o tocar afuera)
+// SALIDA:  nada. No: el select vuelve a como estaba. Sí: sigue como siempre (el pago, si hace falta, y guardar),
+//          avisándole al servidor que se pasa aunque falten insumos.
+// ─────────────────────────────────────────────────────────────────────────────
+function responderFaltanInsumos(seguir) {
+  if (!cambioConFaltantes) return;                                 // no había nada que responder
+  const cambio = cambioConFaltantes;
+  cambioConFaltantes = null;                                       // ya se respondió
+  document.getElementById('modalFaltanInsumos').classList.remove('visible');  // se cierra
+  if (!seguir) {                                                   // "No": el select vuelve a como estaba
+    cambio.select.value = cambio.anteriorId;
+    pintarEstado(cambio.select, cambio.anteriorId);
+    return;
+  }
+  seguirCambioEstado(cambio.pedido, cambio.select, cambio.nuevoId, cambio.anteriorId, true);  // "Sí": sigue
 }
 
 
 // ─────────────────────────────────────────────────────────────────────────────
 // guardarEstado → manda el estado nuevo de un pedido al servidor
-// ENTRADA: pedido, select (el de su fila), nuevoId (el estado elegido) y anteriorId (el que tenía)
+// ENTRADA: pedido, select (el de su fila), nuevoId (el estado elegido), anteriorId (el que tenía) y
+//          aunqueFaltenInsumos (24/10: true = la persona dijo "Sí, pasarlo igual" en "Faltan insumos")
 // SALIDA:  true si se guardó; false si no (avisa el motivo y el select vuelve al estado anterior)
 // Ej: 10 fideos (todo de heladera) de 1 a 2 → el servidor lo deja en 3: el select muestra "Listo para Entregar"
 //     y avisa "Pedido #250: todo sale de la heladera, pasó directo a Listo para Entregar."
-// La usan alCambiarEstado y responderConfirmarPago (pagoPedido.js).
+//     Un "sin sal" sin hacer de 2 a 3 → el servidor no deja: "La vianda personalizada todavía no está hecha…"
+// La usan seguirCambioEstado y responderConfirmarPago (pagoPedido.js).
 // ─────────────────────────────────────────────────────────────────────────────
-async function guardarEstado(pedido, select, nuevoId, anteriorId) {
+async function guardarEstado(pedido, select, nuevoId, anteriorId, aunqueFaltenInsumos) {
   try {
-    // 1. Se manda (el servidor controla todo: el estado, los insumos y que no esté anulado)
+    // 1. Se manda (el servidor controla todo: el estado, los insumos, los personalizados y que no esté anulado).
+    //    Si la persona confirmó pasarlo aunque falten insumos, se le avisa al servidor (solo vale para el 2).
+    const cuerpo = { estado_id: nuevoId };                         // el estado nuevo
+    if (aunqueFaltenInsumos === true) cuerpo.aunque_falten_insumos = true;
     const respuesta = await apiFetch(`/api/pedidos/${pedido.id}/estado`, {
       method: 'PUT',                                               // PUT = cambiar algo que ya existe
       headers: { 'Content-Type': 'application/json' },             // se manda un JSON
-      body: JSON.stringify({ estado_id: nuevoId })                 // el estado nuevo
+      body: JSON.stringify(cuerpo)
     });
     const datos = await respuesta.json().catch(() => ({}));        // la respuesta (si no es JSON, un objeto vacío)
 
     // 2. No se pudo: se avisa el motivo (el del servidor, o uno por si no mandó ninguno) y el select vuelve atrás
     if (!respuesta.ok) {
       const mensaje = datos.error || 'No se pudo actualizar el estado. Intentá de nuevo.';
-      const tituloAviso = mensaje.startsWith('Stock insuficiente') ? '⚠ Stock insuficiente' : '⚠ No se pudo cambiar el estado';  // startsWith = "empieza con"
+      const tituloAviso = mensaje.startsWith('Faltan') ? '⚠ Faltan insumos' : '⚠ No se pudo cambiar el estado';  // startsWith = "empieza con"
       mostrarCartel('alerta', mensaje, tituloAviso);
       select.value = anteriorId;
       pintarEstado(select, anteriorId);
@@ -705,7 +774,7 @@ async function confirmarAnulacion() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // cerrarVentana → cierra una ventana de la pantalla
-// ENTRADA: idVentana ('modalDetalles', 'modalPago', 'modalConfirmarPago' o 'modalAnular') y, si se tocó el
+// ENTRADA: idVentana ('modalDetalles', 'modalPago', 'modalConfirmarPago', 'modalFaltanInsumos' o 'modalAnular') y, si se tocó el
 //          fondo, el evento del clic (un clic adentro de la caja no la cierra)
 // SALIDA:  nada. "Confirmar Pago" cerrada cuenta como "No, todavía no pagó" (el select vuelve a como estaba).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -716,6 +785,9 @@ function cerrarVentana(idVentana, evento) {
   switch (idVentana) {
     case 'modalConfirmarPago':                                     // según sea "Confirmar Pago": cerrada = "No, todavía no pagó"
       responderConfirmarPago(false);                               // (pagoPedido.js; la cierra y vuelve el select)
+      return;
+    case 'modalFaltanInsumos':                                     // según sea "Faltan insumos" (24/10): cerrada = "No, dejarlo como está"
+      responderFaltanInsumos(false);                               // (la cierra y vuelve el select)
       return;
     case 'modalPago':                                              // según sea "Pago": ya no hay pedido en la ventana
       pedidoPagoId = null;                                         // (pagoPedido.js)
@@ -735,7 +807,7 @@ function cerrarVentana(idVentana, evento) {
 //          mensaje y titulo (solo en las alertas)
 // SALIDA:  nada (lo muestra; si había otro igual, lo reemplaza)
 // Ej: mostrarCartel('exito', 'Pedido #005 anulado. Volvieron 10 viandas a la heladera.')
-//     mostrarCartel('alerta', 'Stock insuficiente de "Huevo"…', '⚠ Stock insuficiente')
+//     mostrarCartel('alerta', 'Faltan 39 u de Huevo para la vianda personalizada', '⚠ Faltan insumos')
 // Todo con textContent: lo que viene de la base no se interpreta como HTML.
 // ─────────────────────────────────────────────────────────────────────────────
 function mostrarCartel(tipo, mensaje, titulo) {

@@ -701,6 +701,7 @@ table.tabla-pedidos .col-costo {
 .ventana-detalles { width: 100%; max-width: 360px; }
 .ventana-pago     { width: 100%; max-width: 380px; }
 .ventana-chica    { width: 100%; max-width: 300px; }   /* Confirmar pago y Anular */
+.ventana-faltan-insumos { max-width: 360px; }          /* "Faltan insumos" (24/10): un poco más ancha, el aviso puede ser largo */
 
 /* Los botones del pie, uno debajo del otro y de todo el ancho (Confirmar pago y Anular) */
 .pie-en-columna {
@@ -990,6 +991,24 @@ table.tabla-pedidos .col-costo {
 
 .confirmar-pago-texto strong {
     color: var(--verde-texto);
+}
+
+/* --- Faltan insumos (24/10): el aviso en naranja suave y la pregunta abajo --- */
+.faltan-insumos-texto {
+    margin: 0;
+    padding: 14px;
+    border-radius: var(--radio-recuadro);
+    background: #fff3df;
+    color: #8a4f00;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.faltan-insumos-pregunta {
+    margin: 12px 0 0;
+    color: var(--texto);
+    font-size: 15px;
 }
 
 /* --- Anular: el número del pedido en rojo, el aviso en rojo suave y el PIN centrado --- */

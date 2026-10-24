@@ -32,6 +32,10 @@
 > **Código de plato** (28/10): abreviatura del plan + número del plato (F1, K1, SG1…). SQL `sql/codigo_plato.sql` (lo
 > corriste vos), 2 rutas nuevas y la pastillita del código en Generar Receta, Producción, Tareas de Cocina, Envíos, Combos y
 > el index (sección 23). Probado sin escribir en la base. Test HELADERA 37/40, por la misma fecha.
+> **Pedidos personalizados y fechas de entrega** (24/10): un personalizado sin hacer no deja pasar el pedido a 3 ni a 4;
+> al pasar a 2, si faltan insumos se pregunta "¿Pasarlo igual?"; en Cocina, el día de cocina (día hábil anterior a la
+> entrega) y "A cocinar / De la heladera"; entregas desde hoy (todo de heladera) o con un día de producción en el medio
+> (sección 24). Sin SQL. Test HELADERA 40/40.
 > **Este informe se actualiza con cada cambio nuevo** (código, SQL, pantallas), con el mismo formato (regla del 15/10).
 > Los ejemplos usan tus datos: **fideos con 71 viandas**, el combo de prueba "PRUEBA Mantenimiento x10" y la
 > receta de fideos que mostró la prueba de H3: **300 g de harina integral y 2 huevos por vianda**.
@@ -4973,3 +4977,129 @@ Una función chica nueva, `leerIdPlan(texto)`:
 - **Producción:** `6-produccion-tabla`, `7-…-pedir-a-cocina`;
 - **Tareas de Cocina:** `8-cocina-para-stock`, `9-…-detalles-pedido-a-cocina`, `10-…-pedidos-de-clientes`, `11-…-detalles-cliente`, `12-…-resumen`;
 - **Envíos, Combos e index:** `13-envios-tarjeta`, `14-combos-menu`, `15-index-armar-combo`.
+
+
+## 24. Pedidos personalizados y fechas de entrega (24/10)
+**Qué se pidió:**
+1. Un pedido con un personalizado sin hacer no pasa a 3 ni a 4 desde Consultar Pedidos.
+2. Al pasar a 2 un pedido con personalizados se revisan los insumos. Si faltan, se avisa y se pregunta, sin bloquear.
+3. En Tareas de Cocina · Pedidos de clientes:
+   - el día de cocina es el día hábil anterior a la entrega;
+   - los textos "A cocinar" y "De la heladera".
+4. Fechas de entrega nuevas:
+   - todo de heladera: desde hoy;
+   - con algún personalizado: un día de producción en el medio.
+
+**Decisiones tuyas:**
+- **Feriados:** por ahora no; solo se saltean los fines de semana.
+- **"De la heladera":** solo en la primera fila de cada pedido.
+- **Las fechas para probar** se simulan solo en el navegador.
+- **El pedido de PRUEBA** se anula al terminar y nunca pasa a 3.
+
+**SQL:** no hizo falta.
+
+### 24.1 Parte 1: no pasar a 3 ni a 4 con personalizados sin hacer (`server.js`)
+**`PUT /api/pedidos/:pedidoId/estado`**, paso 6b nuevo:
+- Si el estado nuevo es 3 o 4, busca un plato del pedido con `personalizado = true` y `listo = false`.
+- Si hay, responde **400**: "La vianda personalizada todavía no está hecha. La tiene que marcar la cocina como lista."
+- Solo lee y va antes de cambiar o descontar nada.
+- Un pedido todo de heladera sigue igual: al pasar a 2 salta a 3.
+- **Qué protege:** ningún camino (pantalla o pedido armado a mano) puede dar por listo un pedido cuya vianda no se cocinó.
+- **Las otras rutas:**
+  - `listo-cocinero` (el cocinero) es el único camino a 3, y pasa recién con todos los platos listos;
+  - `anular` solo pasa a 5;
+  - crear pedido, `/pagado`, `/transferencia-confirmada` y `/pago` no cambian el estado;
+  - Envíos usa esta misma ruta, así que también le llega el control.
+- **Consultar Pedidos:** no cambió. Ya mostraba el mensaje del servidor y volvía el select atrás.
+
+### 24.2 Parte 2: insumos al pasar a 2, sin bloquear
+**`server.js`**
+| Función | Cambio | ENTRADA → SALIDA |
+|---|---|---|
+| `verificarStockPedido` | Avisa **todos** los insumos que faltan, con cuánto falta (lo que hace falta − lo que hay) y su unidad. Antes avisaba solo el primero | pedidoId → `null` si alcanza, o `{ 409, 'Faltan 200 g de Carne y 39 u de Huevo para la vianda personalizada' }` |
+| `cambiarEstadoPedido` | Parámetro nuevo `aunqueFaltenInsumos`: con `true`, al pasar a 2 no revisa los insumos | (pedidoId, nuevoEstado, idUsuario, aunqueFaltenInsumos) → `{ status, pedido }` o `{ status, error }` |
+| `PUT …/estado` | Acepta `aunque_falten_insumos: true` en el body. Solo vale el `true` (un texto "true" no) y solo para el 2 | Sin el dato sigue respondiendo 409 si faltan |
+| `GET …/verificar-stock` | Sin cambios; solo el texto nuevo del aviso | — |
+
+**Por qué:**
+- Los insumos se pueden comprar después, así que el aviso no bloquea si la persona confirma.
+- Al pasar a 3, la base los vuelve a controlar al descontarlos.
+- Otra pantalla que no pregunte sigue frenada (409), porque sin el dato no pasa.
+
+**Consultar Pedidos** (`ListarPedidos.js`, `pagoPedido.js`, `ConsultarPedidos.html`, `ConsultarPedidos.css`)
+| Función | Nueva / cambiada | ENTRADA → SALIDA |
+|---|---|---|
+| `alCambiarEstado` | cambiada | A "En Preparación" con personalizados: pide los insumos. Si faltan, abre "Faltan insumos"; si no, sigue. Todo de heladera: no consulta nada |
+| `buscarInsumosFaltantes` | nueva | (pedido, select) → el aviso del servidor, o `null` si alcanza (o si no se pudo consultar) |
+| `seguirCambioEstado` | nueva (lo de antes de `alCambiarEstado`) | (pedido, select, nuevoId, anteriorId, aunqueFaltenInsumos) → abre "Confirmar pago" si hace falta; si no, guarda |
+| `abrirFaltanInsumos` | nueva | (…, aviso) → la ventana con "Pedido #015", el aviso y "¿Pasarlo igual a En preparación?" |
+| `responderFaltanInsumos` | nueva | `true` ("Sí, pasarlo igual") sigue con el dato · `false` ("No", ✕, Escape o clic afuera) vuelve el select |
+| `guardarEstado` | cambiada | Recibe `aunqueFaltenInsumos` y, si es `true`, lo manda. El título del aviso es "⚠ Faltan insumos" cuando el mensaje empieza con "Faltan" |
+| `cerrarVentana` | cambiada | Cerrar "Faltan insumos" cuenta como "No" |
+| `abrirConfirmarPago` / `responderConfirmarPago` | cambiadas | Llevan el `aunqueFaltenInsumos` hasta guardar |
+
+La ventana nueva `#modalFaltanInsumos` tiene el estilo de "Confirmar pago", con el aviso en naranja suave.
+
+### 24.3 Parte 3: Tareas de Cocina · Pedidos de clientes (`cocinero.js`, `cocinero.html`, `cocinero.css`)
+**El día de cocina:** `diaHabilAnterior(fecha de entrega)`, que ya estaba en `fechas.js`. Saltea sábados y domingos, y los feriados de su lista, que está vacía (decisión tuya).
+- Entrega miércoles 28/10 → se cocina el martes 27/10.
+- **Entrega lunes 26/10 → se cocina el viernes 23/10.**
+
+| Función | Cambio | ENTRADA → SALIDA |
+|---|---|---|
+| `describirDia` | Suma `diaCorto` ("mar") | 'AAAA-MM-DD' → `{ clave, etiqueta, tipo, diaMes, diaCorto }` |
+| DOMContentLoaded | Calcula `pedido.dia_cocina`, `pedido.dia` (con eso van las pestañas y el color) y `pedido.diaEntrega`, y ordena por día de cocina | — |
+| `dibujarTabla` | Cada fila sabe si es la primera de su pedido | — |
+| `crearFilaCliente` | Columna **Viandas**: "A cocinar: 1" y, solo en la primera fila del pedido, "De la heladera: 9". Columna **Cocinar**: "Cocinar: mar 27/10" (color de atrasado, hoy, mañana o después) y abajo, chiquito, "Entrega: 28/10" | una fila → `<tr>` |
+| `construirResumen` | Los personalizados de **hoy** son los que se cocinan hoy (antes, los que se entregaban hoy) | — |
+| `abrirDetallesPedido` | Arriba: Cocinar · Entrega · A cocinar · De la heladera. Partes: "Se cocina aparte" y "Sale de la heladera" | — |
+
+- **"Para stock"** (pedidos a cocina) sigue igual, con su "para cuándo".
+- **Quién ve cada pedido** no cambia: el cocinero del plato o el del plan.
+
+### 24.4 Fechas de entrega (web y servidor)
+- **Los números:** `DIAS_HABILES_ENTREGA` pasa de 2 a **0** (todo de heladera: desde hoy) y `DIAS_HABILES_CON_PERSONALIZADO` de 3 a **2** (un día de producción en el medio).
+  - Están en `server.js` (`POST /api/pedidos-combos`) y en `pedidoCombos.js` (`abrirFinalizarPedido`).
+- **Primer día hábil:** con 0 días, si hoy no es día hábil (sábado), la primera fecha es el próximo hábil (el lunes). Lo hacen igual el servidor y la web.
+- **Textos:** el aviso del servidor, el aviso y la primera fecha de la web, la nota de "Armá tu combo" y, en `index.html`, la insignia ("Entregas desde hoy"), las dos preguntas frecuentes, el pie y el aviso del formulario.
+- **Qué más usa esos números:**
+  - el `POST /api/pedidos` viejo (platos sueltos) tiene **su propio 2 y su texto "48 hs"**. Ninguna pantalla lo usa, así que **no se tocó** (duda 1);
+  - el filtro "producción de hoy" de Consultar Pedidos (entrega = próximo día hábil) ya coincide con el día de cocina, así que no cambió;
+  - `tests/test_e2e.js` usa 4 días hábiles, que siguen siendo válidos.
+
+### 24.5 Cómo se comprobó
+- **Servidor, con DOS pedidos "PRUEBA – NO PREPARAR"**, uno con insumos que alcanzan y otro con "Plato de prueba", al que le faltan. Los dos se **anularon** al final y **ninguno pasó a 3**. **28/28 controles:**
+  - de 1 a 3 y de 1 a 4 → 400;
+  - a 3 con el dato `aunque_falten_insumos` → igual 400;
+  - `verificar-stock` → "Faltan 4.400 g de pollo para la vianda personalizada";
+  - a 2 sin el dato → 409; con `"true"` en texto → 409; con `true` → pasa a 2;
+  - de 2 a 3 y de 2 a 4 → 400;
+  - Tareas de Cocina lo trae, con su entrega;
+  - fechas: un pedido todo de heladera con fecha de ayer → "primera fecha 26/10" (hoy es sábado); un personalizado a 1 día hábil → 400; a 2 días hábiles → se crea.
+- **Pantallas, con datos falsos** (todo lo que no era lectura se contestó en el navegador):
+  - **Consultar:**
+    - a 3 → el aviso y el select vuelve atrás;
+    - a 2 → "Faltan insumos": "No" vuelve, "Sí" manda `aunque_falten_insumos: true`;
+    - con Transferencia: "Faltan insumos" → "Confirmar pago" → guarda con el dato;
+    - todo de heladera: no consulta los insumos;
+    - Escape = "No".
+  - **Cocina, simulando el martes 27/10 solo en el navegador:**
+    - pestañas Atrasados · Hoy · Mañana · Viernes;
+    - "Cocinar: vie 23/10" (entrega lunes 26/10, atrasado) y "Cocinar: mar 27/10" (hoy);
+    - "De la heladera: 9" solo en la primera fila del #057;
+    - Detalles, el Resumen con los personalizados de hoy, y en el celu sin moverse de costado.
+  - **Web:** el martes, todo de heladera → mínimo 27/10 y con personalizado → 29/10. El sábado de verdad → 26/10 y 27/10.
+- **Consola:** sin errores.
+- **`node tests/test_e2e.js heladera`: 40/40.**
+
+### 24.6 Dudas que anoté (elegí lo más seguro)
+1. **El `POST /api/pedidos` viejo** quedó con 2 días hábiles y "48 hs". No lo usa ninguna pantalla. Si querés, se pasa a 0 y 2, o se desactiva.
+2. **Entregar el mismo día:** un pedido todo de heladera hecho a la noche se puede pedir para ese mismo día. No hay horario de corte, porque no lo pediste.
+3. **Pedidos viejos** (antes de los combos) que cocinan todo: el aviso de insumos dice "personalizada" aunque no lo sean. Son casos raros.
+4. **Envíos:** cuando el servidor no deja cambiar el estado, muestra un aviso genérico y no el mensaje. Ya estaba así y no se tocó.
+5. **Feriados:** sin la lista activa, un lunes feriado se cuenta como día de cocina. Cuando actives la lista, se arregla solo.
+
+**Capturas:** `diseno-codigo/resultado/personalizados/` (no se suben):
+- Consultar: `1-consultar-400-personalizado-sin-hacer`, `2-consultar-faltan-insumos`.
+- Cocina: `3-cocina-pedidos-de-clientes-1440`, `4-cocina-detalles-cliente`, `5-cocina-resumen`, `6-cocina-pedidos-de-clientes-390`.
+- Web: `7-web-fecha-solo-heladera`, `8-web-fecha-con-personalizado`.

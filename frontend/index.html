@@ -140,7 +140,7 @@
           <ul class="portada-insignias">
             <li>✓ Caseras</li>
             <li>⚡ Listas en 5 min</li>
-            <li>🛵 Entregas en 48 hs hábiles</li>
+            <li>🛵 Entregas desde hoy</li>
           </ul>
         </div>
         <!-- La foto grande (solo en compu; en el celu no se ve). Arranca en el 34 % del ancho y llega al borde derecho;
@@ -250,8 +250,9 @@
           <div class="acordeon">
             <details class="pregunta" name="preguntas">
               <summary class="pregunta-titulo">¿Cuándo llega mi pedido?<span class="pregunta-signo" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span></summary>
-              <p class="pregunta-respuesta">Lo cocinamos el día hábil siguiente al que lo hacés y te lo entregamos al otro día hábil (48 hs hábiles).
-                Por ejemplo: si pedís un martes, se cocina el miércoles y te llega el jueves.</p>
+              <p class="pregunta-respuesta">Las viandas ya están hechas: elegís el día de entrega, desde hoy mismo (de lunes a viernes).
+                Si tu pedido tiene algún plato personalizado, hay un día de producción en el medio: por ejemplo, si pedís un martes,
+                se cocina el miércoles y te llega desde el jueves.</p>
             </details>
             <details class="pregunta" name="preguntas">
               <summary class="pregunta-titulo">¿Cómo armo mi combo?<span class="pregunta-signo" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span></summary>
@@ -263,7 +264,8 @@
             <details class="pregunta" name="preguntas">
               <summary class="pregunta-titulo">¿Puedo pedir un plato con algún cambio?<span class="pregunta-signo" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span></summary>
               <p class="pregunta-respuesta">Sí. Al armar el combo podés escribir lo que necesites (por ejemplo, "sin sal"). Tiene el mismo precio,
-                pero como lo cocinamos aparte, se entrega un día hábil más tarde.</p>
+                pero como lo cocinamos aparte, hay un día de producción en el medio: si pedís un martes, se cocina el miércoles
+                y te llega desde el jueves.</p>
             </details>
             <details class="pregunta" name="preguntas">
               <summary class="pregunta-titulo">¿Cómo pago?<span class="pregunta-signo" aria-hidden="true"><svg class="icono"><use href="#icono-mas"></use></svg></span></summary>
@@ -299,7 +301,7 @@
       </div>
       <div class="pie-columna">
         <h2>Entregas</h2>
-        <p>Entregamos a las 48 hs hábiles</p>
+        <p>Entregamos de lunes a viernes, desde hoy mismo</p>
       </div>
     </div>
     <div class="contenedor">
@@ -510,10 +512,10 @@
                        fecha en el campo de abajo, que es el que se controla y se manda, igual que siempre -->
                   <div class="dias-entrega" id="dias-entrega" role="group" aria-label="Día de entrega"></div>
                   <input class="casillero" id="campo-fecha" type="date" aria-describedby="fecha-aviso fecha-primera-posible error-fecha">
-                  <!-- Mismo aviso que el formulario viejo -->
+                  <!-- Cuándo se entrega (24/10): lo de la heladera, desde hoy; con algún personalizado, un día de producción en el medio -->
                   <p class="campo-ayuda" id="fecha-aviso">
-                    🕒 Tu pedido se elabora el día hábil siguiente al que lo hacés y se entrega al otro día hábil (48 hs hábiles).
-                    Ejemplo: si pedís un martes, se cocina el miércoles y te llega el jueves.
+                    🕒 Las viandas ya están hechas: te las llevamos el día hábil que elijas, desde hoy.
+                    Si hay platos personalizados, hay un día de producción en el medio: si pedís un martes, se cocina el miércoles y te llega desde el jueves.
                   </p>
                   <p class="campo-ayuda" id="fecha-primera-posible"></p>
                   <p class="campo-error" id="error-fecha"></p>

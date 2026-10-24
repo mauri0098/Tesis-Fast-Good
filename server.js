@@ -158,11 +158,11 @@ function errorInterno(res, err) {
 // ─────────────────────────────────────────────────────────────────────────────
 // verificarStockPedido → ¿alcanzan los insumos de lo que cocina la cocina? Solo lee: no descuenta nada.
 // ENTRADA: pedidoId (el número de pedido)
-// SALIDA:  null si alcanza (o si no hay nada para cocinar) · { status: 409, error } si falta un insumo
-//          · { status: 500, error } si falló la base
+// SALIDA:  null si alcanza (o si no hay nada para cocinar) · { status: 409, error } si falta algún insumo (24/10: dice
+//          TODOS los que faltan, con cuánto y su unidad) · { status: 500, error } si falló la base
 // Ej: 8 fideos de heladera + 2 fideos "sin sal" (receta: 300 g de harina integral y 2 huevos) → la cocina
 //     cocina 2 → hacen falta 600 g de harina y 4 huevos. Con Huevo en −35 →
-//     { status: 409, error: 'Stock insuficiente de "Huevo": se necesitan 4, hay -35 disponibles' }
+//     { status: 409, error: 'Faltan 39 u de Huevo para las viandas personalizadas' }
 // La usan cambiarEstadoPedido (al pasar a 2) y GET /api/pedidos/:id/verificar-stock.
 // Es la misma cuenta que hace descontar_insumos_pedido en la base al pasar a 3 o 4.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -216,7 +216,7 @@ async function verificarStockPedido(pedidoId) {
     // 5. Cuánto hay de cada insumo
     const { data: insumos, error: errInsumos } = await supabase   // pide a la base...
       .from('insumos')                                            // ...los insumos...
-      .select('id, nombre, stock_actual')                         // ...número, nombre y cuánto hay...
+      .select('id, nombre, stock_actual, unidad_medida')          // ...número, nombre, cuánto hay y su unidad (24/10: para el aviso)...
       .in('id', idsInsumos);                                      // ...los de las recetas
     if (errInsumos) {                                             // si falló la base...
       console.error('ERROR REAL DEL SERVIDOR [insumos select]:', errInsumos);
@@ -227,20 +227,32 @@ async function verificarStockPedido(pedidoId) {
       insumoPorId[insumo.id] = insumo;                            // ...se guarda por su número
     });
 
-    // 6. El primer insumo (en orden de número) que no alcanza: con ese se avisa. Si ninguno falta, alcanza.
+    // 6. TODOS los insumos que no alcanzan (en orden de número), con cuánto falta: lo que hace falta − lo que hay.
+    //    24/10: antes avisaba solo el primero ('Stock insuficiente de "Huevo": se necesitan 4, hay -35 disponibles').
+    //    Ej: harina 600 g (hay 400) y huevo 4 u (hay −35) → ['200 g de Harina', '39 u de Huevo']
     //    sort con (a, b) => a − b ordena números de menor a mayor. Ej: [9, 2, 5] → [2, 5, 9]
     idsInsumos.sort((a, b) => a - b);                             // el mismo orden que usa la base
-    let error = null;                                             // el aviso (null = alcanza todo)
+    const faltantes = [];                                         // "200 g de Harina", uno por insumo que falta
     idsInsumos.forEach(idInsumo => {                              // por cada insumo...
-      if (error) return;                                          // (return = saltear: ya se encontró uno que falta)
       const insumo = insumoPorId[idInsumo];                       // ...sus datos (pueden faltar si se borró)
       const disponible = Number(insumo?.stock_actual ?? 0);       // ?. = "si existe el insumo, su stock"; ?? 0 = vacío cuenta como 0
-      const nombre = insumo?.nombre || String(idInsumo);          // su nombre (o su número si no se encontró)
       const necesario = Number(necesarioPorInsumo[idInsumo]);     // cuánto hace falta
-      if (disponible < necesario) error = `Stock insuficiente de "${nombre}": se necesitan ${necesario}, hay ${disponible} disponibles`;  // el mismo mensaje de antes
+      if (disponible >= necesario) return;                        // alcanza (return = saltear este y seguir con el siguiente)
+      const falta = (necesario - disponible).toLocaleString('es-AR', { maximumFractionDigits: 2 });  // ej: 1.250,5
+      const unidad = insumo?.unidad_medida ? ' ' + insumo.unidad_medida : '';  // ej: " g" (sin unidad: nada)
+      const nombre = insumo?.nombre || String(idInsumo);          // su nombre (o su número si no se encontró)
+      faltantes.push(falta + unidad + ' de ' + nombre);           // ej: "200 g de Carne"
     });
-    if (error) return { status: 409, error: error };              // falta un insumo: 409 con el mensaje
-    return null;                                                  // alcanza todo
+    if (faltantes.length === 0) return null;                      // alcanza todo
+
+    // 7. El aviso: "Faltan 200 g de Carne y 39 u de Huevo para la vianda personalizada".
+    //    Los de antes van con coma y el último con "y". "la vianda" si se cocina 1; si no, "las viandas".
+    const ultimo = faltantes[faltantes.length - 1];               // el último de la lista
+    const lista = faltantes.length === 1 ? ultimo : faltantes.slice(0, -1).join(', ') + ' y ' + ultimo;  // slice(0, -1) = todos menos el último
+    let viandasACocinar = 0;                                      // cuántas viandas cocina la cocina en este pedido
+    idsPlatos.forEach(idPlato => { viandasACocinar = viandasACocinar + aCocinarPorPlato[idPlato]; });
+    const paraQue = viandasACocinar === 1 ? 'la vianda personalizada' : 'las viandas personalizadas';
+    return { status: 409, error: 'Faltan ' + lista + ' para ' + paraQue };  // falta algo: 409 con el aviso
   } catch (error) {                                               // si algo falló de golpe...
     console.error('ERROR REAL DEL SERVIDOR en verificarStockPedido:', error);
     return { status: 500, error: MENSAJE_ERROR_INTERNO };
@@ -913,8 +925,12 @@ app.post('/api/pedidos', limitePedidos, async (req, res) => {
 // Reglas del pedido de COMBOS (POST /api/pedidos-combos)
 const MAXIMO_COMBOS_POR_PEDIDO       = 10;  // la base controla lo mismo (crear_pedido_combos)
 const LARGO_MAXIMO_EMAIL             = 100; // la columna pedidos.cliente_email no acepta más
-const DIAS_HABILES_ENTREGA           = 2;   // 48 hs hábiles, como el pedido viejo
-const DIAS_HABILES_CON_PERSONALIZADO = 3;   // un plato personalizado se cocina aparte: 1 día hábil más
+// Días hábiles mínimos para la entrega (24/10). Los mismos de la web (pedidoCombos.js):
+//   0 → todo sale de la heladera (ya está hecho): cualquier día hábil desde hoy.
+//   2 → con algún personalizado: un día de producción en el medio. Pide el martes → se cocina el miércoles
+//       → se entrega desde el jueves. (Antes eran 2 y 3.)
+const DIAS_HABILES_ENTREGA           = 0;
+const DIAS_HABILES_CON_PERSONALIZADO = 2;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/pedidos-combos → crea un pedido de COMBOS (VENDER: la web nueva, index-combos.html). Es pública.
@@ -1011,19 +1027,24 @@ app.post('/api/pedidos-combos', limitePedidos, async (req, res) => {
   if (emailInvalido) return res.status(400).json({ error: `El email admite hasta ${LARGO_MAXIMO_EMAIL} caracteres` });
 
   // 7. Fecha de entrega: obligatoria, que exista de verdad (leerFechaPara rechaza, por ejemplo, 2026-02-30),
-  //    día hábil y al menos 2 días hábiles después de hoy en Argentina (3 si hay algún personalizado)
+  //    día hábil y (24/10) desde hoy si todo sale de la heladera, o 2 días hábiles después si hay algún personalizado
+  //    (un día de producción en el medio). Hoy en Argentina.
   if (!leerFechaPara(fecha_entrega)) {
     return res.status(400).json({ error: 'La fecha de entrega es obligatoria (formato AAAA-MM-DD)' });
   }
   if (!fechas.esDiaHabil(fechas.parseFechaLocal(fecha_entrega))) {
     return res.status(400).json({ error: 'La fecha de entrega tiene que ser un día hábil (de lunes a viernes, sin feriados)' });
   }
-  const diasHabiles = hayPersonalizado ? DIAS_HABILES_CON_PERSONALIZADO : DIAS_HABILES_ENTREGA;  // 3 con personalizados, si no 2
-  const aclaracionFecha = hayPersonalizado ? '(48 hs hábiles, más 1 día por los platos personalizados)' : '(48 hs hábiles)';
-  const primeraFecha = fechas.fechaLocalISO(fechas.sumarDiasHabiles(hoyArgentina(), diasHabiles));  // la primera que se acepta
+  const diasHabiles = hayPersonalizado ? DIAS_HABILES_CON_PERSONALIZADO : DIAS_HABILES_ENTREGA;  // 2 con personalizados, si no 0
+  const aclaracionFecha = hayPersonalizado ? ' (por los platos personalizados: hay un día de producción en el medio)' : '';
+  // El primer día que se acepta: hoy + esos días hábiles; si cae en un día no hábil (con 0 días, hoy sábado), el
+  // próximo hábil. Ej: hoy sábado y todo de heladera → el lunes · hoy martes con un "sin sal" → el jueves
+  const desdeFecha = fechas.sumarDiasHabiles(hoyArgentina(), diasHabiles);
+  const primerDiaHabil = fechas.esDiaHabil(desdeFecha) ? desdeFecha : fechas.proximoDiaHabil(desdeFecha);
+  const primeraFecha = fechas.fechaLocalISO(primerDiaHabil);                                        // la primera que se acepta
   const primeraFechaTexto = fechas.fechaDDMMAAAA(fechas.parseFechaLocal(primeraFecha));             // como "21/10/2026"
   if (fecha_entrega < primeraFecha) {                             // "AAAA-MM-DD" se puede comparar como texto
-    return res.status(400).json({ error: `La primera fecha de entrega disponible es el ${primeraFechaTexto} ${aclaracionFecha}` });
+    return res.status(400).json({ error: `La primera fecha de entrega disponible es el ${primeraFechaTexto}${aclaracionFecha}` });
   }
 
   // 8. Barrio: opcional. Si viene, tiene que ser un número entero que exista en la tabla barrios
@@ -1391,17 +1412,20 @@ app.put('/api/pedidos/:id/pago', requireAuth, requireRol(6, 5, 1), async (req, r
 
 // ─────────────────────────────────────────────────────────────────────────────
 // cambiarEstadoPedido → cambia el estado de un pedido, con lo que pide cada estado
-// ENTRADA: pedidoId, nuevoEstado (1 a 4) e idUsuario (quién lo cambia: sale del token)
+// ENTRADA: pedidoId, nuevoEstado (1 a 4), idUsuario (quién lo cambia: sale del token) y, opcional,
+//          aunqueFaltenInsumos (24/10): true = al pasar a 2 no se revisan los insumos (la persona ya lo confirmó)
 // SALIDA:  { status: 200, pedido } (el pedido como quedó) · { status: 409, error } si falta un insumo o el
 //          pedido está anulado · { status: 500, error } si falló la base
 // Ej: pedido #251 (8 fideos de heladera + 2 "sin sal") a 2 → se revisan 600 g de harina y 4 huevos (no se descuentan);
 //     a 3 → se descuentan (descontar_insumos_pedido) y todos sus platos quedan listos.
 // La usan PUT /api/pedidos/:pedidoId/estado (admin) y PUT /api/pedidos/:id/listo-cocinero (cocina).
 // ─────────────────────────────────────────────────────────────────────────────
-async function cambiarEstadoPedido(pedidoId, nuevoEstado, idUsuario) {
+async function cambiarEstadoPedido(pedidoId, nuevoEstado, idUsuario, aunqueFaltenInsumos) {
   // 1. A 2 (En Preparación): ¿alcanzan los insumos de lo que cocina la cocina? Solo lee.
-  //    "condición ? await … : null" = solo se consulta si hace falta.
-  const errorInsumos = nuevoEstado === 2 ? await verificarStockPedido(pedidoId) : null;
+  //    Con aunqueFaltenInsumos no se revisa: se pueden comprar después. Al pasar a 3 la base los vuelve a controlar
+  //    al descontarlos. "condición ? await … : null" = solo se consulta si hace falta.
+  const revisarInsumos = nuevoEstado === 2 && aunqueFaltenInsumos !== true;
+  const errorInsumos = revisarInsumos ? await verificarStockPedido(pedidoId) : null;
   if (errorInsumos) return errorInsumos;                          // ya viene armado: { status: 409 o 500, error }
 
   // 2. A 3 o 4: se descuentan los insumos, una sola vez por pedido (lo controla la base)
@@ -1437,8 +1461,9 @@ async function cambiarEstadoPedido(pedidoId, nuevoEstado, idUsuario) {
 // GET /api/pedidos/:id/verificar-stock → ¿alcanzan los insumos para preparar el pedido? Solo lee.
 // ENTRADA: el número de pedido en la dirección
 // SALIDA:  { ok: true } · { ok: false, error } si falta un insumo · 400 número inválido · 404 no existe · 500
-// Ej: pedido con 2 fideos "sin sal" y Huevo en −35 → { ok: false, error: 'Stock insuficiente de "Huevo": se necesitan 4, hay -35 disponibles' }
-// La usa la grilla antes de abrir "Confirmar Pago", para no pedir la confirmación si igual no puede pasar a 2.
+// Ej: pedido con 2 fideos "sin sal" y Huevo en −35 → { ok: false, error: 'Faltan 39 u de Huevo para las viandas personalizadas' }
+// La usa Consultar Pedidos al pasar a "En Preparación" un pedido con personalizados (24/10): si faltan, pregunta
+// "¿Pasarlo igual?" (no bloquea: los insumos se pueden comprar).
 // ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/pedidos/:id/verificar-stock', requireAuth, requireRol(6, 5, 1), async (req, res) => {
   // 1. El número de pedido: entero, mayor a 0 y que entre en la base
@@ -1468,17 +1493,24 @@ app.get('/api/pedidos/:id/verificar-stock', requireAuth, requireRol(6, 5, 1), as
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PUT /api/pedidos/:pedidoId/estado → cambia el estado de un pedido (grilla de Consultar Pedidos y Envíos)
-// ENTRADA: el número de pedido en la dirección y { estado_id } en el body: 1, 2, 3 o 4 (el 5 va por "Anular")
-// SALIDA:  { mensaje: 'Estado actualizado', pedido } (con el estado que quedó guardado) · 400 datos inválidos
-//          · 403 cancelar sin PIN o repartidor que no marca Entregado · 404 no existe
-//          · 409 anulado o falta un insumo · 500
+// ENTRADA: el número de pedido en la dirección y { estado_id } en el body: 1, 2, 3 o 4 (el 5 va por "Anular").
+//          Opcional (24/10): aunque_falten_insumos: true → al pasar a 2 no se frena si faltan insumos (la persona
+//          ya vio el aviso y lo confirmó en Consultar Pedidos). Solo vale el true y solo para el 2.
+// SALIDA:  { mensaje: 'Estado actualizado', pedido } (con el estado que quedó guardado) · 400 datos inválidos o
+//          (24/10) un plato personalizado sin hacer al pasar a 3 o 4 · 403 cancelar sin PIN o repartidor que no
+//          marca Entregado · 404 no existe · 409 anulado o falta un insumo · 500
 // Ej: pedido #250 con 10 fideos (todo de heladera) de 1 a 2 → queda en 3: { pedido: { id: 250, id_estado: 3, … } }
-//     pedido #251 con 8 fideos + 2 "sin sal" de 1 a 2 → queda en 2 (si alcanzan los insumos)
+//     pedido #251 con 8 fideos + 2 "sin sal" de 1 a 2 → queda en 2 (si alcanzan los insumos, o con aunque_falten_insumos)
+//     pedido #251 de 2 a 3 con el "sin sal" sin hacer → 400 "La vianda personalizada todavía no está hecha…"
 // Un pedido anulado no cambia más de estado: sus viandas ya volvieron a la heladera.
 // ─────────────────────────────────────────────────────────────────────────────
+const MENSAJE_PERSONALIZADO_SIN_HACER = 'La vianda personalizada todavía no está hecha. La tiene que marcar la cocina como lista.';
+
 app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => {
   const pedidoId = Number(req.params.pedidoId);                   // el pedido, de la dirección
   const nuevoEstado = Number(req.body?.estado_id);                // el estado nuevo, del body
+  // ¿La persona confirmó pasarlo a 2 aunque falten insumos? Solo cuenta si mandó exactamente true y si pasa a 2
+  const aunqueFaltenInsumos = req.body?.aunque_falten_insumos === true && nuevoEstado === 2;
 
   // 1. El número de pedido: entero, mayor a 0 y que entre en la base
   const idInvalido = !Number.isInteger(pedidoId) || pedidoId <= 0 || pedidoId > ENTERO_MAXIMO_BASE;
@@ -1509,6 +1541,18 @@ app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), as
     // 6. Un pedido anulado no cambia más de estado. Se corta ANTES de revisar o descontar insumos.
     if (pedidoActual.id_estado === ESTADO_ANULADO) return res.status(409).json({ error: 'Un pedido anulado no cambia de estado' });
 
+    // 6b. (24/10) A 3 o 4 NO, si tiene un plato personalizado sin hacer (listo = false). El único camino a 3 de un
+    //     pedido con personalizados es el "✓ Listo para entregar" del cocinero (PUT /listo-cocinero), que pasa a 3
+    //     recién cuando están todos sus platos listos y descuenta los insumos. Solo lee, ANTES de cambiar nada.
+    //     limit(1): con encontrar uno alcanza. "condición ? await … : …" = solo se consulta si pasa a 3 o 4.
+    const pasaA3o4 = nuevoEstado === 3 || nuevoEstado === 4;
+    const consultaSinHacer = pasaA3o4
+      ? await supabase.from('pedido_detalles').select('id').eq('id_pedido', pedidoId).eq('personalizado', true).eq('listo', false).limit(1)
+      : { data: [], error: null };
+    if (consultaSinHacer.error) return errorInterno(res, consultaSinHacer.error);
+    const hayPersonalizadoSinHacer = (consultaSinHacer.data || []).length > 0;
+    if (hayPersonalizadoSinHacer) return res.status(400).json({ error: MENSAJE_PERSONALIZADO_SIN_HACER });
+
     // 7. Nada para cocinar → 3 (paso H5): al pasar de 1 a 2, si TODOS sus platos salen de la heladera
     //    (ninguno va a la cocina), el pedido pasa directo a 3 "Listo para Entregar".
     //    Si quedara en 2, la cocina no lo vería nunca (nace con todo listo) y Envíos solo muestra 3 y 4.
@@ -1533,7 +1577,8 @@ app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), as
     const estadoFinal = todoDeHeladera ? 3 : nuevoEstado;         // el estado que se va a guardar
 
     // 8. Se cambia (con los insumos que correspondan). El usuario sale del token.
-    const resultado = await cambiarEstadoPedido(pedidoId, estadoFinal, req.usuario.id);
+    //    aunqueFaltenInsumos (24/10): si la persona lo confirmó, al pasar a 2 no se frena por los insumos.
+    const resultado = await cambiarEstadoPedido(pedidoId, estadoFinal, req.usuario.id, aunqueFaltenInsumos);
     if (resultado.error) return res.status(resultado.status).json({ error: resultado.error });
 
     res.json({ mensaje: 'Estado actualizado', pedido: resultado.pedido });  // con el estado que quedó guardado

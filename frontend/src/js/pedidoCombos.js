@@ -45,9 +45,12 @@ const LARGO_MAXIMO = {
   observaciones:  500
 };
 
-// Días hábiles mínimos para la entrega: 2 (48 hs hábiles), o 3 si hay algún plato personalizado
-const DIAS_HABILES_ENTREGA = 2;
-const DIAS_HABILES_CON_PERSONALIZADO = 3;
+// Días hábiles mínimos para la entrega (24/10; los mismos que controla el servidor):
+//   0 → todo sale de la heladera (ya está hecho): cualquier día hábil desde hoy
+//   2 → con algún plato personalizado: un día de producción en el medio (pide el martes → se cocina el miércoles
+//       → se entrega desde el jueves). Antes eran 2 y 3.
+const DIAS_HABILES_ENTREGA = 0;
+const DIAS_HABILES_CON_PERSONALIZADO = 2;
 
 // Valores EXACTOS que acepta el servidor (los mismos que usa el formulario viejo)
 const ENTREGA_ENVIO = 'Delivery';
@@ -65,7 +68,7 @@ let barriosCargados = false;
 // SALIDA:  nada (la ventana "Finalizar pedido" abierta: resumen, total, fecha mínima y los datos de la sesión).
 //          El resumen va abierto en compu (a la derecha) y cerrado en el celular (se abre al tocarlo).
 // Ej: carrito con "Mantenimiento x10" (8 fideos + 2 fideos "sin sal") → "(1 combo)", total $ 137.000
-//     y la primera fecha posible a 3 días hábiles (uno más por el "sin sal")
+//     y la primera fecha posible a 2 días hábiles (un día de producción en el medio, por el "sin sal")
 function abrirFinalizarPedido() {
   // Sin combos no hay nada que finalizar
   if (carritoCombos.length === 0) return;
@@ -114,17 +117,21 @@ function abrirFinalizarPedido() {
   // matchMedia pregunta si la pantalla cumple esa medida. Ej: compu de 1440 px → true · celular de 390 px → false
   document.getElementById('resumen-pedido').open = window.matchMedia('(min-width: 900px)').matches;
 
-  // 2. Fecha mínima: 2 días hábiles, o 3 si hay algún plato personalizado.
+  // 2. Fecha mínima (24/10): desde hoy si todo sale de la heladera, o 2 días hábiles si hay algún plato personalizado.
   //    flatMap junta en una sola lista los platos de todos los combos.
   //    Ejemplo: entra [{ platos: [fideos x3] }, { platos: [fideos x2 "sin sal"] }] → sale [fideos x3, fideos x2 "sin sal"]
   //    some responde true si AL MENOS UNO cumple: [fideos x3, fideos x2 "sin sal"] → true
   const platosDelCarrito = carritoCombos.flatMap(combo => combo.platos);
   const hayPersonalizado = platosDelCarrito.some(plato => plato.personalizado);
   const diasHabiles = hayPersonalizado ? DIAS_HABILES_CON_PERSONALIZADO : DIAS_HABILES_ENTREGA;
-  const aclaracionPersonalizado = hayPersonalizado ? ' (un día hábil más por los platos personalizados)' : '';
+  const aclaracionPersonalizado = hayPersonalizado ? ' (por los platos personalizados: hay un día de producción en el medio)' : '';
 
+  // La primera fecha: hoy + esos días hábiles; si cae en un día no hábil (con 0 días, hoy sábado), el próximo hábil.
+  // Ej: hoy sábado y todo de heladera → el lunes · hoy martes con un "sin sal" → el jueves
   const campoFecha = document.getElementById('campo-fecha');
-  campoFecha.min = fechaLocalISO(sumarDiasHabiles(new Date(), diasHabiles));
+  const desdeFecha = sumarDiasHabiles(new Date(), diasHabiles);
+  const primerDiaHabil = esDiaHabil(desdeFecha) ? desdeFecha : proximoDiaHabil(desdeFecha);
+  campoFecha.min = fechaLocalISO(primerDiaHabil);
   // Si había una fecha elegida que ya no alcanza, se borra
   const fechaQueNoAlcanza = campoFecha.value !== '' && campoFecha.value < campoFecha.min;
   if (fechaQueNoAlcanza) campoFecha.value = '';
@@ -178,7 +185,7 @@ function abrirFinalizarPedido() {
 //     con "Mar 20" marcado y el campo de fecha en '2026-10-20'
 function renderizarDiasEntrega() {
   const campoFecha = document.getElementById('campo-fecha');
-  const primerDia = parseFechaLocal(campoFecha.min);   // ya es un día hábil (lo calculó sumarDiasHabiles)
+  const primerDia = parseFechaLocal(campoFecha.min);   // ya es un día hábil (lo calculó abrirFinalizarPedido)
 
   // Los 5 días: el primero posible y los días hábiles que le siguen (salteando fines de semana y feriados).
   // map arma una lista nueva: por cada número n, el día hábil que está n días hábiles después del primero.
