@@ -3,7 +3,23 @@
 // Lo usan pedidoCombos.js (fecha de entrega del cliente en la web), ListarPedidos.js
 // (pedidos a producir hoy), otras pantallas del panel y server.js. Todo trabaja con la fecha LOCAL: nunca usar
 // toISOString(), que convierte a UTC y en Argentina cambia de día a las 21 h.
+// 25/10: acá están también las reglas de la fecha de entrega (las usan la web y el servidor, así son las mismas):
+//   HORA_CORTE, DIAS_HABILES_ENTREGA, DIAS_HABILES_CON_PERSONALIZADO y primeraFechaEntrega.
 // ============================================================================
+
+// ── Las reglas de la fecha de entrega (25/10: antes estaban repetidas en server.js y en pedidoCombos.js) ──
+// La cocina corta a las 21: un pedido SOLO DE HELADERA hecho desde las 21:00 (hora de Argentina) ya no se entrega
+// hoy; la primera fecha es el próximo día hábil. Un pedido con personalizado no cambia (mirá abajo).
+const HORA_CORTE = 21;
+// Días hábiles mínimos para la entrega (24/10):
+//   0 → todo sale de la heladera (ya está hecho): cualquier día hábil desde hoy (antes de las 21).
+//   2 → con algún personalizado: un día de producción en el medio. Pide el martes → se cocina el miércoles
+//       → se entrega desde el jueves.
+const DIAS_HABILES_ENTREGA = 0;
+const DIAS_HABILES_CON_PERSONALIZADO = 2;
+// La zona horaria de la cocina: "hoy" y la hora del corte salen de acá, sin importar la hora de la compu del
+// cliente ni la del servidor (Render corre en UTC: a las 21 h de Argentina, para él ya es mañana)
+const ZONA_ARGENTINA = 'America/Argentina/Cordoba';
 
 const FERIADOS = [
   // '2026-01-01', // Año Nuevo
@@ -91,8 +107,46 @@ function fechaHoraDDMMAAAA(fecha) {
   return `${fechaDDMMAAAA(fecha)} ${hh}:${mi}`;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// primeraFechaEntrega → la primera fecha de entrega que se puede elegir (25/10, con el horario de corte)
+// ENTRADA: hayPersonalizado (true si el pedido tiene algún plato personalizado) y ahora (el momento; por defecto,
+//          ahora mismo). Del momento se saca el día y la hora DE ARGENTINA.
+// SALIDA:  { fecha, pasoElCorte }. fecha: la primera fecha (Date, a medianoche) · pasoElCorte: true si era solo de
+//          heladera y ya eran las 21 o más (para avisarle al cliente por qué no es hoy)
+// Ej: solo heladera, lunes 26/10 20:59 → { lunes 26/10, false } · lunes 21:01 → { martes 27/10, true }
+//     viernes 30/10 21:01 → { lunes 02/11, true } · sábado a cualquier hora → { lunes, … } (el sábado no se entrega)
+//     con personalizado, lunes 21:01 → { miércoles 28/10, false } (el corte no lo cambia: se cocina el martes)
+// La usan el servidor (POST /api/pedidos-combos, que es el que manda) y la web (abrirFinalizarPedido).
+// ─────────────────────────────────────────────────────────────────────────────
+function primeraFechaEntrega(hayPersonalizado, ahora = new Date()) {
+  // 1. El día y la hora de Argentina en ese momento. formatToParts los da por separado:
+  //    Ej: [{ type: 'year', value: '2026' }, { type: 'month', value: '10' }, …, { type: 'hour', value: '21' }]
+  //    hourCycle 'h23' = las horas de 0 a 23 (a la medianoche da "00", no "24")
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: ZONA_ARGENTINA, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23'
+  }).formatToParts(ahora);
+  const valor = tipo => Number(partes.find(parte => parte.type === tipo).value);   // find = la parte de ese tipo
+  const hoy = new Date(valor('year'), valor('month') - 1, valor('day'));           // hoy en Argentina, a medianoche
+  const hora = valor('hour');                                                       // la hora en Argentina (0 a 23)
+
+  // 2. ¿Pasó el corte? Solo cuenta si todo sale de la heladera (con personalizado ya hay un día de producción)
+  const pasoElCorte = !hayPersonalizado && hora >= HORA_CORTE;
+
+  // 3. Desde qué día se cuenta: hoy, o mañana si pasó el corte (new Date con día + 1: el día siguiente)
+  const desde = pasoElCorte ? new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1) : hoy;
+
+  // 4. Más los días hábiles del pedido (0 o 2); si cae en un día que no es hábil (sábado, domingo), el próximo hábil
+  const diasHabiles = hayPersonalizado ? DIAS_HABILES_CON_PERSONALIZADO : DIAS_HABILES_ENTREGA;
+  const conDias = sumarDiasHabiles(desde, diasHabiles);
+  const fecha = esDiaHabil(conDias) ? conDias : proximoDiaHabil(conDias);
+  return { fecha: fecha, pasoElCorte: pasoElCorte };
+}
+
 // En el servidor (Node) se reutiliza este mismo archivo para validar la fecha de entrega
-// (POST /api/pedidos). En el navegador `module` no existe y esto no hace nada.
+// (POST /api/pedidos-combos). En el navegador `module` no existe y esto no hace nada.
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { FERIADOS, fechaLocalISO, parseFechaLocal, esDiaHabil, sumarDiasHabiles, proximoDiaHabil, diaHabilAnterior, fechaDDMMAAAA };
+  module.exports = {
+    FERIADOS, fechaLocalISO, parseFechaLocal, esDiaHabil, sumarDiasHabiles, proximoDiaHabil, diaHabilAnterior, fechaDDMMAAAA,
+    HORA_CORTE, DIAS_HABILES_ENTREGA, DIAS_HABILES_CON_PERSONALIZADO, primeraFechaEntrega   // 25/10
+  };
 }

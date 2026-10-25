@@ -7,7 +7,8 @@
 //   renderizarFiltrosEstado → escribe en la lista de estados cuántos pedidos hay de cada uno, marca el elegido y
 //                             lo muestra en la barra ("Estado: Registrado")
 //   mostrarListaEstados     → abre o cierra la lista de "Estado" de la barra de filtros
-//   crearFilaPedido         → arma la fila de un pedido (la llama crearPaginacion por cada pedido de la página)
+//   crearFilaPedido         → arma la fila de un pedido (la llama crearPaginacion por cada pedido de la página).
+//                             24/10: sin Mail, con Envío (Delivery / Retira) y el pago corto ("A cobrar", "✓ Cobrado")
 //   aplicarFechas           → "Aplicar" (la fecha de entrega) o "Ver todos"
 //   alCambiarEstado         → cambió el select de estado: a "En Preparación" con personalizados revisa los insumos
 //                             (24/10) y después sigue con seguirCambioEstado
@@ -16,7 +17,8 @@
 //   abrirFaltanInsumos / responderFaltanInsumos → (24/10) la ventana "Faltan insumos": "¿Pasarlo igual?"
 //   guardarEstado           → manda el estado nuevo (PUT /api/pedidos/:id/estado) y muestra el que quedó guardado
 //   pintarEstado            → pinta el select con el color de su estado
-//   abrirDetalles           → la ventana "Detalles" (un recuadro por combo con sus platos, y el total)
+//   abrirDetalles           → la ventana "Detalles" (24/10: el cliente y su mail, 3 cajitas Entrega · Envío · Viandas,
+//                             un recuadro por combo con sus platos, y el total)
 //   abrirAnular             → la ventana "Anular pedido" (pide el PIN)
 //   confirmarAnulacion      → manda la anulación (POST /api/pedidos/:id/anular) y avisa cuántas viandas volvieron
 //   cerrarVentana           → cierra una ventana (si es "Confirmar pago", cuenta como "No, todavía no pagó")
@@ -57,6 +59,13 @@ const COLORES_ESTADO = {
 const TEXTO_PASTILLA_METODO = {
   'Tarjeta Débito':  'Tarjeta',
   'Tarjeta Crédito': 'Tarjeta'
+};
+
+// La columna Envío (24/10): lo que dice, la clase de su color (ConsultarPedidos.css) y su dibujito (ConsultarPedidos.html).
+// La clave es el tipo_entrega del pedido. Los pedidos viejos no tienen: van con una rayita gris "—".
+const ENVIO_PEDIDO = {
+  'Delivery':        { texto: 'Delivery', clase: 'envio-delivery', icono: 'icono-camion' },   // azul, con el camioncito
+  'Retiro en local': { texto: 'Retira',   clase: 'envio-retira',   icono: 'icono-local' }     // violeta, con el local
 };
 
 // El mensaje de la tabla vacía, según sea el modo del filtro de fechas
@@ -242,12 +251,14 @@ function mostrarListaEstados(abrir) {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// crearFilaPedido → arma la fila de un pedido: 11 celdas (Dirección y Método Pago con 2 renglones: el dato y abajo uno chico gris)
+// crearFilaPedido → arma la fila de un pedido: 11 celdas (Pago con 2 renglones: el método y abajo uno chico de color)
 // ENTRADA: pedido (como lo manda GET /api/pedidos)
 // SALIDA:  la fila (<tr>) lista para la tabla, con sus botones enganchados
-// Ej: #250 · 19/10 · PRUEBA – NO PREPARAR · Ituzaingó 431 / Delivery · Centro · 351 555-0100 · prueba@mail.com ·
-//     10 / ⚠ 2 personalizados · $ 137.000 · [Registrado ▾] · Efectivo / Cobra al entregar · [Detalles] [Pago] [Anular]
-//     Si ya pagó, el renglón chico de Método Pago va en verde y con ✓ ("✓ Cobrado", "✓ Débito").
+// Ej: #250 · 19/10 · PRUEBA – NO PREPARAR · Ituzaingó 431 · 351 555-0100 · 10 · $ 137.000 · [Registrado ▾] ·
+//     Efectivo / A cobrar · 🚚 Delivery · [Detalles] [Pago] [Anular]
+//     24/10 (más simple): sin Mail (está en Detalles) ni "⚠ 2 personalizados"; Cliente y Dirección hasta en 2 renglones;
+//     si retira, la Dirección es una rayita gris "—"; la columna Envío dice "Delivery" o "Retira"; el renglón chico
+//     del pago es corto: "A cobrar" (naranja), "✓ Cobrado" (verde) o "Sin confirmar" (gris).
 //     Si está anulado: la fila en gris con el costo tachado, el select y "Pago" apagados, y "Anulado" en gris.
 // ─────────────────────────────────────────────────────────────────────────────
 function crearFilaPedido(pedido) {
@@ -256,26 +267,38 @@ function crearFilaPedido(pedido) {
   const entregaCompleta = pedido.fecha_entrega ? fechaDDMMAAAA(parseFechaLocal(pedido.fecha_entrega)) : '—';  // ej: "19/10/2026"
   const entrega     = entregaCompleta.slice(0, 5);                                   // solo día y mes (slice = los primeros 5): "19/10"
   const cliente     = pedido.cliente_nombre || pedido.usuarios?.nombre || 'Anónimo'; // ?. = "si existe usuarios, su nombre"
-  const direccion   = pedido.cliente_direccion || '—';
   const telefono    = pedido.cliente_telefono  || '—';
-  const email       = pedido.cliente_email     || '—';
   const metodo      = pedido.metodo_pago       || 'Efectivo';                        // sin método = Efectivo
   const textoPagado = pedido.pagado ? 'Pagado' : 'Pendiente de pago';                // el cartelito al pasar el mouse por el método
   const textoMetodo = TEXTO_PASTILLA_METODO[metodo] || metodo;                       // ej: 'Tarjeta Débito' → 'Tarjeta'
 
-  // a. Debajo del método, el detalle chiquito, según sea el método
+  // La dirección (24/10): si retira en el local (o no hay dirección), una rayita gris "—"
+  const retira      = pedido.tipo_entrega === 'Retiro en local';
+  const sinDireccion = retira || !pedido.cliente_direccion;
+  const direccion   = sinDireccion ? '—' : pedido.cliente_direccion;
+  const claseSinDireccion = sinDireccion ? ' dato-vacio' : '';                        // la rayita en gris (ConsultarPedidos.css)
+
+  // a. Debajo del método, el detalle chiquito, según sea el método (24/10: textos cortos).
+  //    claseDetalle = su color: naranja si falta cobrar ("pago-a-cobrar"); sin clase, gris
   let detallePago = '';
+  let claseDetalle = '';
   switch (metodo) {
-    case 'Mixto': {                                                // según sea Mixto: los dos montos
-      const faltaEfectivo = pedido.transferencia_confirmada && !pedido.pagado;   // la transferencia llegó; falta cobrar el efectivo
-      detallePago = faltaEfectivo
-        ? 'Transferencia ✓ · Efectivo pendiente ' + formatearPrecio(pedido.monto_efectivo || 0)
-        : 'Efectivo ' + formatearPrecio(pedido.monto_efectivo || 0) + ' · Transf. ' + formatearPrecio(pedido.monto_transferencia || 0);
+    case 'Mixto': {                                                // según sea Mixto: ¿llegó la transferencia?
+      const faltaEfectivo = pedido.transferencia_confirmada && !pedido.pagado;     // llegó: falta cobrar el efectivo
+      const faltaTransferencia = !pedido.transferencia_confirmada && !pedido.pagado;  // no llegó: falta confirmarla
+      if (faltaEfectivo) {
+        detallePago = 'A cobrar ' + formatearPrecio(pedido.monto_efectivo || 0);   // ej: "A cobrar $ 8.500"
+        claseDetalle = ' pago-a-cobrar';                           // en naranja
+      }
+      if (faltaTransferencia) detallePago = 'Sin confirmar';
       break;
     }
     case 'Efectivo': {                                             // según sea Efectivo: se cobra al entregar, o se pagó antes
       const cobraAlEntregar = !pedido.pagado && !pedido.pago_anticipado;
-      if (cobraAlEntregar) detallePago = 'Cobra al entregar';
+      if (cobraAlEntregar) {
+        detallePago = 'A cobrar';                                  // se cobra al entregar
+        claseDetalle = ' pago-a-cobrar';                           // en naranja
+      }
       if (pedido.pago_anticipado) detallePago = 'Pago anticipado';
       break;
     }
@@ -300,48 +323,45 @@ function crearFilaPedido(pedido) {
   if (anulado) detallePago = '';
   const yaPago = pedido.pagado && !anulado;
   if (yaPago) detallePago = '✓ ' + (detallePago || 'Cobrado');
-  const claseCobrado = yaPago ? ' pago-cobrado' : '';                                // el renglón en verde (ConsultarPedidos.css)
-  const detalleHTML = detallePago ? '<span class="dato-chico' + claseCobrado + '">' + escHtml(detallePago) + '</span>' : '';
+  if (yaPago) claseDetalle = ' pago-cobrado';                                         // el renglón en verde (ConsultarPedidos.css)
+  const detalleHTML = detallePago ? '<span class="dato-chico' + claseDetalle + '">' + escHtml(detallePago) + '</span>' : '';
 
-  // c. Las viandas: cuántas son en total y cuántas personalizadas (se suman las cantidades de los platos)
-  //    Ej: 8 fideos + 2 fideos "sin sal" → 10 viandas y "⚠ 2 personalizados"
+  // c. Las viandas: cuántas son en total (se suman las cantidades de los platos). Ej: 8 fideos + 2 fideos "sin sal" → 10
   let totalViandas = 0;
-  let viandasPersonalizadas = 0;
   (pedido.pedido_detalles || []).forEach(detalle => {
-    const cantidad = Number(detalle.cantidad) || 0;
-    totalViandas = totalViandas + cantidad;
-    if (detalle.personalizado) viandasPersonalizadas = viandasPersonalizadas + cantidad;
+    totalViandas = totalViandas + (Number(detalle.cantidad) || 0);
   });
-  const palabraPersonalizado = viandasPersonalizadas === 1 ? 'personalizado' : 'personalizados';
-  const textoPersonalizados = escHtml(viandasPersonalizadas) + ' ' + palabraPersonalizado;   // ej: "2 personalizados" (también va en el title: si la pastillita lo corta, se lee entero al pasar el mouse)
-  const avisoPersonalizados = viandasPersonalizadas > 0
-    ? '<span class="dato-chico aviso-personalizados" title="' + textoPersonalizados + '">⚠ ' + textoPersonalizados + '</span>'
-    : '';
 
-  // d. Debajo de la dirección, cómo se entrega: "Delivery · Centro" o "Retiro en local" (los pedidos viejos no lo tienen)
+  // d. La columna Envío (24/10): "Delivery" (azul, con el camioncito) o "Retira" (violeta, con el local), en texto común.
+  //    Los pedidos viejos (sin forma de entrega), una rayita gris. Al pasar el mouse, el barrio: "Delivery · Centro"
+  const envio = ENVIO_PEDIDO[pedido.tipo_entrega];                 // { texto, clase, icono }, o undefined
+  let celdaEnvio = '<span class="dato-vacio">—</span>';
+  if (envio) celdaEnvio = '<span class="texto-envio ' + envio.clase + '"><svg class="icono-envio" aria-hidden="true"><use href="#'
+    + envio.icono + '"></use></svg>' + envio.texto + '</span>';
   const barrio = pedido.barrios?.nombre || '';                     // ?. = "si vino el barrio, su nombre"
   const conBarrio = pedido.tipo_entrega === 'Delivery' && barrio !== '';
   let textoEntrega = pedido.tipo_entrega || '';
   if (conBarrio) textoEntrega = 'Delivery · ' + barrio;
 
   // 2. La fila: 11 celdas, cada una con la clase de su columna (col-…: el ancho y el color están en ConsultarPedidos.css).
-  //    Dirección y Método Pago tienen el dato arriba (dato-principal) y abajo el renglón chico gris (dato-chico, global.css).
+  //    Pago tiene el método arriba (dato-principal) y abajo el renglón chico (dato-chico, global.css).
+  //    Cliente y Dirección, hasta 2 renglones (dos-renglones, global.css).
   //    Las celdas con lo que escribió el cliente quedan vacías y se llenan abajo con textContent.
   const fila = document.createElement('tr');
   fila.innerHTML = `
     <td class="col-numero">${escHtml(numero)}</td>
     <td class="col-entrega" title="Entrega: ${escHtml(entregaCompleta)}">${escHtml(entrega)}</td>
-    <td class="col-cliente"></td>
-    <td class="col-direccion"><span class="dato-principal"></span><span class="dato-chico"></span></td>
+    <td class="col-cliente"><span class="dos-renglones"></span></td>
+    <td class="col-direccion"><span class="dos-renglones${claseSinDireccion}"></span></td>
     <td class="col-contacto"></td>
-    <td class="col-contacto col-mail"></td>
-    <td class="col-viandas">${escHtml(totalViandas)}${avisoPersonalizados}</td>
+    <td class="col-viandas">${escHtml(totalViandas)}</td>
     <td class="col-costo">${escHtml(formatearPrecio(pedido.total))}</td>
     <td class="col-estado"><span class="caja-estado"><svg class="flecha-estado" aria-hidden="true"><use href="#icono-flecha-abajo"></use></svg></span></td>
     <td class="col-pago">
       <span class="dato-principal" title="${textoPagado}">${escHtml(textoMetodo)}</span>
       ${detalleHTML}
     </td>
+    <td class="col-envio">${celdaEnvio}</td>
     <td class="col-acciones">
       <div class="acciones-pedido">
         <button type="button" class="btn-detalles">Detalles</button>
@@ -352,16 +372,13 @@ function crearFilaPedido(pedido) {
 
   // 3. Lo que escribió el cliente va con textContent: se muestra como texto y nunca se ejecuta (XSS).
   //    title = el texto entero al pasar el mouse (si no entra, la celda lo corta con "…")
-  fila.cells[2].textContent = cliente;                             // columna 3: nombre del cliente
+  fila.cells[2].firstElementChild.textContent = cliente;           // columna 3: nombre del cliente
   fila.cells[2].title = cliente;                                   // …entero al pasar el mouse
-  fila.cells[3].firstElementChild.textContent = direccion;         // columna 4: dirección…
-  fila.cells[3].lastElementChild.textContent = textoEntrega;       // …y abajo, cómo se entrega
-  fila.cells[3].lastElementChild.hidden = textoEntrega === '';     // sin forma de entrega (pedidos viejos) no ocupa lugar
-  fila.cells[3].title = (direccion + '\n' + textoEntrega).trim();  // trim = sin el salto de renglón del final si no hay entrega
+  fila.cells[3].firstElementChild.textContent = direccion;         // columna 4: dirección (o "—" si retira)
+  fila.cells[3].title = direccion;                                 // …entera al pasar el mouse
   fila.cells[4].textContent = telefono;                            // columna 5: teléfono
   fila.cells[4].title = telefono;                                  // …entero al pasar el mouse
-  fila.cells[5].textContent = email;                               // columna 6: mail
-  fila.cells[5].title = email;                                     // …entero al pasar el mouse
+  fila.cells[9].title = textoEntrega;                              // columna 10: Envío; al pasar el mouse, con el barrio
   fila.classList.toggle('fila-cancelada', anulado);                // anulado: la fila en gris y el costo tachado (CSS)
 
   // 4. El select de estado
@@ -382,7 +399,7 @@ function crearFilaPedido(pedido) {
   pintarEstado(select, estadoActual);                              // su color
   select.disabled = anulado;                                       // un anulado no cambia más (el servidor también lo frena)
   select.addEventListener('change', () => alCambiarEstado(pedido, select));  // al elegir otro estado
-  fila.cells[8].firstElementChild.prepend(select);                 // columna 9: estado (prepend = adentro y primero: antes de su ▾)
+  fila.cells[7].firstElementChild.prepend(select);                 // columna 8: estado (prepend = adentro y primero: antes de su ▾). 24/10: sin Mail, es la 8
 
   // 5. Los botones de la fila (?. = "si existe el botón": un anulado no tiene "Anular")
   fila.querySelector('.btn-detalles').addEventListener('click', () => abrirDetalles(pedido.id));  // "Detalles"
@@ -605,8 +622,11 @@ function pintarEstado(select, estadoId) {
 // abrirDetalles → la ventana "Detalles": un recuadro por combo con su precio y sus platos, los platos sueltos y el total
 // ENTRADA: pedidoId
 // SALIDA:  nada (llena la ventana y la abre)
-// Ej: #250 → arriba "Realizado el 15/10/2026 · 18:40" y "Pedido #250"; un recuadro "PRUEBA Mantenimiento x10  $ 137.000"
-//     con "8 fideos" y "2 fideos  ⚠ sin sal"; abajo "Total  $ 137.000"
+// Ej: #250 → arriba "Realizado el 15/10/2026 · 18:40" y "Pedido #250"; "PRUEBA – NO PREPARAR · prueba@mail.com";
+//     3 cajitas "ENTREGA 19/10 · ENVÍO Delivery · VIANDAS 10"; un recuadro "PRUEBA Mantenimiento x10  $ 137.000"
+//     con "8 fideos  de la heladera" y "2 fideos  ⚠ sin sal"; abajo "Total  $ 137.000"
+// 24/10 (más simple): se suman la línea del cliente (nombre · mail) y las 3 cajitas; cada plato que no es personalizado
+// dice "de la heladera" a la derecha. Sin dirección, teléfono ni observaciones.
 // Los platos de un combo van sin precio (el que se cobra es el del combo). Los pedidos viejos (platos sueltos),
 // con su precio unitario.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -620,16 +640,35 @@ function abrirDetalles(pedidoId) {
   const realizado = pedido.fecha_pedido ? fechaHoraDDMMAAAA(fechaDeTimestamp(pedido.fecha_pedido)).replace(' ', ' · ') : '—';
   document.getElementById('modalFechaPedido').textContent = realizado;
 
-  // 2. Sin platos: un renglón que lo dice
+  // 2. (24/10) Arriba: el cliente y su mail (en azul) y las 3 cajitas: Entrega · Envío · Viandas.
+  //    El nombre y el mail los escribió el cliente: escHtml
+  const cliente = pedido.cliente_nombre || pedido.usuarios?.nombre || 'Anónimo';   // ?. = "si existe usuarios, su nombre"
+  const mail = pedido.cliente_email ? ' · <span class="mail-detalle">' + escHtml(pedido.cliente_email) + '</span>' : '';
+  const entrega = pedido.fecha_entrega ? fechaDDMMAAAA(parseFechaLocal(pedido.fecha_entrega)).slice(0, 5) : '—';   // ej: "28/10"
+  const envio = ENVIO_PEDIDO[pedido.tipo_entrega];                 // { texto: 'Delivery', … }, o undefined (pedidos viejos)
+  const textoEnvio = envio ? envio.texto : '—';
+  let totalViandas = 0;                                            // la suma de las cantidades de los platos
+  (pedido.pedido_detalles || []).forEach(detalle => {
+    totalViandas = totalViandas + (Number(detalle.cantidad) || 0);
+  });
+  const htmlArriba = `
+    <p class="cliente-detalle"><span class="nombre-cliente-detalle">${escHtml(cliente)}</span>${mail}</p>
+    <div class="cajitas-detalle">
+      <div class="cajita-detalle"><span class="nombre-cajita">Entrega</span><span class="valor-cajita">${escHtml(entrega)}</span></div>
+      <div class="cajita-detalle"><span class="nombre-cajita">Envío</span><span class="valor-cajita">${escHtml(textoEnvio)}</span></div>
+      <div class="cajita-detalle"><span class="nombre-cajita">Viandas</span><span class="valor-cajita">${escHtml(totalViandas)}</span></div>
+    </div>`;
+
+  // 3. Sin platos: un renglón que lo dice (debajo del cliente y las cajitas)
   const cuerpoTabla = document.getElementById('modalDetallesBody');  // donde van los recuadros
   const detalles = pedido.pedido_detalles || [];                   // los platos del pedido
   if (detalles.length === 0) {
-    cuerpoTabla.innerHTML = '<p class="detalle-vacio">Sin detalles</p>';
+    cuerpoTabla.innerHTML = htmlArriba + '<p class="detalle-vacio">Sin detalles</p>';
     document.getElementById('modalDetalles').classList.add('visible');
     return;
   }
 
-  // 3. Los renglones de cada plato, ya armados: los de un combo juntos en { id_pedido_combo: '<div>…' },
+  // 4. Los renglones de cada plato, ya armados: los de un combo juntos en { id_pedido_combo: '<div>…' },
   //    y los sueltos aparte. (Así no hace falta un forEach adentro de otro.)
   const filasPorCombo = {};                                        // { id_pedido_combo: renglones de sus platos }
   let filasSueltas = '';                                           // los platos sin combo (pedidos viejos)
@@ -646,17 +685,20 @@ function abrirDetalles(pedidoId) {
       return;                                                      // (return = este plato ya está: seguir con el siguiente)
     }
     const tieneTexto = detalle.personalizado && detalle.observaciones_plato;  // ...de un combo, ¿es personalizado?
-    const marcaPersonalizado = tieneTexto ? '<span class="plato-personalizado">⚠ ' + escHtml(detalle.observaciones_plato) + '</span>' : '';  // el texto lo escribió el cliente: escHtml
+    // 24/10: el que no es personalizado sale de la heladera: lo dice en gris a la derecha
+    let marcaPersonalizado = '';
+    if (!detalle.personalizado) marcaPersonalizado = '<span class="plato-heladera">de la heladera</span>';
+    if (tieneTexto) marcaPersonalizado = '<span class="plato-personalizado">⚠ ' + escHtml(detalle.observaciones_plato) + '</span>';  // el texto lo escribió el cliente: escHtml
     filasPorCombo[detalle.id_pedido_combo] = (filasPorCombo[detalle.id_pedido_combo] || '') + `
       <div class="linea-plato">
         <span><strong>${escHtml(detalle.cantidad)}</strong> ${escHtml(nombrePlato)}</span>${marcaPersonalizado}
       </div>`;
   });
 
-  // 4. Cada combo comprado (en el orden en que se guardó): un recuadro con su nombre y precio, y adentro sus platos
+  // 5. Cada combo comprado (en el orden en que se guardó): un recuadro con su nombre y precio, y adentro sus platos
   const combos = (pedido.pedido_combos || []).slice();             // slice = una copia (para ordenar sin tocar el pedido)
   combos.sort((a, b) => a.id - b.id);                              // por número, de menor a mayor
-  let html = '';
+  let html = htmlArriba;                                           // arriba, el cliente y las 3 cajitas (paso 2)
   combos.forEach(combo => {                                        // por cada combo...
     const nombreCombo = combo.combos?.nombre || 'Combo';
     html += `
@@ -669,7 +711,7 @@ function abrirDetalles(pedidoId) {
       </div>`;                                                     // ...y adentro sus platos (los del paso 3)
   });
 
-  // 5. Los platos sueltos (pedidos viejos, sin combo), en su propio recuadro
+  // 6. Los platos sueltos (pedidos viejos, sin combo), en su propio recuadro
   const haySueltos = filasSueltas !== '';
   if (haySueltos) {
     html += `
@@ -679,7 +721,7 @@ function abrirDetalles(pedidoId) {
       </div>`;
   }
 
-  // 6. El total del pedido, abajo de todo
+  // 7. El total del pedido, abajo de todo
   html += `
     <div class="total-detalle">
       <span>Total</span>

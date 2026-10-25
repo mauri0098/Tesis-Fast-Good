@@ -104,13 +104,13 @@ body {
   table-layout: fixed;
 }
 
+/* 24/10: el tamaño de los títulos y de las celdas (letra, alto y aire) es el de todas las tablas del panel (global.css,
+   sección 8). Acá queda solo dónde va el texto (al medio) */
 .standard-table thead th {
   background-color: #e8f5e9;
   color: #4CAF50;
   font-weight: 600;
   text-transform: uppercase;
-  font-size: 0.90rem; /* <-- LETRA GRANDE RECUPERADA */
-  padding: 0.9rem 0.4rem;
   text-align: center;
   letter-spacing: 0.05em;
   border-bottom: 2px solid #28a745;
@@ -120,9 +120,7 @@ body {
 .standard-table thead th:last-child  { border-top-right-radius: var(--radius); }
 
 .standard-table tbody td {
-  padding: 0.75rem 0.4rem;
   border-bottom: 1px solid var(--border-light);
-  font-size: 0.90rem; /* <-- LETRA GRANDE RECUPERADA */
   vertical-align: middle;
   text-align: center;
   word-wrap: break-word;
@@ -132,6 +130,18 @@ body {
 .standard-table tbody tr:hover          { background-color: #f1f8f3; }
 .standard-table tbody tr.row-bajo       { background-color: #fff5f5; }
 .standard-table tbody tr.row-bajo:hover { background-color: #ffe8e8; }
+
+/* Gestión de Stock (24/10): el ancho de cada columna EN PORCENTAJE (suman 100%). Antes no tenían ancho y medían todas
+   igual (Nombre lo mismo que Unidad). Lo largo (Nombre, Acciones) más ancho; lo corto (Código, Unidad) angosto.
+   ".tabla-stock-insumos" es solo de esta pantalla: Combos también carga este CSS y no cambia */
+.tabla-stock-insumos thead th:nth-child(1) { width: 8%; }    /* Código */
+.tabla-stock-insumos thead th:nth-child(2) { width: 18%; }   /* Nombre */
+.tabla-stock-insumos thead th:nth-child(3) { width: 11%; }   /* Stock actual */
+.tabla-stock-insumos thead th:nth-child(4) { width: 7%; }    /* Unidad */
+.tabla-stock-insumos thead th:nth-child(5) { width: 12%; }   /* Categoría */
+.tabla-stock-insumos thead th:nth-child(6) { width: 12%; }   /* Fecha caducidad */
+.tabla-stock-insumos thead th:nth-child(7) { width: 13%; }   /* Estado (la pastilla "BAJO MÍNIMO") */
+.tabla-stock-insumos thead th:nth-child(8) { width: 19%; }   /* Acciones (✎ Editar · 🗑 Eliminar: unos 200 px) */
 
 .loading-text {
   text-align: center;
@@ -143,11 +153,14 @@ body {
 /* =========================================
    BADGES DE ESTADO (Blindados contra cortes)
    ========================================= */
+/* 24/10: el alto y la letra son los de las pastillas de todas las tablas (global.css: --alto-pastilla-estado) */
 .badge-estado {
-  display: inline-block;
-  padding: 0.35rem 0.6rem;
+  height: var(--alto-pastilla-estado);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
   border-radius: 50px;
-  font-size: 0.75rem; 
+  font-size: var(--letra-pastilla-estado);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -273,14 +286,13 @@ body {
 /* =========================================
    BOTÓN EDITAR (columna Acciones)
    ========================================= */
+/* 24/10: el alto, la letra y el aire de Editar y Eliminar son los de los botones de todas las tablas (global.css, sección 8) */
 .btn-editar {
-  padding: 0.3rem 0.7rem;
   background-color: var(--primary-green);
   color: #fff;
   border: none;
   border-radius: 50px;
   font-family: 'Poppins', sans-serif;
-  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -289,23 +301,17 @@ body {
 .btn-editar:hover { background-color: #218838; }
 
 .btn-borrar {
-  padding: 0.3rem 0.7rem;
   background-color: #dc3545;
   color: #fff;
   border: none;
   border-radius: 50px;
   font-family: 'Poppins', sans-serif;
-  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
 }
 
 .btn-borrar:hover { background-color: #bd2130; }
-
-.td-acciones {
-  padding: 0.5rem 0.6rem;
-}
 
 .acciones-grupo {
   display: flex;

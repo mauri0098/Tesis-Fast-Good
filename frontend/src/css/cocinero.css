@@ -3,7 +3,8 @@
 
    Solo lo propio de esta pantalla. El molde del panel está en global.css:
      - sección 2: el título (28 px) y la bajada;
-     - sección 8: las tablas (títulos en MAYÚSCULA, filas de 48 px, líneas finitas) y el pie "Mostrando X de Y";
+     - sección 8: las tablas (títulos en MAYÚSCULA, filas de 40 px, líneas finitas, el tamaño de las pastillas y de los
+       botones de las filas; 24/10) y el pie "Mostrando X de Y";
      - sección 9: las páginas (‹ Anterior · 1 · Siguiente ›);
      - sección 13: el botón de arriba, las pestañas, el buscador, las pastillas de estado, las ventanas y el panel de la derecha.
    El cuadro del resultado de "✓ Hecho" está en pedidosCocina.css (compartido con Producción): acá solo se acomoda.
@@ -28,16 +29,18 @@
     /* Las tablas: lo más angostas que quedan (más chica la pantalla, se mueven de costado adentro de su tarjeta) */
     --cocina-tabla-ancho-minimo: 880px;    /* 29/10: 900 → 840 (menos columnas) · 24/10: 880, por Viandas y Cocinar de clientes */
 
-    /* Los anchos de las columnas (con "table-layout: fixed": Plato se lleva lo que sobra). 29/10: el ancho justo de cada
-       una; las grillas quedan Código · Plato · Cantidad · Estado · Fecha entrega · botones */
-    --cocina-ancho-codigo: 72px;           /* Código ("SG12" entra) */
-    --cocina-ancho-cantidad: 110px;        /* Cantidad ("12 viandas") */
-    --cocina-ancho-estado: 112px;          /* Estado (la pastilla, al medio) */
-    --cocina-ancho-fecha-entrega: 126px;   /* Fecha entrega (el título entra en un renglón; la pastilla "28/10") */
-    --cocina-ancho-botones-stock: 170px;   /* Detalles y ✓ Hecho */
-    --cocina-ancho-botones-clientes: 240px;  /* Detalles y ✓ Listo para entregar (miden 213 px + el aire de la celda) */
-    --cocina-ancho-viandas: 136px;         /* Viandas de clientes (24/10): "A cocinar: 1" y "De la heladera: 9" */
-    --cocina-ancho-cocinar: 170px;         /* Cocinar (24/10): la pastilla "Cocinar: mié 28/10" y abajo "Entrega: 29/10" */
+    /* Los anchos de las columnas (con "table-layout: fixed").
+       "Para stock" (24/10): EN PORCENTAJE, suman 100%. Así en una pantalla grande lo que sobra se reparte entre todas
+       (antes Plato no tenía ancho y a 1920 medía 987 px). Plato, lo largo, se lleva más.
+       Pedidos de clientes (24/10): las 5 columnas de datos sin ancho, así quedan todas iguales (no dejan hueco);
+       solo la de los botones tiene el suyo, en px, porque en % no entrarían en una pantalla chica */
+    --cocina-ancho-codigo: 8%;             /* Código ("SG12" entra también a 1280) */
+    --cocina-ancho-plato-stock: 37%;       /* Plato (y su plan entre paréntesis) */
+    --cocina-ancho-cantidad: 12%;          /* Cantidad ("12 viandas" entra también a 1280) */
+    --cocina-ancho-estado: 11%;            /* Estado (la pastilla, al medio) */
+    --cocina-ancho-fecha-entrega: 12%;     /* Fecha entrega (la pastilla "28/10") */
+    --cocina-ancho-botones-stock: 20%;     /* Detalles y ✓ Hecho (necesitan unos 170 px: a 1440 hay 219) */
+    --cocina-ancho-botones-clientes: 250px;  /* Detalles y ✓ Listo para entregar (24/10: 236 → 250, los botones son de 26 px) */
 
     /* El selector de vistas (la caja gris con "Para stock" y "Pedidos de clientes") */
     --cocina-fondo-selector: #f1f3f0;      /* la caja gris de atrás */
@@ -45,17 +48,29 @@
     --cocina-borde-vista-elegida: #d7e9dc; /* el borde verde clarito del elegido */
     --cocina-fondo-cantidad: #e3e7e2;      /* el circulito gris del que no está elegido */
 
-    /* Las pastillas de fecha de entrega: hoy (y atrasado) rojo, mañana naranja, más adelante azul */
+    /* Las pastillas de fecha de entrega: hoy (y atrasado) rojo, mañana naranja, más adelante azul.
+       24/10: su alto y su letra son los de las pastillas de todas las tablas (global.css: --alto-pastilla-estado) */
     --cocina-hoy-fondo: #fdecea;      --cocina-hoy-letra: #c62828;
     --cocina-manana-fondo: #fff1db;   --cocina-manana-letra: #a35f00;
     --cocina-despues-fondo: #e7effc;  --cocina-despues-letra: #1d5fbf;
-    --cocina-alto-pastilla-fecha: 26px;    /* alto de esas pastillas y de "12 viandas" */
-    --cocina-letra-pastilla-fecha: 13px;   /* su letra (en negrita, 700) */
 
-    /* El puntito de color de cada pestaña de día */
+    /* El puntito de color de cada pestaña de día ("Para stock") */
     --cocina-punto-hoy: #d93025;      /* hoy y atrasados: rojo */
     --cocina-punto-manana: #e09a1a;   /* mañana: naranja */
     --cocina-punto-despues: #2f6fd6;  /* más adelante: azul */
+
+    /* Pedidos de clientes (24/10): el puntito de cada día de la semana (siempre el mismo color para el mismo día) */
+    --cocina-punto-lunes: #2f6fd6;      /* lunes: azul */
+    --cocina-punto-martes: #8b3fd6;     /* martes: violeta */
+    --cocina-punto-miercoles: #0f9d8a;  /* miércoles: verde agua */
+    --cocina-punto-jueves: #e08a00;     /* jueves: naranja */
+    --cocina-punto-viernes: #d63f8b;    /* viernes: rosa */
+    --cocina-tamano-punto-dia: 8px;     /* el tamaño del puntito */
+    --cocina-letra-pestana-dia: 12px;   /* la letra de las pestañas de días */
+    /* La pestaña de un día que ya pasó y quedó algo sin hacer: rojo (los mismos de la pastilla de hoy) */
+    --cocina-atrasado-fondo: var(--cocina-hoy-fondo);
+    --cocina-atrasado-letra: var(--cocina-hoy-letra);
+    --cocina-atrasado-elegido: #f9d6d2;  /* …y si es la elegida, un poco más fuerte */
 
     /* Las pastillas de estado (la pieza está en global.css, 13d) */
     --cocina-por-hacer-fondo: #fff3df;   --cocina-por-hacer-letra: #a35f00;   /* Por hacer: naranja */
@@ -65,9 +80,7 @@
     --cocina-personalizado-fondo: #fdecea;
     --cocina-personalizado-letra: #b3261e;
 
-    /* Los botones de las filas: pastillas de 26 px */
-    --cocina-alto-boton-fila: 26px;
-    --cocina-letra-boton-fila: 12px;
+    /* Los botones de las filas: pastillas (24/10: el alto y la letra son los de todas las tablas, global.css) */
     --cocina-detalles-fondo: #fff1df;         /* "Detalles": naranja suave (el mismo de Consultar Pedidos) */
     --cocina-detalles-fondo-encima: #ffe6c4;  /* …al pasar el mouse */
     --cocina-detalles-letra: #a35f00;
@@ -103,6 +116,13 @@
 .punto-atrasado, .punto-hoy { background: var(--cocina-punto-hoy); }
 .punto-manana               { background: var(--cocina-punto-manana); }
 .punto-despues              { background: var(--cocina-punto-despues); }
+
+/* Pedidos de clientes (24/10): el color de cada día de la semana (la clase la pone cocinero.js, CLASE_PUNTO_DIA) */
+.punto-lunes     { background: var(--cocina-punto-lunes); }
+.punto-martes    { background: var(--cocina-punto-martes); }
+.punto-miercoles { background: var(--cocina-punto-miercoles); }
+.punto-jueves    { background: var(--cocina-punto-jueves); }
+.punto-viernes   { background: var(--cocina-punto-viernes); }
 
 /* El color de cada estado */
 .estado-por-hacer { background: var(--cocina-por-hacer-fondo); color: var(--cocina-por-hacer-letra); }
@@ -294,6 +314,67 @@ body.cargada {
     margin-left: auto;
 }
 
+/* --- Las pestañas de días de Pedidos de clientes (24/10): "● Lunes 26 HOY", "● Viernes 23 · quedó 1" (rojo)… ---
+   La pieza es la pestaña del molde (global.css, 13b); acá, lo que cambia: 30 px de alto, letra de 12 y el puntito de 8 */
+.pestana-dia {
+    height: 30px;
+    gap: 7px;
+    padding: 0 12px;
+    font-size: var(--cocina-letra-pestana-dia);
+}
+
+.pestana-dia .punto-pestana {
+    width: var(--cocina-tamano-punto-dia);
+    height: var(--cocina-tamano-punto-dia);
+}
+
+/* La elegida: verde suave con letra verde y en negrita (en "Para stock" sigue la gris del molde) */
+.pestana-dia.activo {
+    background: var(--verde-suave);
+    color: var(--verde-texto);
+    font-weight: 700;
+}
+
+/* Un día que ya pasó y quedó algo sin hacer: siempre en rojo y en negrita; si es la elegida, el rojo más fuerte */
+.pestana-dia.pestana-atrasada {
+    background: var(--cocina-atrasado-fondo);
+    color: var(--cocina-atrasado-letra);
+    font-weight: 700;
+}
+
+.pestana-dia.pestana-atrasada.activo {
+    background: var(--cocina-atrasado-elegido);
+}
+
+/* La etiqueta verde "HOY" (con letra blanca), al lado del día de hoy */
+.etiqueta-hoy {
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 6px;
+    border-radius: 5px;
+    background: var(--verde-texto);
+    color: var(--blanco);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .05em;
+}
+
+/* El cartelito gris "Hoy no hay nada para cocinar", entre la barra y la tabla (hidden lo pone cocinero.js).
+   "p." adelante: le gana a los <p> de global.css */
+p.aviso-sin-hoy {
+    margin: 0;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--linea-tabla);
+    background: var(--gris-boton);
+    color: var(--texto-apagado);
+    font-size: 12.5px;
+}
+
+p.aviso-sin-hoy[hidden] {
+    display: none;
+}
+
 
 /* ===== 6. LAS DOS TABLAS ===== */
 
@@ -309,20 +390,49 @@ table.tabla-cocina {
     table-layout: fixed;
 }
 
-/* Los anchos de cada columna (Plato no tiene: se lleva lo que sobra) */
-.tabla-cocina .col-codigo              { width: var(--cocina-ancho-codigo); }
-.tabla-cocina .col-cantidad            { width: var(--cocina-ancho-cantidad); }
-.tabla-cocina .col-estado              { width: var(--cocina-ancho-estado); }
-.tabla-cocina .col-fecha-entrega       { width: var(--cocina-ancho-fecha-entrega); }
-.tabla-cocina .col-botones-stock       { width: var(--cocina-ancho-botones-stock); }
-.tabla-cocina .col-botones-clientes    { width: var(--cocina-ancho-botones-clientes); }
-.tabla-cocina .col-viandas             { width: var(--cocina-ancho-viandas); }
-.tabla-cocina .col-cocinar             { width: var(--cocina-ancho-cocinar); }
+/* Los anchos de cada columna (van en los títulos: con "table-layout: fixed" mandan ellos).
+   "Para stock" (24/10): todas en %. Pedidos de clientes (24/10): las 5 columnas de datos (col-dato-cliente) no tienen,
+   así quedan todas del mismo ancho; solo los botones tienen el suyo */
+.tabla-cocina thead .col-codigo           { width: var(--cocina-ancho-codigo); }
+.tabla-cocina thead .col-plato-stock      { width: var(--cocina-ancho-plato-stock); }
+.tabla-cocina thead .col-cantidad         { width: var(--cocina-ancho-cantidad); }
+.tabla-cocina thead .col-estado           { width: var(--cocina-ancho-estado); }
+.tabla-cocina thead .col-fecha-entrega    { width: var(--cocina-ancho-fecha-entrega); }
+.tabla-cocina thead .col-botones-stock    { width: var(--cocina-ancho-botones-stock); }
+.tabla-cocina thead .col-botones-clientes { width: var(--cocina-ancho-botones-clientes); }
 
-/* Estado, al medio (el título y la pastilla) */
+/* "Para stock": Estado, al medio (el título y la pastilla). En Pedidos de clientes (24/10), a la izquierda como las demás */
 table.tabla-cocina th.col-estado,
 table.tabla-cocina td.col-estado {
     text-align: center;
+}
+
+table.tabla-clientes td.col-estado {
+    text-align: left;
+}
+
+/* Pedidos de clientes (24/10): el código en negrita, texto común (sin pastilla); "3 viandas" con el número en negrita
+   y la palabra en gris; una celda sin dato, una rayita gris */
+.codigo-texto {
+    color: var(--texto);
+    font-weight: 700;
+}
+
+.celda-cantidad b {
+    font-weight: 700;
+}
+
+.palabra-viandas {
+    color: var(--texto-apagado);
+}
+
+.tabla-clientes .dato-vacio {
+    color: var(--texto-suave);
+}
+
+/* El nombre de la vianda: hasta 2 renglones (el corte con "…" lo hace .dos-renglones, global.css) */
+.celda-vianda .nombre-plato {
+    font-weight: 600;
 }
 
 /* Pedidos de clientes (29/10): las filas del mismo pedido van juntas; entre ellas, la línea de abajo es punteada */
@@ -341,42 +451,32 @@ table.tabla-cocina td.celda-plato {
     font-weight: 600;
 }
 
-/* El código (29/10): en su propia columna, con la pastillita de siempre (global.css 13j), sin el aire de la derecha */
+/* "Para stock": el código (29/10) en su propia columna, con la pastillita de siempre (global.css 13j), sin el aire de la derecha */
 .tabla-cocina td.col-codigo .codigo-plato {
-    margin-right: 0;
-}
-
-/* En la ventana del cliente el renglón ya separa con su espacio (gap): sin el aire de la derecha de la pastilla */
-.plato-detalles .codigo-plato {
     margin-right: 0;
 }
 
 .plan-plato {
     color: var(--texto-apagado);
-    font-size: 13px;
+    font-size: 12px;
 }
 
-/* "⚠ SIN SAL" al lado del plato personalizado */
-.celda-plato .etiqueta-personalizado {
-    margin-left: 6px;
-    vertical-align: middle;
-}
-
-/* La pastilla de la fecha de entrega ("25/10"): el color lo pone su día (sección 0) */
+/* La pastilla de la fecha de entrega ("25/10"): el color lo pone su día (sección 0).
+   24/10: el alto y la letra, los de las pastillas de todas las tablas (global.css) */
 .pastilla-fecha {
-    height: var(--cocina-alto-pastilla-fecha);
+    height: var(--alto-pastilla-estado);
     display: inline-flex;
     align-items: center;
     padding: 0 10px;
     border-radius: var(--radio-chico);
-    font-size: var(--cocina-letra-pastilla-fecha);
+    font-size: var(--letra-pastilla-estado);
     font-weight: 700;
     white-space: nowrap;
 }
 
-/* "12 viandas": verde suave, el número en negrita */
+/* "12 viandas": verde suave, el número en negrita (24/10: el alto y la letra, los del molde) */
 .pastilla-cantidad {
-    height: var(--cocina-alto-pastilla-fecha);
+    height: var(--alto-pastilla-estado);
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -384,7 +484,7 @@ table.tabla-cocina td.celda-plato {
     border-radius: var(--radio-chico);
     background: var(--verde-suave);
     color: var(--verde-texto);
-    font-size: var(--cocina-letra-pastilla-fecha);
+    font-size: var(--letra-pastilla-estado);
     white-space: nowrap;
 }
 
@@ -392,35 +492,10 @@ table.tabla-cocina td.celda-plato {
     font-weight: 700;
 }
 
-/* Pedidos de clientes (24/10): "A cocinar: 1" (el número en negrita) y abajo, chiquito y gris, "De la heladera: 9"
-   (el renglón chico es el .dato-chico de global.css) */
-.a-cocinar {
-    display: block;
-    color: var(--texto);
-    font-weight: 500;
-    white-space: nowrap;
-}
-
-.a-cocinar b {
-    color: var(--verde-texto);
-    font-weight: 700;
-}
-
-/* Pedidos de clientes (24/10): la pastilla "Cocinar: mar 27/10" (con el color de su día) y abajo "Entrega: 28/10".
-   La pastilla un poco más baja (22 px) para que la fila no crezca de más con los dos renglones */
-.celda-cocinar .pastilla-fecha {
-    height: 22px;
-}
-
-.celda-cocinar .dato-chico,
-.celda-viandas .dato-chico {
-    white-space: nowrap;
-}
-
-/* La etiqueta roja ("SIN SAL"): en MAYÚSCULA; si es muy larga, se corta con "…" */
+/* La etiqueta roja ("SIN SAL"): en MAYÚSCULA; si es muy larga, se corta con "…". 24/10: del alto de las pastillas del molde */
 .etiqueta-personalizado {
     max-width: 100%;
-    height: 22px;
+    height: var(--alto-pastilla-estado);
     display: inline-block;
     padding: 0 7px;
     border-radius: 6px;
@@ -428,12 +503,13 @@ table.tabla-cocina td.celda-plato {
     color: var(--cocina-personalizado-letra);
     font-size: 11.5px;
     font-weight: 700;
-    line-height: 22px;
+    line-height: var(--alto-pastilla-estado);
     letter-spacing: .03em;
     text-transform: uppercase;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    vertical-align: middle;
 }
 
 /* Los botones de la fila, a la derecha */
@@ -449,20 +525,17 @@ table.tabla-cocina td.celda-botones {
     gap: 4px;
 }
 
-/* Cada botón: una pastilla de 26 px ("table." adelante: le gana al .btn-hecho de pedidosCocina.css) */
+/* Cada botón: una pastilla ("table." adelante: le gana al .btn-hecho de pedidosCocina.css).
+   24/10: el alto (24 px), la letra (11,5) y el aire son los de todos los botones de las tablas (global.css, sección 8) */
 table.tabla-cocina .boton-detalles-cocina,
 table.tabla-cocina .boton-hecho,
 table.tabla-cocina .boton-listo {
-    height: var(--cocina-alto-boton-fila);
-    min-height: 0;                              /* el .btn-hecho compartido pide 40 px de alto mínimo: acá no */
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 0 10px;
     border: 0;
     border-radius: var(--radio-pastilla);
-    font: inherit;
-    font-size: var(--cocina-letra-boton-fila);
+    font-family: inherit;
     font-weight: 600;
     white-space: nowrap;
     cursor: pointer;
@@ -630,35 +703,18 @@ p.titulo-seccion-ventana {
     box-shadow: 0 0 0 1px var(--linea-tabla);
 }
 
+/* 24/10: los títulos y las celdas (letra, alto, aire y líneas) son los de todas las tablas del panel (global.css, sección 8) */
 .tabla-detalles {
     width: 100%;
     border-collapse: collapse;
 }
 
 .tabla-detalles th {
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--linea-tabla);
-    color: var(--color-titulos-tabla);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: .06em;
     text-align: left;
-    text-transform: uppercase;
-}
-
-.tabla-detalles td {
-    padding: 10px;
-    border-bottom: 1px solid var(--linea-tabla);
-    color: var(--texto);
-    font-size: 14px;
 }
 
 .tabla-detalles td:first-child {
     font-weight: 500;
-}
-
-.tabla-detalles tr:last-child td {
-    border-bottom: 0;
 }
 
 /* Un plato ya hecho: tachado y gris */
@@ -675,7 +731,6 @@ p.titulo-seccion-ventana {
 
 .cantidad-detalles span {
     color: var(--texto-apagado);
-    font-size: 12.5px;
 }
 
 .tabla-detalles .estado-detalles {
@@ -741,15 +796,24 @@ p.titulo-seccion-ventana {
     font-weight: 600;
 }
 
-/* Las observaciones del pedido, en una cajita gris */
-.observaciones-detalles {
-    margin-top: 12px;
-    padding: 10px 12px;
-    border-radius: 10px;
-    background: var(--cocina-fondo-dato);
-    box-shadow: inset 0 0 0 1px var(--linea-tabla);
-    font-size: 13.5px;
-    overflow-wrap: anywhere;
+/* (24/10) "ya está hecha", a la derecha de cada vianda que sale de la heladera: chiquito y gris */
+.ya-hecha {
+    flex: none;
+    color: var(--texto-apagado);
+    font-size: 13px;
+}
+
+/* (24/10) El número del pedido en el título de "Detalles": "Pedido [#057]", en una pastilla verde suave */
+.numero-detalles {
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+    padding: 0 10px;
+    border-radius: var(--radio-chico);
+    background: var(--verde-suave);
+    color: var(--verde-texto);
+    font-weight: 800;
 }
 
 /* La pregunta de "Marcar platos listos" ("p." adelante: le gana a .modal-content p) */

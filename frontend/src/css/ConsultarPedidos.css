@@ -57,7 +57,6 @@
     --naranja-suave: #fff1d6;              /* el fondo del aviso amarillo… */
     --naranja-letra: #7a4b00;              /* …con letra marrón */
     --aviso-personalizado: #8a5200;        /* "⚠ sin sal" (Detalles) y la suma del Mixto que no da (Pago): naranja oscuro */
-    --letra-personalizados: #a35f00;       /* "⚠ 2 personalizados" de la tabla */
 
     /* La barra de filtros */
     --alto-barra-filtros: 38px;            /* alto de la barra y de Aplicar / Ver todos */
@@ -65,31 +64,39 @@
     --ancho-parte-filtro: 210px;           /* el ancho de "Entrega" y de "Estado" (Buscar se queda con lo que sobra) */
     --ancho-lista-estados: 230px;          /* el ancho de la lista que abre "Estado" */
 
-    /* La tabla: el alto de las filas, la letra y los títulos son los de todas las tablas del panel (global.css).
-       Acá, el ancho de cada columna: las de texto (Cliente, Dirección y Mail) van en %; las demás tienen un ancho fijo.
-       Todo suma 1.097 px: a 1440 la tabla entra entera; más chica, se mueve de costado adentro de su tarjeta */
-    --tabla-ancho-minimo: 1096px;          /* lo más angosta que queda la tabla (a 1440 la tarjeta mide 1.097) */
-    --celda-espacio-pedidos: 8px;          /* aire a los costados de cada celda: 8 y no 12 como las otras tablas, así entran las 11 */
-    --ancho-pedido: 74px;                  /* N° Pedido */
-    --ancho-entrega: 66px;                 /* Entrega (la fecha) */
-    --ancho-cliente: 6.4%;                 /* Cliente: 70 px a 1440 (más, si sobra lugar) */
-    --ancho-direccion: 9.9%;               /* Dirección: 109 px a 1440 */
-    --ancho-telefono: 80px;                /* Teléfono */
-    --ancho-mail: 6.4%;                    /* Mail: 70 px a 1440 */
-    --ancho-viandas: 90px;                 /* Viandas (el número y abajo la pastillita "⚠ 2 personaliz…") */
-    --ancho-costo: 84px;                   /* Costo */
-    --ancho-estado: 146px;                 /* Estado (la pastilla con ▾) */
-    --ancho-pago: 104px;                   /* Método Pago (el método y si ya se cobró) */
-    --ancho-acciones: 204px;               /* Acciones: las 3 pastillas con "Anulado" (188 px) y el aire de los costados */
+    /* La tabla: el alto de las filas, la letra, los títulos, las pastillas y los botones son los de todas las tablas del
+       panel (global.css). Acá, el ancho de cada columna EN PORCENTAJE (24/10): suman 100%, así en una pantalla grande el
+       lugar que sobra se reparte entre todas y ninguna se estira sola (antes Dirección no tenía ancho y a 1920 medía 561 px).
+       Los % están pensados para que a 1440 (la tarjeta mide 1.097 px) entre todo sin pisarse: los títulos (ENTREGA,
+       TELÉFONO, VIANDAS), los botones de Acciones, la pastilla de Estado y "🚚 Delivery".
+       Más angosta que 1.096 px, la tabla no se achica más: se mueve de costado adentro de su tarjeta */
+    --tabla-ancho-minimo: 1096px;          /* lo más angosta que queda la tabla */
+    --celda-espacio-pedidos: 8px;          /* aire a los costados de cada celda: 8 y no 12 como las otras tablas, así a 1440 entran
+                                              las 11 columnas con la letra de 13 y los títulos de 11 sin pisarse (24/10) */
+    --ancho-pedido: 5%;                    /* N° ("#081"): 55 px a 1440 */
+    --ancho-entrega: 7%;                   /* Entrega (la fecha "28/10"; el título "ENTREGA" necesita 73 px) */
+    --ancho-cliente: 9%;                   /* Cliente (hasta 2 renglones) */
+    --ancho-direccion: 8%;                 /* Dirección (hasta 2 renglones; si retira, "—") */
+    --ancho-telefono: 7.5%;                /* Teléfono (si no entra, "…") */
+    --ancho-viandas: 6.5%;                 /* Viandas (solo el número; el título "VIANDAS" necesita 71 px) */
+    --ancho-costo: 7.5%;                   /* Costo ("$ 100.000" necesita 80 px) */
+    --ancho-estado: 14.5%;                 /* Estado ("Listo para entregar ▾" necesita 158 px: a 1440 hay 159) */
+    --ancho-pago: 8.5%;                    /* Pago (el método y abajo "A cobrar" / "✓ Cobrado") */
+    --ancho-envio: 8%;                     /* Envío ("🚚 Delivery" / "Retira" con su dibujito): necesita 87 px, a 1440 hay 88 */
+    --ancho-acciones: 18.5%;               /* Acciones: las 3 pastillas (Detalles · Pago · Anular) necesitan 203 px: a 1440 hay 203 */
     --sombra-acciones: -1px 0 0 var(--linea-tabla), -10px 0 12px -10px rgba(17, 26, 20, .16);  /* solo en el celu: la línea y la
                                               sombrita a la izquierda de Acciones, que ahí queda fija a la derecha */
-    --alto-acciones: 26px;                 /* alto de Detalles, Pago y Anular */
-    --letra-acciones: 12px;                /* su letra */
-    --fondo-personalizados: #fff3df;       /* la pastillita "⚠ 2 personalizados": fondo naranja suave… */
-    --alto-personalizados: 18px;           /* …y su alto */
+
+    /* Los colores de las columnas nuevas (24/10) */
+    --envio-delivery: #1d5fbf;             /* "Delivery": azul */
+    --envio-retira: #6b3fbf;               /* "Retira": violeta */
+    --pago-a-cobrar: #a35f00;              /* "A cobrar": naranja (el "✓ Cobrado" usa el verde de los textos chicos) */
 
     /* Ventanas */
     --radio-recuadro: 14px;                /* esquinas de los recuadros de adentro de las ventanas */
+    --ancho-ventana-detalles: 440px;       /* el ancho de "Detalles" (24/10: antes 360, por las 3 cajitas) */
+    --fondo-cajita-detalle: #f2f9f4;       /* las 3 cajitas de "Detalles" (Entrega · Envío · Viandas): verde muy suave */
+    --mail-detalle: #1d5fbf;               /* el mail del cliente en "Detalles": azul */
 }
 
 
@@ -435,14 +442,15 @@ body.cargada {
 
 
 /* ===== 5. TABLA DE PEDIDOS ===== */
-/* Los títulos, las filas (48 px, 52 con 2 renglones), la letra y las líneas son los de todas las tablas del panel
-   (global.css, sección 8). Acá: el ancho de cada columna, 8 px de aire a los costados y lo de cada columna.
+/* Los títulos, las filas (40 px), la letra, las pastillas, los botones y las líneas son los de todas las tablas del panel
+   (global.css, sección 8). Acá: el ancho de cada columna y lo de cada columna (colores, negrita, cortes).
    Se escribe "table.tabla-pedidos" para ganarle a las reglas de tablas de global.css */
 table.tabla-pedidos {
     table-layout: fixed;
     min-width: var(--tabla-ancho-minimo);
 }
 
+/* Los títulos, en un renglón. Los títulos y las celdas con 8 px de aire a los costados (la perilla de la sección 0) */
 table.tabla-pedidos thead th {
     padding-left: var(--celda-espacio-pedidos);
     padding-right: var(--celda-espacio-pedidos);
@@ -454,17 +462,17 @@ table.tabla-pedidos tbody td {
     padding-right: var(--celda-espacio-pedidos);
 }
 
-/* El ancho de cada columna (las perillas de la sección 0). Mail también es "col-contacto": su regla va después y le gana */
+/* El ancho de cada columna, en % (las perillas de la sección 0). Todas tienen: suman 100% */
 table.tabla-pedidos thead .col-numero    { width: var(--ancho-pedido); }
 table.tabla-pedidos thead .col-entrega   { width: var(--ancho-entrega); }
 table.tabla-pedidos thead .col-cliente   { width: var(--ancho-cliente); }
 table.tabla-pedidos thead .col-direccion { width: var(--ancho-direccion); }
 table.tabla-pedidos thead .col-contacto  { width: var(--ancho-telefono); }
-table.tabla-pedidos thead .col-mail      { width: var(--ancho-mail); }
 table.tabla-pedidos thead .col-viandas   { width: var(--ancho-viandas); }
 table.tabla-pedidos thead .col-costo     { width: var(--ancho-costo); }
 table.tabla-pedidos thead .col-estado    { width: var(--ancho-estado); }
 table.tabla-pedidos thead .col-pago      { width: var(--ancho-pago); }
+table.tabla-pedidos thead .col-envio     { width: var(--ancho-envio); }
 table.tabla-pedidos thead .col-acciones  { width: var(--ancho-acciones); }
 
 /* Viandas y Costo, a la derecha (en el título y en las celdas) */
@@ -473,7 +481,7 @@ table.tabla-pedidos .col-costo {
     text-align: right;
 }
 
-/* Las celdas de 2 renglones: arriba el dato y abajo el renglón chico gris (las dos piezas están en global.css).
+/* Pago: arriba el método y abajo el renglón chico (las dos piezas están en global.css), cada uno en un renglón.
    Lo que no entra se corta con "…" (el texto entero aparece al pasar el mouse) */
 .tabla-pedidos .dato-principal,
 .tabla-pedidos .dato-chico {
@@ -483,72 +491,78 @@ table.tabla-pedidos .col-costo {
     text-overflow: ellipsis;
 }
 
-/* N° Pedido: solo el número, en verde y negrita */
+/* N°: solo el número, en verde y negrita */
 .tabla-pedidos tbody .col-numero {
     color: var(--verde-texto);
-    font-weight: 600;
+    font-weight: 700;
     white-space: nowrap;
 }
 
 /* Entrega: la fecha (día y mes; la fecha entera aparece al pasar el mouse) */
 .tabla-pedidos tbody .col-entrega {
+    font-weight: 500;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
 
-/* Cliente, Teléfono y Mail: en un renglón, con "…" si no entran (el texto entero aparece al pasar el mouse) */
-.tabla-pedidos tbody .col-cliente,
+/* Cliente (24/10): el nombre completo en negrita, hasta 2 renglones (el corte lo hace .dos-renglones, global.css) */
+.tabla-pedidos tbody .col-cliente {
+    font-weight: 600;
+}
+
+/* Teléfono: en un renglón y en gris, con "…" si no entra (el texto entero aparece al pasar el mouse) */
 .tabla-pedidos tbody .col-contacto {
     overflow: hidden;
+    color: var(--texto-apagado);
     white-space: nowrap;
     text-overflow: ellipsis;
 }
 
-.tabla-pedidos tbody .col-cliente {
-    font-weight: 500;
+/* Una celda sin dato (24/10: la Dirección de un pedido que retira, o el Envío de un pedido viejo): la rayita "—" en gris */
+.tabla-pedidos .dato-vacio {
+    color: var(--texto-suave);
 }
 
-/* Teléfono y Mail, en gris */
-.tabla-pedidos tbody .col-contacto {
-    color: var(--texto-apagado);
-}
-
-/* Viandas y Costo: las cifras del mismo ancho. Costo en negrita y en un renglón.
-   Viandas con renglón de 17 px: con la pastillita abajo (1 + 18) son 36 px, y la fila queda de 52 como las de 2 renglones */
-.tabla-pedidos tbody .col-viandas {
-    line-height: 17px;
-    font-variant-numeric: tabular-nums;
-}
-
+/* Viandas y Costo: las cifras del mismo ancho, en negrita y en un renglón (24/10: Viandas, solo el número) */
+.tabla-pedidos tbody .col-viandas,
 .tabla-pedidos tbody .col-costo {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
 
-/* "⚠ 2 personalizados", debajo de la cantidad de viandas: una pastillita naranja suave en UN renglón. Si no entra,
-   se corta con "…" ("⚠ 2 personaliz…"); el texto entero aparece al pasar el mouse (el title lo pone ListarPedidos.js) */
-.tabla-pedidos .aviso-personalizados {
-    display: inline-block;
-    max-width: 100%;
-    height: var(--alto-personalizados);
-    margin-top: 1px;
-    padding: 0 6px;
-    overflow: hidden;
-    border-radius: var(--radio-pastilla);
-    background: var(--fondo-personalizados);
-    color: var(--letra-personalizados);
-    font-size: 11px;
+/* Pago (24/10): el renglón chico, en negrita y con el color de lo que falta: "A cobrar" naranja, "✓ Cobrado" verde
+   (la clase la pone ListarPedidos.js) y "Sin confirmar" (o "Débito"…) en el gris de siempre */
+.tabla-pedidos .col-pago .dato-chico {
     font-weight: 600;
-    line-height: var(--alto-personalizados);
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    vertical-align: top;
 }
 
-/* Pago: el renglón chico en verde si ya se cobró ("✓ Cobrado", "✓ Débito"; la clase la pone ListarPedidos.js) */
+.tabla-pedidos .pago-a-cobrar {
+    color: var(--pago-a-cobrar);
+}
+
 .tabla-pedidos .pago-cobrado {
     color: var(--verde-texto);
+}
+
+/* Envío (24/10): "Delivery" azul con el camioncito o "Retira" violeta con el local. Texto común, sin fondo ni pastilla
+   (así no parece un botón) */
+.texto-envio {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.envio-delivery { color: var(--envio-delivery); }
+.envio-retira   { color: var(--envio-retira); }
+
+/* El dibujito, del color de la letra */
+.icono-envio {
+    width: 14px;
+    height: 14px;
+    flex: none;
 }
 
 /* --- Estado: el select de siempre, con forma de pastilla del color de su estado y su ▾ --- */
@@ -612,18 +626,9 @@ table.tabla-pedidos .col-costo {
     gap: 4px;
 }
 
-/* La forma de pastilla está en global.css (en .grilla-fg); acá su tamaño (28 px, 12,5 px) y el color de cada una.
-   Se escribe ".tabla-pedidos .btn-…" para ganarle al tamaño y al color blanco de la letra de global.css */
-.tabla-pedidos .btn-detalles,
-.tabla-pedidos .btn-pago,
-.tabla-pedidos .btn-eliminar {
-    min-height: var(--alto-acciones);
-    height: var(--alto-acciones);
-    padding: 0 10px;
-    font-size: var(--letra-acciones);
-    font-weight: 600;
-}
-
+/* La forma de pastilla está en global.css (en .grilla-fg) y el tamaño (24 px, 11,5 px) es el de todos los botones de
+   las tablas (global.css, sección 8). Acá, solo el color de cada una.
+   Se escribe ".tabla-pedidos .btn-…" para ganarle al color blanco de la letra de global.css */
 .tabla-pedidos .btn-detalles { background: var(--accion-detalles-fondo); color: var(--accion-detalles-letra); }
 .tabla-pedidos .btn-pago     { background: var(--accion-pago-fondo);     color: var(--accion-pago-letra); }
 .tabla-pedidos .btn-eliminar { background: var(--accion-anular-fondo);   color: var(--accion-anular-letra); }
@@ -698,7 +703,7 @@ table.tabla-pedidos .col-costo {
 }
 
 /* El ancho de cada ventana (el de la referencia); en el celu, todo el ancho que haya */
-.ventana-detalles { width: 100%; max-width: 360px; }
+.ventana-detalles { width: 100%; max-width: var(--ancho-ventana-detalles); }   /* 24/10: 440 px */
 .ventana-pago     { width: 100%; max-width: 380px; }
 .ventana-chica    { width: 100%; max-width: 300px; }   /* Confirmar pago y Anular */
 .ventana-faltan-insumos { max-width: 360px; }          /* "Faltan insumos" (24/10): un poco más ancha, el aviso puede ser largo */
@@ -709,7 +714,61 @@ table.tabla-pedidos .col-costo {
     align-items: stretch;
 }
 
-/* --- Detalles: un recuadro por combo, con sus platos, y el total abajo --- */
+/* --- Detalles: el cliente, las 3 cajitas, un recuadro por combo con sus platos, y el total abajo --- */
+
+/* Entre las partes, 12 px (las piezas de la ventana están en global.css, 7b) */
+.ventana-detalles .ventana-cuerpo {
+    gap: 12px;
+}
+
+/* (24/10) El cliente en negrita y su mail en azul: "Luquitas Gómez · luquitas@mail.com". "p." adelante: le gana a los <p> de las ventanas */
+p.cliente-detalle {
+    margin: 0;
+    color: var(--titulo);
+    font-size: 14px;
+    overflow-wrap: anywhere;           /* un mail muy largo baja de renglón (no se sale de la ventana) */
+}
+
+.nombre-cliente-detalle {
+    color: var(--texto);
+    font-weight: 600;
+}
+
+.mail-detalle {
+    color: var(--mail-detalle);
+}
+
+/* (24/10) Las 3 cajitas: Entrega · Envío · Viandas, del mismo ancho, verde muy suave con el nombre en verde y MAYÚSCULA */
+.cajitas-detalle {
+    display: flex;
+    gap: 8px;
+}
+
+.cajita-detalle {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--fondo-cajita-detalle);
+}
+
+.nombre-cajita {
+    color: var(--verde-texto);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.valor-cajita {
+    margin-top: 2px;
+    color: var(--texto);
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+}
 
 /* El recuadro de cada combo */
 .recuadro-combo {
@@ -747,6 +806,13 @@ table.tabla-pedidos .col-costo {
 
 .linea-plato:last-child {
     border-bottom: 0;
+}
+
+/* (24/10) Un plato que sale de la heladera: "de la heladera" a la derecha, chiquito y en gris */
+.plato-heladera {
+    color: var(--texto-apagado);
+    font-size: 13px;
+    white-space: nowrap;
 }
 
 /* Un plato personalizado: "⚠ sin sal" a la derecha, en naranja oscuro */

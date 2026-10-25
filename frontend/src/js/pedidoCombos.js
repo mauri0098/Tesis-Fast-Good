@@ -45,12 +45,8 @@ const LARGO_MAXIMO = {
   observaciones:  500
 };
 
-// Días hábiles mínimos para la entrega (24/10; los mismos que controla el servidor):
-//   0 → todo sale de la heladera (ya está hecho): cualquier día hábil desde hoy
-//   2 → con algún plato personalizado: un día de producción en el medio (pide el martes → se cocina el miércoles
-//       → se entrega desde el jueves). Antes eran 2 y 3.
-const DIAS_HABILES_ENTREGA = 0;
-const DIAS_HABILES_CON_PERSONALIZADO = 2;
+// Las reglas de la fecha de entrega (HORA_CORTE = 21, DIAS_HABILES_ENTREGA = 0, DIAS_HABILES_CON_PERSONALIZADO = 2)
+// y la cuenta de la primera fecha (primeraFechaEntrega) están en fechas.js (25/10): las mismas que controla el servidor.
 
 // Valores EXACTOS que acepta el servidor (los mismos que usa el formulario viejo)
 const ENTREGA_ENVIO = 'Delivery';
@@ -123,15 +119,18 @@ function abrirFinalizarPedido() {
   //    some responde true si AL MENOS UNO cumple: [fideos x3, fideos x2 "sin sal"] → true
   const platosDelCarrito = carritoCombos.flatMap(combo => combo.platos);
   const hayPersonalizado = platosDelCarrito.some(plato => plato.personalizado);
-  const diasHabiles = hayPersonalizado ? DIAS_HABILES_CON_PERSONALIZADO : DIAS_HABILES_ENTREGA;
-  const aclaracionPersonalizado = hayPersonalizado ? ' (por los platos personalizados: hay un día de producción en el medio)' : '';
 
-  // La primera fecha: hoy + esos días hábiles; si cae en un día no hábil (con 0 días, hoy sábado), el próximo hábil.
+  // La primera fecha (25/10: primeraFechaEntrega, de fechas.js, con el día y la hora de Argentina y el corte de las 21).
   // Ej: hoy sábado y todo de heladera → el lunes · hoy martes con un "sin sal" → el jueves
+  //     · hoy lunes a las 21:01, todo de heladera → el martes (pasoElCorte: true)
+  // Es solo para ayudar al cliente: el que controla de verdad es el servidor (POST /api/pedidos-combos).
+  const primera = primeraFechaEntrega(hayPersonalizado);          // { fecha, pasoElCorte }
+  // Por qué no se puede antes (para el texto de abajo): por los personalizados, o porque pasó la hora de corte
+  let aclaracionPersonalizado = '';
+  if (hayPersonalizado) aclaracionPersonalizado = ' (por los platos personalizados: hay un día de producción en el medio)';
+  if (primera.pasoElCorte) aclaracionPersonalizado = ' (los pedidos de la heladera hechos desde las ' + HORA_CORTE + ' h se entregan desde el próximo día hábil)';
   const campoFecha = document.getElementById('campo-fecha');
-  const desdeFecha = sumarDiasHabiles(new Date(), diasHabiles);
-  const primerDiaHabil = esDiaHabil(desdeFecha) ? desdeFecha : proximoDiaHabil(desdeFecha);
-  campoFecha.min = fechaLocalISO(primerDiaHabil);
+  campoFecha.min = fechaLocalISO(primera.fecha);
   // Si había una fecha elegida que ya no alcanza, se borra
   const fechaQueNoAlcanza = campoFecha.value !== '' && campoFecha.value < campoFecha.min;
   if (fechaQueNoAlcanza) campoFecha.value = '';

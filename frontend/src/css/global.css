@@ -5,6 +5,8 @@
    Estilo nuevo (19/10/2026): el mismo del index. Letra Inter desde el 20/10 (el index sigue con Figtree), fondo blanco, los verdes del
    index, botones en forma de pastilla y tarjetas blancas con un borde finito.
    Solo cambia cómo se ve: no cambia ningún id, ninguna clase ni nada de JS.
+   24/10 (grilla más chica): el tamaño de TODAS las tablas del panel (títulos, celdas, pastillas y botones de las filas) sale
+   de las perillas de "Tablas" (sección 0) y de la sección 8. Los CSS de cada pantalla ya no lo cambian: solo anchos y colores.
 
    Cada pantalla tiene además su CSS propio (y algunas un <style> adentro). Lo de ellas le gana
    a esto, así que hay detalles que siguen como antes hasta que se rediseñe cada pantalla.
@@ -55,7 +57,7 @@
 
     /* ── Tamaños ────────────────────────────────────────────────────────────────── */
     --alto-boton: 44px;           /* alto de los botones y casilleros (44 px es lo cómodo para el dedo): si lo subís, más altos */
-    --alto-boton-chico: 34px;     /* alto de los botones de las tablas (Detalles, Pago, Anular) */
+    --alto-boton-chico: 34px;     /* alto de un botón chico (24/10: los de las tablas usan --alto-boton-tabla, en "Tablas") */
     --radio-pastilla: 999px;      /* esquinas de los botones: 999 = redondas del todo (forma de pastilla) */
     --radio-casillero: 12px;      /* esquinas de los casilleros donde se escribe */
     --radio-tarjeta: 12px;        /* esquinas de las tarjetas blancas (la de la tabla) y de los menús que se abren (27/10: antes 16) */
@@ -64,22 +66,31 @@
     --titulo-pantalla: 28px;      /* tamaño del título de cada pantalla en compu (27/10: antes 36) */
 
     /* ── Tablas: los títulos de las columnas y las celdas (valen para TODAS las tablas del panel) ── */
+    /* 24/10 (grilla más chica): letra 13 · títulos 11 · filas de 44 · pastillas de 24 · botones de 26 · texto chico 11,5 (después de probar, un poco más grande).
+       Cambiando estas perillas se agrandan o achican TODAS las grillas del panel juntas */
     --linea-tabla: #e9ece8;                       /* las líneas finitas de las tablas: el borde de la tarjeta, abajo de los títulos y entre filas */
     --fondo-titulos-tabla: #ffffff;               /* fondo de los títulos de las columnas: blanco, sin franja (27/10) */
     --color-titulos-tabla: #6b766e;               /* letra de los títulos: gris */
-    --letra-titulos-tabla: 11px;                  /* tamaño de la letra de los títulos (en MAYÚSCULA, peso 600): si lo subís, títulos más grandes */
+    --letra-titulos-tabla: 11px;                  /* tamaño de la letra de los títulos (en MAYÚSCULA, peso 600). 24/10: 11 → 10,5 → 11 (un poco más grande) */
     --espacio-letras-titulos: .06em;              /* lo separadas que van las letras de los títulos */
     --linea-titulos-tabla: var(--linea-tabla);    /* la línea de 1 px debajo de los títulos */
-    --aire-titulos-tabla: 10px 12px;              /* aire de los títulos: 10 px arriba y abajo, 12 px a los costados (como las celdas) */
-    --letra-celdas-tabla: 13.5px;                 /* tamaño de la letra de las celdas */
-    --alto-fila: 48px;                            /* alto de cada fila (con 2 renglones queda en 52, sola): si lo subís, filas más altas */
-    --celda-alto: 8px;                            /* aire arriba y abajo de cada celda (es lo que da los 52 px de una celda de 2 renglones) */
+    --aire-titulos-tabla: 8px 12px;               /* aire de los títulos: 8 px arriba y abajo, 12 px a los costados (24/10: antes 10) */
+    --letra-celdas-tabla: 13px;                   /* tamaño de la letra de las celdas (24/10: 13,5 → 12,5 → 13) */
+    --alto-fila: 44px;                            /* alto de cada fila (con 2 renglones crece sola): si lo subís, filas más altas (24/10: 48 → 40 → 44) */
+    --celda-alto: 5px;                            /* aire arriba y abajo de cada celda (24/10: antes 8) */
     --celda-espacio: 12px;                        /* aire a los costados de cada celda: si lo bajás, entran más columnas */
-    --alto-dato-principal: 19px;                  /* el renglón de arriba de una celda de 2 renglones (19 + 1 + 16 = 36 px: la fila, 52) */
-    --letra-dato-chico: 12px;                     /* lo de abajo de cada celda (el barrio, "✓ Cobrado"…): 12 px, gris */
-    --alto-dato-chico: 16px;                      /* …y su renglón */
-    --alto-pastilla-estado: 24px;                 /* las pastillas de estado (Bien, Bajo… y el Estado de los pedidos): alto… */
-    --letra-pastilla-estado: 12.5px;              /* …y letra */
+    --alto-dato-principal: 17px;                  /* el renglón de arriba de una celda de 2 renglones (17 + 1 + 15 = 33 px de texto) */
+    --letra-dato-chico: 11.5px;                   /* lo de abajo de cada celda ("A cobrar", "✓ Cobrado"…) (24/10: 12 → 11 → 11,5) */
+    --alto-dato-chico: 15px;                      /* …y su renglón (24/10: 16 → 14 → 15) */
+    --alto-dos-renglones: 1.3;                    /* el alto de cada renglón de una celda que corta en 2 renglones (.dos-renglones) */
+    --alto-pastilla-estado: 24px;                 /* las pastillas de estado (Bien, Bajo, SIN SAL… y el Estado de los pedidos): alto… (24/10: 24 → 22 → 24) */
+    --letra-pastilla-estado: 12.5px;              /* …y letra (24/10: 12,5 → 12 → 12,5) */
+    --alto-boton-tabla: 26px;                     /* los botones de adentro de una tabla (Detalles, Pago, Anular, Listo, Editar…): alto… (24/10: 24 → 26) */
+    --letra-boton-tabla: 12px;                    /* …letra (24/10: 11,5 → 12)… */
+    --aire-boton-tabla: 9px;                      /* …y aire a los costados */
+    --letra-pie-tabla: 12px;                      /* el pie de la tabla ("Mostrando 15 de 80 pedidos") (24/10: antes 13,5) */
+    --alto-boton-pagina: 30px;                    /* los botones de las páginas (‹ Anterior · 1 · 2 · Siguiente ›): alto… (24/10: antes 32) */
+    --letra-boton-pagina: 12px;                   /* …y letra (24/10: antes 13,5) */
     --numeros-tabla: "cv11", "ss01", "tnum";      /* detalles de la letra Inter en las tablas: la "a" simple, los números abiertos y todos del mismo ancho */
     --linea-renglones-tabla: var(--linea-tabla);  /* la línea entre filas */
     --fila-encima: #f7faf7;                       /* el renglón al pasar el mouse: verde muy clarito */
@@ -684,11 +695,11 @@ table {
     -webkit-font-smoothing: antialiased;
 }
 
-/* --- Los títulos de las columnas de TODAS las tablas del panel (.standard-table y .grilla-fg) ---
-   Sin franja, letra de 11 px en MAYÚSCULA, peso 600, separada (.06em), gris, y una línea finita abajo.
-   Se escribe "table." adelante para ganarle al CSS propio de cada pantalla */
-table.standard-table thead th,
-table.grilla-fg thead th {
+/* --- Los títulos de las columnas de TODAS las tablas del panel ---
+   24/10: cualquier <table> de una pantalla del panel (.admin-content), también las tablitas de las ventanas, y no solo
+   las que tienen .standard-table o .grilla-fg. Sin franja, letra de 11 px en MAYÚSCULA, peso 600, separada (.06em),
+   gris, y una línea finita abajo. Ninguna pantalla cambia este tamaño: lo propio de cada una son los anchos y los colores */
+.admin-content table thead th {
     padding: var(--aire-titulos-tabla);
     background-color: var(--fondo-titulos-tabla);
     color: var(--color-titulos-tabla);
@@ -699,19 +710,34 @@ table.grilla-fg thead th {
     border-bottom: 1px solid var(--linea-titulos-tabla);
 }
 
-/* --- Las celdas de TODAS las tablas del panel: letra de 13,5 px, filas de 48 px (52 con 2 renglones),
-   aire de 8 px arriba y abajo y 12 a los costados, y una línea finita entre filas (con "table." adelante, por lo mismo) ---
+/* --- Las celdas de TODAS las tablas del panel (24/10: también las de las ventanas): letra de 13 px, filas de 44 px,
+   aire de 5 px arriba y abajo y 12 a los costados, y una línea finita entre filas ---
    height en una celda de tabla es el alto MÍNIMO: si tiene más cosas adentro, la fila crece sola */
-table.standard-table tbody td,
-table.grilla-fg tbody td {
+.admin-content table tbody td {
     height: var(--alto-fila);
     padding: var(--celda-alto) var(--celda-espacio);
-    color: var(--texto);
     font-size: var(--letra-celdas-tabla);
     border-bottom: 1px solid var(--linea-renglones-tabla);
 }
 
-/* --- Las celdas de 2 renglones: arriba el dato (500) y abajo el renglón chico gris de 12 px ---
+/* La letra de las celdas de las grillas, oscura (las tablitas de las ventanas toman la de su ventana) */
+table.standard-table tbody td,
+table.grilla-fg tbody td {
+    color: var(--texto);
+}
+
+/* --- Una celda de hasta 2 renglones (24/10): si el texto no entra, el segundo renglón termina en "…"
+   (el dato completo está en "Detalles"). Se le pone al texto de adentro de la celda, ej: <span class="dos-renglones"> --- */
+.dos-renglones {
+    display: -webkit-box;               /* -webkit-box + line-clamp: la forma de cortar en N renglones (la entienden todos los navegadores) */
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;              /* 2 renglones como mucho */
+    overflow: hidden;
+    line-height: var(--alto-dos-renglones);
+    overflow-wrap: anywhere;            /* una palabra muy larga también se corta (no se sale de la celda) */
+}
+
+/* --- Las celdas de 2 renglones: arriba el dato (500) y abajo el renglón chico gris de 11 px ---
    (ej: el N° de pedido y abajo la fecha; el cliente y abajo el mail) */
 .dato-principal {
     font-weight: 500;
@@ -723,7 +749,7 @@ table.grilla-fg tbody td {
     margin-top: 1px;
     font-size: var(--letra-dato-chico);
     font-weight: 400;
-    line-height: var(--alto-dato-chico);   /* 19 + 1 + 16 = 36 px de texto: con el aire de la celda, la fila mide 52 */
+    line-height: var(--alto-dato-chico);   /* 17 + 1 + 15 = 33 px de texto: con el aire de la celda, la fila mide 44 */
     color: var(--texto-apagado);
 }
 
@@ -739,9 +765,9 @@ table.grilla-fg tbody td {
     justify-content: space-between;
     align-items: center;
     gap: 12px;
-    padding: 12px 18px;
+    padding: 10px 14px;                 /* 24/10: antes 12 y 18 */
     border-top: 1px solid var(--linea-tabla);
-    font-size: 13.5px;
+    font-size: var(--letra-pie-tabla);
     color: var(--texto-apagado);
 }
 
@@ -756,9 +782,8 @@ table.grilla-fg tbody td {
     padding: 0;
 }
 
-/* El último renglón, sin línea abajo */
-table.standard-table tbody tr:last-child td,
-table.grilla-fg tbody tr:last-child td {
+/* El último renglón, sin línea abajo (24/10: en todas las tablas del panel) */
+.admin-content table tbody tr:last-child td {
     border-bottom: none;
 }
 
@@ -781,8 +806,8 @@ table.grilla-fg tbody tr:hover {
     padding: 2rem;
 }
 
-/* Botones de las filas (Detalles / Editar / Borrar, Detalles / Pago / Anular):
-   pastillas de 34 px; el color lo pone cada pantalla */
+/* Botones de las filas (Detalles / Editar / Borrar, Detalles / Pago / Anular): la forma de pastilla de las grillas
+   .grilla-fg; el color lo pone cada pantalla. El tamaño es el de la regla de abajo */
 .grilla-fg .btn-detalle,
 .grilla-fg .btn-editar,
 .grilla-fg .btn-borrar,
@@ -792,16 +817,44 @@ table.grilla-fg tbody tr:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--alto-boton-chico);
-  padding: 0 12px;
   color: #fff;
   border: none;
   border-radius: var(--radio-pastilla);
-  font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
   transition: background-color 0.2s, color 0.2s;
+}
+
+/* --- El tamaño de los botones con texto de las filas de TODAS las tablas del panel (24/10): 26 px de alto, letra de
+   12 px y 9 px de aire a los costados. La forma y el color los pone cada pantalla.
+   Van por su clase (y no "todo botón de una tabla") para no tocar los botones de dibujito: el ⋯ y el ✓ del mínimo
+   de Producción, el − / + de "Pedir a cocina" y la ✕ de las recetas. min-height: 0 = sin el alto mínimo que algunos
+   traen de otro CSS (el .btn-hecho de pedidosCocina.css pide 40 px) --- */
+.admin-content table .btn-detalle,                 /* Detalles (Generar Receta) */
+.admin-content table .btn-detalles,                /* Detalles (Consultar Pedidos) y Ver (Movimientos de Stock) */
+.admin-content table .btn-pago,                    /* Pago (Consultar Pedidos) */
+.admin-content table .btn-eliminar,                /* Anular / Anulado (Consultar Pedidos) */
+.admin-content table .btn-editar,                  /* Editar (Gestión de Stock, Generar Receta, Gestión de Usuarios) */
+.admin-content table .btn-borrar,                  /* Eliminar / Borrar (las mismas) */
+.admin-content table .btn-guardar,                 /* Guardar (Asignar Cocineros) */
+.admin-content table .btn-guardar-abreviatura,     /* Guardar (las abreviaturas de Generar Receta) */
+.admin-content table .btn-fila-borrar,             /* Eliminar (un insumo de una receta, Generar Receta) */
+.admin-content table .btn-activar,                 /* Activar (Combos) */
+.admin-content table .btn-menu,                    /* Menú (Combos) */
+.admin-content table .boton-detalles-cocina,       /* Detalles (Tareas de Cocina) */
+.admin-content table .btn-hecho,                   /* ✓ Hecho (Tareas de Cocina) */
+.admin-content table .btn-listo {                  /* ✓ Listo para entregar (Tareas de Cocina) */
+    height: var(--alto-boton-tabla);
+    min-height: 0;
+    display: inline-flex;                          /* el dibujito (✎, 🗑, ✓) y el texto, en un renglón y al medio */
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 var(--aire-boton-tabla);
+    font-size: var(--letra-boton-tabla);
+    line-height: 1;
+    white-space: nowrap;
 }
 
 
@@ -824,10 +877,10 @@ table.grilla-fg tbody tr:hover {
     display: none;
 }
 
-/* Cada botón: blanco con borde finito, de 32 px y esquinas de 8 */
+/* Cada botón: blanco con borde finito, de 30 px (24/10) y esquinas de 8 */
 .paginacion-btn {
-    min-width: 32px;
-    height: 32px;
+    min-width: var(--alto-boton-pagina);
+    height: var(--alto-boton-pagina);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -838,7 +891,7 @@ table.grilla-fg tbody tr:hover {
     background: var(--blanco);
     color: var(--titulo);
     font: inherit;
-    font-size: 13.5px;
+    font-size: var(--letra-boton-pagina);
     line-height: normal;
     cursor: pointer;
     transition: background-color 0.15s, border-color 0.15s, color 0.15s;
@@ -876,7 +929,7 @@ table.grilla-fg tbody tr:hover {
 /* Los "..." entre números */
 .paginacion-puntos {
     min-width: 18px;
-    font-size: 13px;
+    font-size: var(--letra-boton-pagina);
     color: var(--color-muted);
     text-align: center;
     user-select: none;
@@ -1228,7 +1281,7 @@ table.grilla-fg tbody tr:hover {
 }
 
 
-/* --- 13d. Pastillas de estado (Bien, Bajo, Sin stock…): redondas, de 24 px, sin punto ---
+/* --- 13d. Pastillas de estado (Bien, Bajo, Sin stock…): redondas, de 22 px (24/10), sin punto ---
    El fondo y la letra de cada una los pone cada pantalla en su CSS */
 .etiqueta-estado {
     height: var(--alto-pastilla-estado);
@@ -1597,6 +1650,15 @@ p.frase-ventana {
     line-height: 1;
     white-space: nowrap;
     vertical-align: middle;
+}
+
+/* Asignar Cocineros pone esta clase en la CELDA del código (no en una pastillita): ahí la celda sigue siendo una
+   celda común, sin la forma ni el fondo de la pastilla (24/10: si no, se salía de la fila) */
+td.codigo-plato {
+    display: table-cell;
+    min-width: 0;
+    border-radius: 0;
+    background: none;
 }
 
 /* Al imprimir (la hoja de ruta de Envíos): el navegador no imprime los fondos, así que la letra blanca no se vería.

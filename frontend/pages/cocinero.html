@@ -106,26 +106,29 @@
   <section id="vistaClientes" class="vista-cocina" hidden>
     <div class="tarjeta-cocina">
       <div class="barra-cocina">
+        <!-- 24/10: una pestaña por día de cocina ("Lunes 26 HOY", "Martes 27"…) y "Todos" al final (las arma cocinero.js) -->
         <div class="caja-dias">
-          <div id="diasClientes" class="pestanas-estado" role="group" aria-label="Filtrar por fecha de entrega"></div>
+          <div id="diasClientes" class="pestanas-estado" role="group" aria-label="Filtrar por día de cocina"></div>
         </div>
         <label class="buscador-tabla buscador-cocina">
           <svg class="icono-lupa" aria-hidden="true"><use href="#icono-buscar"></use></svg>
-          <input type="text" id="buscarClientes" placeholder="Buscar plato o N° de pedido…" aria-label="Buscar plato o N° de pedido">
+          <input type="text" id="buscarClientes" placeholder="Buscar plato o código…" aria-label="Buscar plato o código">
         </label>
       </div>
+      <!-- 24/10: el cartelito gris si hoy no hay nada para cocinar (lo muestra cocinero.js) -->
+      <p id="avisoSinHoy" class="aviso-sin-hoy" hidden>Hoy no hay nada para cocinar</p>
       <div class="caja-tabla-cocina">
         <table id="tablaPedidos" class="standard-table tabla-cocina tabla-clientes">
           <thead>
             <tr>
               <!-- 29/10: una fila por plato personalizado (las del mismo pedido, juntas). El N° de pedido, solo en Detalles.
-                   24/10: Código · Plato (+ ⚠) · Viandas ("A cocinar: 1" y, en la primera fila del pedido, "De la heladera: 9") ·
-                   Estado · Cocinar (el día de cocina, con su color, y abajo la entrega) -->
-              <th class="col-codigo">Código</th>
-              <th class="col-plato-personalizado">Plato</th>
-              <th class="col-viandas">Viandas</th>
-              <th class="col-estado">Estado</th>
-              <th class="col-cocinar">Cocinar</th>
+                   24/10: Código · Vianda a cocinar · Cantidad · Personalización · Estado, todas del mismo ancho
+                   (col-dato-cliente); solo la de los botones tiene el suyo. El día y la entrega, solo en Detalles -->
+              <th class="col-dato-cliente">Código</th>
+              <th class="col-dato-cliente">Vianda a cocinar</th>
+              <th class="col-dato-cliente">Cantidad</th>
+              <th class="col-dato-cliente">Personalización</th>
+              <th class="col-dato-cliente">Estado</th>
               <th class="col-botones-clientes"><span class="solo-lector">Acciones</span></th>
             </tr>
           </thead>

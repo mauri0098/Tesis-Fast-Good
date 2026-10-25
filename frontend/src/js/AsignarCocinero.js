@@ -63,10 +63,11 @@ function crearFilaPlato(plato) {
 
   const select = tr.querySelector('select');
 
-  // Opción vacía: muestra qué cocinero lo va a ver igual (el del plan), o que no lo ve nadie
-  const textoSinAsignar = plato.cocinero_plan
-    ? `Sin asignar — usa el del plan (${nombreCompleto(plato.cocinero_plan)})`
-    : 'Sin asignar — el plan tampoco tiene cocinero';
+  // Opción vacía: muestra qué cocinero lo va a ver igual (el del plan: el principal o, si no hay, el suplente)
+  // o, si el plan tampoco tiene (25/10), que lo ven todos los cocineros
+  const delPlan = cocineroDelPlan(plato);
+  let textoSinAsignar = 'Sin asignar — el plan tampoco tiene: lo ven todos los cocineros';
+  if (delPlan) textoSinAsignar = `Sin asignar — usa el del plan (${nombreCompleto(delPlan)})`;
   select.appendChild(crearOption('', textoSinAsignar));
 
   cocineros.forEach(c => select.appendChild(crearOption(c.id, nombreCompleto(c))));
@@ -84,18 +85,31 @@ function crearFilaPlato(plato) {
   return tr;
 }
 
-// Gris/itálica cuando usa el del plan; amarillo cuando no lo ve nadie
-function estiloSelect(select, plato) {
-  select.classList.toggle('usa-plan',  select.value === '' && !!plato.cocinero_plan);
-  select.classList.toggle('sin-nadie', select.value === '' && !plato.cocinero_plan);
+// ─────────────────────────────────────────────────────────────────────────────
+// cocineroDelPlan → el cocinero de respaldo de un plato: el principal de su plan o, si no tiene, el suplente (25/10)
+// ENTRADA: plato (uno de /api/productos/cocineros) · SALIDA: { id, nombre, apellido } o null si el plan no tiene a nadie
+// Ej: plan con principal Marta → Marta · plan sin principal y con suplente Juan → Juan · plan sin nadie → null
+// Es la misma regla del servidor (platoEsDelCocinero): sin cocinero propio, lo ven el principal y el suplente del plan.
+// ─────────────────────────────────────────────────────────────────────────────
+function cocineroDelPlan(plato) {
+  return plato.cocinero_plan || plato.cocinero_suplente_plan || null;
 }
 
+// Gris/itálica cuando usa el del plan; amarillo cuando no tiene a nadie (25/10: entonces lo ven todos los cocineros)
+function estiloSelect(select, plato) {
+  const hayDelPlan = Boolean(cocineroDelPlan(plato));
+  select.classList.toggle('usa-plan',  select.value === '' && hayDelPlan);
+  select.classList.toggle('sin-nadie', select.value === '' && !hayDelPlan);
+}
+
+// El aviso de arriba (25/10): cuántos platos no tienen a nadie (ni propio, ni principal ni suplente del plan).
+// Esos platos los ven todos los cocineros, en "Para stock" y en "Pedidos de clientes", y cualquiera los puede marcar.
 function actualizarAviso() {
   const aviso = document.getElementById('avisoSinCocinero');
-  const sinNadie = todosPlatos.filter(p => !p.id_cocinero && !p.cocinero_plan).length;
-  aviso.textContent = sinNadie === 1
-    ? '⚠ 1 plato no tiene cocinero (ni propio ni del plan): sus pedidos no le aparecen a nadie en cocina.'
-    : `⚠ ${sinNadie} platos no tienen cocinero (ni propio ni del plan): sus pedidos no le aparecen a nadie en cocina.`;
+  const sinNadie = todosPlatos.filter(p => !p.id_cocinero && !cocineroDelPlan(p)).length;
+  const queTiene = sinNadie === 1 ? '1 plato no tiene' : sinNadie + ' platos no tienen';
+  aviso.textContent = '⚠ ' + queTiene + ' cocinero (ni propio ni del plan, principal o suplente): '
+    + 'lo ven todos los cocineros y cualquiera lo puede marcar como hecho o listo.';
   aviso.classList.toggle('visible', sinNadie > 0);
 }
 

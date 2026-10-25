@@ -131,32 +131,16 @@ table {
   background: white;
 }
 
-/* Los títulos: los de todas las tablas del panel (antes: franja verde con letra blanca). Salen de las perillas de global.css */
+/* Los títulos y las celdas: los de todas las tablas del panel (global.css, sección 8: letra, alto, aire, colores y
+   líneas). 24/10: ya no se repiten acá; queda solo dónde va el texto */
 thead th {
-  padding: var(--aire-titulos-tabla);
-  background: var(--fondo-titulos-tabla);
-  color: var(--color-titulos-tabla);
   text-align: left;
-  font-size: var(--letra-titulos-tabla);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: var(--espacio-letras-titulos);
   white-space: nowrap;
-  border-bottom: 1px solid var(--linea-titulos-tabla);
 }
 
-/* Las celdas: las del molde (letra de 14,5 px, filas de 60 px y la línea finita entre filas) */
 tbody td {
-  height: var(--alto-fila);
-  padding: var(--celda-alto) var(--celda-espacio);
-  border-bottom: 1px solid var(--linea-renglones-tabla);
   color: var(--texto);
-  font-size: var(--letra-celdas-tabla);
   vertical-align: middle;
-}
-
-tbody tr:last-child td {
-  border-bottom: none;
 }
 
 /* Fila bajo el mouse: gris muy claro */
@@ -167,26 +151,33 @@ tbody tr:hover {
 /* ── TABLA DE MOVIMIENTOS: ancho de las columnas ── */
 /* Ancho mínimo: en el celular aparece el scroll de costado (del .table-wrapper)
    en vez de aplastarse */
+/* 24/10: cada columna con su ancho FIJO (table-layout: fixed); solo Motivo no tiene: se lleva lo que sobra (a 1440,
+   unos 180 px: el texto entra en 2 renglones). Antes Motivo tenía width: 100% y empujaba a las demás */
 .table-wrapper table {
   min-width: 1100px;
+  table-layout: fixed;
 }
 
-/* Todas las celdas en una sola línea (fecha, "Compra #N", badge, resumen...),
-   menos Motivo (columna 8). El renglón de detalle queda afuera: ocupa las 9 columnas */
+.table-wrapper thead th:nth-child(1) { width: 150px; }  /* Fecha y Hora ("24/10/2026 15:32") */
+.table-wrapper thead th:nth-child(2) { width: 120px; }  /* Origen ("Producción", "Cocina de u…") */
+.table-wrapper thead th:nth-child(3) { width: 136px; }  /* Referencia ("▸ Pedido #081") */
+.table-wrapper thead th:nth-child(4) { width: 108px; }  /* Tipo (la pastilla ▲ Entrada / ▼ Salida) */
+.table-wrapper thead th:nth-child(5) { width: 140px; }  /* Resumen ("2 viandas · 1 insumo") */
+.table-wrapper thead th:nth-child(6) { width: 110px; }  /* Usuario */
+.table-wrapper thead th:nth-child(7) { width: 90px; }   /* Proveedor */
+.table-wrapper thead th:nth-child(9) { width: 76px; }   /* Detalle (el botón Ver) */
+
+/* Todas las celdas en una sola línea (fecha, "Compra #N", badge, resumen...); si no entra, se corta con "…".
+   Motivo (columna 8) puede ir en varios renglones. El renglón de detalle queda afuera: ocupa las 9 columnas */
 #movimientosBody tr:not(.fila-detalle-grupo) td:not(:nth-child(8)) {
+  overflow: hidden;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-/* Motivo usa todo el ancho que sobra; las demás quedan con el ancho justo */
-#movimientosBody td:nth-child(8) {
-  width: 100%;
-  min-width: 180px;
-}
-
-/* Renglón "Cargando..." o "No hay movimientos": centrado y gris */
+/* Renglón "Cargando..." o "No hay movimientos": centrado y gris (el alto, el del molde) */
 .empty-row td {
   text-align: center;
-  padding: 3rem;
   color: var(--color-muted);
 }
 
@@ -340,11 +331,6 @@ tbody tr:hover {
   z-index: 1;
 }
 
-/* Celdas un poco más chicas que en la tabla principal */
-.compra-tabla tbody td {
-  padding: 0.5rem 0.75rem;
-}
-
 /* Renglón de un insumo con stock bajo: fondo rojo suave (también con el mouse encima) */
 .compra-tabla tbody tr.fila-baja {
   background: #fdecea;
@@ -481,11 +467,14 @@ tbody tr.fila-salida {
 
 
 /* ── BADGE DEL TIPO: "pastilla" de color con el texto ENTRADA / SALIDA ── */
+/* 24/10: el alto y la letra son los de las pastillas de todas las tablas (global.css: --alto-pastilla-estado) */
 .badge {
-  display: inline-block;
-  padding: 0.2rem 0.7rem;
+  height: var(--alto-pastilla-estado);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
   border-radius: var(--radius-pill);
-  font-size: 0.78rem;
+  font-size: var(--letra-pastilla-estado);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -515,14 +504,13 @@ tbody tr.fila-salida {
 
 
 /* ── BOTÓN "DETALLES": borde verde; relleno verde con el mouse o abierto ── */
+/* 24/10: el alto, la letra y el aire, los de los botones de todas las tablas (global.css, sección 8) */
 .btn-detalles {
-  padding: 0.25rem 0.75rem;
   background: transparent;
   color: #28a745;
   border: 1px solid #28a745;
   border-radius: 50px;
   font-family: inherit;
-  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;

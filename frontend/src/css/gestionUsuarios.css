@@ -92,20 +92,22 @@ body {
 /* =========================================
    TABLA PRINCIPAL
    ========================================= */
+/* 24/10: table-layout fixed (antes auto) = cada columna con el ancho de su título (los % de abajo), sin que una se estire
+   por lo que tiene adentro. Más angosta que 900 px, se mueve de costado */
 .standard-table {
   width: 100%;
+  min-width: 900px;
   border-collapse: separate;
   border-spacing: 0;
-  table-layout: auto;
+  table-layout: fixed;
 }
 
+/* 24/10: el tamaño de los títulos y de las celdas (letra, alto y aire) es el de todas las tablas del panel (global.css) */
 .standard-table thead th {
   background-color: #e8f5e9;
   color: #4CAF50;
   font-weight: 600;
   text-transform: uppercase;
-  font-size: 0.78rem;
-  padding: 0.9rem 0.75rem;
   text-align: center;
   letter-spacing: 0.05em;
   border-bottom: 2px solid #28a745;
@@ -116,30 +118,28 @@ body {
 
 /* Anchos orientativos — 7 columnas */
 .standard-table thead th:nth-child(1),
-.standard-table tbody td:nth-child(1) { width: 10%;  min-width: 100px; } /* ID */
+.standard-table tbody td:nth-child(1) { width: 8%;   min-width: 100px; } /* ID */
 
 .standard-table thead th:nth-child(2),
 .standard-table tbody td:nth-child(2) { width: 15%;  min-width: 130px; } /* Nombre */
 
 .standard-table thead th:nth-child(3),
-.standard-table tbody td:nth-child(3) { width: 12%;  min-width: 110px; } /* Usuario */
+.standard-table tbody td:nth-child(3) { width: 11%;  min-width: 110px; } /* Usuario */
 
 .standard-table thead th:nth-child(4),
-.standard-table tbody td:nth-child(4) { width: 19%;  min-width: 150px; } /* Email */
+.standard-table tbody td:nth-child(4) { width: 18%;  min-width: 150px; } /* Email */
 
 .standard-table thead th:nth-child(5),
 .standard-table tbody td:nth-child(5) { width: 10%;  min-width: 90px;  } /* Teléfono */
 
 .standard-table thead th:nth-child(6),
-.standard-table tbody td:nth-child(6) { width: 9%;   min-width: 85px;  } /* Rol */
+.standard-table tbody td:nth-child(6) { width: 22%;  min-width: 85px;  } /* Rol (24/10: 9 → 22, así entra la pastilla "Administrador del sistema") */
 
 .standard-table thead th:nth-child(7),
-.standard-table tbody td:nth-child(7) { width: 14%;  min-width: 160px; } /* Acciones */
+.standard-table tbody td:nth-child(7) { width: 16%;  min-width: 160px; } /* Acciones (24/10: 14 → 16, por los botones de 26 px) */
 
 .standard-table tbody td {
-  padding: 0.75rem 0.75rem;
   border-bottom: 1px solid var(--border-light);
-  font-size: 0.82rem;
   vertical-align: middle;
   text-align: center;
   word-break: break-word;
@@ -158,8 +158,7 @@ body {
 /* ID en monospace */
 .td-id {
   font-family: 'Courier New', Courier, monospace;
-  font-size: 0.78rem;
-  color: var(--text-muted);
+  color: var(--text-muted);   /* 24/10: el tamaño, el de las celdas de todas las tablas (global.css) */
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -167,11 +166,14 @@ body {
 /* =========================================
    BADGES DE ROL
    ========================================= */
+/* 24/10: el alto y la letra son los de las pastillas de todas las tablas (global.css: --alto-pastilla-estado) */
 .badge-rol {
-  display: inline-block;
-  padding: 0.25rem 0.8rem;
+  height: var(--alto-pastilla-estado);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
   border-radius: 50px;
-  font-size: 0.72rem;
+  font-size: var(--letra-pastilla-estado);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -209,8 +211,7 @@ body {
 /* =========================================
    BOTONES DE ACCIÓN EN LA TABLA
    ========================================= */
-.td-acciones { padding: 0.5rem 0.6rem; }
-
+/* 24/10: el aire de la celda Acciones y el tamaño de Editar / Borrar son los de todas las tablas (global.css, sección 8) */
 .acciones-grupo {
   display: flex;
   flex-direction: row;
@@ -221,13 +222,11 @@ body {
 }
 
 .btn-editar {
-  padding: 0.3rem 0.7rem;
   background-color: var(--primary-green);
   color: #fff;
   border: none;
   border-radius: 50px;
   font-family: 'Poppins', sans-serif;
-  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -236,13 +235,11 @@ body {
 .btn-editar:hover { background-color: #218838; }
 
 .btn-borrar {
-  padding: 0.3rem 0.7rem;
   background-color: #dc3545;
   color: #fff;
   border: none;
   border-radius: 50px;
   font-family: 'Poppins', sans-serif;
-  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;

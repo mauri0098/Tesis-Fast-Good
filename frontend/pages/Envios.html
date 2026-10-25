@@ -100,10 +100,10 @@
     }
     .card-num { font-weight: 700; font-size: 0.88rem; color: var(--color-muted); }
 
-    /* badge estado */
+    /* badge estado (24/10: del alto y la letra de las pastillas de las tablas del panel, global.css) */
     .badge-estado {
-      display: inline-block; padding: 0.2rem 0.7rem;
-      border-radius: var(--radius-pill); font-size: 0.75rem; font-weight: 700;
+      height: var(--alto-pastilla-estado); display: inline-flex; align-items: center; padding: 0 10px;
+      border-radius: var(--radius-pill); font-size: var(--letra-pastilla-estado); font-weight: 700;
     }
     .badge-estado-3 { background: #fff3e0; color: #e65100; }
     .badge-estado-4 { background: #e8f5e9; color: #2e7d32; }
@@ -173,10 +173,10 @@
     .card-total-wrap { display: flex; flex-direction: column; gap: 0.1rem; }
     .card-total { font-size: 1.15rem; font-weight: 700; color: var(--color-text); }
 
-    /* badge método de pago */
+    /* badge método de pago (24/10: del alto y la letra de las pastillas de las tablas del panel, global.css) */
     .badge-pago {
-      display: inline-block; padding: 0.15rem 0.6rem;
-      border-radius: var(--radius-pill); font-size: 0.75rem; font-weight: 600;
+      height: var(--alto-pastilla-estado); display: inline-flex; align-items: center; padding: 0 10px;
+      border-radius: var(--radius-pill); font-size: var(--letra-pastilla-estado); font-weight: 600;
     }
     .badge-pago.efectivo     { background: #d4edda; color: #155724; }
     .badge-pago.transferencia { background: #cce5ff; color: #004085; }

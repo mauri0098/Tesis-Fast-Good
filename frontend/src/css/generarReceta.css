@@ -93,42 +93,45 @@ body {
 /* =========================================
    TABLA PRINCIPAL
    ========================================= */
+/* 24/10: table-layout fixed (antes auto) = cada columna con el ancho de su título (los % de abajo), sin que una se estire
+   por lo que tiene adentro. Lo que sobra se reparte un poco entre todas. Más angosta que 900 px, se mueve de costado */
 .standard-table {
   width: 100%;
+  min-width: 900px;
   border-collapse: separate;
   border-spacing: 0;
-  table-layout: auto;
+  table-layout: fixed;
 }
 
 /* Encabezado, celdas, bordes y hover: clase compartida .grilla-fg (global.css) */
 
-/* Anchos por columna — 9 columnas, guías + mínimos garantizados */
+/* Anchos por columna — 9 columnas (con table-layout fixed mandan los % de los títulos; los mínimos ya no hacen falta) */
 .standard-table thead th:nth-child(1),
-.standard-table tbody td:nth-child(1) { width: 5%;  min-width: 58px;  white-space: nowrap; }  /* Código */
+.standard-table tbody td:nth-child(1) { width: 6.5%; min-width: 58px;  white-space: nowrap; }  /* Código (24/10: 5 → 6,5, así entra el título CÓDIGO) */
 
 .standard-table thead th:nth-child(2),
-.standard-table tbody td:nth-child(2) { width: 9%;  min-width: 85px; }   /* Categoría */
+.standard-table tbody td:nth-child(2) { width: 8.5%; min-width: 85px; }   /* Categoría */
 
 .standard-table thead th:nth-child(3),
-.standard-table tbody td:nth-child(3) { width: 10%; min-width: 90px; }   /* Plan */
+.standard-table tbody td:nth-child(3) { width: 9.5%; min-width: 90px; }   /* Plan */
 
 .standard-table thead th:nth-child(4),
-.standard-table tbody td:nth-child(4) { width: 14%; min-width: 110px; }  /* Nombre Producto */
+.standard-table tbody td:nth-child(4) { width: 12%; min-width: 110px; }  /* Nombre Producto (24/10: 14 → 12) */
 
 .standard-table thead th:nth-child(5),
-.standard-table tbody td:nth-child(5) { width: 11%; min-width: 95px; }   /* Cocinero */
+.standard-table tbody td:nth-child(5) { width: 10%; min-width: 95px; }   /* Cocinero (24/10: 11 → 10) */
 
 .standard-table thead th:nth-child(6),
 .standard-table tbody td:nth-child(6) { width: 7%;  min-width: 72px; }   /* Precio */
 
 .standard-table thead th:nth-child(7),
-.standard-table tbody td:nth-child(7) { width: 7%;  min-width: 72px; }   /* Descuento */
+.standard-table tbody td:nth-child(7) { width: 8.5%; min-width: 72px; }  /* Descuento (24/10: 7 → 8,5, así entra el título DESCUENTO) */
 
 .standard-table thead th:nth-child(8),
 .standard-table tbody td:nth-child(8) { width: 8%;  min-width: 80px; }   /* Cant. Posible */
 
 .standard-table thead th:nth-child(9),
-.standard-table tbody td:nth-child(9) { width: 18%; min-width: 220px; }  /* Acciones */
+.standard-table tbody td:nth-child(9) { width: 19%; min-width: 220px; }  /* Acciones (24/10: 18 → 19, por los botones de 26 px) */
 
 /* Plato sin cocinero propio: lo ve el cocinero del plan */
 .td-del-plan {
@@ -139,8 +142,7 @@ body {
 /* Código de plato en fuente monoespaciada */
 .td-codigo {
   font-family: 'Courier New', Courier, monospace;
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-weight: 700;   /* 24/10: el tamaño, el de las celdas de todas las tablas (global.css) */
   color: var(--primary-green);
   letter-spacing: 0.04em;
 }
@@ -154,33 +156,31 @@ body {
 
 /* =========================================
    BADGES CANTIDAD POSIBLE
+   24/10: el alto y la letra son los de las pastillas de todas las tablas (global.css: --alto-pastilla-estado)
    ========================================= */
-.cant-ok {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
+.cant-ok,
+.cant-baja,
+.cant-cero {
+  height: var(--alto-pastilla-estado);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
   border-radius: 50px;
-  font-size: 0.72rem;
+  font-size: var(--letra-pastilla-estado);
   font-weight: 700;
+}
+
+.cant-ok {
   background-color: #d4edda;
   color: #155724;
 }
 
 .cant-baja {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 50px;
-  font-size: 0.72rem;
-  font-weight: 700;
   background-color: #fff3cd;
   color: #856404;
 }
 
 .cant-cero {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 50px;
-  font-size: 0.72rem;
-  font-weight: 700;
   background-color: #f8d7da;
   color: #721c24;
 }
@@ -212,10 +212,7 @@ body {
 
 .btn-borrar:hover { background-color: #bd2130; }
 
-/* Celda Acciones: sólo padding — el flex va en el div interno */
-.td-acciones {
-  padding: 0.5rem 0.6rem;
-}
+/* Celda Acciones: el aire es el de todas las celdas (global.css, 24/10) — el flex va en el div interno */
 
 /* Div contenedor de los botones — éste sí lleva flex */
 .acciones-grupo {
@@ -421,11 +418,11 @@ body {
   overflow-x: auto;
 }
 
+/* 24/10: la letra, el alto y el aire de los títulos y de las celdas son los de todas las tablas del panel (global.css) */
 .table-insumos {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 0.75rem;
-  font-size: 0.85rem;
 }
 
 @media (max-width: 768px) {
@@ -435,19 +432,10 @@ body {
 }
 
 .table-insumos thead th {
-  background-color: #e8f5e9;
-  color: #4CAF50;
-  font-weight: 600;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  padding: 0.6rem 0.8rem;
   text-align: left;
-  border-bottom: 2px solid var(--primary-green);
 }
 
 .table-insumos tbody td {
-  padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid var(--border-light);
   vertical-align: middle;
 }
 
@@ -472,14 +460,13 @@ body {
   box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.15);
 }
 
+/* "Eliminar" de cada insumo de la receta. 24/10: el tamaño, el de los botones de todas las tablas (global.css) */
 .btn-fila-borrar {
-  padding: 0.3rem 0.65rem;
   background-color: #f8d7da;
   color: #721c24;
   border: 1px solid #f5c6cb;
   border-radius: var(--radius);
   font-family: 'Poppins', sans-serif;
-  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -704,15 +691,13 @@ body {
   color: var(--receta-resultado-error-letra);
 }
 
-/* "Guardar" de cada plan en la ventana de abreviaturas: una pastilla verde chica */
+/* "Guardar" de cada plan en la ventana de abreviaturas: una pastilla verde chica (24/10: del tamaño del molde, global.css) */
 .btn-guardar-abreviatura {
-  padding: 0.35rem 0.9rem;
   border: none;
   border-radius: 50px;
   background-color: var(--primary-green);
   color: #fff;
   font-family: inherit;
-  font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;

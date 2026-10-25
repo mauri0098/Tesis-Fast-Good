@@ -12,12 +12,15 @@
 .tabla-combos th:nth-child(6) { width: 18%; }   /* Estado */
 .tabla-combos th:nth-child(7) { width: 250px; } /* Acciones: Editar · Menú · Activar/Desactivar */
 
-/* Etiqueta de estado: Activo (verde) / Inactivo (gris) */
+/* Etiqueta de estado: Activo (verde) / Inactivo (gris).
+   24/10: el alto y la letra son los de las pastillas de todas las tablas (global.css: --alto-pastilla-estado) */
 .estado-combo {
-  display: inline-block;
-  padding: 0.15rem 0.6rem;
+  height: var(--alto-pastilla-estado);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
   border-radius: 50px;
-  font-size: 0.75rem;
+  font-size: var(--letra-pastilla-estado);
   font-weight: 600;
 }
 .estado-combo--activo   { background: #d4edda; color: #155724; }
@@ -27,20 +30,19 @@
 .no-se-ve {
   display: block;
   margin-top: 0.25rem;
-  font-size: 0.72rem;
+  font-size: var(--letra-dato-chico);   /* 24/10: el texto chiquito de las tablas (11 px) */
   font-weight: 600;
   color: #b45309;
 }
 
-/* Botón Activar (el de Desactivar es .btn-borrar, rojo, de stock.css) */
+/* Botón Activar (el de Desactivar es .btn-borrar, rojo, de stock.css).
+   24/10: el alto, la letra y el aire son los de los botones de todas las tablas (global.css, sección 8) */
 .btn-activar {
-  padding: 0.3rem 0.7rem;
   background-color: #1565C0;
   color: #fff;
   border: none;
   border-radius: 50px;
   font-family: 'Poppins', sans-serif;
-  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -76,15 +78,13 @@
   cursor: not-allowed;
 }
 
-/* Botón "Menú" de cada combo (naranja, como "Detalles" en Consultar Pedidos) */
+/* Botón "Menú" de cada combo (naranja, como "Detalles" en Consultar Pedidos). 24/10: el tamaño, el del molde */
 .btn-menu {
-  padding: 0.3rem 0.7rem;
   background-color: #ff9800;
   color: #fff;
   border: none;
   border-radius: 50px;
   font-family: 'Poppins', sans-serif;
-  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -106,18 +106,11 @@
   table-layout: fixed;
   margin-bottom: 1rem;
 }
+/* 24/10: los títulos y las celdas (letra, alto, aire, colores y líneas) son los de todas las tablas del panel (global.css) */
 .tabla-menu th {
-  padding: 0.55rem 0.6rem;
-  background: #e8f5e9;
-  color: #4CAF50;
-  font-size: 0.72rem;
-  text-transform: uppercase;
   text-align: left;
 }
 .tabla-menu td {
-  padding: 0.55rem 0.6rem;
-  border-bottom: 1px solid var(--border-light);
-  font-size: 0.85rem;
   overflow-wrap: anywhere;
 }
 .tabla-menu th:nth-child(1) { width: 80px; }   /* Código */

@@ -511,7 +511,8 @@ function crearRenglon(mov) {
   const proveedor = mov.proveedor || "—";                          // solo las compras tienen
   const motivo = MOTIVO_FIJO[mov.origen] || motivoParaMostrar(mov.motivo) || "—";  // el fijo, el escrito o "—" (29/10: con el número como en todas las pantallas: "Pedido #068")
 
-  // 2. El renglón (lo que viene de la base pasa por escHtml)
+  // 2. El renglón (lo que viene de la base pasa por escHtml). 25/10: el Motivo, en un <span class="dos-renglones">
+  //    (global.css): si es largo, corta en 2 renglones con "…" y entero aparece al pasar el mouse
   const tr = document.createElement("tr");
   tr.className = esEntrada ? "fila-entrada" : "fila-salida";
   tr.innerHTML = `
@@ -522,7 +523,7 @@ function crearRenglon(mov) {
     <td>${escHtml(resumen)}</td>
     <td>${escHtml(mov.usuario)}</td>
     <td>${escHtml(proveedor)}</td>
-    <td>${escHtml(motivo)}</td>
+    <td title="${escHtml(motivo)}"><span class="dos-renglones">${escHtml(motivo)}</span></td>
     <td><button type="button" class="btn-detalles">Ver</button></td>
   `;
 

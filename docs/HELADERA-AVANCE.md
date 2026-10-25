@@ -819,6 +819,112 @@ Detalle en la sección 24 de `INFORME-CAMBIOS-HELADERA.md`. Capturas en `diseno-
 | 8 | "Resumen del turno" | Los personalizados que se COCINAN hoy |
 | 9 | El cocinero toca "✓ Listo para entregar" | El pedido pasa a "Listo para Entregar" (el único camino para los personalizados) |
 
+### Más simple: grillas más chicas, Consultar Pedidos y Tareas de Cocina (24/10)
+Detalle en la sección 25 de `INFORME-CAMBIOS-HELADERA.md`. Capturas en `diseno-simple/resultado/`. Sin SQL ni rutas nuevas.
+- **Todas las grillas del panel**, desde las perillas de `global.css`:
+  - letra 12,5 · títulos 10,5 · filas 40 · pastillas 22 · botones 24 · texto chico 11 · pie 12;
+  - cada columna con ancho fijo (Producción, Generar Receta, Usuarios y Movimientos dejaron `table-layout: auto`);
+  - se sacó de cada CSS lo que pisaba el tamaño.
+- **Consultar Pedidos:**
+  - columnas N° · Entrega · Cliente · Dirección · Teléfono · Viandas · Costo · Estado · Pago · Envío · Acciones;
+  - el pago corto ("A cobrar" / "✓ Cobrado" / "Sin confirmar");
+  - Envío: "Delivery" azul o "Retira" violeta;
+  - Detalles con cliente · mail, 3 cajitas y "de la heladera".
+- **Tareas de Cocina · Pedidos de clientes:**
+  - Código · Vianda a cocinar · Cantidad · Personalización · Estado;
+  - una pestaña por día de cocina: HOY en verde, los atrasados en rojo con "· quedó N", un color por día de la semana, "Todos" al final;
+  - abre sola en hoy; si no, en el atrasado; si no, "Todos" con "Hoy no hay nada para cocinar";
+  - Detalles con "Pedido [#081]" y 2 cajitas.
+- **Comprobado:**
+  - con datos falsos y la fecha simulada solo en el navegador; nada llegó a la base;
+  - 1440 / 1280 / 390, sin que la página se mueva de costado;
+  - consola sin errores;
+  - test HELADERA 40/40.
+
+**Recorrido a mano (24/10).** Ctrl+F5 en cada pantalla (no hace falta reiniciar el servidor).
+| # | Qué hacés | Qué tiene que pasar |
+|---|---|---|
+| 1 | Consultar Pedidos, en la compu | Las filas más bajas. Sin Mail; columna Envío con camioncito (Delivery) o local (Retira); en Pago, "A cobrar" naranja o "✓ Cobrado" verde. Un pedido que retira tiene "—" en Dirección |
+| 2 | "Detalles" de un pedido | "Realizado el … · hh:mm", el cliente · mail en azul, las cajitas Entrega · Envío · Viandas, "de la heladera" o "⚠ sin sal" |
+| 3 | Tareas de Cocina → Pedidos de clientes (como cocinero) | Las pestañas por día ("Lunes 26 HOY"); abre en hoy; el pie "Mostrando N viandas para cocinar hoy". Si quedó algo de un día que pasó, esa pestaña va en rojo |
+| 4 | "Detalles" de un pedido de cliente | "Pedido #0xx" con el número en verde; Cocinar · Entrega; "Se cocina aparte" y "Sale de la heladera … ya está hecha" |
+| 5 | "✓ Listo para entregar" (solo con un pedido PRUEBA sin personalizados sin hacer, o no lo toques) | Si era lo último de ese día, la pestaña desaparece |
+| 6 | Producción, Stock, Movimientos, Combos, Generar Receta, Usuarios y Asignar Cocineros | Todas las tablas con el mismo tamaño de letra, filas y botones; ninguna columna con un espacio gigante |
+| 7 | Lo mismo en el celu | La tabla se mueve de costado adentro de su tarjeta; la página no |
+
+### Consultar Pedidos en porcentajes y la grilla un poco más grande (24/10)
+Detalle en la sección 26 de `INFORME-CAMBIOS-HELADERA.md`. Solo CSS (y una clase en `stock.html`). Sin SQL, sin rutas, sin JS.
+- **Todas las grillas, desde `global.css`:** letra 13 · títulos 11 · filas 44 · pastillas 24/12,5 · botones 26/12 · texto chico 11,5.
+- **Consultar Pedidos, cada columna en % (suman 100):** N° 5 · Entrega 7 · Cliente 9 · Dirección 8 · Teléfono 7,5 · Viandas 6,5 · Costo 7,5 · Estado 14,5 · Pago 8,5 · Envío 8 · Acciones 18,5.
+  - 8 px de aire a los costados de cada celda, así a 1440 entra todo.
+  - A 1920 ya no hay hueco: Dirección pasó de 561 a 126 px.
+- **Tareas de Cocina · Para stock, en %:** Código 8 · Plato 37 · Cantidad 12 · Estado 11 · Fecha 12 · Acciones 20. En Pedidos de clientes, los botones de 250 px.
+- **Gestión de Stock, en %** (clase nueva `tabla-stock-insumos`): Código 8 · Nombre 18 · Stock 11 · Unidad 7 · Categoría 12 · Fecha 12 · Estado 13 · Acciones 19.
+- **Arreglos por los tamaños nuevos:**
+  - Usuarios: la pastilla de Rol se salía; Rol pasó a 22%.
+  - Generar Receta: Acciones y los títulos CÓDIGO y DESCUENTO.
+- **Comprobado:**
+  - a 1920 / 1440 / 1280 nada se sale de su columna (celdas y títulos);
+  - consola sin errores;
+  - test HELADERA 40/40.
+
+**Recorrido a mano (24/10).** Ctrl+F5 en cada pantalla.
+| # | Qué hacés | Qué tiene que pasar |
+|---|---|---|
+| 1 | Consultar Pedidos en tu pantalla (1920) | Las columnas repartidas como la captura del diseño, más anchas; Dirección ya no es gigante |
+| 2 | Lo mismo, con la ventana más angosta (1440 y 1280) | A 1440, todo entra y ningún título se pisa; a 1280 la tabla se mueve de costado adentro de su tarjeta |
+| 3 | Tareas de Cocina → Para stock y Pedidos de clientes | Plato ya no se lleva todo; en clientes, las 5 columnas iguales y los botones enteros |
+| 4 | Gestión de Stock | Nombre más ancho que Unidad; Editar y Eliminar enteros |
+| 5 | Gestión de Usuarios y Generar Receta | La pastilla de Rol y los botones adentro de su columna |
+
+### 2 renglones en 3 columnas y los números de Tareas de Cocina (25/10)
+Detalle en la sección 27 de `INFORME-CAMBIOS-HELADERA.md`. Solo JS para mostrar. Sin SQL ni rutas.
+- **Cortan en 2 renglones con "…"** (y entero al pasar el mouse):
+  - Cocinero en Generar Receta;
+  - Mail en Gestión de Usuarios (Mail y Usuario, además, con la letra de todas las tablas);
+  - Motivo en Movimientos de Stock.
+- **Los circulitos de Tareas de Cocina** cuentan los platos de hoy más los atrasados; los días que vienen no cuentan.
+  - Se recalculan solos al abrir, al marcar "✓ Hecho" o "✓ Listo" y cada 60 segundos (lo escribe `dibujarTabla`).
+- **Comprobado:**
+  - 2 → 1 con "✓ Hecho", 1 → 2 con la recarga sola, 6 → 4 → 3 con "✓ Listo" (todo contestado en el navegador);
+  - consola sin errores;
+  - test HELADERA 40/40.
+
+**Recorrido a mano (25/10).** Ctrl+F5 en cada pantalla.
+| # | Qué hacés | Qué tiene que pasar |
+|---|---|---|
+| 1 | Generar Receta, Gestión de Usuarios y Movimientos de Stock | Un cocinero, un mail o un motivo largo ocupa como mucho 2 renglones y termina en "…"; al pasar el mouse se ve entero |
+| 2 | Tareas de Cocina (como cocinero) | El número de "Para stock" y el de "Pedidos de clientes" cuentan solo lo de hoy y lo atrasado |
+| 3 | Marcás "✓ Hecho" (solo con un pedido a cocina de prueba) | El número de "Para stock" baja si el plato era de hoy o atrasado |
+| 4 | Marcás "✓ Listo para entregar" (solo con un pedido PRUEBA) | El número de "Pedidos de clientes" baja tantos platos como tenía ese pedido de hoy o atrasados |
+
+### Cada cocinero ve lo suyo (y lo de nadie) · horario de corte de las 21 (25/10)
+Detalle en la sección 28 de `INFORME-CAMBIOS-HELADERA.md`. Sin SQL. **Hay que reiniciar el servidor.**
+- **Cocineros:**
+  - Un cocinero ve lo suyo (plato propio o, si no tiene, principal o suplente del plan). Ahora, también en Pedidos de clientes, los platos que no tienen a nadie, y los puede marcar "✓ Listo".
+  - Antes esos pedidos se trababan.
+  - El admin ve todo.
+  - El aviso de Asignar Cocineros cuenta también al suplente.
+- **Corte de las 21** (`HORA_CORTE = 21`, en `fechas.js`, junto a los días hábiles):
+  - un pedido solo de heladera hecho desde las 21:00 (hora de Argentina) se entrega desde el próximo día hábil;
+  - con personalizado no cambia;
+  - lo controla el servidor; el calendario del index tampoco deja elegir hoy;
+  - los textos dicen "pedidos hasta las 21 h".
+- **Comprobado:**
+  - la función con 20:59 / 21:00 / 21:01 / viernes / sábado / domingo: 13/13, con la zona de Argentina y con la de UTC (Render);
+  - el servidor con la hora simulada, sin guardar ningún pedido;
+  - el index con la hora simulada en el navegador;
+  - test HELADERA 39 + 1 aviso: falta Carne en la base real para el paso del personalizado; no es un error.
+
+**Recorrido a mano (25/10).** Reiniciá el servidor y Ctrl+F5.
+| # | Qué hacés | Qué tiene que pasar |
+|---|---|---|
+| 1 | Index, después de las 21, un combo sin personalizar → "Finalizar" | La primera fecha es el próximo día hábil, con el texto "(los pedidos de la heladera hechos desde las 21 h…)" |
+| 2 | Lo mismo antes de las 21 | La primera fecha es hoy (si es día hábil) |
+| 3 | Con un personalizado, a cualquier hora | Como antes: un día de producción en el medio |
+| 4 | Asignar Cocineros | Si hay un plato sin cocinero (ni propio ni del plan), el aviso dice que lo ven todos los cocineros |
+| 5 | Tareas de Cocina como Marta | Ve sus platos y los que no tienen a nadie; no ve los de juan |
+
 ## Ajustes después de probar a mano (16/10) — de a uno, con freno
 (Desde el 16/10 se hacen cuando se llega a su pantalla: ver la tabla de arriba.)
 Detalle de cada uno en la sección 12 de `INFORME-CAMBIOS-HELADERA.md`. Decisiones del usuario (16/10): motivo de las salidas

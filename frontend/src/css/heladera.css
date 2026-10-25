@@ -34,15 +34,17 @@
 
 /* ===== 0. PERILLAS DE ESTA PANTALLA ===== */
 :root {
-    /* La tabla de platos: Plato, Plan, Estado y ••• tienen un ancho fijo. Disponibles, Reservadas, Total y Mínimo no tienen
-       ancho: miden lo que su título (nunca menos) y se reparten lo que sobra en una pantalla grande (así Plan queda pegada a
-       Plato). Si la tabla no entra, se mueve de costado adentro de su tarjeta */
+    /* La tabla de platos (24/10): TODAS las columnas con ancho fijo (table-layout: fixed). Suman 1.097 px, el ancho de la
+       tarjeta a 1440: ahí quedan justas; en una pantalla más grande, lo que sobra se reparte un poco entre todas (ninguna
+       se estira sola). Si la tabla no entra, se mueve de costado adentro de su tarjeta */
     --prod-tabla-ancho-minimo: 1090px;  /* lo más angosta que queda la tabla (las fijas + los títulos de los números): más chica,
                                            se mueve de costado adentro de su tarjeta y ninguna columna se achica
                                            (29/10: 1080 → 1090, por la columna Código; Plato pasó de 260 a 196) */
     --prod-ancho-codigo: 70px;          /* Código ("F3", 29/10): fija, antes de Plato */
-    --prod-ancho-plato: 196px;          /* Plato: fijo (lo que sobra no va acá); un nombre largo se corta con "…" */
+    --prod-ancho-plato: 211px;          /* Plato: fijo; un nombre largo se corta con "…" (24/10: 196 → 211) */
     --prod-ancho-plan: 160px;           /* Plan: fija, pegada a Plato */
+    --prod-ancho-numero: 120px;         /* (24/10) Disponibles, Reservadas y Total: fijas (antes medían lo que su título) */
+    --prod-ancho-minimo: 96px;          /* (24/10) Mínimo: fija */
     --prod-ancho-estado: 140px;         /* Estado (la pastilla, al medio): fija */
     --prod-ancho-menu: 60px;            /* la columna del •••: fija */
 
@@ -312,7 +314,7 @@ body.cargada {
 
 
 /* ===== 5. TABLA DE PLATOS ===== */
-/* Los títulos, las filas de 60 px y las líneas son los de todas las tablas del panel (global.css, sección 8).
+/* Los títulos, las filas de 40 px y las líneas son los de todas las tablas del panel (global.css, sección 8).
    Acá va solo lo de esta tabla: anchos, colores de fila, Plan, números, Mínimo y el •••. */
 
 /* Si la tabla no entra a lo ancho, se mueve de costado solo acá adentro (nunca toda la página).
@@ -324,12 +326,11 @@ body.cargada {
 }
 
 /* "table." adelante: así les gana a las reglas de tablas de global.css */
-/* table-layout: auto = cada columna sin ancho (los números) mide lo que tiene adentro (como mínimo, su título entero) y
-   se lleva una parte de lo que sobra; las que tienen ancho (Plato, Plan, Estado y •••) quedan como están */
+/* table-layout: fixed (24/10; antes auto) = cada columna mide lo que dice su título (las perillas de la sección 0) */
 table.tabla-produccion {
     width: 100%;
     min-width: var(--prod-tabla-ancho-minimo);
-    table-layout: auto;
+    table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
 }
@@ -339,10 +340,13 @@ table.tabla-produccion thead th {
     white-space: nowrap;
 }
 
-/* El ancho de las columnas fijas (las perillas de la sección 0). Las de números no tienen: se reparten lo que sobra */
+/* El ancho fijo de cada columna (las perillas de la sección 0). 24/10: también los números (Disponibles, Reservadas,
+   Total) y Mínimo. .col-minimo va después de .col-numero: le gana */
 table.tabla-produccion thead .col-codigo      { width: var(--prod-ancho-codigo); }
 table.tabla-produccion thead .col-plato       { width: var(--prod-ancho-plato); }
 table.tabla-produccion thead .col-plan        { width: var(--prod-ancho-plan); }
+table.tabla-produccion thead .col-numero      { width: var(--prod-ancho-numero); }
+table.tabla-produccion thead .col-minimo      { width: var(--prod-ancho-minimo); }
 table.tabla-produccion thead .col-estado      { width: var(--prod-ancho-estado); }
 table.tabla-produccion thead .col-menu        { width: var(--prod-ancho-menu); }
 
@@ -776,8 +780,10 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
     :root {
         --prod-tabla-ancho-minimo: 930px;   /* 29/10: 924 → 930 por la columna Código (entra justo a 1280) */
         --prod-ancho-codigo: 64px;
-        --prod-ancho-plato: 146px;
+        --prod-ancho-plato: 150px;
         --prod-ancho-plan: 140px;
+        --prod-ancho-numero: 104px;         /* 24/10: Disponibles, Reservadas y Total */
+        --prod-ancho-minimo: 84px;          /* 24/10: Mínimo */
         --prod-ancho-estado: 116px;
         --prod-ancho-menu: 56px;
     }
@@ -1220,26 +1226,18 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
     border-radius: 0 0 var(--radio-tarjeta) var(--radio-tarjeta);
 }
 
+/* 24/10: la letra, el alto y el aire de los títulos y de las celdas son los de todas las tablas del panel (global.css) */
 .tabla-pedido {
     width: 100%;
     min-width: 700px;
     table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
-    font-size: 14px;
 }
 
-/* Los títulos: como los de las tablas del panel, un poco más chicos (11,5 px) */
+/* Los títulos: los de las tablas del panel, en un renglón */
 .tabla-pedido th {
-    padding: 11px 14px;
-    border-bottom: 1px solid var(--linea-tabla);
-    background: var(--blanco);
-    color: var(--titulo);
-    font-size: 11.5px;
-    font-weight: 600;
-    letter-spacing: .04em;
     text-align: left;
-    text-transform: uppercase;
     white-space: nowrap;
 }
 
@@ -1251,11 +1249,8 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
 .tabla-pedido th.col-minimo     { width: 78px; }
 .tabla-pedido th.col-pedir      { width: 132px; }
 
-/* Las celdas: 58 px de alto, blancas (sin el color del estado) y con una línea finita abajo */
+/* Las celdas: blancas (sin el color del estado). El alto, el aire y la línea, los del molde (24/10: antes 58 px) */
 .tabla-pedido td {
-    height: 58px;
-    padding: 0 14px;
-    border-bottom: 1px solid var(--linea-tabla);
     background: var(--blanco);
     color: var(--texto);
     vertical-align: middle;
@@ -2378,7 +2373,8 @@ p.info-descarte {
         border-bottom: 0;
     }
 
-    .tabla-pedido td {
+    /* ".admin-content" adelante (24/10): le gana al alto y al aire de las celdas del molde (global.css), que en la tarjeta no van */
+    .admin-content .tabla-pedido td {
         height: auto;
         padding: 0;
         border: 0;

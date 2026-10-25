@@ -154,13 +154,18 @@ function crearFilaReceta(receta) {
   tdNombre.appendChild(strong);
 
   // — Cocinero (el propio del plato; si no tiene, lo ve el cocinero del plan) —
+  //   25/10: el nombre va en un <span class="dos-renglones"> (global.css): si es largo, corta en 2 renglones con "…"
   const tdCocinero = document.createElement('td');
+  const spanCocinero = document.createElement('span');
+  spanCocinero.className = 'dos-renglones';
   if (receta.cocinero_nombre) {
-    tdCocinero.textContent = receta.cocinero_nombre;
+    spanCocinero.textContent = receta.cocinero_nombre;
   } else {
-    tdCocinero.textContent = 'Del plan';
+    spanCocinero.textContent = 'Del plan';
     tdCocinero.className   = 'td-del-plan';
   }
+  tdCocinero.appendChild(spanCocinero);
+  tdCocinero.title = spanCocinero.textContent;                     // el nombre entero al pasar el mouse
 
   // — Precio —
   const tdPrecio = document.createElement('td');

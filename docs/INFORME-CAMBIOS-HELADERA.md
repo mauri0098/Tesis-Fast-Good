@@ -36,6 +36,18 @@
 > al pasar a 2, si faltan insumos se pregunta "¿Pasarlo igual?"; en Cocina, el día de cocina (día hábil anterior a la
 > entrega) y "A cocinar / De la heladera"; entregas desde hoy (todo de heladera) o con un día de producción en el medio
 > (sección 24). Sin SQL. Test HELADERA 40/40.
+> **Más simple** (24/10, `diseno-simple/`): grillas más chicas en TODO el panel desde las perillas de `global.css`
+> (letra 12,5 · títulos 10,5 · filas 40 · pastillas 22 · botones 24), columnas de ancho fijo, Consultar Pedidos con Envío y
+> el pago corto, su Detalles con 3 cajitas, y Tareas de Cocina con una pestaña por día de cocina (HOY, atrasado en rojo)
+> (sección 25). Solo HTML, CSS y JS para mostrar. Sin SQL ni rutas nuevas. Test HELADERA 40/40.
+> **Consultar en porcentajes** (24/10): cada columna de Consultar Pedidos con su % (a 1920 Dirección ya no se come el lugar);
+> la grilla un poco más grande (letra 13 · títulos 11 · filas 44 · pastillas 24 · botones 26); Para stock y Gestión de Stock
+> también en % (sección 26). Solo CSS. Test HELADERA 40/40.
+> **Dos cosas chicas** (25/10): Cocinero, Mail y Motivo cortan en 2 renglones; los números de Tareas de Cocina cuentan
+> solo lo de hoy y lo atrasado (sección 27). Solo JS para mostrar. Test HELADERA 40/40.
+> **Cocineros y corte de las 21** (25/10): el plato sin cocinero lo ven y marcan todos los cocineros (antes, en Pedidos de
+> clientes, nadie: el pedido se trababa); un pedido solo de heladera hecho desde las 21 h se entrega desde el próximo día hábil,
+> con la hora de Argentina y controlado por el servidor (sección 28). Sin SQL. Test HELADERA 39 + 1 aviso (falta Carne en la base).
 > **Este informe se actualiza con cada cambio nuevo** (código, SQL, pantallas), con el mismo formato (regla del 15/10).
 > Los ejemplos usan tus datos: **fideos con 71 viandas**, el combo de prueba "PRUEBA Mantenimiento x10" y la
 > receta de fideos que mostró la prueba de H3: **300 g de harina integral y 2 huevos por vianda**.
@@ -5103,3 +5115,439 @@ La ventana nueva `#modalFaltanInsumos` tiene el estilo de "Confirmar pago", con 
 - Consultar: `1-consultar-400-personalizado-sin-hacer`, `2-consultar-faltan-insumos`.
 - Cocina: `3-cocina-pedidos-de-clientes-1440`, `4-cocina-detalles-cliente`, `5-cocina-resumen`, `6-cocina-pedidos-de-clientes-390`.
 - Web: `7-web-fecha-solo-heladera`, `8-web-fecha-con-personalizado`.
+
+
+---
+
+## 25. "Más simple": grillas más chicas, Consultar Pedidos y Tareas de Cocina (24/10, `diseno-simple/`)
+**Qué se pidió:** el diseño de `diseno-simple/` (4 capturas):
+1. Todas las grillas del panel más chicas y con el tamaño desde `global.css`; cada columna con ancho fijo; hasta 2 renglones por celda.
+2. Consultar Pedidos: sin Mail ni "⚠ personalizados", con la columna Envío y el pago corto.
+3. Su ventana Detalles: cliente · mail, 3 cajitas, "de la heladera".
+4. Tareas de Cocina · Pedidos de clientes: columnas nuevas, una pestaña por día de cocina, el pie nuevo.
+5. Su ventana Detalles: "Pedido [#081]", 2 cajitas, sin observaciones.
+
+**Decisiones tuyas:**
+- El molde vale para todas las tablas con `.admin-content table`.
+- Si hoy no hay nada para cocinar: abre en el día atrasado; si tampoco hay, en "Todos" con el cartelito gris "Hoy no hay nada para cocinar". Nunca en un día futuro.
+- Envíos del Día (tarjetas) queda igual: solo sus pastillas al tamaño del molde.
+- `MovimientosStock.html` (el viejo) no se toca.
+- Mixto con la transferencia confirmada: "A cobrar $ 8.500"; si no: "Sin confirmar". Tarjeta: "Débito" / "Crédito" en gris.
+- "Para stock" toma el tamaño nuevo y queda con sus columnas.
+
+**SQL y servidor:** no hizo falta nada. Todos los datos ya llegaban (fecha y hora del pedido, mail, tipo de entrega, código de plato; el día de cocina lo calcula la pantalla).
+
+### 25.1 El molde (`global.css`)
+**Perillas que cambiaron (sección 0, "Tablas"):**
+
+| Perilla | Antes → ahora |
+|---|---|
+| `--letra-celdas-tabla` | 13,5 → **12,5 px** |
+| `--letra-titulos-tabla` | 11 → **10,5 px** |
+| `--aire-titulos-tabla` | 10px 12px → **8px 12px** |
+| `--alto-fila` / `--celda-alto` | 48 / 8 → **40 / 5 px** |
+| `--alto-dato-principal` | 19 → **16 px** |
+| `--letra-dato-chico` / `--alto-dato-chico` | 12 / 16 → **11 / 14 px** |
+| `--alto-pastilla-estado` / `--letra-pastilla-estado` | 24 / 12,5 → **22 / 12 px** |
+
+**Perillas nuevas:**
+- `--alto-boton-tabla` 24 px · `--letra-boton-tabla` 11,5 px · `--aire-boton-tabla` 9 px;
+- `--alto-dos-renglones` 1.3;
+- `--letra-pie-tabla` 12 px (antes 13,5 fijo);
+- `--alto-boton-pagina` 30 px y `--letra-boton-pagina` 12 px (antes 32 y 13,5 fijos).
+
+**Reglas:**
+- **Títulos y celdas de TODAS las tablas:** antes `table.standard-table thead th, table.grilla-fg thead th`; ahora `.admin-content table thead th` y `.admin-content table tbody td`. Así entran también las tablas sin clase (Movimientos) y las de las ventanas (Pedir a cocina, Menú del combo, insumos de la receta, abreviaturas, Detalles de cocina). El color oscuro de la letra queda solo para `.standard-table` y `.grilla-fg`, así no pisa los colores de las tablas de las ventanas.
+- **`.dos-renglones` (nueva):** corta el texto en 2 renglones con "…" (`-webkit-line-clamp: 2`). Se pone en un `<span>` adentro de la celda.
+- **El tamaño de los botones de las filas:** una regla con la lista de sus clases (`.btn-detalle`, `.btn-detalles`, `.btn-pago`, `.btn-eliminar`, `.btn-editar`, `.btn-borrar`, `.btn-guardar`, `.btn-guardar-abreviatura`, `.btn-fila-borrar`, `.btn-activar`, `.btn-menu`, `.boton-detalles-cocina`, `.btn-hecho`, `.btn-listo`): 24 px, 11,5 px, en un renglón.
+  - **Por qué por clase y no "todo botón de una tabla":** así no se tocan los botones de dibujito (el ⋯ y el ✓ del mínimo de Producción, el − / + de Pedir a cocina).
+- **`td.codigo-plato` (nueva):** Asignar Cocineros pone la clase de la pastillita en la CELDA del código, y la celda se salía de la fila. Ahora esa celda vuelve a ser una celda común. Pasaba desde el código de plato; se vio ahora.
+- **El pie y las páginas:** más chicos, con las perillas nuevas.
+
+### 25.2 Lo que pisaba el molde y se sacó (pantalla por pantalla)
+| Pantalla | Archivo | Qué se sacó o cambió |
+|---|---|---|
+| Consultar Pedidos | `ConsultarPedidos.css` | `--celda-espacio-pedidos` (8 px), `--alto-acciones` / `--letra-acciones`, `.aviso-personalizados`, el `line-height` de Viandas y los anchos viejos (con %) |
+| Producción | `heladera.css` | `table-layout: auto` → **fixed**, con ancho para cada columna (números 120, Mínimo 96; suman 1.097 a 1440). Pedir a cocina: `.tabla-pedido` 14 px, `th` 11,5 / 11px 14px, `td` 58 px. En el celu, la regla de las tarjetas pasa a `.admin-content .tabla-pedido td` para seguir ganándole al molde |
+| Tareas de Cocina | `cocinero.css` | `--cocina-alto-boton-fila` / `--cocina-letra-boton-fila`, `--cocina-alto-pastilla-fecha` / `--cocina-letra-pastilla-fecha` (26 / 13), `.tabla-detalles th/td` (11 / 14 px), `font: inherit` de los botones (pisaba la letra) |
+| Gestión de Stock (y Combos) | `stock.css` | `.standard-table th/td` (0,9 rem), `.badge-estado` (0,75 rem), `.btn-editar` / `.btn-borrar` (0,72 rem), `.td-acciones` |
+| Combos | `combos.css` | `.estado-combo`, `.btn-activar`, `.btn-menu`, `.tabla-menu th/td`, `.no-se-ve` |
+| Generar Receta | `generarReceta.css` | `table-layout: auto` → **fixed** (con sus %), `.td-codigo`, `.cant-ok/baja/cero`, `.td-acciones`, `.table-insumos` (letra, títulos y celdas), `.btn-fila-borrar`, `.btn-guardar-abreviatura` |
+| Gestión de Usuarios | `gestionUsuarios.css` | `table-layout: auto` → **fixed**, `th/td` (0,78 / 0,82 rem), `.td-id`, `.badge-rol`, `.td-acciones`, `.btn-editar` / `.btn-borrar` |
+| Movimientos de Stock | `movimientosStockNuevo.css` | Las copias de títulos y celdas; `.badge`, `.btn-detalles`, `.compra-tabla td`, `.empty-row td`. Ancho fijo para cada columna; solo Motivo se lleva lo que sobra (antes tenía `width: 100%`) |
+| Envíos del Día | `Envios.html` (su `<style>` de siempre) | `.badge-estado` y `.badge-pago`: con las perillas de las pastillas. Lo demás, igual (son tarjetas, no tabla) |
+| Asignar Cocineros | — | No pisaba nada; ver `td.codigo-plato` arriba |
+
+`pedidosCocina.css` (compartido) **no se tocó**: su `.btn-hecho` de 40 px ya no manda adentro de las tablas, porque la regla de los botones del molde le gana. La ventana "Pendientes de cocina" de Producción es una lista de tarjetas, no una tabla: su "✓ Hecho" de 34 px quedó igual.
+
+### 25.3 Consultar Pedidos
+**HTML (`ConsultarPedidos.html`):**
+- Títulos: "N°" (antes "N° Pedido") y "Pago" (antes "Método Pago").
+- Se sacó el `<th>` Mail y se agregó `<th class="col-envio">Envío</th>`.
+- Dos dibujitos nuevos: `icono-camion` y `icono-local`.
+
+**JS (`ListarPedidos.js`):**
+- **`ENVIO_PEDIDO` (tabla nueva):** `'Delivery'` → `{ texto: 'Delivery', clase: 'envio-delivery', icono: 'icono-camion' }` · `'Retiro en local'` → `{ texto: 'Retira', … }`.
+- **`crearFilaPedido(pedido)` → `<tr>`:**
+  - Cliente y Dirección van en un `<span class="dos-renglones">`.
+  - Si retira (o no hay dirección): "—" gris.
+  - Sin Mail y sin "⚠ personalizados".
+  - Celda Envío nueva; al pasar el mouse muestra "Delivery · Centro".
+  - El pago, en el `switch` de siempre, con textos cortos y `claseDetalle`.
+  - El select de estado pasó de `cells[8]` a `cells[7]`, porque ya no está la columna Mail.
+  - **Por qué:** el diseño; los datos son los mismos.
+  - Ej: `{ metodo_pago: 'Mixto', transferencia_confirmada: true, pagado: false, monto_efectivo: 8500 }` → "A cobrar $ 8.500" naranja.
+- **`abrirDetalles(pedidoId)` → nada (llena la ventana y la abre):**
+  - arriba, el cliente y su mail (con escHtml) y las 3 cajitas: Entrega · Envío · Viandas;
+  - los platos que no son personalizados dicen "de la heladera";
+  - si el pedido no tiene platos, igual se ven el cliente y las cajitas.
+
+**El pago corto, comprobado con 12 casos:**
+
+| Caso | Texto (color) |
+|---|---|
+| Efectivo sin pagar | "A cobrar" (naranja) |
+| Efectivo pagado | "✓ Cobrado" (verde) |
+| Efectivo con pago anticipado | "✓ Pago anticipado" (verde) |
+| Transferencia sin pagar | "Sin confirmar" (gris) |
+| Transferencia pagada | "✓ Cobrado" (verde) |
+| Mixto sin la transferencia | "Sin confirmar" (gris) |
+| Mixto con la transferencia | "A cobrar $ 8.500" (naranja) |
+| Mixto pagado | "✓ Cobrado" (verde) |
+| Débito | "Débito" (gris) |
+| Crédito pagado | "✓ Crédito" (verde) |
+
+Los otros 2 casos son de la columna Envío: Retira → "—" y "Retira"; un pedido viejo sin tipo de entrega → su dirección y "—".
+
+**CSS (`ConsultarPedidos.css`):**
+- Anchos del diseño: N° 54 · Entrega 64 · Cliente 126 · Dirección (lo que sobra: 81 a 1440) · Teléfono 88 · Viandas 58 · Costo 82 · Estado 156 · Pago 108 · Envío 84 · Acciones 196. Mínimo 1.096.
+- Colores: `--envio-delivery` #1d5fbf · `--envio-retira` #6b3fbf · `--pago-a-cobrar` #a35f00.
+- Detalles: 440 px, `--fondo-cajita-detalle` #f2f9f4 y `--mail-detalle` #1d5fbf.
+- Clases nuevas: `.texto-envio`, `.icono-envio`, `.dato-vacio`, `.cliente-detalle`, `.cajitas-detalle`, `.cajita-detalle`, `.nombre-cajita`, `.valor-cajita`, `.plato-heladera`.
+
+### 25.4 Tareas de Cocina
+**HTML (`cocinero.html`):**
+- Los títulos de Pedidos de clientes: Código · Vianda a cocinar · Cantidad · Personalización · Estado, todos con `col-dato-cliente` (sin ancho, así quedan iguales).
+- El buscador dice "Buscar plato o código…".
+- `<p id="avisoSinHoy" class="aviso-sin-hoy" hidden>` nuevo, para el cartelito gris.
+
+**JS (`cocinero.js`):**
+- **`CLASE_PUNTO_DIA` (tabla nueva):** `{ 1: 'punto-lunes', …, 5: 'punto-viernes' }`.
+- **`filtrosVista.clientes.dia` arranca en `''`** ("todavía no se eligió").
+- **`describirDia(fechaISO)`:** devuelve además `diaSemana` (0 a 6) y `diaLargo` ("Jueves 29"). Lo que ya devolvía no cambia, así que "Para stock" sigue igual.
+- **DOMContentLoaded:**
+  - cada pedido lleva `pedido.pestana = { clave: '2026-10-26', etiqueta: 'Lunes 26', tipo: 'hoy', clasePunto: 'punto-lunes' }`;
+  - ya no se cuenta `viandas_stock`, porque se sacó la cajita "De la heladera".
+- **`dibujarTabla(vista)`:** en clientes:
+  - una pestaña por día de cocina, en orden de fecha, con "Todos" al final;
+  - el día de hoy lleva la etiqueta "HOY";
+  - un día que ya pasó va en rojo, con "· quedó N" (sus viandas);
+  - si no hay nada elegido, o el día elegido se terminó: abre en hoy; si no hay hoy, en el atrasado; si tampoco, en "Todos" con el cartelito;
+  - el pie: "Mostrando 11 viandas para cocinar hoy" ("sin hacer del viernes 23", "para cocinar el jueves 29", "en total").
+  - "Para stock" sigue como estaba.
+- **`crearFilaCliente(fila)` → `<tr>`:** Código en negrita (texto, sin pastilla) · el plato (hasta 2 renglones) · "3 viandas" · la etiqueta roja · Por hacer · botones. Sin el día de cocina, la entrega ni "De la heladera".
+- **`abrirDetallesPedido(id)`:**
+  - el título "Pedido" con el número en una pastilla verde (el número es `Number`, no viene de la base como texto);
+  - las cajitas Cocinar · Entrega;
+  - los códigos como texto;
+  - "ya está hecha" en lo que sale de la heladera;
+  - sin observaciones.
+
+**CSS (`cocinero.css`):**
+- Colores de cada día: lunes #2f6fd6 · martes #8b3fd6 · miércoles #0f9d8a · jueves #e08a00 · viernes #d63f8b.
+- `.pestana-dia`: 30 px y letra de 12; la elegida, en verde; `.pestana-atrasada`, en rojo #fdecea / #c62828.
+- Otras clases nuevas: `.etiqueta-hoy`, `.aviso-sin-hoy`, `.codigo-texto`, `.palabra-viandas`, `.ya-hecha`, `.numero-detalles`.
+- Botones: 236 px (antes 240).
+- Se sacaron las reglas de las columnas viejas: `.a-cocinar`, `.celda-cocinar`, `.observaciones-detalles`.
+
+**JS compartidos:** no se tocaron `pedidosCocina.js`, `escape.js` ni `paginacion.js`. `cocinero.js` y `ListarPedidos.js` los usa una sola pantalla cada uno.
+
+**Seguridad:** todo lo que viene de la base pasa por escHtml o va con textContent: cliente, mail, dirección, código, plato, texto personalizado. No cambió ninguna ruta ni ningún dato que se manda.
+
+### 25.5 Cómo se probó
+- **Sin escribir en la base:** Chrome sin ventana; los GET van a la base y todo lo demás se contesta o se corta en el navegador.
+- **Datos falsos:** Cocina y Envíos usan datos "PRUEBA" falsos.
+- **La fecha:** simulada solo en el navegador, el lunes 26/10.
+- **Consultar:** 1440 / 1280 / 390.
+  - A 1440 la tabla entra justa (1.096 en 1.097); a 1280 y 390 se mueve adentro de su tarjeta, sin mover la página.
+  - Detalles de 440 px.
+- **Cocina:**
+  - Pestañas: "● Viernes 23 · quedó 1" (rojo, rosa) · "● Lunes 26 HOY" (elegida) · "● Martes 27" · "● Jueves 29" · "Todos".
+  - Pie: "Mostrando 11 viandas para cocinar hoy".
+  - Al marcar listos los 3 pedidos de hoy (PUT contestado en el navegador), la pestaña de hoy desaparece y abre en el viernes 23.
+  - Sin hoy ni atrasado: "Todos" con el cartelito.
+  - La administración ve "Solo lectura".
+  - En el celu, las pestañas y la tabla se mueven adentro de su tarjeta.
+- **Todas las grillas:** títulos 10,5 · celdas 12,5 · pastillas 22/12 · botones 24/11,5, y todas con `table-layout: fixed`.
+- **Consola:** sin errores.
+- **`node tests/test_e2e.js heladera`: 40/40** (el test crea y anula sus pedidos PRUEBA, #082 y #083).
+
+### 25.6 Qué no quedó igual al diseño, y por qué
+1. **Pie de Cocina:** suma las **viandas** (1+1+4+3+2 = 11). La captura dice "5" porque cuenta filas. Si preferís filas, se cambia una línea.
+2. **El número de "Pedidos de clientes"** cuenta pedidos de todos los días (6), no solo los de hoy. No se tocó.
+3. **"Hasta 2 renglones"** está en Cliente, Dirección (Consultar) y Vianda (Cocina). Algunas celdas de otras pantallas son texto suelto en la celda y pueden ir en 3 renglones: Cocinero en Generar Receta, Mail en Usuarios, Motivo en Movimientos. Cortarlas pide tocar el JS que arma esas filas (un `<span>`), y eso es otro paso.
+4. **Filas de más de 40 px:** con 2 renglones la fila queda en 42–44 (el diseño, 46). Las que tienen un casillero adentro (Asignar Cocineros, insumos de la receta) quedan en 46–49.
+5. **Encabezados verdes de Stock y Usuarios:** su CSS los tenía, pero desde el molde del 27/10 ya no se veían. Siguen en el CSS y no se ven.
+6. **El molde también llega a `MovimientosStock.html` (el viejo):** no se tocó el archivo, pero su tabla está adentro de `.admin-content`.
+
+**Capturas** en `diseno-simple/resultado/` (no se suben):
+- **Las 4 cosas:** `01-consultar-pedidos-1440`, `02-consultar-detalles-1440`, `04-cocina-pedidos-de-clientes-1440`, `05-cocina-detalles-1440`.
+- **Cocina, otros casos:** `06` (día atrasado), `07` (hoy terminado), `08` (sin nada hoy), `03` (Para stock).
+- **Las otras grillas:** `10` a `17`.
+- **Celu y 1280:** las mismas con `-390` y `-1280`.
+
+
+---
+
+## 26. Consultar Pedidos en porcentajes y la grilla un poco más grande (24/10)
+**Qué pasaba:**
+- A 1920, Dirección (la única columna sin ancho) medía 561 px, y Teléfono, Viandas, etc. quedaban amontonados a la derecha.
+- La grilla de la sección 25 había quedado demasiado chica.
+
+**Decisiones tuyas:** los % que propuse (los tuyos no entraban a 1440 con los botones más grandes); la clase `tabla-stock-insumos`;
+Pedidos de clientes con botones de 250 px; no tocar las grillas que no tienen hueco.
+
+**SQL, servidor y JS:** nada. Solo CSS y una clase en el HTML de Stock.
+
+### 26.1 La grilla un poco más grande (perillas de `global.css`, todas las grillas)
+| Perilla | Sección 25 → ahora |
+|---|---|
+| `--letra-celdas-tabla` | 12,5 → **13 px** |
+| `--letra-titulos-tabla` | 10,5 → **11 px** |
+| `--alto-fila` | 40 → **44 px** (con 2 renglones crece sola) |
+| `--alto-dato-principal` / `--alto-dato-chico` | 16 / 14 → **17 / 15 px** |
+| `--letra-dato-chico` | 11 → **11,5 px** |
+| `--alto-pastilla-estado` / `--letra-pastilla-estado` | 22 / 12 → **24 / 12,5 px** |
+| `--alto-boton-tabla` / `--letra-boton-tabla` | 24 / 11,5 → **26 / 12 px** |
+
+### 26.2 Consultar Pedidos (`ConsultarPedidos.css`)
+**Cada columna con su %, en perillas del `:root`. Suman 100%:**
+
+| Columna | % | A 1440 | A 1920 |
+|---|---|---|---|
+| N° | 5 | 55 | 79 |
+| Entrega | 7 | 77 | 110 |
+| Cliente | 9 | 99 | 142 |
+| Dirección | 8 | 88 | 126 |
+| Teléfono | 7,5 | 82 | 118 |
+| Viandas | 6,5 | 71 | 103 |
+| Costo | 7,5 | 82 | 118 |
+| Estado | 14,5 | 159 | 229 |
+| Pago | 8,5 | 93 | 134 |
+| Envío | 8 | 88 | 126 |
+| Acciones | 18,5 | 203 | 292 |
+
+- **Perilla nueva `--ancho-direccion`.** Los anchos van en los `<th>` que ya existían; no hizo falta `<colgroup>`.
+- **`--celda-espacio-pedidos: 8px`** (volvió): 8 px de aire a los costados en esta tabla, en vez de 12. Con la letra de 13 y los títulos de 11, a 1440 no entraban las 11 columnas: "ENTREGA" se pegaba a "CLIENTE" y "TELÉFONO" a "VIANDAS".
+- **Los % no son exactamente los del plan:** al probar, Acciones necesitaba 14 px más, Envío 2 y los títulos se pisaban. Los ajusté hasta que nada se saliera.
+- **Más angosta que 1.096 px** (ej: 1280), la tabla se mueve de costado adentro de su tarjeta, como antes.
+
+### 26.3 Las otras grillas
+| Pantalla | Archivo | Cambio |
+|---|---|---|
+| Tareas de Cocina · Para stock | `cocinero.css` | A 1920 Plato medía 987 px. **Pasó a %:** Código 8 · Plato 37 · Cantidad 12 · Estado 11 · Fecha entrega 12 · Acciones 20. Perilla nueva `--cocina-ancho-plato-stock`; los anchos van solo en los títulos (`thead`) |
+| Tareas de Cocina · Pedidos de clientes | `cocinero.css` | Las 5 columnas siguen iguales, sin ancho; los botones pasan de 236 a **250 px** |
+| Gestión de Stock | `stock.html` + `stock.css` | Las 8 columnas medían todas igual. Clase nueva `tabla-stock-insumos` en su `<table>` (el JS no la usa) y **%:** Código 8 · Nombre 18 · Stock actual 11 · Unidad 7 · Categoría 12 · Fecha caducidad 12 · Estado 13 · Acciones 19. Combos (que carga el mismo CSS) no cambia |
+| Gestión de Usuarios | `gestionUsuarios.css` | **No tenía hueco, pero la pastilla de Rol se salía** hasta 104 px ("Consumidor final", "Administrador del sistema"). Lo había causado el paso a ancho fijo de la sección 25. Rol 9 → 22%, Acciones 14 → 16, ID 10 → 8, Usuario 12 → 11, Email 19 → 18 |
+| Generar Receta | `generarReceta.css` | **No tenía hueco**, pero con los botones de 26 px Acciones se salía 7 px y los títulos "CÓDIGO" y "DESCUENTO" no entraban. Acciones 18 → 19, Código 5 → 6,5, Descuento 7 → 8,5, Categoría 9 → 8,5, Plan 10 → 9,5, Nombre 14 → 12, Cocinero 11 → 10 |
+| Producción, Combos, Movimientos, Asignar Cocineros | — | Sin cambios: no tienen hueco y nada se sale |
+
+### 26.4 Cómo se probó
+- **Qué miré:** Chrome sin ventana, a 1920 / 1440 / 1280, todas las grillas. En cada celda y cada título medí si algo se sale de su lugar.
+- **Resultado:** nada se sale. Quedan títulos que se pasan de 2 a 7 px (PROVEEDOR, PERSONALIZACIÓN), dentro del aire de su celda: no tocan al de al lado.
+- **Sin escribir en la base:** los GET van a la base y todo lo demás se corta en el navegador.
+- **Datos falsos:** en Cocina, con la fecha simulada solo en el navegador (lunes 26/10).
+- **Consola:** sin errores.
+- **`node tests/test_e2e.js heladera`: 40/40.**
+
+**Capturas** en `diseno-simple/resultado/`:
+- Consultar: `p-consultar-1920`, `p-consultar-1440`, `p-consultar-1280`.
+- Cocina: `p-cocina-para-stock-1920`, `p-cocina-clientes-1920`.
+- Gestión de Stock: `p-gestion-de-stock-1920`.
+- Las otras grillas: `p-…-1920`.
+
+**Qué no queda igual al diseño:**
+- **A 1440,** con la letra de 13, Cliente corta "PRUEBA – NO PREPARAR" en "PRUEBA – / NO…" y Teléfono muestra los números largos con "…". El nombre completo se ve al pasar el mouse y en Detalles.
+- **A 1920** todo entra entero.
+
+
+---
+
+## 27. Dos cosas chicas: 2 renglones en 3 columnas y los números de Tareas de Cocina (25/10)
+**Qué se pidió:**
+1. Que Cocinero (Generar Receta), Mail (Gestión de Usuarios) y Motivo (Movimientos de Stock) corten en 2 renglones con "…".
+2. Que los circulitos de "Para stock" y "Pedidos de clientes" cuenten solo lo de hoy y lo atrasado.
+
+**Decisiones tuyas:**
+- Los circulitos cuentan platos (filas), no pedidos.
+- Se saca también el tamaño de letra propio de la columna Usuario.
+- El pie de Cocina ("11 viandas") no se toca.
+
+**SQL, servidor, rutas, HTML y CSS:** nada. Solo JS para mostrar.
+
+### 27.1 Cortar en 2 renglones
+Se usa la clase `.dos-renglones` de `global.css` (sección 25).
+
+| Archivo · función | ENTRADA → SALIDA | Qué cambió |
+|---|---|---|
+| `generarReceta.js` · `crearFilaReceta(receta)` | una receta → su `<tr>` | El nombre del cocinero (o "Del plan") va adentro de un `<span class="dos-renglones">`, con `textContent`. La celda lleva `title` con el nombre entero |
+| `gestionUsuarios.js` · `renderizarUsuarios(usuarios)` | la lista → las filas de la tabla | El mail va en un `<span class="dos-renglones">` con `title`. Se sacaron los `style.fontSize = '0.80rem'` del Mail y del Usuario: ahora toman la letra de todas las tablas (13 px) |
+| `movimientosStockNuevo.js` · `crearRenglon(mov)` | un movimiento → su `<tr>` | El Motivo va en `<span class="dos-renglones">${escHtml(motivo)}</span>`, con `title` |
+
+- **Por qué:** con texto suelto en la celda, un nombre o un mail largo ocupaba 3 renglones y la fila crecía. Con el `<span>`, corta en 2 con "…", y el dato entero aparece al pasar el mouse.
+- **Seguridad:** igual que antes. El nombre y el mail van con `textContent`; el Motivo y su `title`, con `escHtml`. Ningún texto de la base se ejecuta como HTML.
+
+### 27.2 Los números de Tareas de Cocina (`cocinero.js`)
+**Antes:**
+- "Para stock": todos los platos pendientes, de cualquier día, escrito en `cargarParaStock`.
+- "Pedidos de clientes": los pedidos de todos los días, escrito en DOMContentLoaded. `setVacio` lo ponía en 0 y `quitarPedidoDeLaTabla` le restaba 1 al marcar "✓ Listo".
+
+**Ahora:**
+- **`VISTAS`:** cada vista dice dónde va su número: `idCantidad: 'cantidadParaStock'` y `'contador-badge'`. Los ids no cambiaron.
+- **`dibujarTabla(vista)` → nada; ahora también escribe el número.** Paso 1b nuevo: cuenta las filas (platos) cuyo día es `hoy` o `atrasado`. Los días que vienen no cuentan.
+  - Ej (lunes 26): 1 plato del viernes + 5 de hoy + 2 de martes y jueves → **6**.
+- **Por qué un solo lugar:** `dibujarTabla` se llama cada vez que algo cambia:
+  - al abrir la pantalla;
+  - después de "✓ Hecho" (`marcarHecho` recarga con `cargarParaStock`);
+  - después de "✓ Listo" (`quitarPedidoDeLaTabla`);
+  - cada 60 segundos en "Para stock".
+  Así el número nunca queda viejo. Antes, "restar 1" no servía para filas: un pedido puede tener varios platos.
+- **Se sacaron las 4 asignaciones viejas:** la de `cargarParaStock`, la de DOMContentLoaded (con su `contadorBadge`), la de `setVacio` y la resta de `quitarPedidoDeLaTabla`.
+- **No cambió:** `pedidosCocina.js` (compartido con Producción), el pie, las pestañas ni nada de lo que se manda al servidor.
+
+### 27.3 Cómo se probó
+- **Cómo:** Chrome sin ventana, a 1440. Las lecturas van a la base y las escrituras se contestan en el navegador: no llegó nada a la base.
+- **2 renglones:**
+  - Generar Receta: 4 celdas;
+  - Usuarios: 13 celdas;
+  - Movimientos: 15 celdas, 1 cortada con "…" ("Consumo por producción pedido…").
+  - Ninguna pasa de 2 renglones, y la letra es 13 px en las tres.
+- **Cocina, como cocinero, con datos falsos y la fecha simulada solo en el navegador (lunes 26/10):**
+
+| Paso | Para stock | Pedidos de clientes |
+|---|---|---|
+| Al abrir (stock: 1 de hoy + 1 atrasado + 1 de mañana; clientes: 5 de hoy + 1 atrasado + 2 más adelante) | **2** | **6** |
+| "✓ Hecho" del plato de hoy (POST contestado en el navegador) | **1** | 6 |
+| Sin tocar nada, llega un plato nuevo para hoy y la recarga sola de los 60 s lo trae | **2** | 6 |
+| "✓ Listo" del #080 (2 platos de hoy; PUT contestado en el navegador) | 2 | **4** |
+| "✓ Listo" del #079 (el atrasado) | 2 | **3** |
+
+- **Consola:** sin errores.
+- **`node tests/test_e2e.js heladera`: 40/40.**
+
+**Capturas** en `diseno-simple/resultado/`: `c-generar-receta-1440`, `c-usuarios-1440`, `c-movimientos-1440`, `c-cocina-para-stock-1440`, `c-cocina-clientes-1440`.
+
+
+---
+
+## 28. Cada cocinero ve lo suyo (y lo de nadie) · horario de corte de las 21 (25/10)
+**Qué se pidió:**
+1. Revisar si cada cocinero ve solo lo suyo en Tareas de Cocina, y arreglar lo que no funcione.
+2. Horario de corte a las 21:00: un pedido solo de heladera hecho desde esa hora no es para hoy. Lo controla el servidor, con la hora de Argentina.
+
+**Decisiones tuyas:**
+- **Arreglo A:** el plato sin cocinero lo ven y lo marcan todos los cocineros; el aviso de Asignar Cocineros se actualiza y cuenta al suplente.
+- **Constantes en `fechas.js`,** en un solo lugar.
+- **Textos del index:** "pedidos hasta las 21 h".
+- **Las 21:00:00 en punto** ya cuentan como después del corte.
+- **Lo del suplente con cocinero propio** no se toca.
+
+**SQL:** no hizo falta.
+
+### 28.1 Cómo funcionaba (la revisión)
+- **Dónde se guarda:**
+  - el cocinero del plato: `productos.id_cocinero` (Asignar Cocineros, `PUT /api/productos/:id/cocinero`);
+  - el respaldo: `planes.id_cocinero` (principal) y `planes.id_cocinero_suplente`.
+- **La regla** (`platoEsDelCocinero`, server.js): si el plato tiene cocinero propio, es solo de él; si no, del principal o del suplente del plan.
+- **Para stock** (`/api/ordenes-produccion/pendientes`, hechos-hoy, detalle y "✓ Hecho"): un cocinero ve lo suyo y lo que no tiene a nadie (`platoVisibleParaCocinero`). El admin ve todo.
+- **Pedidos de clientes** (`/api/cocina/tareas` y `/listo-cocinero`): un cocinero veía **solo lo suyo**. El cocinero sale del token. El admin ve todo, en "Solo lectura".
+- **⚠ El problema:** un plato sin nadie (ni propio, ni principal ni suplente) no le aparecía a ningún cocinero en Pedidos de clientes. Desde el 24/10 el admin tampoco puede pasar ese pedido a 3, porque tiene un personalizado sin hacer. **El pedido quedaba trabado.** Hoy no pasaba porque los 4 platos tienen cocinero (F1, F2 y F3 Marta; P1 juan), pero podía pasar con el próximo plato que carguen.
+
+### 28.2 El arreglo A
+| Archivo · función | ENTRADA → SALIDA | Cambio |
+|---|---|---|
+| server.js · `GET /api/cocina/tareas` | el token (y `cocinero_id` para el admin) → los pedidos en 2, cada plato con `es_mio` | Los platos del cocinero se buscan con `platoVisibleParaCocinero`: los suyos **y los de nadie** |
+| server.js · `PUT /api/pedidos/:id/listo-cocinero` | el número y el token → `{ completo, … }` | Los platos "míos" también con `platoVisibleParaCocinero`: el cocinero que toca "✓ Listo" marca también los de nadie |
+| server.js · `GET /api/productos/cocineros` | nada → los platos con su cocinero | Manda además `cocinero_suplente_plan` (solo lee, un dato más) |
+| AsignarCocinero.js · `cocineroDelPlan(plato)` (nueva) | un plato → el principal del plan, o el suplente, o null | Las 3 partes de la pantalla usan la misma regla que el servidor |
+| AsignarCocinero.js · `crearFilaPlato`, `estiloSelect`, `actualizarAviso` | — | La opción vacía dice "usa el del plan (principal o suplente)" o "lo ven todos los cocineros". El aviso cuenta también al suplente: "⚠ 1 plato no tiene cocinero (ni propio ni del plan, principal o suplente): lo ven todos los cocineros y cualquiera lo puede marcar como hecho o listo." |
+
+- **Seguridad:** el cocinero sigue saliendo del token. Un cocinero **no** ve ni marca los platos de otro cocinero: solo los suyos y los de nadie.
+- **Sin cambios:** si un plato tiene cocinero propio, el suplente del plan no lo ve (decisión tuya).
+
+### 28.3 El horario de corte
+**`frontend/src/js/fechas.js`** (lo comparten el servidor y la web):
+- Constantes, comentadas: **`HORA_CORTE = 21`**, `DIAS_HABILES_ENTREGA = 0`, `DIAS_HABILES_CON_PERSONALIZADO = 2` (antes repetidas en server.js y en pedidoCombos.js) y `ZONA_ARGENTINA = 'America/Argentina/Cordoba'`.
+- **`primeraFechaEntrega(hayPersonalizado, ahora)`** (nueva):
+  - ENTRADA: true / false y el momento (por defecto, ahora) → SALIDA: `{ fecha, pasoElCorte }`.
+  - Saca el día y la hora **de Argentina** (`Intl.DateTimeFormat` con la zona). Si es solo de heladera y son las 21 o más, arranca desde mañana. Suma los días hábiles y, si cae en fin de semana, pasa al próximo hábil.
+
+**Quién la usa:**
+- **server.js · `POST /api/pedidos-combos`, paso 7:** es **el que manda**. El mensaje dice "(los pedidos de la heladera hechos desde las 21 h se entregan desde el próximo día hábil)". `hoyArgentina` queda para el `POST /api/pedidos` viejo, que no se tocó.
+- **pedidoCombos.js · `abrirFinalizarPedido`:** la fecha mínima del calendario, el texto de abajo y los botones de días del celu.
+  - Antes usaba la hora de la compu del cliente; ahora, la de Argentina.
+
+**`index.html`:** "Entregas desde hoy (pedidos hasta las 21 h)", la pregunta frecuente, el pie y la ayuda de la fecha.
+
+**Qué protege:** aunque alguien cambie la hora de su compu o arme el pedido a mano, el servidor controla con su reloj y la hora de Argentina. No depende de la hora de Render, que corre en UTC: a las 21 h de Argentina, para él ya es mañana.
+
+### 28.4 Cómo se probó (sin cambiar la hora de la compu)
+**1. La función sola, con momentos armados a mano.** Corrida dos veces, con la zona de Argentina y con la de UTC (como Render). **13/13 en las dos:**
+
+| Momento (hora de Argentina) | Solo heladera | Con personalizado |
+|---|---|---|
+| lunes 26/10 20:59 | **lunes 26/10** | miércoles 28/10 |
+| lunes 26/10 21:00 en punto | **martes 27/10** (pasó el corte) | — |
+| lunes 26/10 21:01 | **martes 27/10** (pasó el corte) | miércoles 28/10 |
+| lunes 26/10 23:59 | martes 27/10 | — |
+| martes 27/10 00:01 | martes 27/10 | — |
+| viernes 30/10 20:59 | viernes 30/10 | — |
+| viernes 30/10 21:01 | **lunes 02/11** (pasó el corte) | martes 03/11 |
+| sábado 31/10 10:00 | lunes 02/11 | — |
+| sábado 31/10 21:30 | lunes 02/11 | — |
+| domingo 01/11 22:00 | lunes 02/11 | — |
+
+**2. El servidor de prueba (3001) con la hora simulada solo para ese proceso de node** (un archivo del scratchpad cargado con `node -r`):
+- Pedidos "PRUEBA – NO PREPARAR" con un barrio que no existe, así **nunca se guardan**. Si la fecha pasa, la respuesta es la del barrio.
+
+| El servidor cree que es | Entrega pedida | Respuesta |
+|---|---|---|
+| lunes 26/10 20:59 | hoy 26/10, solo heladera | "El barrio elegido no existe" → **la fecha pasó** |
+| lunes 26/10 20:59 | 27/10, con personalizado | "La primera fecha de entrega disponible es el 28/10/2026 (por los platos personalizados…)" |
+| lunes 26/10 21:01 | hoy 26/10, solo heladera | "La primera fecha de entrega disponible es el **27/10/2026** (los pedidos de la heladera hechos desde las 21 h se entregan desde el próximo día hábil)" |
+| lunes 26/10 21:01 | 27/10, solo heladera | barrio → pasa |
+| lunes 26/10 21:01 | 28/10, con personalizado | barrio → pasa (el corte no cambia los personalizados) |
+| viernes 30/10 21:01 | 30/10 | "…es el **02/11/2026** (los pedidos de la heladera hechos desde las 21 h…)" |
+| viernes 30/10 21:01 | 02/11 | barrio → pasa |
+| sábado 31/10 12:00 | 30/10 | "…es el 02/11/2026" |
+| sábado 31/10 12:00 | 02/11 | barrio → pasa |
+
+**3. El index, con la hora simulada solo en el navegador:**
+- **lunes 20:59:** mínimo 26/10; botones Lun26 · Mar27 · Mié28 · Jue29 · Vie30.
+- **lunes 21:01:** mínimo **27/10**, con el texto del corte; botones **Mar27** · Mié28 · Jue29 · Vie30 · Lun2.
+- **viernes 21:01:** mínimo 02/11.
+- **sábado:** mínimo 02/11.
+- **Con personalizado:** 28/10, 28/10, 03/11 y 03/11.
+- **Los 3 textos** dicen "hasta las 21 h".
+
+**4. La regla de los cocineros:** las 3 funciones de server.js, leídas del archivo, con platos armados a mano.
+- **Plato con cocinero propio Marta:** lo ve solo Marta.
+- **Principal del plan Marta:** solo Marta.
+- **Solo suplente Juan:** solo Juan.
+- **Sin nadie:** Marta, Juan y Ana.
+- **Las dos rutas** usan `platoVisibleParaCocinero`.
+
+**5. Asignar Cocineros con datos falsos:** el aviso cuenta 1 plato (el sin nadie, no el que tiene solo suplente); la opción vacía dice "usa el del plan (juan alvarez)" para el del suplente.
+
+**Consola:** sin errores.
+
+**`node tests/test_e2e.js heladera`: 39 pasaron, 0 fallaron y 1 aviso:**
+- "Con personalizado queda en 2 — no se probó: Faltan 700 g de Carne para las viandas personalizadas".
+- Es el control de insumos del 24/10, que encontró que **en la base real hoy no alcanza la Carne**. No es un error y no tiene que ver con este cambio; ayer daba 40/40.
+- Una segunda corrida seguida chocó con el límite de 5 pedidos cada 10 minutos. Reiniciando el servidor, volvió a dar 39 + 1 aviso.
+- Los pedidos del test (#89 a #93, "PRUEBA – NO PREPARAR") quedaron todos anulados.
+- **Aparte:** el #88 "Prueba no tocar" (cargado a mano hoy, en estado 4) no lo creé ni lo toqué.
+
+**Capturas** en `diseno-simple/resultado/`: `h-index-lunes-26-10-20-59-1440` / `-390`, `h-index-lunes-26-10-21-01-1440` / `-390`, `h-asignar-cocineros-aviso-1440`.
+
+**Hay que reiniciar el servidor** (cambiaron server.js y fechas.js).

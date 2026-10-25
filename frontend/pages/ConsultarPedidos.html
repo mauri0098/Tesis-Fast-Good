@@ -31,6 +31,9 @@
     <symbol id="icono-reloj" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></symbol>
     <symbol id="icono-flecha-abajo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></symbol>
     <symbol id="icono-cerrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></symbol>
+    <!-- 24/10: los de la columna Envío: el camioncito (Delivery) y el local (Retira) -->
+    <symbol id="icono-camion" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"></path><circle cx="7" cy="18" r="1.6"></circle><circle cx="17" cy="18" r="1.6"></circle></symbol>
+    <symbol id="icono-local" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16v10H4zM3 10l2-6h14l2 6M9 20v-5h6v5"></path></symbol>
   </svg>
 
   <header>
@@ -97,18 +100,19 @@
       <div class="caja-tabla">
       <table class="standard-table tabla-pedidos grilla-fg">
         <thead>
-          <!-- Cada columna con su clase (col-…): la misma que lleva cada celda de la fila (crearFilaPedido) -->
+          <!-- Cada columna con su clase (col-…): la misma que lleva cada celda de la fila (crearFilaPedido).
+               24/10: sin Mail (va en Detalles) y con Envío (Delivery / Retira) -->
           <tr>
-            <th class="col-numero">N° Pedido</th>
+            <th class="col-numero" title="N° de pedido">N°</th>
             <th class="col-entrega" title="Fecha de entrega">Entrega</th>
             <th class="col-cliente">Cliente</th>
-            <th class="col-direccion" title="Dirección y, abajo, cómo se entrega">Dirección</th>
+            <th class="col-direccion" title="Dirección del envío">Dirección</th>
             <th class="col-contacto">Teléfono</th>
-            <th class="col-contacto col-mail">Mail</th>
             <th class="col-viandas">Viandas</th>
             <th class="col-costo">Costo</th>
             <th class="col-estado">Estado</th>
-            <th class="col-pago" title="Método de pago y, abajo, si ya se cobró">Método Pago</th>
+            <th class="col-pago" title="Método de pago y, abajo, si ya se cobró">Pago</th>
+            <th class="col-envio" title="Delivery o Retira en el local">Envío</th>
             <th class="col-acciones">Acciones</th>
           </tr>
         </thead>

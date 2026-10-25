@@ -93,12 +93,16 @@ function renderizarUsuarios(usuarios) {
     const tdUsername = document.createElement('td');
     tdUsername.textContent = u.nombre_usuario || '-';
     tdUsername.style.fontFamily = "'Courier New', monospace";
-    tdUsername.style.fontSize   = '0.80rem';
+    // (25/10: sin fontSize propio: el tamaño es el de todas las tablas, global.css)
 
-    // — Email —
+    // — Email — (25/10: en un <span class="dos-renglones">: si es largo, corta en 2 renglones con "…";
+    //   el mail entero aparece al pasar el mouse. Sin fontSize propio, como Usuario)
     const tdEmail = document.createElement('td');
-    tdEmail.textContent = u.email || '-';
-    tdEmail.style.fontSize = '0.80rem';
+    const spanEmail = document.createElement('span');
+    spanEmail.className = 'dos-renglones';
+    spanEmail.textContent = u.email || '-';
+    tdEmail.appendChild(spanEmail);
+    tdEmail.title = u.email || '';
 
     // — Teléfono —
     const tdTel = document.createElement('td');

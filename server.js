@@ -659,6 +659,8 @@ function platoEsDelCocinero(producto, cocineroId) {
 // GET /api/cocina/tareas?cocinero_id=UUID
 // Si se pasa cocinero_id, devuelve los pedidos en estado 2 que tienen al menos un plato de ese
 // cocinero (asignado al plato o, como respaldo, por su plan) sin marcar como listo.
+// 25/10: también los platos que no tienen a NADIE (ni propio ni principal ni suplente del plan): los ven todos los
+// cocineros, la misma regla que "Para stock" (platoVisibleParaCocinero). Antes no los veía nadie y el pedido se trababa.
 // Cada detalle lleva es_mio: true/false y listo.
 // Sin cocinero_id devuelve todos los pedidos en estado 2 con es_mio: true (modo admin/debug).
 // Un cocinero (rol 2) ve siempre solo lo suyo: el cocinero sale del token y se ignora cocinero_id.
@@ -676,7 +678,7 @@ app.get('/api/cocina/tareas', requireAuth, requireRol(2, 6, 5, 1), async (req, r
     if (errProductos) return errorInterno(res, errProductos);
 
     misProductos = new Set(
-      (productos || []).filter(p => platoEsDelCocinero(p, cocinero_id)).map(p => p.id)
+      (productos || []).filter(p => platoVisibleParaCocinero(p, cocinero_id)).map(p => p.id)   // 25/10: los suyos y los de nadie
     );
     if (misProductos.size === 0) return res.json([]);
 
@@ -925,12 +927,9 @@ app.post('/api/pedidos', limitePedidos, async (req, res) => {
 // Reglas del pedido de COMBOS (POST /api/pedidos-combos)
 const MAXIMO_COMBOS_POR_PEDIDO       = 10;  // la base controla lo mismo (crear_pedido_combos)
 const LARGO_MAXIMO_EMAIL             = 100; // la columna pedidos.cliente_email no acepta más
-// Días hábiles mínimos para la entrega (24/10). Los mismos de la web (pedidoCombos.js):
-//   0 → todo sale de la heladera (ya está hecho): cualquier día hábil desde hoy.
-//   2 → con algún personalizado: un día de producción en el medio. Pide el martes → se cocina el miércoles
-//       → se entrega desde el jueves. (Antes eran 2 y 3.)
-const DIAS_HABILES_ENTREGA           = 0;
-const DIAS_HABILES_CON_PERSONALIZADO = 2;
+// Las reglas de la fecha de entrega (HORA_CORTE = 21, DIAS_HABILES_ENTREGA = 0 y DIAS_HABILES_CON_PERSONALIZADO = 2)
+// y la cuenta de la primera fecha (primeraFechaEntrega) están en fechas.js (25/10): las usan la web y este servidor,
+// así son siempre las mismas.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/pedidos-combos → crea un pedido de COMBOS (VENDER: la web nueva, index-combos.html). Es pública.
@@ -1028,20 +1027,22 @@ app.post('/api/pedidos-combos', limitePedidos, async (req, res) => {
 
   // 7. Fecha de entrega: obligatoria, que exista de verdad (leerFechaPara rechaza, por ejemplo, 2026-02-30),
   //    día hábil y (24/10) desde hoy si todo sale de la heladera, o 2 días hábiles después si hay algún personalizado
-  //    (un día de producción en el medio). Hoy en Argentina.
+  //    (un día de producción en el medio). 25/10: con el horario de corte: un pedido solo de heladera hecho desde las
+  //    21:00 ya no es para hoy. Todo con la hora de Argentina (primeraFechaEntrega, fechas.js), nunca la de este servidor.
   if (!leerFechaPara(fecha_entrega)) {
     return res.status(400).json({ error: 'La fecha de entrega es obligatoria (formato AAAA-MM-DD)' });
   }
   if (!fechas.esDiaHabil(fechas.parseFechaLocal(fecha_entrega))) {
     return res.status(400).json({ error: 'La fecha de entrega tiene que ser un día hábil (de lunes a viernes, sin feriados)' });
   }
-  const diasHabiles = hayPersonalizado ? DIAS_HABILES_CON_PERSONALIZADO : DIAS_HABILES_ENTREGA;  // 2 con personalizados, si no 0
-  const aclaracionFecha = hayPersonalizado ? ' (por los platos personalizados: hay un día de producción en el medio)' : '';
-  // El primer día que se acepta: hoy + esos días hábiles; si cae en un día no hábil (con 0 días, hoy sábado), el
-  // próximo hábil. Ej: hoy sábado y todo de heladera → el lunes · hoy martes con un "sin sal" → el jueves
-  const desdeFecha = fechas.sumarDiasHabiles(hoyArgentina(), diasHabiles);
-  const primerDiaHabil = fechas.esDiaHabil(desdeFecha) ? desdeFecha : fechas.proximoDiaHabil(desdeFecha);
-  const primeraFecha = fechas.fechaLocalISO(primerDiaHabil);                                        // la primera que se acepta
+  // El primer día que se acepta. Ej: hoy sábado y todo de heladera → el lunes · hoy martes con un "sin sal" → el jueves
+  //     · hoy lunes a las 21:01, todo de heladera → el martes (pasoElCorte: true)
+  const primera = fechas.primeraFechaEntrega(hayPersonalizado);  // { fecha, pasoElCorte }, con el día y la hora de Argentina
+  // Por qué no se puede antes (para el mensaje): por los personalizados, o porque pasó la hora de corte
+  let aclaracionFecha = '';
+  if (hayPersonalizado) aclaracionFecha = ' (por los platos personalizados: hay un día de producción en el medio)';
+  if (primera.pasoElCorte) aclaracionFecha = ` (los pedidos de la heladera hechos desde las ${fechas.HORA_CORTE} h se entregan desde el próximo día hábil)`;
+  const primeraFecha = fechas.fechaLocalISO(primera.fecha);                                         // la primera que se acepta
   const primeraFechaTexto = fechas.fechaDDMMAAAA(fechas.parseFechaLocal(primeraFecha));             // como "21/10/2026"
   if (fecha_entrega < primeraFecha) {                             // "AAAA-MM-DD" se puede comparar como texto
     return res.status(400).json({ error: `La primera fecha de entrega disponible es el ${primeraFechaTexto}${aclaracionFecha}` });
@@ -1591,6 +1592,7 @@ app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), as
 // El cocinero sale del JWT, no del body. Cuando todos los platos del pedido quedan listos, el pedido
 // pasa a 3 (Listo para Entregar) con la misma lógica que usa el admin, incluido el descuento de stock.
 // Si falta stock, los platos quedan listos, el pedido sigue en 2 y se avisa (lo resuelve el admin).
+// 25/10: "sus platos" son los que le tocan y los que no tienen a nadie (platoVisibleParaCocinero, la regla de "Para stock").
 app.put('/api/pedidos/:id/listo-cocinero', requireAuth, requireRol(2, 6, 5, 1), async (req, res) => {
   const id = Number(req.params.id);                               // el pedido, de la dirección (Number: "12abc" no pasa)
   const cocineroId = req.usuario.id;                              // el cocinero sale del token, nunca del body
@@ -1621,7 +1623,7 @@ app.put('/api/pedidos/:id/listo-cocinero', requireAuth, requireRol(2, 6, 5, 1), 
     }
 
     const detalles = pedido.pedido_detalles || [];
-    const mios = detalles.filter(d => d.productos && platoEsDelCocinero(d.productos, cocineroId));
+    const mios = detalles.filter(d => d.productos && platoVisibleParaCocinero(d.productos, cocineroId));  // 25/10: también los de nadie
     if (mios.length === 0) {
       return res.status(403).json({ error: 'No tenés platos asignados en este pedido' });
     }
@@ -1818,6 +1820,7 @@ app.get('/api/productos/cocineros', requireAuth, requireRol(6, 5), async (req, r
       id_cocinero:   p.id_cocinero,
       cocinero,                                   // el asignado al plato (o null)
       cocinero_plan: cocineroPlan,                // el principal del plan (respaldo)
+      cocinero_suplente_plan: usuario(p.planes?.id_cocinero_suplente),  // 25/10: el suplente del plan (también respaldo; para el aviso)
       cocinero_efectivo: cocinero || cocineroPlan,
       origen: cocinero ? 'producto' : (cocineroPlan ? 'plan' : null)
     };
