@@ -3528,6 +3528,170 @@ app.get('/api/envios', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => 
 });
 
 /* ======================================================
+   API ARMADO DE PEDIDOS (26/10)
+   El armador ve los pedidos que se ENTREGAN un día y arma cada bandeja. "Armado" es una MARCA
+   (pedidos.armado_en / armado_por, sql/armado_pedidos.sql): los 5 estados no cambian.
+   ====================================================== */
+
+const ROLES_ARMADO = [6, 5, 1, 3];   // administradores, dueña y repartidor (los mismos de Envíos del Día)
+const ESTADOS_ARMADO = [2, 3];       // se arman los pedidos En preparación y Listos para entregar
+
+// Por qué no se arma un pedido, según su estado (los que no están acá, 2 y 3, sí se arman)
+const MENSAJE_NO_SE_ARMA = {
+  1: 'El pedido todavía no está confirmado',
+  4: 'El pedido ya se entregó',
+  5: 'Un pedido anulado no se arma'
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/armado?fecha=AAAA-MM-DD → los pedidos que se ENTREGAN ese día, para armar las bandejas (solo lee)
+// ENTRADA: fecha en la dirección (obligatoria, una fecha que exista)
+// SALIDA:  [{ id, fecha_entrega, id_estado, tipo_entrega, cliente_nombre, cliente_direccion, cliente_telefono,
+//            observaciones, metodo_pago, pagado, total, barrios: { nombre }, armado_en, armado_por, armado_por_nombre,
+//            pedido_detalles: [{ id, cantidad, cantidad_de_heladera, personalizado, observaciones_plato, listo,
+//                                productos: { nombre, codigo_plato } }] }]
+//          · 400 fecha inválida · 500
+// Ej: GET /api/armado?fecha=2026-10-29 → [{ id: 81, cliente_nombre: 'Luquitas Gómez', armado_en: null, … }]
+//     GET /api/armado?fecha=2026-02-30 → 400
+// Trae Delivery y Retiro, en estado 2 y 3 (no 1, 4 ni 5), por número de pedido.
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/armado', requireAuth, requireRol(...ROLES_ARMADO), async (req, res) => {
+  // 1. La fecha: AAAA-MM-DD que exista de verdad (leerFechaPara rechaza 2026-02-30)
+  const fecha = leerFechaPara(req.query.fecha);
+  if (!fecha) return res.status(400).json({ error: 'La fecha tiene que tener el formato AAAA-MM-DD' });
+
+  try {
+    // 2. Los pedidos de ese día, con sus renglones y su barrio
+    const { data, error } = await supabase
+      .from('pedidos')
+      .select(`
+        id,
+        fecha_entrega,
+        id_estado,
+        tipo_entrega,
+        cliente_nombre,
+        cliente_direccion,
+        cliente_telefono,
+        observaciones,
+        metodo_pago,
+        pagado,
+        total,
+        armado_en,
+        armado_por,
+        barrios ( nombre ),
+        pedido_detalles (
+          id,
+          cantidad,
+          cantidad_de_heladera,
+          personalizado,
+          observaciones_plato,
+          listo,
+          productos ( nombre, codigo_plato )
+        )
+      `)
+      .eq('fecha_entrega', fecha)                                 // los que se entregan ese día
+      .in('id_estado', ESTADOS_ARMADO)                            // en 2 o 3
+      .order('id', { ascending: true });                          // por número de pedido
+    if (error) return errorInterno(res, error);
+    const pedidos = data || [];
+
+    // 3. El nombre de quien armó cada uno. Primero los ids, sin repetir (Set = sin repetidos; filter(Boolean) saca los vacíos)
+    //    Ej: [uuidJuan, null, uuidJuan] → [uuidJuan]
+    const idsArmadores = [...new Set(pedidos.map(p => p.armado_por).filter(Boolean))];
+    const consultaNombres = idsArmadores.length > 0
+      ? await supabase.from('usuarios').select('id, nombre').in('id', idsArmadores)
+      : { data: [], error: null };                                // si nadie armó nada, no se pregunta
+    if (consultaNombres.error) return errorInterno(res, consultaNombres.error);
+    const nombrePorId = {};                                       // { id: nombre }
+    (consultaNombres.data || []).forEach(usuario => { nombrePorId[usuario.id] = usuario.nombre; });
+
+    // 4. Cada pedido con el nombre de quien lo armó (null si no está armado)
+    res.json(pedidos.map(p => ({ ...p, armado_por_nombre: nombrePorId[p.armado_por] || null })));
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/pedidos/:id/armado → marca un pedido como armado (el botón "✓ Pedido armado")
+// ENTRADA: el número de pedido en la dirección y { fecha } en el body (el día que está mirando la pantalla).
+//          El usuario que arma sale del token, nunca del body.
+// SALIDA:  { mensaje, pedido: { id, armado_en, armado_por } } · 400 número o fecha inválidos · 404 no existe
+//          · 409 anulado / sin confirmar / entregado / de otro día / ya armado / falta cocinar · 500
+// Ej: #81 del 29/10, todo listo → { mensaje: 'Pedido #81 armado', pedido: { id: 81, armado_en: '2026-10-29T11:42:…' } }
+//     #82 con 2 fideos sin sal sin hacer → 409 'Todavía falta cocinar: 2 fideos (sin sal). …'
+//     #81 otra vez → 409 'El pedido ya estaba armado'
+// No cambia el estado del pedido (armado es una marca aparte) y no se puede deshacer.
+// ─────────────────────────────────────────────────────────────────────────────
+app.post('/api/pedidos/:id/armado', requireAuth, requireRol(...ROLES_ARMADO), async (req, res) => {
+  const id = Number(req.params.id);                               // el pedido, de la dirección (Number: "12abc" no pasa)
+  const fecha = leerFechaPara(req.body?.fecha);                   // el día de la pantalla (o null si no sirve)
+
+  // 1. El número de pedido: entero, mayor a 0 y que entre en la base
+  const idInvalido = !Number.isInteger(id) || id <= 0 || id > ENTERO_MAXIMO_BASE;
+  if (idInvalido) return res.status(400).json({ error: 'ID de pedido inválido' });
+
+  // 2. La fecha: AAAA-MM-DD que exista de verdad
+  if (!fecha) return res.status(400).json({ error: 'La fecha tiene que tener el formato AAAA-MM-DD' });
+
+  try {
+    // 3. El pedido, con lo que hace falta para controlarlo
+    const { data: pedido, error: errLectura } = await supabase
+      .from('pedidos')
+      .select('id, id_estado, fecha_entrega, armado_en, pedido_detalles ( cantidad, cantidad_de_heladera, listo, observaciones_plato, productos ( nombre ) )')
+      .eq('id', id)
+      .maybeSingle();                                             // si no existe, data viene vacío (no es un error)
+    if (errLectura) return errorInterno(res, errLectura);
+    if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
+
+    // 4. Solo se arman los pedidos en 2 o 3 (MENSAJE_NO_SE_ARMA dice por qué no los demás)
+    const mensajeEstado = MENSAJE_NO_SE_ARMA[pedido.id_estado];
+    if (mensajeEstado) return res.status(409).json({ error: mensajeEstado });
+
+    // 5. Tiene que ser del día que está mirando la pantalla
+    if (pedido.fecha_entrega !== fecha) {
+      const entrega = fechas.fechaDDMMAAAA(fechas.parseFechaLocal(pedido.fecha_entrega));   // ej: "29/10/2026"
+      return res.status(409).json({ error: `El pedido no se entrega ese día (se entrega el ${entrega})` });
+    }
+
+    // 6. Si ya estaba armado, no se arma otra vez
+    if (pedido.armado_en) return res.status(409).json({ error: 'El pedido ya estaba armado' });
+
+    // 7. No le tiene que faltar cocinar nada: un renglón con viandas de la cocina (cantidad − cantidad_de_heladera)
+    //    que todavía no está listo. La misma cuenta que usa la pantalla. Ej: 2 fideos "sin sal" con listo = false
+    const sinCocinar = (pedido.pedido_detalles || []).filter(detalle => {
+      const deCocina = Number(detalle.cantidad) - Number(detalle.cantidad_de_heladera ?? 0);   // vacío cuenta como 0
+      return deCocina > 0 && !detalle.listo;
+    });
+    if (sinCocinar.length > 0) {
+      // Ej: "2 fideos (sin sal)" · "1 canelones"
+      const lista = sinCocinar.map(detalle => {
+        const deCocina = Number(detalle.cantidad) - Number(detalle.cantidad_de_heladera ?? 0);
+        const texto = detalle.observaciones_plato ? ` (${detalle.observaciones_plato})` : '';
+        return `${deCocina} ${detalle.productos?.nombre || 'plato'}${texto}`;
+      }).join(', ');
+      return res.status(409).json({ error: `Todavía falta cocinar: ${lista}. Cuando la cocina lo marque como listo, se puede armar.` });
+    }
+
+    // 8. Se guarda la marca. Solo si sigue sin armar y en 2 o 3: si dos lo tocan a la vez, el segundo no cambia nada.
+    //    El usuario sale del token.
+    const { data: guardados, error: errGuardar } = await supabase
+      .from('pedidos')
+      .update({ armado_en: new Date().toISOString(), armado_por: req.usuario.id })
+      .eq('id', id)
+      .is('armado_en', null)                                      // solo si nadie lo armó recién
+      .in('id_estado', ESTADOS_ARMADO)                            // y si nadie lo anuló recién
+      .select('id, armado_en, armado_por');
+    if (errGuardar) return errorInterno(res, errGuardar);
+    if (!guardados || guardados.length === 0) return res.status(409).json({ error: 'El pedido ya estaba armado' });
+
+    res.json({ mensaje: `Pedido #${id} armado`, pedido: guardados[0] });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+/* ======================================================
    API PLANES (para modal de recetas)
    ====================================================== */
 

@@ -39,6 +39,7 @@ var FG_ROLES = (function () {
     { ruta: 'pages/MovimientosStock.html',  menu: 'Movimientos (viejo)',     roles: [6, 5, 1] },     // queda hasta que ande "− Registrar salida" en la nueva
     { ruta: 'pages/AsignarCocinero.html',   menu: '👨‍🍳 Asignar Cocineros',   roles: [6, 5] },
     { ruta: 'pages/Envios.html',            menu: '🚗 Envíos del Día',       roles: [6, 5, 1, 3] },
+    { ruta: 'pages/armadoPedidos.html',     menu: '🧺 Armado de pedidos',    roles: [6, 5, 1, 3] },  // 26/10: los mismos de Envíos
     { ruta: 'pages/gestionUsuarios.html',   menu: '👥 Gestión de Usuarios',  roles: [6, 5] }
   ];
 

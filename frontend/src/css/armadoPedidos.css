@@ -1,0 +1,920 @@
+/* ============================================================================
+   armadoPedidos.css — Lo propio de la pantalla "Armado de pedidos" (26/10)
+   Lo común (colores, título, bajada, botones .boton-principal / .boton-secundario, ventanas .modal + .ventana-panel,
+   pastillas .etiqueta-estado, código del plato .codigo-plato y "Cargando…") está en global.css: acá no se repite.
+   Partes: 1. Perillas · 2. Título y día · 3. Avance y filtros · 4. Tarjetas · 5. Renglones con casilla
+           6. Pie de la tarjeta · 7. Tarjeta armada · 8. Ventanas · 9. Aviso flotante · 10. Celu · 11. Etiqueta e impresión
+   ============================================================================ */
+
+/* ===== 1. PERILLAS (los colores y tamaños nuevos de esta pantalla) ===== */
+:root {
+    --armado-heladera: #1f4a8a;          /* azul del título "SACAR DE LA HELADERA" */
+    --armado-cocina: #8a5200;            /* marrón del título "BUSCAR EN LO QUE DEJÓ LA COCINA" y de "⏳ falta cocinar" */
+    --armado-cocinado: #0f6b2c;          /* verde oscuro de "✓ cocinado", "10 de 10" y "✓ Armado 08:42 · Juan" */
+    --armado-tildada-fondo: #f2f9f4;     /* fondo verde muy suave de un renglón tildado y de una tarjeta armada */
+    --armado-tildada-borde: #bfe2c9;     /* borde verde clarito de un renglón tildado */
+    --armado-tildada-letra: #6b766e;     /* letra gris del plato tildado (va tachado) */
+    --armado-aviso-fondo: #fff8e6;       /* fondo amarillo del cartel "Todavía falta cocinar…" y del filtro "Falta cocinar" */
+    --armado-aviso-borde: #f2d797;       /* su borde */
+    --armado-aviso-letra: #5c4300;       /* su letra (en el filtro, un poco más clara: --armado-aviso-filtro) */
+    --armado-aviso-filtro: #7a5a00;      /* letra del filtro "Falta cocinar" */
+    --armado-personalizado-fondo: #fde7e5;  /* fondo rojo suave de la pastilla del personalizado ("SIN SAL") */
+    --armado-personalizado-letra: #8a1c14;  /* su letra */
+    --armado-numero: 30px;               /* tamaño del número grande de la tarjeta ("#081") */
+    --armado-alto-renglon: 52px;         /* alto mínimo de cada renglón con casilla (cómodo para el dedo) */
+    --armado-casilla: 22px;              /* tamaño de la casilla */
+    --armado-ancho-tarjeta: 460px;       /* lo más angosta que queda una tarjeta: con menos lugar, una sola columna */
+}
+
+
+/* ===== 2. TÍTULO Y DÍA DE ENTREGA ===== */
+
+/* El <header> (título y bajada de global.css) con el día de entrega a la derecha */
+.armado-encabezado {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+/* El contenido: una columna con aire entre el avance y las tarjetas (el aire de los costados es el de global) */
+.armado-principal {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.armado-controles-fecha {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Las flechas ‹ › : redondas, de 44 px (el armador está de pie, con las manos ocupadas) */
+.boton-dia {
+    width: var(--alto-boton);
+    height: var(--alto-boton);
+    flex: none;
+    border: 1px solid var(--borde-gris);
+    border-radius: 50%;
+    background: var(--blanco);
+    color: var(--texto);
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.boton-dia:hover {
+    border-color: var(--verde-principal);
+}
+
+/* "Entrega: jueves 29/10" */
+.etiqueta-fecha {
+    height: var(--alto-boton);
+    display: inline-flex;
+    align-items: center;
+    padding: 0 16px;
+    border-radius: var(--radio-pastilla);
+    background: var(--verde-suave);
+    color: var(--verde-texto);
+    font-weight: 700;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+
+/* ===== 3. AVANCE Y FILTROS ===== */
+.armado-estadisticas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--borde-gris);
+    border-radius: 14px;
+    background: var(--blanco);
+}
+
+.estadisticas-avance {
+    flex: 1 1 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.avance-textos {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 4px 12px;
+    font-size: 13px;
+}
+
+.avance-pedidos strong { font-size: 18px; }
+.avance-viandas { color: var(--texto-gris); }
+
+.barra-fondo {
+    height: 10px;
+    border-radius: var(--radio-pastilla);
+    background: var(--fondo-cantidad);
+    overflow: hidden;
+}
+
+/* La parte verde: arranca en 0 y el JS le cambia el ancho (ej: 1 de 4 → 25%) */
+.barra-progreso {
+    width: 0;
+    height: 100%;
+    border-radius: var(--radio-pastilla);
+    background: var(--verde-principal);
+    transition: width 0.3s ease;
+}
+
+/* Los filtros (Por armar · Falta cocinar · Armados · Todos). Se llaman .filtro-armado y no .boton-filtro,
+   que en global.css es el botón "Plan" y le cambiaba el color al pasar el mouse */
+.armado-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.filtro-armado {
+    height: var(--alto-boton-chico);
+    padding: 0 14px;
+    border: 1px solid var(--borde-gris);
+    border-radius: var(--radio-pastilla);
+    background: var(--blanco);
+    color: var(--texto);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.filtro-armado:hover {
+    border-color: var(--verde-principal);
+}
+
+/* "Falta cocinar" cuando hay alguno: amarillo (la clase la pone el JS) */
+.filtro-armado--alerta {
+    border-color: var(--armado-aviso-borde);
+    background: var(--armado-aviso-fondo);
+    color: var(--armado-aviso-filtro);
+}
+
+/* El elegido: verde con letra blanca. Va después de --alerta, así "Falta cocinar" elegido también se ve verde */
+.filtro-armado--activo,
+.filtro-armado--activo:hover {
+    border-color: var(--verde-principal);
+    background: var(--verde-principal);
+    color: var(--blanco);
+}
+
+.filtro-armado:focus-visible,
+.boton-dia:focus-visible,
+.boton-datos-cliente:focus-visible {
+    outline: 3px solid var(--verde-principal);
+    outline-offset: 2px;
+}
+
+
+/* ===== 4. TARJETAS (una por pedido) ===== */
+.grilla-pedidos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--armado-ancho-tarjeta)), 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+/* "No hay pedidos…" ocupa todo el ancho de la grilla */
+.grilla-pedidos .loading-text {
+    grid-column: 1 / -1;
+}
+
+.tarjeta-pedido {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+    border: 1px solid var(--borde-gris);
+    border-radius: 16px;
+    background: var(--blanco);
+}
+
+/* Arriba: número + cliente a la izquierda, total de viandas a la derecha */
+.tarjeta-pedido-cabecera {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.tarjeta-pedido-info {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+/* "#081" grande, en verde. Es el título (h2) de la tarjeta */
+.etiqueta-numero {
+    margin: 0;
+    flex: none;
+    padding: 4px 14px;
+    border-radius: 12px;
+    background: var(--verde-principal);
+    color: var(--blanco);
+    font-size: var(--armado-numero);
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+}
+
+.tarjeta-cliente {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+}
+
+/* Un nombre muy largo corta de renglón y no se sale de la tarjeta */
+.cliente-nombre {
+    min-width: 0;
+    font-size: 16px;
+    overflow-wrap: anywhere;
+}
+
+/* El nombre del cliente es un botón: abre "Datos del cliente" (con un ⓘ chiquito al lado) */
+.boton-datos-cliente {
+    max-width: 100%;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: var(--texto);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.boton-datos-cliente:hover .cliente-nombre {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.icono-datos-cliente {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    color: var(--icono-suave);
+}
+
+.cliente-direccion {
+    font-size: 13px;
+    color: var(--texto-gris);
+}
+
+.tarjeta-pedido-total {
+    flex: none;
+    text-align: right;
+}
+
+.total-numero {
+    display: block;
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.total-texto {
+    font-size: 12px;
+    color: var(--texto-gris);
+}
+
+/* El cartel amarillo "Todavía falta cocinar…" */
+.alerta-cocina {
+    padding: 10px 12px;
+    border: 1px solid var(--armado-aviso-borde);
+    border-radius: 12px;
+    background: var(--armado-aviso-fondo);
+    color: var(--armado-aviso-letra);
+    font-size: 13.5px;
+}
+
+
+/* ===== 5. RENGLONES CON CASILLA ===== */
+.grupo-viandas {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* "SACAR DE LA HELADERA" (azul) y "BUSCAR EN LO QUE DEJÓ LA COCINA" (marrón), con su dibujito */
+.grupo-viandas-titulo {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+
+.grupo-viandas-titulo svg {
+    width: 15px;
+    height: 15px;
+    flex: none;
+}
+
+.grupo-viandas-titulo--heladera { color: var(--armado-heladera); }
+.grupo-viandas-titulo--cocina { color: var(--armado-cocina); }
+
+/* Un renglón: casilla · cantidad · plato · (personalizado y si está cocinado). Todo el renglón tilda la casilla */
+.casilla-vianda {
+    min-height: var(--armado-alto-renglon);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding: 8px 12px;
+    border: 1px solid var(--borde-gris);
+    border-radius: 12px;
+    background: var(--blanco);
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Con el teclado (Tab) en la casilla: se marca todo el renglón */
+.casilla-vianda:focus-within {
+    outline: 3px solid var(--verde-principal);
+    outline-offset: 2px;
+}
+
+.casilla-vianda--tildada {
+    border-color: var(--armado-tildada-borde);
+    background: var(--armado-tildada-fondo);
+}
+
+/* Lo que falta cocinar no se puede tildar todavía */
+.casilla-vianda--esperando {
+    cursor: not-allowed;
+}
+
+.casilla-input {
+    width: var(--armado-casilla);
+    height: var(--armado-casilla);
+    flex: none;
+    margin: 0;
+    accent-color: var(--verde-principal);
+    cursor: inherit;
+}
+
+.casilla-cantidad {
+    width: 34px;
+    flex: none;
+    font-size: 22px;
+    font-weight: 800;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.casilla-plato {
+    min-width: 0;
+    font-size: 15px;
+}
+
+.casilla-vianda--tildada .casilla-plato {
+    color: var(--armado-tildada-letra);
+    text-decoration: line-through;
+}
+
+/* A la derecha: la pastilla del personalizado y "✓ cocinado" / "⏳ falta cocinar". Si no entran, bajan de renglón */
+.casilla-tags {
+    margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+/* La pastilla del personalizado ("SIN SAL"): la forma es la de .etiqueta-estado (global); acá el color */
+.tag-alerta {
+    background: var(--armado-personalizado-fondo);
+    color: var(--armado-personalizado-letra);
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.tag-exito {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--armado-cocinado);
+    white-space: nowrap;
+}
+
+.tag-espera {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--armado-cocina);
+    white-space: nowrap;
+}
+
+
+/* ===== 6. PIE DE LA TARJETA ===== */
+.tarjeta-pedido-pie {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-top: 14px;
+    border-top: 1px solid var(--linea-tabla);
+}
+
+.pie-estado {
+    font-size: 13px;
+    color: var(--texto-gris);
+}
+
+.texto-oscuro { color: var(--texto); }
+.texto-exito { color: var(--armado-cocinado); }
+
+.pie-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* "✓ Pedido armado" apagado ("Faltan 1 de 5", "Todavía no se puede armar"): gris, como en el diseño,
+   en lugar del verde clarito de global (.boton-principal:disabled) */
+.tarjeta-pedido .boton-principal:disabled {
+    background: var(--linea-tabla);
+    color: var(--texto-apagado);
+    opacity: 1;
+}
+
+
+/* ===== 7. TARJETA ARMADA (chiquita, en verde) ===== */
+.tarjeta-pedido--armado {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
+    padding: 14px 18px;
+    border-color: var(--verde-borde);
+    background: var(--armado-tildada-fondo);
+}
+
+.numero-armado {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--verde-texto);
+    font-variant-numeric: tabular-nums;
+}
+
+.tarjeta-pedido--armado .cliente-nombre { font-size: 14px; }
+.tarjeta-pedido--armado .cliente-direccion { font-size: 12.5px; }
+
+.marca-armado {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--armado-cocinado);
+}
+
+
+/* ===== 8. VENTANAS ("Datos del cliente" y "¿Armaste el pedido…?") ===== */
+/* La caja es la .ventana-panel de global; acá lo oscuro de atrás (igual que Producción: por encima del menú,
+   de la barra de arriba y del ☰), el ancho y la lista de datos */
+.modal {
+    z-index: 1100;
+    background: var(--fondo-ventana-panel);
+}
+
+.ventana-armado {
+    max-width: 460px;
+}
+
+/* "¿Armaste el pedido…?" no tiene cuerpo: sin el aire vacío entre la frase y los botones */
+.ventana-armado .cuerpo-ventana:empty {
+    display: none;
+}
+
+.datos-cliente {
+    margin: 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px 16px;
+    font-size: 14px;
+}
+
+.datos-cliente dt {
+    color: var(--texto-gris);
+    font-weight: 600;
+}
+
+.datos-cliente dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;   /* una dirección o una nota larga corta de renglón y no se sale */
+}
+
+.datos-cliente a {
+    color: var(--verde-texto);
+    font-weight: 600;
+}
+
+.dato-vacio {
+    color: var(--texto-suave);
+}
+
+
+/* ===== 9. AVISO FLOTANTE ("✓ Pedido #081 armado") ===== */
+.aviso-armado {
+    position: fixed;
+    z-index: 1200;               /* por encima de las ventanas (1100) */
+    top: 72px;
+    right: 24px;
+    max-width: min(420px, calc(100% - 32px));
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    box-shadow: var(--sombra-menu);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.aviso-armado--exito { background: var(--verde-suave); color: var(--verde-texto); }
+.aviso-armado--error { background: var(--rojo-suave); color: var(--rojo-texto); }
+
+.aviso-armado-cerrar {
+    flex: none;
+    padding: 0 4px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+
+/* ===== 9b. (26/10) "VER LISTA" / "VER TARJETAS" Y "EXPORTAR PLANILLA" (arriba, al lado de la fecha) ===== */
+.armado-titulos {
+    flex: 1 1 320px;   /* el título toma lo que sobra: los botones y la fecha quedan a la derecha */
+}
+
+.armado-acciones {
+    display: flex;
+    gap: 8px;
+}
+
+.boton-armado-arriba {
+    height: var(--alto-boton);
+    padding: 0 16px;
+    border: 1px solid var(--borde-gris);
+    border-radius: var(--radio-pastilla);
+    background: var(--blanco);
+    color: var(--texto);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.boton-armado-arriba:hover {
+    border-color: var(--verde-principal);
+}
+
+.boton-armado-arriba:focus-visible {
+    outline: 3px solid var(--verde-principal);
+    outline-offset: 2px;
+}
+
+/* Un texto que no se ve pero lee el lector de pantalla (los títulos de las columnas de la casilla y del botón) */
+.solo-lector {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+
+/* ===== 9c. (26/10) LA VISTA "LISTA": una fila por renglón de vianda (el molde de tablas de global.css) ===== */
+:root {
+    --armado-linea-pedido: #c9d0ca;      /* la línea más marcada arriba de cada pedido nuevo */
+    --armado-dato-repetido: #9aa39c;     /* N° y cliente repetidos (mismo pedido que la fila de arriba), en gris clarito */
+    --armado-origen-heladera-fondo: #e8eef8;  /* la pastilla "Heladera": azul suave… */
+    --armado-origen-cocina-fondo: #fbf0e1;    /* …y "Cocina": marrón suave (la letra es la de los títulos de las tarjetas) */
+}
+
+/* En la lista, la grilla no va en columnas: la tabla ocupa todo el ancho */
+.grilla-pedidos--lista {
+    display: block;
+    min-width: 0;   /* si no, la tabla ensancha toda la pantalla en lugar de moverse adentro de su recuadro */
+}
+
+/* Lo más angosta que queda la tabla: con menos lugar (entre 900 y 1100 px) se mueve de costado adentro de su
+   recuadro (.table-wrapper), así el botón "✓ Pedido armado" siempre entra en su columna */
+table.tabla-armado {
+    min-width: 960px;
+}
+
+/* La celda del botón, con poco aire a los costados: así el botón entra entero */
+table.tabla-armado tbody td.celda-boton {
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+/* El texto escondido de los títulos (.solo-lector) se ubica contra su título: si no, se ubicaba contra la página y
+   la ensanchaba aunque la tabla se moviera adentro de su recuadro */
+table.tabla-armado thead th {
+    position: relative;
+}
+
+/* Los anchos de las columnas, en % (suman 100) */
+table.tabla-armado .col-casilla       { width: 4%; }
+table.tabla-armado .col-numero        { width: 6%; }    /* "#081" en un renglón */
+table.tabla-armado .col-cliente       { width: 11%; }
+table.tabla-armado .col-entrega       { width: 12%; }
+table.tabla-armado .col-cantidad      { width: 5%; }
+table.tabla-armado .col-codigo        { width: 6%; }
+table.tabla-armado .col-plato         { width: 12%; }
+table.tabla-armado .col-origen        { width: 9%; }    /* "DE DÓNDE" en un renglón */
+table.tabla-armado .col-personalizado { width: 11%; }   /* "PERSONALIZACIÓN" entero */
+table.tabla-armado .col-estado        { width: 10%; }
+table.tabla-armado .col-boton         { width: 14%; }
+
+/* La línea más marcada arriba de cada pedido nuevo (la primera fila de la tabla no la necesita) */
+table.tabla-armado tbody tr.fila-armado--primera td {
+    border-top: 2px solid var(--armado-linea-pedido);
+}
+
+table.tabla-armado tbody tr:first-child td {
+    border-top: 0;
+}
+
+/* Un renglón tildado: verde suave y el plato tachado (como en las tarjetas) */
+table.tabla-armado tbody tr.fila-armado--tildada td {
+    background: var(--armado-tildada-fondo);
+}
+
+table.tabla-armado .fila-armado--tildada .celda-plato {
+    color: var(--armado-tildada-letra);
+    text-decoration: line-through;
+}
+
+table.tabla-armado .celda-numero {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+table.tabla-armado .celda-cantidad {
+    font-size: 16px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+/* N° y cliente de las filas que repiten el pedido de arriba: en gris clarito (siguen ahí: se mira una fila a la vez) */
+table.tabla-armado td.dato-repetido,
+table.tabla-armado td.dato-repetido .boton-datos-cliente {
+    color: var(--armado-dato-repetido);
+}
+
+table.tabla-armado .cliente-nombre {
+    font-size: var(--letra-celdas-tabla);
+    font-weight: 600;
+}
+
+/* De dónde sale: Heladera (azul) o Cocina (marrón), con la forma de .etiqueta-estado */
+.origen-heladera {
+    background: var(--armado-origen-heladera-fondo);
+    color: var(--armado-heladera);
+    font-weight: 600;
+}
+
+.origen-cocina {
+    background: var(--armado-origen-cocina-fondo);
+    color: var(--armado-cocina);
+    font-weight: 600;
+}
+
+.estado-por-armar {
+    font-size: 12px;
+    color: var(--texto-gris);
+}
+
+/* En una celda, las pastillas y el estado pueden cortar de renglón */
+table.tabla-armado .tag-exito,
+table.tabla-armado .tag-espera {
+    white-space: normal;
+}
+
+/* El botón de la última fila del pedido: más chico que el de la tarjeta, para que entre en su columna */
+.boton-armar-fila {
+    min-height: var(--alto-boton-chico);
+    width: 100%;
+    padding: 0 10px;
+    font-size: 13px;
+}
+
+.tabla-armado .boton-principal:disabled {
+    background: var(--linea-tabla);
+    color: var(--texto-apagado);
+    opacity: 1;
+}
+
+
+/* ===== 10. CELU (hasta 600 px) ===== */
+/* (26/10) Con menos de 900 px siempre se ven las tarjetas: el botón "Ver lista" no se muestra */
+@media (max-width: 899px) {
+    .boton-vista {
+        display: none;
+    }
+}
+
+@media (max-width: 600px) {
+    .armado-controles-fecha {
+        width: 100%;
+    }
+
+    /* La fecha ocupa lo que sobra entre las dos flechas */
+    .etiqueta-fecha {
+        flex: 1;
+        justify-content: center;
+        padding: 0 10px;
+        font-size: 13.5px;
+    }
+
+    .tarjeta-pedido {
+        padding: 14px;
+    }
+
+    .tarjeta-pedido-info {
+        gap: 10px;
+    }
+
+    .etiqueta-numero {
+        padding: 2px 10px;
+        font-size: 24px;
+    }
+
+    /* Los botones del pie, a lo ancho y en un renglón cada uno */
+    .pie-acciones {
+        width: 100%;
+    }
+
+    .pie-acciones .boton-principal,
+    .pie-acciones .boton-secundario {
+        flex: 1 1 100%;
+    }
+
+    .aviso-armado {
+        right: 16px;
+        left: 16px;
+        max-width: none;
+    }
+
+    .datos-cliente {
+        grid-template-columns: 1fr;
+        gap: 2px;
+    }
+
+    .datos-cliente dd {
+        margin-bottom: 10px;
+    }
+}
+
+
+/* ===== 11. ETIQUETA DE LA BANDEJA E IMPRESIÓN ===== */
+/* En la pantalla no se ve: solo sale al imprimir ("Imprimir etiqueta") */
+.hoja-etiqueta {
+    display: none;
+}
+
+.etiqueta-bandeja {
+    width: 140mm;
+    min-height: 85mm;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 22px 26px;
+    border: 2px dashed #9aa39c;   /* la línea para recortar */
+    border-radius: 10px;
+    background: #ffffff;
+    color: #111a14;
+    font-family: var(--fuente);
+}
+
+.etiqueta-bandeja-arriba {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #111a14;
+}
+
+.etiqueta-bandeja-rotulo {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.etiqueta-bandeja-numero {
+    display: block;
+    font-size: 64px;
+    font-weight: 800;
+    line-height: 0.95;
+}
+
+.etiqueta-bandeja-entrega {
+    text-align: right;
+}
+
+.etiqueta-bandeja-dia {
+    display: block;
+    font-size: 22px;
+    font-weight: 800;
+}
+
+.etiqueta-bandeja-cliente {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 16px;
+}
+
+.etiqueta-bandeja-direccion {
+    display: block;
+    font-size: 14px;
+}
+
+/* "DELIVERY" o "RETIRA" en un recuadro */
+.etiqueta-bandeja-tipo {
+    flex: none;
+    padding: 4px 12px;
+    border: 2px solid #111a14;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.etiqueta-bandeja-lista {
+    margin: 0;
+    padding: 10px 0 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-top: 1px solid #c9d0ca;
+    font-size: 16px;
+}
+
+.etiqueta-bandeja-cantidad {
+    margin-right: 6px;
+    font-size: 20px;
+    font-weight: 800;
+}
+
+.etiqueta-bandeja-pie {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+/* Al imprimir: solo la etiqueta, en negro, arriba a la izquierda de la hoja */
+@media print {
+    @page {
+        margin: 10mm;
+    }
+
+    body > * {
+        display: none !important;
+    }
+
+    body > .hoja-etiqueta {
+        display: block !important;
+    }
+
+    body {
+        background: #ffffff;
+    }
+}

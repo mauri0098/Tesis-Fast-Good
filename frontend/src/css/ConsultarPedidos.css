@@ -96,7 +96,6 @@
     --radio-recuadro: 14px;                /* esquinas de los recuadros de adentro de las ventanas */
     --ancho-ventana-detalles: 440px;       /* el ancho de "Detalles" (24/10: antes 360, por las 3 cajitas) */
     --fondo-cajita-detalle: #f2f9f4;       /* las 3 cajitas de "Detalles" (Entrega · Envío · Viandas): verde muy suave */
-    --mail-detalle: #1d5fbf;               /* el mail del cliente en "Detalles": azul */
 }
 
 
@@ -714,28 +713,11 @@ table.tabla-pedidos .col-costo {
     align-items: stretch;
 }
 
-/* --- Detalles: el cliente, las 3 cajitas, un recuadro por combo con sus platos, y el total abajo --- */
+/* --- Detalles: las 3 cajitas, un recuadro por combo con sus platos, y el total abajo (26/10: sin el renglón del cliente) --- */
 
 /* Entre las partes, 12 px (las piezas de la ventana están en global.css, 7b) */
 .ventana-detalles .ventana-cuerpo {
     gap: 12px;
-}
-
-/* (24/10) El cliente en negrita y su mail en azul: "Luquitas Gómez · luquitas@mail.com". "p." adelante: le gana a los <p> de las ventanas */
-p.cliente-detalle {
-    margin: 0;
-    color: var(--titulo);
-    font-size: 14px;
-    overflow-wrap: anywhere;           /* un mail muy largo baja de renglón (no se sale de la ventana) */
-}
-
-.nombre-cliente-detalle {
-    color: var(--texto);
-    font-weight: 600;
-}
-
-.mail-detalle {
-    color: var(--mail-detalle);
 }
 
 /* (24/10) Las 3 cajitas: Entrega · Envío · Viandas, del mismo ancho, verde muy suave con el nombre en verde y MAYÚSCULA */

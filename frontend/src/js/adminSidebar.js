@@ -36,6 +36,7 @@
     { ruta: 'admin.html',                       grupo: '',               icono: 'icono-menu-inicio',      nombre: 'Inicio' },
     { ruta: 'pages/ConsultarPedidos.html',      grupo: 'Pedidos',        icono: 'icono-menu-pedidos',     nombre: 'Consultar Pedidos' },
     { ruta: 'pages/Envios.html',                grupo: 'Reparto',        icono: 'icono-menu-envios',      nombre: 'Envíos del Día' },
+    { ruta: 'pages/armadoPedidos.html',         grupo: 'Reparto',        icono: 'icono-menu-armado',      nombre: 'Armado de pedidos' },
     { ruta: 'pages/cocinero.html',              grupo: 'Cocina',         icono: 'icono-menu-cocina',      nombre: 'Tareas de Cocina' },
     { ruta: 'pages/heladera.html',              grupo: 'Cocina',         icono: 'icono-menu-heladera',    nombre: 'Producción' },
     { ruta: 'pages/AsignarCocinero.html',       grupo: 'Cocina',         icono: 'icono-menu-asignar',     nombre: 'Asignar Cocineros' },
@@ -43,7 +44,7 @@
     { ruta: 'pages/stock.html',                 grupo: 'Stock',          icono: 'icono-menu-stock',       nombre: 'Gestión de Stock' },
     { ruta: 'pages/combos.html',                grupo: 'Catálogo',       icono: 'icono-menu-combos',      nombre: 'Combos' },
     { ruta: 'pages/generarReceta.html',         grupo: 'Catálogo',       icono: 'icono-menu-receta',      nombre: 'Generar Receta' },
-    { ruta: 'pages/gestionUsuarios.html',       grupo: 'Administración', icono: 'icono-menu-usuarios',    nombre: 'Gestión de Usuarios' }
+    { ruta: 'pages/gestionUsuarios.html',       grupo: 'Administración', icono: 'icono-menu-usuarios',    nombre: 'Gestión de Usuarios' },
   ];
 
   // Para la fecha de la barra de arriba ("Martes 27 de octubre"): getDay() da 0 para el domingo y getMonth() da 0 para enero
@@ -56,6 +57,7 @@
       <symbol id="icono-menu-inicio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"></path><path d="M5 10v10h5v-6h4v6h5V10"></path></symbol>
       <symbol id="icono-menu-pedidos" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"></rect><path d="M9 8h6M9 12h6M9 16h4"></path></symbol>
       <symbol id="icono-menu-envios" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="2" y="6" width="12" height="10" rx="1"></rect><path d="M14 9h4l3 3.5V16h-7z"></path><circle cx="7" cy="17.5" r="1.8"></circle><circle cx="17" cy="17.5" r="1.8"></circle></symbol>
+      <symbol id="icono-menu-armado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18l-2 11H5z"></path><path d="M8 9V6a4 4 0 0 1 8 0v3"></path><path d="M9 14l2 2 4-4"></path></symbol>
       <symbol id="icono-menu-cocina" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 13.9A4 4 0 0 1 7 6a5 5 0 0 1 10 0 4 4 0 0 1 1 7.9V20H6z"></path><path d="M6 17h12"></path></symbol>
       <symbol id="icono-menu-heladera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"></rect><path d="M5 10h14M9 5v2M9 13v3"></path></symbol>
       <symbol id="icono-menu-asignar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M3 20c0-3.3 2.7-6 6-6 1.6 0 3 .6 4.1 1.6"></path><path d="M15 17l2 2 4-4"></path></symbol>

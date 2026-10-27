@@ -512,8 +512,9 @@ async function testCocinaYTareas() {
 //   crearPedidoPrueba  → manda un pedido "PRUEBA – NO PREPARAR" por la web pública (sin sesión, como un cliente)
 //   anularPedidoPrueba → anula un pedido de prueba con el PIN del .env (sin mostrarlo)
 //   revisarHeladera    → compara la heladera con lo que tendría que haber cambiado: ✅ o ❌
+//   testArmado         → (26/10) la sección ARMADO: corre adentro de testHeladera, con sus pedidos A y D
 //   testHeladera       → la sección entera, de principio a fin (los pasos están numerados adentro)
-// Son 7 porque cada una hace un trabajo que se repite varias veces en la sección (leer la heladera,
+// Eran 7 (más testArmado, 26/10) porque cada una hace un trabajo que se repite varias veces en la sección (leer la heladera,
 // crear y anular pedidos, revisar); testHeladera es la receta que las usa en orden.
 //
 // REGLAS (corre contra la base REAL, la que usa el negocio):
@@ -647,6 +648,70 @@ function revisarHeladera(paso, antes, ahora, cambios) {
   const comoQuedo = Object.keys(antes).map(id => `${antes[id].nombre}: ${ahora[id]?.libres} libres, ${ahora[id]?.reservadas} reservadas`).join(' · ');
   const detalle = diferencias.length > 0 ? diferencias.join(' · ') : comoQuedo;
   return comprobar(paso, diferencias.length === 0, detalle);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// testArmado → la sección ARMADO (26/10): la pantalla "Armado de pedidos", por sus rutas (GET /api/armado y
+//              POST /api/pedidos/:id/armado). Corre ADENTRO de testHeladera, con sus pedidos de prueba, antes de anularlos:
+//              así no crea pedidos nuevos (no choca con el límite de 5 pedidos cada 10 minutos).
+// ENTRADA: idA (todo de heladera, ya en 3), idD (con 2 "sin sal" sin cocinar), fechaEntrega (la de los dos),
+//          comoCocinero (el header del cocinero de mentira, para el 403) e idUsuario (el del .env, para ver quién armó)
+// SALIDA:  nada (escribe ✅ / ❌ por cada prueba). A queda ARMADO (es una marca: sigue en 3); al final se anula igual.
+// Ej: D → 409 "Todavía falta cocinar…" · A → 200 y sigue en 3 · A otra vez → 409 · fecha 2026-02-30 → 400 · cocinero → 403
+// REGLAS: no cocina nada ni marca "Listo" (eso pasaría D a 3 y gastaría insumos). Si D quedó en 1 (faltan insumos),
+//         lo pasa a 2 "aunque falten insumos": en 2 no se descuenta nada.
+// ─────────────────────────────────────────────────────────────────────────────
+async function testArmado(idA, idD, fechaEntrega, comoCocinero, idUsuario) {
+  console.log('\n══════ ARMADO (pantalla Armado de pedidos) ══════');
+
+  // 1. D tiene que estar en 2 (En preparación) para probar "falta cocinar". Si quedó en 1, pasa a 2 sin revisar insumos.
+  const lecturaD = await supabase.from('pedidos').select('id_estado').eq('id', idD).maybeSingle();
+  const dEn1 = lecturaD.data?.id_estado === 1;
+  const pasarD = dEn1 ? await put(`/api/pedidos/${idD}/estado`, { estado_id: 2, aunque_falten_insumos: true }) : null;
+  if (dEn1) comprobar('Armado: D pasa a 2 (aunque falten insumos: en 2 no se descuenta nada)', pasarD.status === 200 && pasarD.data?.pedido?.id_estado === 2, `status=${pasarD.status} ${pasarD.data?.error || ''}`);
+
+  // 2. Traer el día: están A y D, con sus renglones como los guardó la base
+  const dia = await get(`/api/armado?fecha=${fechaEntrega}`);
+  const delDia = Array.isArray(dia.data) ? dia.data : [];
+  const enDiaA = delDia.find(p => p.id === idA);                  // find = el pedido A (o undefined)
+  const enDiaD = delDia.find(p => p.id === idD);
+  comprobar('Armado: GET /api/armado del día → 200 con A y D', dia.status === 200 && Boolean(enDiaA) && Boolean(enDiaD), `status=${dia.status} · ${delDia.length} pedidos ese día ${dia.data?.error || ''}`);
+  const renglonesA = enDiaA?.pedido_detalles || [];
+  const aTodoDeHeladera = renglonesA.length > 0 && renglonesA.every(d => d.cantidad_de_heladera === d.cantidad && d.listo === true) && enDiaA.armado_en === null;
+  comprobar('Armado: A viene todo de la heladera y sin armar', aTodoDeHeladera, JSON.stringify(renglonesA.map(d => ({ cantidad: d.cantidad, de_heladera: d.cantidad_de_heladera, listo: d.listo }))));
+  const sinSalD = (enDiaD?.pedido_detalles || []).find(d => d.personalizado === true);
+  const dSinCocinar = Boolean(sinSalD) && sinSalD.cantidad === 2 && sinSalD.cantidad_de_heladera === 0 && sinSalD.listo === false;
+  comprobar('Armado: D trae los 2 "sin sal" sin cocinar', dSinCocinar, sinSalD ? `${sinSalD.cantidad} · de heladera ${sinSalD.cantidad_de_heladera} · listo ${sinSalD.listo}` : 'no apareció');
+
+  // 3. Lo que el servidor NO deja (409): D con algo sin cocinar, y A con otra fecha
+  const armarD = await post(`/api/pedidos/${idD}/armado`, { fecha: fechaEntrega });
+  comprobar('Armado: D con un personalizado sin cocinar → 409', armarD.status === 409 && String(armarD.data?.error).startsWith('Todavía falta cocinar'), `status=${armarD.status} "${armarD.data?.error}"`);
+  const otraFecha = fechas.fechaLocalISO(fechas.proximoDiaHabil(fechas.parseFechaLocal(fechaEntrega)));
+  const armarAOtroDia = await post(`/api/pedidos/${idA}/armado`, { fecha: otraFecha });
+  comprobar('Armado: A con otra fecha → 409', armarAOtroDia.status === 409 && String(armarAOtroDia.data?.error).startsWith('El pedido no se entrega ese día'), `status=${armarAOtroDia.status} "${armarAOtroDia.data?.error}"`);
+
+  // 4. A (sin nada para cocinar) SÍ se arma: guarda quién (el del token) y no cambia el estado
+  const armarA = await post(`/api/pedidos/${idA}/armado`, { fecha: fechaEntrega });
+  const armadoBien = armarA.status === 200 && Boolean(armarA.data?.pedido?.armado_en) && armarA.data?.pedido?.armado_por === idUsuario;
+  comprobar('Armado: A → 200, con la hora y el usuario del token', armadoBien, `status=${armarA.status} ${armarA.data?.mensaje || armarA.data?.error}`);
+  const despues = await get(`/api/armado?fecha=${fechaEntrega}`);
+  const aDespues = (Array.isArray(despues.data) ? despues.data : []).find(p => p.id === idA);
+  comprobar('Armado: A sigue en 3 y figura armado (con nombre)', aDespues?.id_estado === 3 && Boolean(aDespues?.armado_en) && Boolean(aDespues?.armado_por_nombre), aDespues ? `estado ${aDespues.id_estado} · armado ${Boolean(aDespues.armado_en)} · nombre ${aDespues.armado_por_nombre ? 'sí' : 'no'}` : 'no apareció');
+
+  // 5. Dos veces no
+  const armarAOtraVez = await post(`/api/pedidos/${idA}/armado`, { fecha: fechaEntrega });
+  comprobar('Armado: A otra vez → 409', armarAOtraVez.status === 409 && armarAOtraVez.data?.error === 'El pedido ya estaba armado', `status=${armarAOtraVez.status} "${armarAOtraVez.data?.error}"`);
+
+  // 6. Datos malos → 400 (el servidor corta antes de ir a la base)
+  const fechasMalas = await Promise.all([get('/api/armado?fecha=2026-02-30'), get('/api/armado?fecha=hola'), get('/api/armado')]);
+  comprobar('Armado: fecha inválida o sin fecha → 400', fechasMalas.every(r => r.status === 400), fechasMalas.map(r => r.status).join(', '));   // every = ¿todas?
+  const malos = await Promise.all([post('/api/pedidos/abc/armado', { fecha: fechaEntrega }), post(`/api/pedidos/${idA}/armado`, { fecha: '29/10/2026' })]);
+  comprobar('Armado: número o fecha inválidos en el POST → 400', malos.every(r => r.status === 400), malos.map(r => r.status).join(', '));
+
+  // 7. Un rol sin permiso (el cocinero) → 403, en las dos rutas
+  const verCocinero = await get(`/api/armado?fecha=${fechaEntrega}`, comoCocinero);
+  const armarCocinero = await post(`/api/pedidos/${idA}/armado`, { fecha: fechaEntrega }, comoCocinero);
+  comprobar('Armado: el cocinero → 403 (ver y armar)', verCocinero.status === 403 && armarCocinero.status === 403, `GET ${verCocinero.status} · POST ${armarCocinero.status}`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -815,6 +880,9 @@ async function testHeladera() {
     const movimientosCocinero = await get(`/api/movimientos?desde=${hoy}&hasta=${hoy}`, comoCocinero);
     comprobar('Movimientos de Stock: el cocinero → 403', movimientosCocinero.status === 403, `status=${movimientosCocinero.status}`);
 
+    // 11b. (26/10) ARMADO: la pantalla Armado de pedidos, con A y D antes de anularlos (ver testArmado)
+    await testArmado(idA, idD, fechaEntrega, comoCocinero, sesion.id);
+
     // 12. ANULAR DEVUELVE: A (en 3) devuelve N y D (en 2) devuelve N − 2 (los "sin sal" no habían salido)
     const antesDeAnular = await leerHeladera(idsUsados);
     const anularA = await anularPedidoPrueba(idA);
@@ -835,6 +903,8 @@ async function testHeladera() {
     comprobar('Anulado: confirmar la transferencia → 409', transferenciaAnulado.status === 409 && transferenciaAnulado.data?.error === 'Un pedido anulado no se puede cobrar', `status=${transferenciaAnulado.status} "${transferenciaAnulado.data?.error}"`);
     const anularOtraVez = await anularPedidoPrueba(idA);
     comprobar('Anulado: anular otra vez → 409', anularOtraVez.status === 409, `status=${anularOtraVez.status} "${anularOtraVez.data?.error}"`);
+    const armarAnulado = await post(`/api/pedidos/${idA}/armado`, { fecha: fechaEntrega });   // (26/10) ARMADO
+    comprobar('Anulado: marcar armado → 409', armarAnulado.status === 409 && armarAnulado.data?.error === 'Un pedido anulado no se arma', `status=${armarAnulado.status} "${armarAnulado.data?.error}"`);
 
     // 14. Las devoluciones, en "Últimos movimientos" (Producción) y en Movimientos de Stock
     const devoluciones = await get('/api/movimientos-viandas?tipo=devolucion');

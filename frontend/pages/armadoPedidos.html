@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fast Good - Armado de pedidos</title>
+
+  <!-- Letra Inter: igual que en el resto del panel -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="icon" href="../src/assets/img/logo.webp" type="image/webp"/>
+
+  <!-- CSS: global.css (colores, título, botones, ventanas) y armadoPedidos.css (lo propio de esta pantalla) -->
+  <link rel="stylesheet" href="../src/css/global.css"/>
+  <link rel="stylesheet" href="../src/css/armadoPedidos.css"/>
+</head>
+<body>
+<!-- Scripts base del panel -->
+<script src="../src/js/roles.js"></script>
+<script src="../src/js/guard.js"></script>
+<script src="../src/js/api.js"></script>
+<script src="../src/js/escape.js"></script>
+<!-- El menú lateral se carga acá -->
+<script src="../src/js/adminSidebar.js"></script>
+
+<div class="admin-content">
+  <!-- TÍTULO: a la izquierda el título y la bajada; a la derecha el día de entrega con las flechas -->
+  <header class="armado-encabezado">
+    <div class="armado-titulos">
+      <h1>Armado de pedidos</h1>
+      <p class="bajada-pantalla">Lo que se entrega hoy. Armá cada bandeja con lo que dice su tarjeta y tildá cada vianda a medida que la ponés.</p>
+    </div>
+    <!-- Cómo se ve (tarjetas o lista; en el celu siempre tarjetas) y la planilla para Excel -->
+    <div class="armado-acciones">
+      <button type="button" class="boton-armado-arriba boton-vista" id="botonVista">Ver lista</button>
+      <button type="button" class="boton-armado-arriba" id="botonExportar">Exportar planilla</button>
+    </div>
+    <div class="armado-controles-fecha">
+      <button type="button" class="boton-dia" id="btnDiaAnterior" aria-label="Día anterior">‹</button>
+      <span class="etiqueta-fecha" id="etiquetaFechaFiltro" aria-live="polite">Entrega: hoy</span>
+      <button type="button" class="boton-dia" id="btnDiaSiguiente" aria-label="Día siguiente">›</button>
+    </div>
+  </header>
+
+  <main class="page-container armado-principal">
+    <!-- Avance y filtros -->
+    <div class="armado-estadisticas">
+      <div class="estadisticas-avance">
+        <div class="avance-textos">
+          <span class="avance-pedidos"><strong id="pedidosArmadosTexto">0 de 0</strong> pedidos armados</span>
+          <span class="avance-viandas" id="viandasTotalTexto">0 viandas en total</span>
+        </div>
+        <!-- La barra: el JS cambia el ancho de la parte verde y lo que lee el lector de pantalla -->
+        <div class="barra-fondo" id="barraFondo" role="progressbar" aria-label="Pedidos armados" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
+          <div class="barra-progreso" id="barraProgreso"></div>
+        </div>
+      </div>
+      <div class="armado-filtros" id="grupoFiltros" role="group" aria-label="Mostrar">
+        <button type="button" class="filtro-armado filtro-armado--activo" data-filtro="por_armar" aria-pressed="true">Por armar <span id="contadorPorArmar">· 0</span></button>
+        <button type="button" class="filtro-armado" data-filtro="falta_cocinar" aria-pressed="false">Falta cocinar <span id="contadorFaltaCocinar" hidden>· 0</span></button>
+        <button type="button" class="filtro-armado" data-filtro="armados" aria-pressed="false">Armados <span id="contadorArmados">· 0</span></button>
+        <button type="button" class="filtro-armado" data-filtro="todos" aria-pressed="false">Todos <span id="contadorTodos">· 0</span></button>
+      </div>
+    </div>
+
+    <!-- Las tarjetas de los pedidos (las arma armadoPedidos.js) -->
+    <div class="grilla-pedidos" id="pedidosBody">
+      <p class="loading-text">Cargando pedidos...</p>
+    </div>
+  </main>
+</div>
+
+<!-- Lógica propia de la pantalla -->
+<script src="../src/js/fechas.js"></script>
+<script src="../src/js/armadoPedidos.js"></script>
+
+<script>
+  // Muestra el body apenas están el HTML y el CSS (igual que las otras pantallas del panel)
+  document.addEventListener('DOMContentLoaded', () => document.body.classList.add('cargada'));
+  setTimeout(() => document.body.classList.add('cargada'), 2000);
+</script>
+</body>
+</html>

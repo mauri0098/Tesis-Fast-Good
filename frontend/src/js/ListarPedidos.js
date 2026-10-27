@@ -17,7 +17,7 @@
 //   abrirFaltanInsumos / responderFaltanInsumos → (24/10) la ventana "Faltan insumos": "¿Pasarlo igual?"
 //   guardarEstado           → manda el estado nuevo (PUT /api/pedidos/:id/estado) y muestra el que quedó guardado
 //   pintarEstado            → pinta el select con el color de su estado
-//   abrirDetalles           → la ventana "Detalles" (24/10: el cliente y su mail, 3 cajitas Entrega · Envío · Viandas,
+//   abrirDetalles           → la ventana "Detalles" (24/10: 3 cajitas Entrega · Envío · Viandas,
 //                             un recuadro por combo con sus platos, y el total)
 //   abrirAnular             → la ventana "Anular pedido" (pide el PIN)
 //   confirmarAnulacion      → manda la anulación (POST /api/pedidos/:id/anular) y avisa cuántas viandas volvieron
@@ -622,11 +622,11 @@ function pintarEstado(select, estadoId) {
 // abrirDetalles → la ventana "Detalles": un recuadro por combo con su precio y sus platos, los platos sueltos y el total
 // ENTRADA: pedidoId
 // SALIDA:  nada (llena la ventana y la abre)
-// Ej: #250 → arriba "Realizado el 15/10/2026 · 18:40" y "Pedido #250"; "PRUEBA – NO PREPARAR · prueba@mail.com";
-//     3 cajitas "ENTREGA 19/10 · ENVÍO Delivery · VIANDAS 10"; un recuadro "PRUEBA Mantenimiento x10  $ 137.000"
-//     con "8 fideos  de la heladera" y "2 fideos  ⚠ sin sal"; abajo "Total  $ 137.000"
-// 24/10 (más simple): se suman la línea del cliente (nombre · mail) y las 3 cajitas; cada plato que no es personalizado
-// dice "de la heladera" a la derecha. Sin dirección, teléfono ni observaciones.
+// Ej: #250 → arriba "Realizado el 15/10/2026 · 18:40" y "Pedido #250"; 3 cajitas "ENTREGA 19/10 · ENVÍO Delivery ·
+//     VIANDAS 10"; un recuadro "PRUEBA Mantenimiento x10  $ 137.000" con "8 fideos  de la heladera" y
+//     "2 fideos  ⚠ sin sal"; abajo "Total  $ 137.000"
+// 24/10 (más simple): se suman las 3 cajitas; cada plato que no es personalizado dice "de la heladera" a la derecha.
+// Sin dirección, teléfono ni observaciones. 26/10: se sacó también el renglón del cliente y su mail.
 // Los platos de un combo van sin precio (el que se cobra es el del combo). Los pedidos viejos (platos sueltos),
 // con su precio unitario.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -640,10 +640,7 @@ function abrirDetalles(pedidoId) {
   const realizado = pedido.fecha_pedido ? fechaHoraDDMMAAAA(fechaDeTimestamp(pedido.fecha_pedido)).replace(' ', ' · ') : '—';
   document.getElementById('modalFechaPedido').textContent = realizado;
 
-  // 2. (24/10) Arriba: el cliente y su mail (en azul) y las 3 cajitas: Entrega · Envío · Viandas.
-  //    El nombre y el mail los escribió el cliente: escHtml
-  const cliente = pedido.cliente_nombre || pedido.usuarios?.nombre || 'Anónimo';   // ?. = "si existe usuarios, su nombre"
-  const mail = pedido.cliente_email ? ' · <span class="mail-detalle">' + escHtml(pedido.cliente_email) + '</span>' : '';
+  // 2. (24/10) Arriba: las 3 cajitas: Entrega · Envío · Viandas (26/10: sin el renglón del cliente y su mail)
   const entrega = pedido.fecha_entrega ? fechaDDMMAAAA(parseFechaLocal(pedido.fecha_entrega)).slice(0, 5) : '—';   // ej: "28/10"
   const envio = ENVIO_PEDIDO[pedido.tipo_entrega];                 // { texto: 'Delivery', … }, o undefined (pedidos viejos)
   const textoEnvio = envio ? envio.texto : '—';
@@ -652,7 +649,6 @@ function abrirDetalles(pedidoId) {
     totalViandas = totalViandas + (Number(detalle.cantidad) || 0);
   });
   const htmlArriba = `
-    <p class="cliente-detalle"><span class="nombre-cliente-detalle">${escHtml(cliente)}</span>${mail}</p>
     <div class="cajitas-detalle">
       <div class="cajita-detalle"><span class="nombre-cajita">Entrega</span><span class="valor-cajita">${escHtml(entrega)}</span></div>
       <div class="cajita-detalle"><span class="nombre-cajita">Envío</span><span class="valor-cajita">${escHtml(textoEnvio)}</span></div>
