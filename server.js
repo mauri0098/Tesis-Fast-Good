@@ -153,7 +153,126 @@ function errorInterno(res, err) {
    Las viandas de la heladera ya gastaron sus insumos cuando se produjeron: así no se descuentan dos veces.
    Las dos devuelven null si todo OK, o { status, error }:
      409 = falta un insumo (el mensaje dice cuál) · 500 = falló algo interno (el detalle va al log).
+   27/10 (avisos de insumos): la cuenta de "qué falta" está en leerRecetasEInsumos + calcularFaltantes, y la usan
+   verificarStockPedido, "Pedir a cocina" (POST /api/pedir-cocina/faltantes), "Para stock" (los pendientes) y "Hecho".
+   Falta un insumo = lo que hace falta (receta × viandas) es más que su stock_actual.
    ====================================================== */
+
+// ─────────────────────────────────────────────────────────────────────────────
+// leerRecetasEInsumos → las recetas de unos platos y cuánto hay de cada insumo que usan (solo lee)
+// ENTRADA: idsPlatos (los números de los platos)
+// SALIDA:  { recetas: [{ id_producto, id_insumo, cantidad_necesaria }], insumoPorId: { id: { id, nombre, stock_actual, unidad_medida } } }
+//          o { error } si falló la base (quien la llama lo manda al log y responde un mensaje simple)
+// Ej: [7] → { recetas: [{ id_producto: 7, id_insumo: 3, cantidad_necesaria: 300 }], insumoPorId: { 3: { nombre: 'Harina', stock_actual: 400, … } } }
+// Son 2 consultas para todos los platos juntos (así "Para stock" no pregunta una vez por plato).
+// ─────────────────────────────────────────────────────────────────────────────
+async function leerRecetasEInsumos(idsPlatos) {
+  if (idsPlatos.length === 0) return { recetas: [], insumoPorId: {} };   // sin platos: nada que leer
+
+  // 1. Las recetas de esos platos
+  const { data: recetas, error: errRecetas } = await supabase     // pide a la base...
+    .from('producto_insumo')                                      // ...las recetas...
+    .select('id_producto, id_insumo, cantidad_necesaria')         // ...plato, insumo y cuánto lleva por vianda...
+    .in('id_producto', idsPlatos);                                // ...de esos platos
+  if (errRecetas) return { error: errRecetas };
+
+  // 2. Cuánto hay de cada insumo que usan (los números sin repetir: Set = sin repetidos)
+  const idsInsumos = [...new Set((recetas || []).map(renglon => renglon.id_insumo))];
+  const consultaInsumos = idsInsumos.length > 0
+    ? await supabase.from('insumos').select('id, nombre, stock_actual, unidad_medida').in('id', idsInsumos)
+    : { data: [], error: null };                                  // sin recetas no se pregunta
+  if (consultaInsumos.error) return { error: consultaInsumos.error };
+  const insumoPorId = {};                                         // { id_insumo: el insumo }
+  (consultaInsumos.data || []).forEach(insumo => { insumoPorId[insumo.id] = insumo; });
+
+  return { recetas: recetas || [], insumoPorId: insumoPorId };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// calcularFaltantes → qué insumos no alcanzan para cocinar unas viandas (la cuenta; no pregunta nada a la base)
+// ENTRADA: viandasPorPlato ({ id_producto: viandas } lo que se quiere cocinar), datos (de leerRecetasEInsumos) y,
+//          opcional, comprometidoPorPlato ({ id_producto: viandas } lo que ya está pedido y todavía no gastó insumos)
+// SALIDA:  [{ id_insumo, nombre, unidad, tenes, necesitas, falta, texto }], en orden de número de insumo ([] si alcanza)
+//          necesitas = receta × (lo nuevo + lo comprometido). Solo van los insumos que usa lo NUEVO.
+// Ej: 2 fideos (300 g de harina c/u), harina 400 → [{ nombre: 'Harina', unidad: 'g', tenes: 400, necesitas: 600, falta: 200, texto: '200 g de Harina' }]
+//     lo mismo con 1 fideo ya pedido sin hacer (comprometido) → necesitas 900, falta 500
+// ─────────────────────────────────────────────────────────────────────────────
+function calcularFaltantes(viandasPorPlato, datos, comprometidoPorPlato) {
+  const comprometido = comprometidoPorPlato || {};                // sin comprometido: nada
+  const necesarioPorInsumo = {};                                  // { id_insumo: cuánto hace falta en total }
+  const usaLoNuevo = {};                                          // { id_insumo: true } los que usa lo que se quiere cocinar
+
+  // 1. Receta × viandas, sumando todos los platos. Ej: fideos (300 g de harina) × (2 nuevos + 1 pedido) → harina 900
+  datos.recetas.forEach(renglon => {                              // por cada renglón de receta...
+    const nuevas = Number(viandasPorPlato[renglon.id_producto] || 0);
+    const yaPedidas = Number(comprometido[renglon.id_producto] || 0);
+    const porVianda = Number(renglon.cantidad_necesaria || 0);
+    necesarioPorInsumo[renglon.id_insumo] = (necesarioPorInsumo[renglon.id_insumo] || 0) + porVianda * (nuevas + yaPedidas);
+    if (nuevas > 0) usaLoNuevo[renglon.id_insumo] = true;         // este insumo lo usa lo nuevo
+  });
+
+  // 2. Los que no alcanzan, en orden de número (el mismo de la base). Object.keys da los números como texto: Number los pasa a número
+  const faltantes = [];
+  Object.keys(usaLoNuevo).map(Number).sort((a, b) => a - b).forEach(idInsumo => {   // sort (a − b) = de menor a mayor
+    const insumo = datos.insumoPorId[idInsumo];                   // sus datos (pueden faltar si se borró)
+    const tenes = Number(insumo?.stock_actual ?? 0);              // ?. = "si existe el insumo, su stock"; ?? 0 = vacío cuenta como 0
+    const necesitas = necesarioPorInsumo[idInsumo];
+    if (tenes >= necesitas) return;                               // alcanza (return = saltear este y seguir con el siguiente)
+    const falta = necesitas - tenes;
+    const unidad = insumo?.unidad_medida || '';                   // ej: "g" (sin unidad: '')
+    const nombre = insumo?.nombre || String(idInsumo);            // su nombre (o su número si no se encontró)
+    const conUnidad = unidad ? ' ' + unidad : '';
+    const texto = falta.toLocaleString('es-AR', { maximumFractionDigits: 2 }) + conUnidad + ' de ' + nombre;   // ej: "200 g de Harina"
+    faltantes.push({ id_insumo: idInsumo, nombre: nombre, unidad: unidad, tenes: tenes, necesitas: necesitas, falta: falta, texto: texto });
+  });
+  return faltantes;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// leerComprometido → lo que ya está pedido y todavía no gastó insumos (para el aviso de "Pedir a cocina")
+// ENTRADA: nada
+// SALIDA:  { porPlato: { id_producto: viandas } } o { error }
+//          Suma: los pedidos a cocina sin "Hecho" + lo que cocina la cocina en los pedidos de clientes en 1 o 2
+//          (cantidad − cantidad_de_heladera: sus insumos se descuentan recién al pasar a 3)
+// Ej: pedido a cocina de 10 fideos sin hacer + un pedido en 2 con 2 fideos "sin sal" → { 7: 12 }
+// ─────────────────────────────────────────────────────────────────────────────
+async function leerComprometido() {
+  // 1. Los pedidos a cocina sin "Hecho"
+  const { data: ordenes, error: errOrdenes } = await supabase
+    .from('orden_produccion_detalles')
+    .select('id_producto, cantidad')
+    .eq('hecho', false);
+  if (errOrdenes) return { error: errOrdenes };
+
+  // 2. Los pedidos de clientes en 1 o 2, con sus platos
+  const { data: pedidos, error: errPedidos } = await supabase
+    .from('pedidos')
+    .select('pedido_detalles ( id_producto, cantidad, cantidad_de_heladera )')
+    .in('id_estado', [1, 2]);
+  if (errPedidos) return { error: errPedidos };
+
+  // 3. Todo junto, por plato. Primero los platos de todos los pedidos en una sola lista (concat las va juntando)
+  //    Ej: [{ pedido_detalles: [a, b] }, { pedido_detalles: [c] }] → [a, b, c]
+  let detalles = [];
+  (pedidos || []).forEach(pedido => { detalles = detalles.concat(pedido.pedido_detalles || []); });
+  const porPlato = {};                                            // { id_producto: viandas }
+  (ordenes || []).forEach(orden => {                              // lo pedido a cocina...
+    porPlato[orden.id_producto] = (porPlato[orden.id_producto] || 0) + Number(orden.cantidad || 0);
+  });
+  detalles.forEach(detalle => {                                   // ...y lo que cocina la cocina de los pedidos de clientes
+    const deCocina = Number(detalle.cantidad) - Number(detalle.cantidad_de_heladera ?? 0);   // vacío cuenta como 0
+    if (deCocina <= 0) return;                                    // (return = todo sale de la heladera: el siguiente)
+    porPlato[detalle.id_producto] = (porPlato[detalle.id_producto] || 0) + deCocina;
+  });
+  return { porPlato: porPlato };
+}
+
+// unirConY → una lista en una frase: los de antes con coma y el último con "y"
+// Ej: ['200 g de Carne'] → "200 g de Carne" · ['200 g de Carne', '39 u de Huevo', '1 kg de Sal'] → "200 g de Carne, 39 u de Huevo y 1 kg de Sal"
+function unirConY(lista) {
+  const ultimo = lista[lista.length - 1];                         // el último de la lista
+  return lista.length === 1 ? ultimo : lista.slice(0, -1).join(', ') + ' y ' + ultimo;   // slice(0, -1) = todos menos el último
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // verificarStockPedido → ¿alcanzan los insumos de lo que cocina la cocina? Solo lee: no descuenta nada.
@@ -191,64 +310,21 @@ async function verificarStockPedido(pedidoId) {
     });
     if (idsPlatos.length === 0) return null;                      // no hay nada para cocinar: alcanza
 
-    // 3. Las recetas de esos platos
-    const { data: recetas, error: errRecetas } = await supabase   // pide a la base...
-      .from('producto_insumo')                                    // ...las recetas...
-      .select('id_producto, id_insumo, cantidad_necesaria')       // ...plato, insumo y cuánto lleva por vianda...
-      .in('id_producto', idsPlatos);                              // ...de los platos que cocina la cocina
-    if (errRecetas) {                                             // si falló la base...
-      console.error('ERROR REAL DEL SERVIDOR [producto_insumo]:', errRecetas);
+    // 3. Las recetas de esos platos y cuánto hay de cada insumo (27/10: leerRecetasEInsumos, la comparten los avisos de insumos)
+    const datosInsumos = await leerRecetasEInsumos(idsPlatos);
+    if (datosInsumos.error) {                                     // si falló la base...
+      console.error('ERROR REAL DEL SERVIDOR [recetas / insumos]:', datosInsumos.error);
       return { status: 500, error: MENSAJE_ERROR_INTERNO };
     }
 
-    // 4. Cuánto hace falta de cada insumo: receta × viandas que cocina la cocina, sumando todos los platos.
-    //    Ej: fideos (300 g de harina, 2 huevos) × 2 → { harina: 600, huevo: 4 }
-    const necesarioPorInsumo = {};                                // { id_insumo: cuánto hace falta }
-    const idsInsumos = [];                                        // los insumos, sin repetir
-    (recetas || []).forEach(renglon => {                          // por cada renglón de receta...
-      const necesario = Number(renglon.cantidad_necesaria || 0) * aCocinarPorPlato[renglon.id_producto];  // ...receta × viandas
-      const esNuevo = necesarioPorInsumo[renglon.id_insumo] === undefined;  // ¿es la primera vez que aparece?
-      if (esNuevo) idsInsumos.push(renglon.id_insumo);            // la primera vez se anota
-      necesarioPorInsumo[renglon.id_insumo] = (necesarioPorInsumo[renglon.id_insumo] || 0) + necesario;  // se suma
-    });
-    if (idsInsumos.length === 0) return null;                     // sin receta no se gasta nada: alcanza
-
-    // 5. Cuánto hay de cada insumo
-    const { data: insumos, error: errInsumos } = await supabase   // pide a la base...
-      .from('insumos')                                            // ...los insumos...
-      .select('id, nombre, stock_actual, unidad_medida')          // ...número, nombre, cuánto hay y su unidad (24/10: para el aviso)...
-      .in('id', idsInsumos);                                      // ...los de las recetas
-    if (errInsumos) {                                             // si falló la base...
-      console.error('ERROR REAL DEL SERVIDOR [insumos select]:', errInsumos);
-      return { status: 500, error: MENSAJE_ERROR_INTERNO };
-    }
-    const insumoPorId = {};                                       // { id_insumo: { nombre, stock_actual } }
-    (insumos || []).forEach(insumo => {                           // por cada insumo...
-      insumoPorId[insumo.id] = insumo;                            // ...se guarda por su número
-    });
-
-    // 6. TODOS los insumos que no alcanzan (en orden de número), con cuánto falta: lo que hace falta − lo que hay.
-    //    24/10: antes avisaba solo el primero ('Stock insuficiente de "Huevo": se necesitan 4, hay -35 disponibles').
+    // 4. TODOS los insumos que no alcanzan, en orden de número (27/10: calcularFaltantes, la misma cuenta de antes).
     //    Ej: harina 600 g (hay 400) y huevo 4 u (hay −35) → ['200 g de Harina', '39 u de Huevo']
-    //    sort con (a, b) => a − b ordena números de menor a mayor. Ej: [9, 2, 5] → [2, 5, 9]
-    idsInsumos.sort((a, b) => a - b);                             // el mismo orden que usa la base
-    const faltantes = [];                                         // "200 g de Harina", uno por insumo que falta
-    idsInsumos.forEach(idInsumo => {                              // por cada insumo...
-      const insumo = insumoPorId[idInsumo];                       // ...sus datos (pueden faltar si se borró)
-      const disponible = Number(insumo?.stock_actual ?? 0);       // ?. = "si existe el insumo, su stock"; ?? 0 = vacío cuenta como 0
-      const necesario = Number(necesarioPorInsumo[idInsumo]);     // cuánto hace falta
-      if (disponible >= necesario) return;                        // alcanza (return = saltear este y seguir con el siguiente)
-      const falta = (necesario - disponible).toLocaleString('es-AR', { maximumFractionDigits: 2 });  // ej: 1.250,5
-      const unidad = insumo?.unidad_medida ? ' ' + insumo.unidad_medida : '';  // ej: " g" (sin unidad: nada)
-      const nombre = insumo?.nombre || String(idInsumo);          // su nombre (o su número si no se encontró)
-      faltantes.push(falta + unidad + ' de ' + nombre);           // ej: "200 g de Carne"
-    });
-    if (faltantes.length === 0) return null;                      // alcanza todo
+    const faltantes = calcularFaltantes(aCocinarPorPlato, datosInsumos).map(faltante => faltante.texto);
+    if (faltantes.length === 0) return null;                      // alcanza todo (o sin receta: no se gasta nada)
 
-    // 7. El aviso: "Faltan 200 g de Carne y 39 u de Huevo para la vianda personalizada".
-    //    Los de antes van con coma y el último con "y". "la vianda" si se cocina 1; si no, "las viandas".
-    const ultimo = faltantes[faltantes.length - 1];               // el último de la lista
-    const lista = faltantes.length === 1 ? ultimo : faltantes.slice(0, -1).join(', ') + ' y ' + ultimo;  // slice(0, -1) = todos menos el último
+    // 5. El aviso: "Faltan 200 g de Carne y 39 u de Huevo para la vianda personalizada".
+    //    "la vianda" si se cocina 1; si no, "las viandas".
+    const lista = unirConY(faltantes);                            // ej: "200 g de Carne y 39 u de Huevo"
     let viandasACocinar = 0;                                      // cuántas viandas cocina la cocina en este pedido
     idsPlatos.forEach(idPlato => { viandasACocinar = viandasACocinar + aCocinarPorPlato[idPlato]; });
     const paraQue = viandasACocinar === 1 ? 'la vianda personalizada' : 'las viandas personalizadas';
@@ -2806,6 +2882,43 @@ app.post('/api/ordenes-produccion', requireAuth, requireRol(...ROLES_PIDEN_COCIN
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// POST /api/pedir-cocina/faltantes → (27/10) ¿qué insumos faltarían con este pedido a cocina? SOLO LEE: no guarda nada
+// ENTRADA: body { items: [{ id_producto, cantidad }] } (lo que se está por pedir; los mismos controles que al crearlo)
+// SALIDA:  { faltantes: [{ nombre, unidad, tenes, necesitas, falta, texto }] } ([] si alcanza todo) · 400 lista inválida · 500
+// Ej: 10 fideos con 4 ya pedidos sin hacer y 1 "sin sal" en un pedido en 2 (300 g de harina c/u, hay 2000)
+//     → necesitás 300 × (10 + 4 + 1) = 4500 → { faltantes: [{ nombre: 'Harina', tenes: 2000, necesitas: 4500, falta: 2500, … }] }
+// Cuenta también lo que ya está pedido y no gastó insumos (leerComprometido), si no el aviso mentiría con varios
+// pedidos abiertos. Solo avisa de los insumos que usa este pedido. Es POST (y no GET) para controlar la lista igual
+// que al crear el pedido (leerItemsViandas). Es un aviso: el pedido se puede enviar igual.
+// ─────────────────────────────────────────────────────────────────────────────
+app.post('/api/pedir-cocina/faltantes', requireAuth, requireRol(...ROLES_PIDEN_COCINA), async (req, res) => {
+  // 1. La lista de platos, controlada y limpia (la misma de POST /api/ordenes-produccion)
+  const lectura = leerItemsViandas(req.body?.items);
+  if (lectura.error) return res.status(400).json({ error: lectura.error });
+
+  try {
+    // 2. Lo que se está por pedir, por plato. Ej: { 7: 10 }
+    const nuevoPorPlato = {};
+    lectura.items.forEach(item => { nuevoPorPlato[item.id_producto] = item.cantidad; });
+
+    // 3. Lo que ya está pedido y no gastó insumos
+    const comprometido = await leerComprometido();
+    if (comprometido.error) return errorInterno(res, comprometido.error);
+
+    // 4. Las recetas y el stock de todos esos platos (los nuevos y los comprometidos), sin repetir
+    const idsPlatos = [...new Set(Object.keys(nuevoPorPlato).concat(Object.keys(comprometido.porPlato)).map(Number))];
+    const datosInsumos = await leerRecetasEInsumos(idsPlatos);
+    if (datosInsumos.error) return errorInterno(res, datosInsumos.error);
+
+    // 5. Lo que faltaría
+    const faltantes = calcularFaltantes(nuevoPorPlato, datosInsumos, comprometido.porPlato);
+    res.json({ faltantes: faltantes.map(f => ({ nombre: f.nombre, unidad: f.unidad, tenes: f.tenes, necesitas: f.necesitas, falta: f.falta, texto: f.texto })) });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/ordenes-produccion/pendientes → los platos pedidos a cocina que todavía no están hechos
 //                                         ("Pendientes de cocina" de Producción y "Para stock" de Tareas de Cocina)
 // ENTRADA: nada (el usuario logueado). Un cocinero (rol 2) ve los que le tocan (cocinero del plato o, si no tiene,
@@ -2817,6 +2930,8 @@ app.post('/api/ordenes-produccion', requireAuth, requireRol(...ROLES_PIDEN_COCIN
 // El id_cocinero del renglón es solo para mostrar (agrupar por cocinero).
 // 28/10 (Tareas de Cocina nueva): se suman fecha_pedido (cuándo se pidió) y pidio (quién lo pidió), solo para mostrar.
 // 28/10 (código de plato): también el codigo_plato de cada plato (ej: "F3").
+// 27/10 (avisos de insumos): cada plato trae id_producto y faltantes: ['700 g de Carne'] (lo que le falta para
+// cocinarlo ahora, contra el stock de hoy; [] si alcanza). Tareas de Cocina y Producción lo marcan en rojo.
 // ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/ordenes-produccion/pendientes', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
   try {
@@ -2824,7 +2939,7 @@ app.get('/api/ordenes-produccion/pendientes', requireAuth, requireRol(...ROLES_H
     const { data, error } = await supabase                        // pide a la base...
       .from('orden_produccion_detalles')                          // ...los platos de los pedidos a cocina...
       .select(`
-        id, cantidad, id_cocinero,
+        id, id_producto, cantidad, id_cocinero,
         ordenes_produccion ( id, fecha_para, fecha_pedido, pidio:usuarios!id_usuario ( nombre, apellido ) ),
         productos ( nombre, codigo_plato, id_cocinero, planes ( nombre, id_cocinero, id_cocinero_suplente ) ),
         cocinero:usuarios!id_cocinero ( nombre, apellido )
@@ -2856,8 +2971,19 @@ app.get('/api/ordenes-produccion/pendientes', requireAuth, requireRol(...ROLES_H
         codigo_plato: detalle.productos ? detalle.productos.codigo_plato : null,  // su código (ej: "F3"; 28/10)
         plan:        plan,                                        // su plan
         cantidad:    detalle.cantidad,                            // cuántas viandas
-        cocinero:    cocinero                                     // quién lo cocina
+        cocinero:    cocinero,                                    // quién lo cocina
+        id_producto: detalle.id_producto                          // (27/10) para calcular sus faltantes
       });
+    });
+
+    // 2b. (27/10) Lo que le falta a cada plato para cocinarlo AHORA: su receta × sus viandas contra el stock de hoy
+    //     (lo mismo que descuenta producir_viandas al tocar "Hecho"). Ej: faltantes: ['700 g de Carne'] ([] si alcanza)
+    const idsPlatosPendientes = [...new Set(resultado.map(renglon => renglon.id_producto))];   // sin repetir
+    const datosInsumos = await leerRecetasEInsumos(idsPlatosPendientes);   // 2 consultas para todos los platos
+    if (datosInsumos.error) return errorInterno(res, datosInsumos.error);
+    resultado.forEach(renglon => {
+      const viandas = { [renglon.id_producto]: Number(renglon.cantidad) };   // ej: { 7: 2 } ([…] = la clave es el número del plato)
+      renglon.faltantes = calcularFaltantes(viandas, datosInsumos).map(faltante => faltante.texto);
     });
 
     // 3. Por fecha_para, después por número de pedido a cocina y después por plato. Supabase no ordena
@@ -2878,7 +3004,9 @@ app.get('/api/ordenes-produccion/pendientes', requireAuth, requireRol(...ROLES_H
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/ordenes-produccion/detalles/:id/hecho → la cocina terminó un plato de un pedido a cocina (PRODUCIR)
 // ENTRADA: el número del renglón del pedido a cocina en la dirección. El usuario sale del token.
+//          27/10: body { aunque_falten_insumos: true } = el cocinero confirmó "Sí, las cociné" aunque faltan insumos.
 // SALIDA:  { mensaje: 'Plato marcado como hecho', stock_heladera, avisos } · 400 número inválido
+//          · 27/10: 409 { error: 'Faltan 700 g de Carne.', faltantes, necesita_confirmar: true } si faltan y no confirmó
 //          · 403 un cocinero que no tiene ese plato · 404 no existe (cocinero) · 409 ya estaba hecho o no existe · 500
 // Ej: "Pedido a cocina #9: 2 fideos" → { stock_heladera: 73, avisos: [] } (fideos 71 → 73, harina −600 g, huevo −4 u).
 //     Si el huevo no alcanza → se marca igual y vuelve el aviso { tipo: 'insumo_corto', nombre: 'Huevo', falta: 39, … }.
@@ -2908,6 +3036,26 @@ app.post('/api/ordenes-produccion/detalles/:id/hecho', requireAuth, requireRol(.
     if (noExiste) return res.status(404).json({ error: 'El plato del pedido no existe' });
     const noLeCorresponde = esCocinero && (!detalle.productos || !platoVisibleParaCocinero(detalle.productos, req.usuario.id));
     if (noLeCorresponde) return res.status(403).json({ error: 'Este plato no te corresponde' });
+
+    // 2b. (27/10) LA RED: si faltan insumos, primero se pregunta. Sin { aunque_falten_insumos: true } (el "Sí, las
+    //     cociné" de la pantalla) responde 409 con lo que falta y NO toca nada. Con true, sigue como siempre
+    //     (producir_viandas no frena: deja el insumo en negativo). Quién confirmó queda en el renglón "produccion" (token).
+    //     Si el renglón no existe o ya está hecho, no se calcula: lo dice la base en el paso 3, como siempre.
+    //     "condición ? await … : …" = solo se consulta si hace falta.
+    const revisarInsumos = req.body?.aunque_falten_insumos !== true;
+    const consultaRenglon = revisarInsumos
+      ? await supabase.from('orden_produccion_detalles').select('id_producto, cantidad, hecho').eq('id', idDetalle).maybeSingle()
+      : { data: null, error: null };
+    if (consultaRenglon.error) return errorInterno(res, consultaRenglon.error);
+    const renglon = consultaRenglon.data;                         // el renglón (null si no existe o no se revisa)
+    const hayQueCalcular = Boolean(renglon) && !renglon.hecho;
+    const datosInsumos = hayQueCalcular ? await leerRecetasEInsumos([renglon.id_producto]) : { recetas: [], insumoPorId: {} };
+    if (datosInsumos.error) return errorInterno(res, datosInsumos.error);
+    const viandas = hayQueCalcular ? { [renglon.id_producto]: Number(renglon.cantidad) } : {};
+    const faltantes = calcularFaltantes(viandas, datosInsumos).map(faltante => faltante.texto);   // ej: ['700 g de Carne']
+    if (faltantes.length > 0) {
+      return res.status(409).json({ error: 'Faltan ' + unirConY(faltantes) + '.', faltantes: faltantes, necesita_confirmar: true });
+    }
 
     // 3. La base produce, todo junto o nada: viandas a la heladera, insumos y renglón "produccion"
     const { data, error } = await supabase.rpc('producir_viandas', {

@@ -311,6 +311,7 @@ function dibujarTabla(vista) {
 // crearFilaStock → la fila de un plato de un pedido a cocina
 // ENTRADA: plato, uno de /pendientes (con su .dia, ver cargarParaStock)
 // SALIDA:  el <tr>: Código · plato (plan) · "12 viandas" · Por hacer · fecha de entrega · botones
+//          (27/10: si le faltan insumos, debajo del plato "⚠ faltan 700 g de Carne" en rojo)
 // Ej: { codigo_plato: 'F7', plato: 'Canelones', plan: 'Keto', cantidad: 12 } → "F7 | Canelones (Keto) | 12 viandas | Por hacer | 25/10"
 // 29/10: el número del pedido a cocina y la fecha del pedido ya no van acá: están en "Detalles".
 // "✓ Hecho" solo para el cocinero: lo escucha marcarHecho (pedidosCocina.js) por su clase btn-hecho y su data-id.
@@ -324,11 +325,14 @@ function crearFilaStock(plato) {
   const botonHecho = esCocinero
     ? '<button type="button" class="btn-hecho boton-hecho" data-id="' + Number(plato.id) + '">✓ Hecho</button>'
     : '';
+  // (27/10) Si le faltan insumos para cocinarlo: "⚠ faltan 700 g de Carne" en rojo, debajo del plato (marcaFaltantes,
+  // de pedidosCocina.js). Es solo un aviso: "✓ Hecho" pregunta "¿Las cocinaste igual?" antes de marcar
+  const faltan = marcaFaltantes(plato.faltantes);
 
   const tr = document.createElement('tr');
   tr.innerHTML = `
     <td class="col-codigo">${pastillaCodigo(plato.codigo_plato, '')}</td>
-    <td class="celda-plato"><span class="nombre-plato">${escHtml(plato.plato)}</span>${plan}</td>
+    <td class="celda-plato"><span class="nombre-plato">${escHtml(plato.plato)}</span>${plan}${faltan}</td>
     <td><span class="pastilla-cantidad"><b>${cantidad}</b> ${palabraViandas}</span></td>
     <td class="col-estado"><span class="etiqueta-estado estado-por-hacer">Por hacer</span></td>
     <td><span class="pastilla-fecha fecha-${plato.dia.tipo}">${escHtml(plato.dia.diaMes)}</span></td>

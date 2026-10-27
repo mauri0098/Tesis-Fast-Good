@@ -8,6 +8,9 @@
 //                      cocinero, con un botón "Hecho" por plato si la pantalla lo pide. Devuelve la lista (o null)
 //   marcarHecho      → el botón "Hecho": pregunta, marca el plato (POST /api/ordenes-produccion/detalles/:id/hecho),
 //                      muestra el resultado arriba de la lista y recarga lo que pida la pantalla
+//                      (27/10: si faltan insumos, la pregunta es "¿Las cocinaste igual?")
+//   marcaFaltantes   → (27/10) "⚠ faltan 700 g de Carne" en rojo, para un plato al que le faltan insumos
+//   preguntarCocinasteIgual → (27/10) la ventana "Faltan 700 g de Carne. ¿Las cocinaste igual?" (Cancelar / "Sí, las cociné")
 //
 // Necesita antes: api.js (apiFetch), escape.js (escHtml) y fechas.js (fechaLocalISO, parseFechaLocal).
 // Lo que viene de la base pasa por escHtml (o se pone con textContent).
@@ -111,6 +114,8 @@ async function cargarPendientes(idContenedor, opciones) {
     // Ej: plato 'berenjenas rellenas' y plan 'MANTENIMIENTO' → "berenjenas rellenas (MANTENIMIENTO)"
     const plan = detalle.plan ? ' <span class="pend-plan">(' + escHtml(detalle.plan) + ')</span>' : '';
     const boton = config.conBotonHecho ? '<button type="button" class="btn-hecho" data-id="' + Number(detalle.id) + '">Hecho</button>' : '';
+    // (27/10) Lo que le falta para cocinarlo, en rojo (o nada). Ej: "⚠ faltan 700 g de Carne"
+    const faltan = marcaFaltantes(detalle.faltantes);
 
     tarjeta.filas += `
       <li class="${clase}">
@@ -121,6 +126,7 @@ async function cargarPendientes(idContenedor, opciones) {
             para el ${escHtml(diaMes)}${marca}
             <span class="pend-numero">· ${numeroPedido(detalle.id_orden, 'cocina')}</span>
           </div>
+          ${faltan}
         </div>
         ${boton}
       </li>`;
@@ -167,18 +173,30 @@ async function marcarHecho(idContenedor, evento) {
   const detalle = config.porId[Number(boton.dataset.id)];         // el plato tocado
   if (!detalle || marcandoHecho) return;                          // si no está, o ya se está marcando otro, nada
 
-  // 2. Se pregunta
+  // 2. Se pregunta. (27/10) Si le faltan insumos: "Faltan 700 g de Carne. ¿Las cocinaste igual?" (Cancelar / "Sí,
+  //    las cociné"); si no, la pregunta de siempre. La recarga automática espera mientras está la pregunta.
   const texto = Number(detalle.cantidad) + ' ' + detalle.plato;   // ej: "2 fideos"
-  if (!confirm('¿Marcar ' + texto + ' como hecho?')) return;      // si dice que no, nada
+  const faltantes = Array.isArray(detalle.faltantes) ? detalle.faltantes : [];   // ej: ['700 g de Carne']
+  const hayFaltantes = faltantes.length > 0;
+  marcandoHecho = true;
+  const quiereMarcar = hayFaltantes ? await preguntarCocinasteIgual(texto, faltantes) : confirm('¿Marcar ' + texto + ' como hecho?');
+  marcandoHecho = false;
+  if (!quiereMarcar) return;                                      // si dice que no, nada
 
   marcandoHecho = true;                                           // la recarga automática espera
   boton.disabled = true;                                          // un doble clic no marca dos veces
   try {
     // 3. Se marca. El resultado queda en { tipo, mensaje, detalles } para mostrarlo en el paso 4.
     //    tipo: 'ok' (verde), 'aviso' (amarillo), 'info' (gris) o 'error' (rojo)
+    //    (27/10) Si confirmó "Sí, las cociné", va { aunque_falten_insumos: true }: sin eso, el servidor no lo marca
+    //    si faltan insumos (409 con necesita_confirmar).
     let resultado = { tipo: 'error', mensaje: 'No se pudo conectar con el servidor.', detalles: [] };
     try {
-      const respuesta = await apiFetch(`/api/ordenes-produccion/detalles/${detalle.id}/hecho`, { method: 'POST' });
+      const respuesta = await apiFetch(`/api/ordenes-produccion/detalles/${detalle.id}/hecho`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ aunque_falten_insumos: hayFaltantes })
+      });
       const datos = await respuesta.json().catch(() => ({}));     // la respuesta (si no es JSON, un objeto vacío)
 
       // Los avisos, en frases: "Faltaron 2 kg de Pollo" o el texto del aviso (ej: el de "sin receta")
@@ -194,10 +212,14 @@ async function marcarHecho(idContenedor, evento) {
       const RESULTADOS = {
         ok:        { tipo: frases.length > 0 ? 'aviso' : 'ok', mensaje: '✓ ' + texto + ': hecho.', detalles: frases },
         rechazado: { tipo: 'info',  mensaje: datos.error || 'Ya estaba marcado.', detalles: [] },    // el motivo de verdad
+        // (27/10) La lista era vieja: ahora faltan insumos y no se marcó. Al recargar el plato queda en rojo y el
+        // próximo "Hecho" pregunta "¿Las cocinaste igual?"
+        faltan:    { tipo: 'aviso', mensaje: 'No se marcó: ' + (datos.error || 'faltan insumos.') + ' Volvé a tocar "Hecho" para confirmar.', detalles: [] },
         error:     { tipo: 'error', mensaje: datos.error || 'No se pudo marcar el plato como hecho.', detalles: [] }
       };
       let clave = 'error';
       if (respuesta.status === 409) clave = 'rechazado';
+      if (datos.necesita_confirmar === true) clave = 'faltan';
       if (respuesta.ok) clave = 'ok';
       resultado = RESULTADOS[clave];
     } catch (error) {
@@ -241,4 +263,82 @@ async function marcarHecho(idContenedor, evento) {
   } finally {                                                     // pase lo que pase...
     marcandoHecho = false;                                        // ...la recarga automática vuelve a andar
   }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// marcaFaltantes → (27/10) la marca roja de un plato al que le faltan insumos para cocinarlo
+// ENTRADA: faltantes (la lista que manda el servidor con cada pendiente: ['700 g de Carne', '4 u de Huevo'], o nada)
+// SALIDA:  el HTML de la marca, o '' si no falta nada. Lo que viene de la base pasa por escHtml.
+// Ej: ['700 g de Carne'] → '<div class="pend-faltan">⚠ faltan 700 g de Carne</div>' · [] → ''
+// La usan la lista de Producción (cargarPendientes) y "Para stock" de Tareas de Cocina (cocinero.js).
+// Es solo un aviso: el botón "Hecho" sigue andando (pregunta antes, ver preguntarCocinasteIgual).
+// ─────────────────────────────────────────────────────────────────────────────
+function marcaFaltantes(faltantes) {
+  const lista = Array.isArray(faltantes) ? faltantes : [];        // si no vino, una lista vacía
+  if (lista.length === 0) return '';                              // no falta nada: sin marca
+  const textos = lista.map(texto => escHtml(texto)).join(', ');   // ej: "700 g de Carne, 4 u de Huevo"
+  return `<div class="pend-faltan">⚠ faltan ${textos}</div>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// preguntarCocinasteIgual → (27/10) la pregunta de "Hecho" cuando faltan insumos
+// ENTRADA: texto (el plato, ej: "2 fideos") y faltantes (ej: ['700 g de Carne'])
+// SALIDA:  una promesa que da true si toca "Sí, las cociné" y false si toca Cancelar, la X, afuera o Escape
+// Ej: "Faltan 700 g de Carne. ¿Las cocinaste igual?" · "2 fideos" · [Cancelar] [Sí, las cociné]
+// Es la ventana nueva del panel (global.css: .modal + .ventana-panel). Se arma la primera vez y después se reusa.
+// Todo con textContent: lo que viene de la base no se interpreta como HTML.
+// ─────────────────────────────────────────────────────────────────────────────
+function preguntarCocinasteIgual(texto, faltantes) {
+  // 1. La ventana (la primera vez se crea al final del <body>)
+  let ventana = document.getElementById('ventanaFaltanInsumos');
+  if (!ventana) {
+    ventana = document.createElement('div');
+    ventana.id = 'ventanaFaltanInsumos';
+    ventana.className = 'modal ventana-faltan-fondo';
+    ventana.innerHTML = `
+      <div class="modal-content ventana-panel ventana-faltan" role="alertdialog" aria-modal="true" aria-labelledby="faltanTitulo" aria-describedby="faltanFrase">
+        <div class="cabecera-ventana">
+          <span class="icono-ventana icono-ventana-peligro" aria-hidden="true">⚠</span>
+          <div class="textos-ventana">
+            <h3 id="faltanTitulo"></h3>
+            <p class="frase-ventana" id="faltanFrase"></p>
+          </div>
+        </div>
+        <div class="botones-ventana pie-ventana">
+          <button type="button" class="btn-cancelar" data-respuesta="no">Cancelar</button>
+          <button type="button" class="btn-confirmar" data-respuesta="si">Sí, las cociné</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ventana);
+  }
+
+  // 2. Lo que dice. Ej: "Faltan 700 g de Carne. ¿Las cocinaste igual?" y abajo "2 fideos: el stock de esos insumos queda en negativo."
+  const ultimo = faltantes[faltantes.length - 1];
+  const lista = faltantes.length === 1 ? ultimo : faltantes.slice(0, -1).join(', ') + ' y ' + ultimo;   // "a, b y c"
+  ventana.querySelector('#faltanTitulo').textContent = 'Faltan ' + lista + '. ¿Las cocinaste igual?';
+  ventana.querySelector('#faltanFrase').textContent = texto + ': si las cocinaste, se suman a la heladera y esos insumos quedan en negativo.';
+  ventana.style.display = 'block';                                // se abre
+  ventana.querySelector('[data-respuesta="no"]').focus();         // el foco en Cancelar (lo más seguro)
+
+  // 3. La respuesta: un clic en un botón, afuera (= Cancelar) o Escape (= Cancelar). Después se cierra.
+  return new Promise(resolver => {
+    const responder = respuesta => {
+      ventana.style.display = 'none';
+      ventana.removeEventListener('click', alTocar);
+      document.removeEventListener('keydown', alTeclear);
+      resolver(respuesta);                                        // true = "Sí, las cociné"
+    };
+    const alTocar = evento => {
+      const boton = evento.target.closest('[data-respuesta]');    // el botón tocado (o null)
+      const tocoAfuera = evento.target === ventana;               // lo oscuro de atrás
+      if (boton) responder(boton.dataset.respuesta === 'si');
+      if (tocoAfuera) responder(false);
+    };
+    const alTeclear = evento => {
+      if (evento.key === 'Escape') responder(false);
+    };
+    ventana.addEventListener('click', alTocar);
+    document.addEventListener('keydown', alTeclear);
+  });
 }

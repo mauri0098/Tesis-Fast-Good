@@ -513,6 +513,8 @@ async function testCocinaYTareas() {
 //   anularPedidoPrueba → anula un pedido de prueba con el PIN del .env (sin mostrarlo)
 //   revisarHeladera    → compara la heladera con lo que tendría que haber cambiado: ✅ o ❌
 //   testArmado         → (26/10) la sección ARMADO: corre adentro de testHeladera, con sus pedidos A y D
+//   necesarioConMuchas → (27/10) cuánto "necesitás" de cada insumo con 1.000.000 viandas de un plato (solo lee)
+//   testAvisosInsumos  → (27/10) la sección AVISOS DE INSUMOS: Pedir a cocina, Para stock y la red de "Hecho"
 //   testHeladera       → la sección entera, de principio a fin (los pasos están numerados adentro)
 // Eran 7 (más testArmado, 26/10) porque cada una hace un trabajo que se repite varias veces en la sección (leer la heladera,
 // crear y anular pedidos, revisar); testHeladera es la receta que las usa en orden.
@@ -715,6 +717,61 @@ async function testArmado(idA, idD, fechaEntrega, comoCocinero, idUsuario) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// necesarioConMuchas → (27/10) cuánto "necesitás" de cada insumo si se pidieran a cocina 1.000.000 viandas de un plato
+// ENTRADA: idPlato
+// SALIDA:  { status, porInsumo: { nombre: necesitas } }. Con tantas viandas, TODOS los insumos de la receta faltan,
+//          así aparecen todos. Solo lee (POST /api/pedir-cocina/faltantes no guarda nada).
+// Ej: berenjenas (Carne 140 g por vianda) → { status: 200, porInsumo: { Carne: 140000280 } } (incluye lo comprometido)
+// ─────────────────────────────────────────────────────────────────────────────
+async function necesarioConMuchas(idPlato) {
+  const r = await post('/api/pedir-cocina/faltantes', { items: [{ id_producto: idPlato, cantidad: 1000000 }] });
+  const porInsumo = {};
+  (Array.isArray(r.data?.faltantes) ? r.data.faltantes : []).forEach(f => { porInsumo[f.nombre] = f.necesitas; });
+  return { status: r.status, porInsumo: porInsumo };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// testAvisosInsumos → (27/10) la sección AVISOS DE INSUMOS: "Pedir a cocina", "Para stock" y la red de "Hecho".
+//                     Corre adentro de testHeladera, mientras D (con 2 "sin sal" en estado 2) todavía no se anuló.
+// ENTRADA: plato (el de A y D), comoCocinero (el header del cocinero de mentira)
+// SALIDA:  lo que devolvió necesarioConMuchas con D abierto (para comparar después de anularlo)
+// NO crea pedidos a cocina ni marca "Hecho" de verdad: el "Hecho" se prueba con un renglón que no existe.
+// ─────────────────────────────────────────────────────────────────────────────
+async function testAvisosInsumos(plato, comoCocinero) {
+  console.log('\n══════ AVISOS DE INSUMOS (Pedir a cocina · Para stock · Hecho) ══════');
+
+  // 1. Datos malos → 400 y el cocinero → 403 (el cocinero no pide a cocina)
+  const malos = await Promise.all([post('/api/pedir-cocina/faltantes', { items: [] }), post('/api/pedir-cocina/faltantes', { items: [{ id_producto: 'x', cantidad: 2 }] }), post('/api/pedir-cocina/faltantes', {})]);
+  comprobar('Faltantes: lista vacía o inválida → 400', malos.every(r => r.status === 400), malos.map(r => r.status).join(', '));
+  const delCocinero = await post('/api/pedir-cocina/faltantes', { items: [{ id_producto: plato.id, cantidad: 1 }] }, comoCocinero);
+  comprobar('Faltantes: el cocinero → 403', delCocinero.status === 403, `status=${delCocinero.status}`);
+
+  // 2. Una cantidad enorme: faltan todos los insumos de la receta, y cada uno trae bien la cuenta (falta = necesitás − tenés)
+  const r = await post('/api/pedir-cocina/faltantes', { items: [{ id_producto: plato.id, cantidad: 1000000 }] });
+  const lista = Array.isArray(r.data?.faltantes) ? r.data.faltantes : [];
+  const recetaPlato = await supabase.from('producto_insumo').select('id_insumo').eq('id_producto', plato.id);   // solo lee
+  const insumosReceta = (recetaPlato.data || []).length;
+  const cuentasBien = lista.every(f => f.tenes < f.necesitas && Math.abs(f.falta - (f.necesitas - f.tenes)) < 0.001 && typeof f.texto === 'string');
+  comprobar('Faltantes: 1.000.000 viandas → falta cada insumo de la receta, con su cuenta', r.status === 200 && lista.length === insumosReceta && cuentasBien,
+    `status=${r.status} · ${lista.length} faltantes de ${insumosReceta} insumos · ${lista.slice(0, 2).map(f => f.texto).join(', ')}`);
+  const unaSola = await post('/api/pedir-cocina/faltantes', { items: [{ id_producto: plato.id, cantidad: 1 }] });
+  comprobar('Faltantes: 1 vianda → 200 con su lista (puede estar vacía)', unaSola.status === 200 && Array.isArray(unaSola.data?.faltantes), `status=${unaSola.status} · ${(unaSola.data?.faltantes || []).map(f => f.texto).join(', ') || 'alcanza todo'}`);
+
+  // 3. "Para stock": cada pendiente trae su lista de faltantes
+  const pendientes = await get('/api/ordenes-produccion/pendientes');
+  const listaPendientes = Array.isArray(pendientes.data) ? pendientes.data : [];
+  comprobar('Para stock: cada pendiente trae faltantes (una lista)', pendientes.status === 200 && listaPendientes.every(p => Array.isArray(p.faltantes)),
+    `status=${pendientes.status} · ${listaPendientes.length} pendientes · ${listaPendientes.filter(p => p.faltantes?.length > 0).length} con faltantes`);
+
+  // 4. La red de "Hecho", con un renglón que no existe: no calcula, no toca nada y responde como siempre (409)
+  const hechoQueNoExiste = await post('/api/ordenes-produccion/detalles/2147483647/hecho', {});
+  comprobar('Hecho de un renglón que no existe → 409, sin pedir confirmación', hechoQueNoExiste.status === 409 && hechoQueNoExiste.data?.necesita_confirmar !== true, `status=${hechoQueNoExiste.status} "${hechoQueNoExiste.data?.error}"`);
+
+  // 5. Lo comprometido con D abierto (se compara después de anularlo, en testHeladera)
+  return necesarioConMuchas(plato.id);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // testHeladera → la sección HELADERA entera, por las rutas, contra la base real (ver las REGLAS arriba)
 // ENTRADA: nada (usa el .env y el servidor prendido)
 // SALIDA:  nada (escribe ✅ / ❌ / ⚠️ por cada prueba; los totales salen en el resumen del final)
@@ -883,12 +940,27 @@ async function testHeladera() {
     // 11b. (26/10) ARMADO: la pantalla Armado de pedidos, con A y D antes de anularlos (ver testArmado)
     await testArmado(idA, idD, fechaEntrega, comoCocinero, sesion.id);
 
+    // 11c. (27/10) AVISOS DE INSUMOS, con D abierto (sus 2 "sin sal" en estado 2 cuentan como comprometido)
+    const conDAbierto = await testAvisosInsumos(plato, comoCocinero);
+
     // 12. ANULAR DEVUELVE: A (en 3) devuelve N y D (en 2) devuelve N − 2 (los "sin sal" no habían salido)
     const antesDeAnular = await leerHeladera(idsUsados);
     const anularA = await anularPedidoPrueba(idA);
     comprobar('Anular A → 200 y devuelve sus viandas', anularA.status === 200 && anularA.data?.viandas_devueltas === N, `status=${anularA.status} "${anularA.data?.mensaje || anularA.data?.error}"`);
     const anularD = await anularPedidoPrueba(idD);
     comprobar('Anular D → 200 y devuelve solo las de heladera', anularD.status === 200 && anularD.data?.viandas_devueltas === N - 2, `status=${anularD.status} "${anularD.data?.mensaje || anularD.data?.error}"`);
+    // 12b. (27/10) Con D anulado, sus 2 "sin sal" dejan de estar comprometidos: lo que "necesitás" de cada insumo
+    //      baja exactamente 2 × la receta por vianda (leída de la base, solo lectura)
+    const conDAnulado = await necesarioConMuchas(plato.id);
+    const receta = await supabase.from('producto_insumo').select('cantidad_necesaria, insumos ( nombre )').eq('id_producto', plato.id);
+    const diferencias = (receta.data || []).map(renglon => {
+      const nombre = renglon.insumos?.nombre;
+      const bajo = (conDAbierto.porInsumo[nombre] || 0) - (conDAnulado.porInsumo[nombre] || 0);
+      return { nombre: nombre, bajo: bajo, esperado: 2 * Number(renglon.cantidad_necesaria) };
+    });
+    const comprometidoBien = diferencias.length > 0 && diferencias.every(d => Math.abs(d.bajo - d.esperado) < 0.001);
+    comprobar('Faltantes: cuenta lo comprometido (al anular D, baja 2 × la receta)', comprometidoBien, diferencias.map(d => `${d.nombre} −${d.bajo} (esperaba −${d.esperado})`).join(' · ') || 'el plato no tiene receta');
+
     const devueltas = N + (N - 2);                                // las de A más las de D
     revisarHeladera('Anular: las viandas volvieron a la heladera', antesDeAnular, await leerHeladera(idsUsados), { [plato.id]: { libres: devueltas, reservadas: -devueltas } });
 

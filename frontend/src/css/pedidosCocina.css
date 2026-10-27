@@ -119,3 +119,32 @@
   line-height: 1;
   cursor: pointer;
 }
+
+
+/* =========================================
+   (27/10) AVISOS DE INSUMOS — los usan Producción y Tareas de Cocina (los arma pedidosCocina.js)
+   ========================================= */
+
+/* "⚠ faltan 700 g de Carne": debajo del plato, en rojo, antes de cocinarlo (es solo un aviso) */
+.pend-faltan {
+  margin-top: 3px;
+  color: var(--rojo-texto);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* La ventana "Faltan … ¿Las cocinaste igual?": la caja es la .ventana-panel de global.css; acá solo el ancho */
+.ventana-faltan {
+  max-width: 440px;
+}
+
+/* El ⚠ del cuadradito de arriba (el cuadradito rojo es .icono-ventana-peligro, de global.css) */
+.ventana-faltan .icono-ventana {
+  font-size: 20px;
+}
+
+/* La pregunta va en el título: que no se corte (en global, el título deja lugar para una X que esta ventana no tiene) */
+.ventana-faltan .textos-ventana {
+  padding-right: 0;
+}

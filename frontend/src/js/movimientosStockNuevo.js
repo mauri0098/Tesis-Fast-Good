@@ -618,4 +618,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   llenarCategorias(listaInsumos);
   listaMovimientos = await traerMovimientos();
   filtrarMovimientos();
+
+  // (27/10) Si se llegó desde "Ir a Compras" (Producción → Pedir a cocina, cuando faltan insumos): la dirección
+  // termina en ?compra=1 y se abre sola la ventana "Registrar compra" (como si se tocara "+ Registrar compra")
+  const vieneDeCompras = new URLSearchParams(window.location.search).get('compra') === '1';
+  if (vieneDeCompras) btnRegistrarCompra.click();
 });

@@ -11,7 +11,8 @@
 //   leerCantidadPedida       → lo escrito para un plato: 0 si está vacío, el número, o null si es inválido
 //   actualizarTotalPedido    → "Tu pedido" (lo pedido, para cuándo y el total) y si se puede enviar
 //   cargaRapida              → "A cada uno", "Repartir" o "Limpiar" sobre los platos que se ven
-//   enviarPedidoACocina      → manda el pedido (POST /api/ordenes-produccion)
+//   enviarPedidoACocina      → manda el pedido (POST /api/ordenes-produccion). 27/10: antes revisa los insumos
+//   avisarFaltantes          → (27/10) "Con este pedido te faltarían…": si faltan insumos, el cartel y "Enviar a cocina igual"
 //
 // Usa de heladera.js: todosPlatos, estadoDelPlato, ESTADOS_STOCK, CANTIDAD_COLORES_PLAN, cerrarVentana, mostrarToast
 // y cargarPendientesCocina. Usa de pedidosCocina.js: conPlural. De fechas.js: fechaLocalISO.
@@ -21,6 +22,9 @@
 
 let cantidadesPedido = {};   // lo escrito en cada plato, tal como se escribió: { id_producto: '3' }
 let estadosPedido = [];      // las pestañas elegidas: ej ['sin', 'bajo']. [] = "Todos"
+let pedidoConAviso = '';     // (27/10) el pedido (como texto) por el que ya se mostró "te faltarían…" ('' = ninguno)
+// (27/10) El dibujito del botón "Enviar a cocina" (el texto cambia a "Enviar a cocina igual" cuando faltan insumos)
+const ICONO_ENVIAR = '<svg class="icono-boton" aria-hidden="true"><use href="#icono-enviar"></use></svg>';
 
 // Las pestañas de estado de la ventana (además de "Todos")
 const PESTANAS_PEDIDO = [
@@ -361,6 +365,64 @@ function actualizarTotalPedido() {
   errorVentana.style.display = hayInvalida ? 'block' : 'none'; // con algo inválido se ve; si no, se esconde
 
   document.getElementById('pEnviar').disabled = total === 0 || hayInvalida;  // apagado si no hay nada o hay algo inválido
+
+  // 5. (27/10) Si cambió el pedido, el cartel de faltantes ya no vale: se esconde y el botón vuelve a "Enviar a cocina"
+  //    (el próximo toque vuelve a revisar con lo nuevo)
+  pedidoConAviso = '';
+  document.getElementById('pFaltantes').hidden = true;
+  document.getElementById('pEnviar').innerHTML = ICONO_ENVIAR + 'Enviar a cocina';
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// avisarFaltantes → (27/10) ¿faltarían insumos con este pedido? Si faltan, lo muestra y pide un segundo toque
+// ENTRADA: items (lo que se va a pedir: [{ id_producto, cantidad }])
+// SALIDA:  true si mostró el cartel (todavía NO hay que enviar) · false si se puede enviar ya: no falta nada, ya se
+//          avisó por este mismo pedido (es el toque de "Enviar a cocina igual") o no se pudo revisar (es solo un aviso)
+// Ej: 10 canelones sin Carne → cartel "Con este pedido te faltarían: Carne: faltan 2.000 g (tenés 0, necesitás 2.000)"
+//     con "Ir a Compras" y el botón "Enviar a cocina igual" → true. Otro toque sin cambiar nada → false (se envía)
+// Pregunta al servidor (POST /api/pedir-cocina/faltantes, SOLO LEE), que cuenta también lo ya pedido a cocina y los
+// personalizados de clientes que todavía no gastaron insumos.
+// ─────────────────────────────────────────────────────────────────────────────
+async function avisarFaltantes(items) {
+  // 1. Si ya se avisó por este mismo pedido, este toque es "Enviar a cocina igual"
+  const esteConjunto = JSON.stringify(items);                  // el pedido como texto, para compararlo
+  if (pedidoConAviso === esteConjunto) return false;
+
+  // 2. Se pregunta. Si no se puede (sin conexión, error), se envía igual: es solo un aviso
+  let faltantes = [];
+  try {
+    const respuesta = await apiFetch('/api/pedir-cocina/faltantes', {
+      method:  'POST',                                         // POST solo para mandar la lista: no guarda nada
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ items: items })
+    });
+    const datos = await respuesta.json().catch(() => ({}));
+    faltantes = respuesta.ok && Array.isArray(datos.faltantes) ? datos.faltantes : [];
+  } catch (error) {
+    console.error('No se pudieron revisar los insumos del pedido a cocina:', error);
+  }
+  if (faltantes.length === 0) return false;                    // alcanza (o no se pudo revisar): se envía
+
+  // 3. El cartel. Ej: "Carne: faltan 2.000 g (tenés 0, necesitás 2.000)". Los números con punto de miles
+  const numero = valor => Number(valor).toLocaleString('es-AR', { maximumFractionDigits: 2 });   // ej: 2000 → "2.000"
+  const renglones = faltantes.map(faltante => {
+    const unidad = faltante.unidad ? ' ' + faltante.unidad : '';
+    return `<li><strong>${escHtml(faltante.nombre)}</strong>: faltan ${numero(faltante.falta)}${escHtml(unidad)}`
+      + ` (tenés ${numero(faltante.tenes)}, necesitás ${numero(faltante.necesitas)})</li>`;
+  }).join('');
+  const cartel = document.getElementById('pFaltantes');
+  cartel.innerHTML = `
+    <strong class="aviso-faltantes-titulo">Con este pedido te faltarían:</strong>
+    <ul class="aviso-faltantes-lista">${renglones}</ul>
+    <p class="aviso-faltantes-nota">Cuenta también lo que ya está pedido a cocina y los personalizados de clientes sin cocinar.</p>
+    <a class="aviso-faltantes-compras" href="MovimientosStockNuevo.html?compra=1" target="_blank" rel="noopener">Ir a Compras ↗</a>`;
+  cartel.hidden = false;
+
+  // 4. El botón cambia: el próximo toque (sin cambiar el pedido) lo envía igual
+  document.getElementById('pEnviar').innerHTML = ICONO_ENVIAR + 'Enviar a cocina igual';
+  pedidoConAviso = esteConjunto;
+  return true;
 }
 
 
@@ -449,6 +511,15 @@ async function enviarPedidoACocina() {
 
   const boton = document.getElementById('pEnviar');            // el botón "Enviar a cocina"
   boton.disabled = true;                                       // apagado: un doble clic no manda dos pedidos
+
+  // (27/10) Antes de enviar: ¿faltarían insumos? Si faltan, se muestra el cartel y el botón pasa a
+  // "Enviar a cocina igual": recién el segundo toque lo manda. Es solo un aviso (no frena).
+  const seAviso = await avisarFaltantes(items);
+  if (seAviso) {
+    boton.disabled = false;
+    return;
+  }
+
   try {
     const respuesta = await apiFetch('/api/ordenes-produccion', {
       method: 'POST',                                          // POST = crear algo nuevo
