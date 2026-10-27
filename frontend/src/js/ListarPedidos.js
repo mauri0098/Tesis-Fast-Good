@@ -70,7 +70,7 @@ const ENVIO_PEDIDO = {
 
 // El mensaje de la tabla vacía, según sea el modo del filtro de fechas
 const MENSAJE_VACIO = {
-  hoy:     'No hay pedidos para producir hoy',
+  hoy:     'No hay pedidos para entregar hoy',                     // 28/10: antes "para producir hoy"
   entrega: 'No hay pedidos con entrega en esas fechas',
   todos:   'No hay pedidos registrados'
 };
@@ -82,18 +82,19 @@ document.addEventListener('DOMContentLoaded', iniciarConsultarPedidos);  // cuan
 // iniciarConsultarPedidos → arranca la pantalla
 // ENTRADA: nada (la llama el navegador cuando la página terminó de cargar)
 // SALIDA:  nada (engancha el buscador, las fechas y las teclas, pide estados y pedidos y dibuja la tabla)
-// Ej: un viernes abre con los pedidos que se entregan el lunes (la fecha de entrega dice el 19/10/2026)
+// Ej: el martes 28/10 abre con los pedidos que se entregan ese día (la fecha de entrega dice el 28/10/2026)
 // ─────────────────────────────────────────────────────────────────────────────
 async function iniciarConsultarPedidos() {
   // 1. El buscador: al escribir se filtra y se vuelve a la página 1
   document.getElementById('CampoBusqueda').addEventListener('input', () => renderizarPedidos(1));
 
-  // 2. Al abrir: los pedidos con entrega el próximo día hábil, que son los que se cocinan hoy
-  const hoy = new Date();                                          // hoy, en la computadora
-  const proximo = fechaLocalISO(proximoDiaHabil(hoy));             // el próximo día hábil (fechas.js)
-  document.getElementById('FechaDesde').value = proximo;           // las fechas muestran ese día
-  document.getElementById('FechaHasta').value = proximo;
-  filtroFechas = { modo: 'hoy', desde: proximo, hasta: proximo };  // el modo "producción de hoy"
+  // 2. Al abrir: los pedidos que se ENTREGAN HOY (28/10: antes, los del próximo día hábil, que eran los que se cocinan
+  //    hoy; eso ahora lo muestra el Inicio). Hoy es el día de Argentina (ZONA_ARGENTINA, de fechas.js), sin importar la
+  //    hora de la compu. 'en-CA' escribe 'AAAA-MM-DD'. Ej: martes 28/10 a las 23 h → '2026-10-28'
+  const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_ARGENTINA }).format(new Date());
+  document.getElementById('FechaDesde').value = hoy;               // las fechas muestran hoy
+  document.getElementById('FechaHasta').value = hoy;
+  filtroFechas = { modo: 'hoy', desde: hoy, hasta: hoy };          // el modo "entregas de hoy"
   document.getElementById('btnAplicarFechas').addEventListener('click', () => aplicarFechas('aplicar'));  // "Aplicar"
   document.getElementById('btnVerTodos').addEventListener('click', () => aplicarFechas('todos'));        // "Ver todos"
 

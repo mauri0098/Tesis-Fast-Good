@@ -1,0 +1,597 @@
+/* ============================================================================
+   admin.css — Lo propio del Inicio (admin.html), el tablero de la dueña y del admin (27/10)
+   Lo común (colores, letra, título y bajada, el código del plato .codigo-plato) está en global.css.
+   Partes: 1. Perillas · 2. La grilla · 3. La tarjeta y su cabecera · 4. Fila 1: métricas
+           5. Fila 2: gráfico y combos · 6. Fila 3: insumos y viandas · 7. Estado vacío · 8. Pantallas angostas
+   Los renglones de las listas (combos, insumos, viandas) los arma reportes.js: cada parte dice cómo es su HTML.
+   ============================================================================ */
+
+/* ===== 1. PERILLAS (lo nuevo de esta pantalla) ===== */
+:root {
+    --inicio-radio-tarjeta: 16px;        /* esquinas de las tarjetas del Inicio (las de la maqueta) */
+    --inicio-espacio: 18px;              /* el aire entre tarjetas y entre filas */
+    --inicio-texto-suave: #6b766e;       /* textos chicos grises: subtítulos, "Mínimo: 8 kg" y los enlaces sutiles (4,6:1 sobre blanco) */
+    --inicio-naranja-fondo: #fff4e5;     /* la pastilla "Pendiente" de Viandas a cocinar: fondo… */
+    --inicio-naranja-letra: #8a5200;     /* …y letra */
+    --inicio-rojo-fondo: #fde7e5;        /* la pastilla "4 alertas" y la variación en baja: fondo… */
+    --inicio-rojo-letra: #8a1c14;        /* …y letra (también el ⚠ de los insumos) */
+    --inicio-alto-grafico: 200px;        /* alto del gráfico de Evolución de Ventas */
+}
+
+/* Antes de mostrarse: el body escondido hasta que cargó (evita ver la pantalla sin estilos un instante) */
+body {
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.15s ease-in;
+}
+
+body.cargada {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Los dibujitos (<symbol>): no ocupan lugar, se usan con <use href="#…"> */
+.iconos-inicio {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+}
+
+
+/* ===== 2. LA GRILLA: 3 filas ===== */
+.inicio {
+    display: flex;
+    flex-direction: column;
+    gap: var(--inicio-espacio);
+}
+
+.inicio-fila {
+    display: grid;
+    gap: var(--inicio-espacio);
+    align-items: stretch;
+}
+
+.inicio-fila--metricas    { grid-template-columns: repeat(3, minmax(0, 1fr)); }   /* Ventas · Pedidos de hoy · Viandas a cocinar */
+.inicio-fila--ventas      { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } /* Evolución (2/3) · Combos (1/3) */
+.inicio-fila--operaciones { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* Insumos (1/2) · Viandas (1/2) */
+
+
+/* ===== 3. LA TARJETA Y SU CABECERA ===== */
+.tarjeta-inicio {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 22px;
+    border: 1px solid var(--borde-gris);
+    border-radius: var(--inicio-radio-tarjeta);
+    background: var(--blanco);
+    box-shadow: var(--sombra-chica);
+}
+
+/* Arriba: el título a la izquierda y el selector o el enlace a la derecha */
+.tarjeta-inicio__cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 28px;
+    margin-bottom: 14px;
+}
+
+.tarjeta-inicio__titulo {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--texto-gris);
+}
+
+/* El período al lado del título de Combos ("Últimos 7 días") */
+.tarjeta-inicio__periodo {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--inicio-texto-suave);
+}
+
+/* El selector en forma de pastilla ("Hoy ▾", "Últimos 7 días ▾") */
+.selector-pastilla {
+    appearance: none;
+    -webkit-appearance: none;
+    min-height: 28px;
+    padding: 3px 28px 3px 12px;
+    border: 1px solid var(--borde-gris);
+    border-radius: var(--radio-pastilla);
+    background-color: var(--blanco);
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M1 1L5 5L9 1' stroke='%236b766e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 11px center;
+    color: var(--texto-gris);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.selector-pastilla:hover {
+    border-color: var(--borde-casillero);
+    background-color: var(--gris-encima);
+}
+
+/* El enlace muy sutil de arriba a la derecha ("Ver pedidos ›") */
+.enlace-sutil {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--inicio-texto-suave);
+    font-size: 12px;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 0.15s ease;
+}
+
+.enlace-sutil svg {
+    width: 12px;
+    height: 12px;
+    transition: transform 0.15s ease;
+}
+
+.enlace-sutil:hover {
+    color: var(--verde-texto);
+}
+
+.enlace-sutil:hover svg {
+    transform: translateX(1px);
+}
+
+.selector-pastilla:focus-visible,
+.enlace-sutil:focus-visible {
+    outline: 3px solid var(--verde-principal);
+    outline-offset: 2px;
+    border-radius: var(--radio-pastilla);
+}
+
+
+/* ===== 4. FILA 1: MÉTRICAS ===== */
+.tarjeta-metrica {
+    min-height: 140px;
+}
+
+/* (28/10) La cifra arranca arriba, debajo del título: así queda a la misma altura en las 3 tarjetas aunque
+   "Pedidos de hoy" tenga un renglón más abajo */
+.tarjeta-metrica__cuerpo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tarjeta-metrica__fila-cifra {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 12px;
+}
+
+/* La cifra grande ("$184.500", "38") */
+.tarjeta-metrica__valor {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--texto);
+    font-variant-numeric: tabular-nums;
+}
+
+.tarjeta-metrica__subtitulo {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--inicio-texto-suave);
+}
+
+/* (28/10) El renglón de abajo, más chico: "2 entregados · 1 pendiente" (Pedidos de hoy) */
+.tarjeta-metrica__detalle {
+    margin-top: -3px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--inicio-texto-suave);
+}
+
+/* La variación contra el período anterior ("+18,4%"): verde si sube, roja si baja (la clase la pone el JS) */
+.etiqueta-variacion,
+.etiqueta-estado-cocina {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: var(--radio-pastilla);
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.etiqueta-variacion--sube    { background: var(--verde-suave); color: var(--verde-texto); }
+.etiqueta-variacion--baja    { background: var(--inicio-rojo-fondo); color: var(--inicio-rojo-letra); }
+
+/* Viandas a cocinar: "Pendiente" (naranja) o "Al día" (verde) (la clase la pone el JS) */
+.etiqueta-estado-cocina--pendiente { background: var(--inicio-naranja-fondo); color: var(--inicio-naranja-letra); }
+.etiqueta-estado-cocina--al-dia    { background: var(--verde-suave); color: var(--verde-texto); }
+
+.etiqueta-variacion[hidden],
+.etiqueta-estado-cocina[hidden] {
+    display: none;
+}
+
+
+/* ===== 5. FILA 2: EVOLUCIÓN DE VENTAS Y COMBOS ===== */
+.tarjeta-grafico__resumen {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 10px;
+    margin-bottom: 18px;
+}
+
+.tarjeta-grafico__cifra {
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--texto);
+    font-variant-numeric: tabular-nums;
+}
+
+.tarjeta-grafico__leyenda {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--inicio-texto-suave);
+}
+
+/* El lugar del gráfico (Chart.js necesita una caja con alto fijo) */
+.tarjeta-grafico__lienzo {
+    position: relative;
+    height: var(--inicio-alto-grafico);
+    margin-top: auto;
+}
+
+/* Combos más vendidos. Cada renglón (lo arma reportes.js):
+   <li class="item-combo">
+     <div class="item-combo__cabecera">
+       <span class="item-combo__izq"><span class="item-combo__posicion">#1</span><span class="item-combo__nombre">Combo semanal x10</span></span>
+       <span class="item-combo__metricas"><span class="item-combo__unidades">77 u.</span><span class="item-combo__porcentaje">52%</span></span>
+     </div>
+     <div class="item-combo__barra"><div class="item-combo__progreso"></div></div>   (el JS le pone el ancho: 52%)
+   </li> */
+.lista-combos {
+    margin: 4px 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.item-combo {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.item-combo__cabecera {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.item-combo__izq {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* "#1": pastillita verde */
+.item-combo__posicion {
+    flex: none;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: var(--verde-suave);
+    color: var(--verde-texto);
+    font-size: 10.5px;
+    font-weight: 800;
+}
+
+.item-combo__nombre {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--texto);
+    font-size: 13.5px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-overflow: ellipsis;
+    white-space: nowrap;   /* un nombre largo termina en "…" */
+}
+
+.item-combo__metricas {
+    flex: none;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.item-combo__unidades   { font-weight: 600; color: var(--texto-gris); }
+.item-combo__porcentaje { font-weight: 700; color: var(--texto); }
+
+/* La mini barra de debajo del nombre (4 px) */
+.item-combo__barra {
+    height: 4px;
+    overflow: hidden;
+    border-radius: var(--radio-pastilla);
+    background: var(--linea-suave);
+}
+
+.item-combo__progreso {
+    width: 0;
+    height: 100%;
+    border-radius: var(--radio-pastilla);
+    background: var(--verde-principal);
+    transition: width 0.4s ease;
+}
+
+/* El 2.º y el 3.º, un poco más clarito */
+.item-combo:nth-child(2) .item-combo__progreso { opacity: 0.8; }
+.item-combo:nth-child(3) .item-combo__progreso { opacity: 0.6; }
+
+/* "Sin ventas en el período" */
+.texto-vacio {
+    margin: 12px 0 0;
+    color: var(--inicio-texto-suave);
+    font-size: 13px;
+}
+
+
+/* ===== 6. FILA 3: INSUMOS CRÍTICOS Y VIANDAS POR REPONER ===== */
+.tarjeta-stock__titulos {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* "4 alertas" (rojo suave) y "Stock heladera" (verde suave) */
+.pastilla-conteo {
+    padding: 2px 7px;
+    border-radius: var(--radio-pastilla);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.pastilla-conteo--alerta { background: var(--inicio-rojo-fondo); color: var(--inicio-rojo-letra); }
+.pastilla-conteo--info   { background: var(--verde-suave); color: var(--verde-texto); }
+
+.pastilla-conteo[hidden] {
+    display: none;
+}
+
+.lista-renglones {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Un insumo crítico (lo arma reportes.js):
+   <li class="renglon-insumo">
+     <span class="renglon-insumo__icono"><svg aria-hidden="true"><use href="#icono-alerta"></use></svg></span>
+     <span class="renglon-insumo__texto"><span class="renglon-insumo__nombre">Carne</span><span class="renglon-insumo__detalle">Lo usan: …</span></span>
+     <span class="renglon-insumo__der"><span class="renglon-insumo__restante">2,4 kg rest.</span><span class="renglon-insumo__minimo">Mínimo: 8 kg</span></span>
+   </li> */
+.renglon-insumo,
+.renglon-vianda {
+    padding: 10px 12px;
+    border: 1px solid var(--linea-suave);
+    border-radius: 12px;
+    background: var(--blanco);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.renglon-insumo:hover,
+.renglon-vianda:hover {
+    border-color: var(--borde-gris);
+    background: var(--fila-encima);
+}
+
+.renglon-insumo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* El ⚠: solo el dibujito, sin caja */
+.renglon-insumo__icono {
+    flex: none;
+    display: flex;
+    color: var(--inicio-rojo-letra);
+}
+
+.renglon-insumo__icono svg {
+    width: 16px;
+    height: 16px;
+}
+
+.renglon-insumo__texto {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.renglon-insumo__nombre {
+    color: var(--texto);
+    font-size: 13.5px;
+    font-weight: 700;
+}
+
+/* "Lo usan: Berenjenas rellenas, Canelones": un renglón, con "…" si no entra */
+.renglon-insumo__detalle {
+    overflow: hidden;
+    color: var(--inicio-texto-suave);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.renglon-insumo__der {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+    text-align: right;
+}
+
+.renglon-insumo__restante,
+.renglon-vianda__restante {
+    color: var(--rojo);
+    font-size: 13.5px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.renglon-insumo__minimo {
+    color: var(--inicio-texto-suave);
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* Una vianda por reponer (lo arma reportes.js):
+   <li class="renglon-vianda">
+     <div class="renglon-vianda__fila">
+       <span class="renglon-vianda__izq"><span class="codigo-plato">F2</span><span class="renglon-vianda__nombre">Berenjenas rellenas</span></span>
+       <span class="renglon-vianda__restante">2 u. restantes</span>
+     </div>
+     <div class="renglon-vianda__barra"><div class="renglon-vianda__progreso"></div></div>   (el JS le pone el ancho: libres ÷ mínimo)
+   </li> */
+.renglon-vianda {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 9px;
+}
+
+.renglon-vianda__fila {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.renglon-vianda__izq {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+}
+
+.renglon-vianda__nombre {
+    overflow: hidden;
+    color: var(--texto);
+    font-size: 13.5px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* La barra ultra fina de abajo (2 px) */
+.renglon-vianda__barra {
+    height: 2px;
+    overflow: hidden;
+    border-radius: var(--radio-pastilla);
+    background: var(--linea-suave);
+}
+
+.renglon-vianda__progreso {
+    width: 0;
+    height: 100%;
+    border-radius: var(--radio-pastilla);
+    background: var(--rojo);
+}
+
+/* "y 3 más en Gestión de Stock ›" (el último renglón, si hay más de 5) */
+.renglon-mas {
+    padding: 2px 4px 0;
+}
+
+
+/* ===== 7. ESTADO VACÍO ("✓ Stock de insumos al día", "✓ Heladera completa") ===== */
+.estado-vacio {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 36px 20px;
+    text-align: center;
+}
+
+.estado-vacio[hidden] {
+    display: none;
+}
+
+/* El tilde verde en su círculo */
+.estado-vacio__icono {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--verde-suave);
+    color: var(--verde-texto);
+}
+
+.estado-vacio__icono svg {
+    width: 16px;
+    height: 16px;
+}
+
+.estado-vacio__texto {
+    color: var(--texto-gris);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+
+/* ===== 8. PANTALLAS ANGOSTAS ===== */
+/* Hasta 1100 px (con el menú al costado, el contenido ya es angosto): el gráfico, los combos, los insumos y las
+   viandas, uno abajo del otro */
+@media (max-width: 1100px) {
+    .inicio-fila--ventas,
+    .inicio-fila--operaciones {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* Celu (hasta 700 px): las 3 métricas, una abajo de la otra */
+@media (max-width: 700px) {
+    .inicio-fila--metricas {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .tarjeta-inicio {
+        padding: 16px;
+    }
+
+    .tarjeta-metrica {
+        min-height: 0;
+    }
+}
