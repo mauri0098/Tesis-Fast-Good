@@ -189,13 +189,6 @@ body.cargada {
     color: var(--inicio-texto-suave);
 }
 
-/* (28/10) El renglón de abajo, más chico: "2 entregados · 1 pendiente" (Pedidos de hoy) */
-.tarjeta-metrica__detalle {
-    margin-top: -3px;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--inicio-texto-suave);
-}
 
 /* La variación contra el período anterior ("+18,4%"): verde si sube, roja si baja (la clase la pone el JS) */
 .etiqueta-variacion,

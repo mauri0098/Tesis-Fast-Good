@@ -13,7 +13,7 @@
 //   diaDelPedido / sumarDias / plata → ayudas chiquitas: el día de Argentina de un pedido, "AAAA-MM-DD" ± días, "$184.500"
 //   variacion               → la pastilla "+18,4%" / "−6,2%" contra el período anterior (Ventas y Pedidos de hoy)
 //   mostrarVentas           → la tarjeta Ventas, según el selector (Hoy / Ayer / Esta semana)
-//   mostrarPedidosDeHoy     → la tarjeta Pedidos de hoy: los que se ENTREGAN hoy, Delivery y Retiro
+//   mostrarPedidosDeHoy     → la tarjeta Pedidos de hoy: los que se ENTREGAN hoy, entregados y pendientes
 //   cargarViandasACocinar   → la tarjeta Viandas a cocinar: lo pedido a cocina sin hacer + los personalizados sin listo
 //   mostrarEvolucion        → el gráfico de Evolución de Ventas y el total, según el selector (y los combos del período)
 //   dibujarCombos           → los 3 combos más vendidos del período, con su mini barra
@@ -41,11 +41,18 @@ const FLECHA = '<svg aria-hidden="true"><use href="#icono-flecha-derecha"></use>
 // ─────────────────────────────────────────────────────────────────────────────
 // cargarInicio → al abrir la pantalla: pide todo y llena las tarjetas
 // ENTRADA: nada
-// SALIDA:  nada. Cada tarjeta muestra sus datos, o "No se pudo cargar" si su pedido al servidor falló
+// SALIDA:  nada. Escribe el saludo ("Hola, Mauri") y cada tarjeta muestra sus datos, o "No se pudo cargar" si su
+//          pedido al servidor falló
 // Ej: abre el Inicio el martes 27/10 → pide los pedidos del 13/09 al 27/10, la cocina, los insumos y la heladera
 // ─────────────────────────────────────────────────────────────────────────────
 async function cargarInicio() {
   hoyISO = FORMATO_DIA_ARGENTINA.format(new Date());              // ej: '2026-10-27'
+
+  // 0. (28/10) El saludo de arriba con el nombre del que entró (lo guardó auth.js al iniciar sesión).
+  //    textContent: se muestra como texto. Ej: "Mauri" → "Hola, Mauri" · sin nombre → "Hola"
+  const nombre = (localStorage.getItem('usuario_nombre') || '').trim();
+  const saludo = nombre ? 'Hola, ' + nombre : 'Hola';
+  document.getElementById('saludoInicio').textContent = saludo;
 
   // 1. Los pedidos (una sola vez): con ellos salen Ventas, Pedidos de hoy, Evolución y Combos.
   //    Los anulados no cuentan en nada: se sacan acá.
@@ -59,8 +66,7 @@ async function cargarInicio() {
     })
     .catch(error => {
       console.error('[Inicio] No se pudieron traer los pedidos:', error);   // el detalle, solo en la consola
-      ['ventasACobrar', 'pedidosHoyDetalle'].forEach(id => { document.getElementById(id).textContent = 'No se pudo cargar'; });
-      document.getElementById('pedidosHoyEstados').textContent = '';   // sin datos, el renglón de los estados queda vacío
+      ['ventasACobrar', 'pedidosHoyEstados'].forEach(id => { document.getElementById(id).textContent = 'No se pudo cargar'; });
       document.getElementById('evolucionTotal').textContent = '—';
       document.getElementById('vacioCombos').textContent = 'No se pudo cargar.';
       document.getElementById('vacioCombos').hidden = false;
@@ -161,16 +167,14 @@ function mostrarVentas() {
 // ─────────────────────────────────────────────────────────────────────────────
 // mostrarPedidosDeHoy → la tarjeta Pedidos de hoy: los pedidos que se ENTREGAN hoy (Delivery o Retiro)
 // ENTRADA: nada (usa pedidosRecientes: los hechos en los últimos 45 días, sin anulados)
-// SALIDA:  nada. Escribe cuántos, la variación contra los que se entregaron ayer, "26 Delivery · 12 Retiro" y
-//          (28/10) cómo van: "30 entregados · 8 pendientes"
-// Ej: 26 Delivery + 12 Retiro con entrega hoy, y 40 ayer → "38", "−5%", "26 Delivery · 12 Retiro", "30 entregados · 8 pendientes"
+// SALIDA:  nada. Escribe cuántos, la variación contra los que se entregaron ayer y cómo van: "30 entregados · 8 pendientes"
+//          (28/10: se sacó el renglón "26 Delivery · 12 Retiro")
+// Ej: 38 con entrega hoy (30 ya entregados) y 40 ayer → "38", "−5%", "30 entregados · 8 pendientes"
 // ─────────────────────────────────────────────────────────────────────────────
 function mostrarPedidosDeHoy() {
   const ayer = sumarDias(hoyISO, -1);
   const deHoy = pedidosRecientes.filter(pedido => pedido.fecha_entrega === hoyISO);   // los que se entregan hoy
   const deAyer = pedidosRecientes.filter(pedido => pedido.fecha_entrega === ayer).length;
-  const delivery = deHoy.filter(pedido => pedido.tipo_entrega === 'Delivery').length;
-  const retiro = deHoy.length - delivery;                         // los demás retiran en el local
 
   // (28/10) Cómo van: entregados (estado 4) y pendientes (1, 2 y 3; los anulados ya no están). Ej: "2 entregados · 1 pendiente"
   const entregados = deHoy.filter(pedido => pedido.id_estado === ESTADO_ENTREGADO).length;
@@ -179,7 +183,6 @@ function mostrarPedidosDeHoy() {
   const palabraPendientes = pendientes === 1 ? ' pendiente' : ' pendientes';
 
   document.getElementById('pedidosHoyValor').textContent = String(deHoy.length);
-  document.getElementById('pedidosHoyDetalle').textContent = delivery + ' Delivery · ' + retiro + ' Retiro';
   document.getElementById('pedidosHoyEstados').textContent = entregados + palabraEntregados + ' · ' + pendientes + palabraPendientes;
   variacion(document.getElementById('pedidosHoyVariacion'), deHoy.length, deAyer);
 }

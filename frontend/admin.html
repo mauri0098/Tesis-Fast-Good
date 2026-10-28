@@ -37,10 +37,10 @@
 
 <div class="admin-content">
 
-  <!-- TÍTULO -->
+  <!-- TÍTULO: el saludo con el nombre del usuario (lo completa reportes.js) y una frase -->
   <header>
-    <h1>Inicio</h1>
-    <p class="bajada-pantalla">Cómo viene el día: ventas, pedidos, cocina y stock.</p>
+    <h1 id="saludoInicio">Hola</h1>
+    <p class="bajada-pantalla">Así viene el día: ventas, pedidos, cocina y stock.</p>
   </header>
 
   <main class="page-container inicio">
@@ -78,9 +78,8 @@
             <span class="tarjeta-metrica__valor" id="pedidosHoyValor">—</span>
             <span class="etiqueta-variacion" id="pedidosHoyVariacion" hidden></span>
           </div>
-          <span class="tarjeta-metrica__subtitulo" id="pedidosHoyDetalle">— Delivery · — Retiro</span>
           <!-- Cómo van: "2 entregados · 1 pendiente" -->
-          <span class="tarjeta-metrica__detalle" id="pedidosHoyEstados">— entregados · — pendientes</span>
+          <span class="tarjeta-metrica__subtitulo" id="pedidosHoyEstados">— entregados · — pendientes</span>
         </div>
       </article>
 
