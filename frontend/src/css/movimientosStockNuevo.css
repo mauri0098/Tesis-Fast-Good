@@ -237,12 +237,17 @@ tbody tr:hover {
 }
 
 
-/* ── CAJA: blanca, bordes redondeados. Si no entra en la pantalla, scroll adentro ── */
+/* ── CAJA (28/10): una grilla de 4 filas → título · campos · lista · pie.
+   minmax(0, 1fr) = la lista toma el alto que sobra y es lo ÚNICO que se mueve: el título, los campos y los
+   botones quedan siempre a la vista (antes se movía toda la caja y "Guardar" quedaba abajo de todo) ── */
 .modal-caja {
   width: 100%;
-  max-width: 900px;
+  max-width: 980px;
   max-height: 90vh;
-  overflow-y: auto;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 16px;
+  overflow: hidden;
   box-sizing: border-box;
   padding: 1.5rem;
   border-radius: var(--radius-md);
@@ -252,123 +257,237 @@ tbody tr:hover {
 }
 
 .modal-caja h3 {
-  margin-top: 0;
-  margin-bottom: 1.25rem;
+  margin: 0;
   font-size: 1.25rem;
   color: var(--color-primary);
 }
 
 
-/* ── DATOS Y FILTROS: los campos uno al lado del otro ── */
+/* ── CAMPOS (fila 2): Fecha · Proveedor · Categoría · Solo los bajos en UNA grilla, alineados abajo, sin anchos fijos.
+   Proveedor es el más ancho (2fr); el tilde ocupa solo lo que necesita (auto) ── */
+.compra-campos {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(180px, 2fr) minmax(140px, 1fr) auto;
+  align-items: end;
+  gap: 12px 16px;
+}
+
+/* compra-datos y compra-filtros no arman una caja propia: sus campos van directo a la grilla de arriba */
 .compra-datos,
 .compra-filtros {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  display: contents;
 }
 
-/* Cada campo: el texto arriba y el input abajo.
-   Fecha, Proveedor y Categoría con el mismo ancho, letra y separación: quedan parejos */
+/* Cada campo: el texto arriba (chico y gris) y el casillero abajo */
 .compra-datos label,
 .compra-filtros label {
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  width: 220px;
-  font-size: 0.85rem;
+  gap: 6px;
+  font-size: 12.5px;
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--texto-gris);
 }
 
-/* El checkbox "Solo los bajos" va al lado de su texto, no arriba.
-   Misma altura que el select (2.5rem) y centrado: así queda a la altura del select de Categoría */
+/* "Solo los bajos": el tilde al lado de su texto, a la altura de los casilleros (40 px) */
 .compra-filtros label:has(input[type="checkbox"]) {
+  height: 40px;
   flex-direction: row;
   align-items: center;
-  gap: 0.5rem;
-  width: auto;
-  height: 2.5rem;
-  font-weight: 400; /* sin negrita: no es el título de un campo */
+  gap: 8px;
+  font-weight: 500;
+  color: var(--texto);
+  white-space: nowrap;
   cursor: pointer;
 }
 
-/* Inputs y select: mismo estilo que los filtros de la pantalla.
-   Altura fija para que todos midan lo mismo (y el checkbox se alinee con ellos) */
+.compra-filtros input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--verde-principal);
+}
+
+
+/* ── CASILLEROS: los de arriba y los de cada renglón, todos con el mismo estilo limpio ── */
 .compra-datos input,
-.compra-filtros select {
-  height: 2.5rem;
+.compra-filtros select,
+.renglon-compra input,
+.renglon-compra select {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
   box-sizing: border-box;
-  padding: 0.5rem 0.9rem;
-  border: 1.5px solid #ddd;
-  border-radius: var(--radius-sm);
+  padding: 0 12px;
+  border: 1px solid var(--borde-casillero);
+  border-radius: 10px;
+  background-color: var(--blanco);
+  color: var(--texto);
   font-family: var(--font-main);
-  font-size: 0.88rem;
-  background: white;
+  font-size: 14px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Campo elegido: borde verde */
+/* Los de los renglones, un poco más bajos (36 px) */
+.renglon-compra input,
+.renglon-compra select {
+  height: 36px;
+  font-size: 13.5px;
+}
+
+/* Select moderno: sin la flecha del navegador, con una flechita gris propia a la derecha */
+.compra-filtros select,
+.renglon-compra select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M1 1L5 5L9 1' stroke='%236b766e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  cursor: pointer;
+}
+
+/* Cantidad: un número limpio, sin las flechitas de subir y bajar, alineado a la derecha */
+.renglon-compra input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.renglon-compra input[type="number"]::-webkit-inner-spin-button,
+.renglon-compra input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Casillero elegido: borde verde y un halo suave */
 .compra-datos input:focus,
-.compra-filtros select:focus {
+.compra-filtros select:focus,
+.renglon-compra input:focus,
+.renglon-compra select:focus {
   outline: none;
-  border-color: var(--color-primary);
+  border-color: var(--verde-principal);
+  box-shadow: 0 0 0 3px rgb(18 137 58 / 0.15);
 }
 
 
-/* ── TABLA DE INSUMOS: si son muchos, scroll solo acá, con el encabezado fijo ── */
-.compra-tabla {
-  max-height: 50vh;
+/* ── LISTA DE INSUMOS (fila 3): lo único que se mueve. Los títulos quedan pegados arriba ── */
+.compra-lista {
+  min-height: 0;
   overflow: auto;
-  border: 1px solid #eee;
-  border-radius: var(--radius-sm);
 }
 
-/* Encabezado pegado arriba mientras se scrollea (z-index: queda por encima de los inputs) */
-.compra-tabla thead th {
+/* LA REGLA DE LAS COLUMNAS: los títulos y cada renglón usan las MISMAS 6 columnas, así quedan alineados a plomada.
+   Insumo (2) · Stock (1) · Mínimo (1) · Cantidad (1,5) · Unidad (1) · Vence (1,5) */
+.compra-encabezado,
+.renglon-compra {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.5fr 1fr 1.5fr;
+  gap: 16px;
+  align-items: center;
+}
+
+/* Cada celda puede achicarse (min-width: 0): así manda la grilla y no lo que tiene adentro. Sin esto, una fecha
+   que no entra ensancha su columna en ese renglón y los renglones dejan de estar a plomada con los títulos */
+.compra-encabezado > *,
+.renglon-compra > * {
+  min-width: 0;
+}
+
+/* Los títulos: mayúsculas chicas, grises, negrita suave y una línea abajo */
+.compra-encabezado {
   position: sticky;
   top: 0;
   z-index: 1;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--linea-tabla);
+  background: var(--blanco);
+  color: var(--color-titulos-tabla);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-/* Renglón de un insumo con stock bajo: fondo rojo suave (también con el mouse encima) */
-.compra-tabla tbody tr.fila-baja {
-  background: #fdecea;
+/* Un renglón: línea finita abajo y aire arriba y abajo */
+.renglon-compra {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+  color: var(--texto);
+  font-size: 13.5px;
 }
 
-.compra-tabla tbody tr.fila-baja:hover {
-  background: #fbdcd8;
+/* Un renglón escondido por los filtros (el JS le pone hidden): sin esto, el display: grid de arriba le gana */
+.renglon-compra[hidden] {
+  display: none;
 }
 
-/* Inputs y select de cada renglón: chicos, que entren en la celda */
-.compra-tabla input,
-.compra-tabla select {
-  width: 100%;
-  min-width: 70px;
-  box-sizing: border-box;
-  padding: 0.3rem 0.5rem;
-  border: 1.5px solid #ddd;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-main);
-  font-size: 0.85rem;
-  background: white;
+/* Un insumo bajo (menos stock que el mínimo): todo el renglón en rojo ultra pálido (la clase la pone el JS) */
+.renglon-compra.fila-baja {
+  background: #fff5f5;
 }
 
-/* La fecha de vencimiento necesita un poco más de lugar */
-.compra-tabla input[type="date"] {
-  min-width: 130px;
+.renglon-compra-nombre {
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;   /* un nombre muy largo corta de renglón y no empuja las columnas */
 }
 
-.compra-tabla input:focus,
-.compra-tabla select:focus {
-  outline: none;
-  border-color: var(--color-primary);
+.renglon-compra-minimo {
+  color: var(--texto-gris);
+  font-variant-numeric: tabular-nums;
 }
 
+/* "Cargando..." */
+.compra-renglon-vacio {
+  padding: 24px 12px;
+  color: var(--texto-gris);
+  font-style: italic;
+  text-align: center;
+}
+
+/* El STOCK en una pastilla: gris clara con letra oscura… */
+.pastilla-stock {
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #f1f4f1;
+  color: var(--texto);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* …y roja suave con letra roja fuerte si está bajo (menos stock que el mínimo) */
+.pastilla-stock--baja {
+  background: #fde7e5;
+  color: #b42318;
+}
+
+
+/* ── PIE (fila 4): a la izquierda "N insumos cargados" y el error; a la derecha Cancelar y Guardar ── */
+.compra-pie {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+.compra-pie-textos {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 
 /* ── CONTADOR: "N insumos cargados", chico y gris ── */
 #compraContador {
-  margin: 0.75rem 0 0;
+  margin: 0;
   font-size: 0.82rem;
   color: var(--color-muted);
 }
@@ -376,7 +495,7 @@ tbody tr:hover {
 
 /* ── ERROR: texto rojo. Si está vacío no ocupa lugar ── */
 .compra-error {
-  margin: 0.75rem 0 0;
+  margin: 0;
   font-size: 0.88rem;
   font-weight: 600;
   color: #dc3545;
@@ -387,13 +506,11 @@ tbody tr:hover {
 }
 
 
-/* ── BOTONES: Cancelar y Guardar, a la derecha ── */
+/* ── BOTONES: Cancelar y Guardar ── */
 /* Guardar ya tiene el estilo verde de .btn-compra */
 .modal-botones {
   display: flex;
-  justify-content: flex-end;
   gap: 0.75rem;
-  margin-top: 1.25rem;
 }
 
 /* Cancelar: gris, mismo tamaño y letra que los otros botones */
@@ -415,7 +532,7 @@ tbody tr:hover {
 }
 
 
-/* ── MODAL EN CELULAR: casi todo el ancho y los campos uno abajo del otro ── */
+/* ── MODAL EN CELULAR ── */
 @media (max-width: 768px) {
   .modal-fondo {
     padding: 0.5rem;
@@ -424,27 +541,25 @@ tbody tr:hover {
   .modal-caja {
     max-height: 95vh;
     padding: 1rem;
+    gap: 12px;
   }
 
-  .compra-datos,
-  .compra-filtros {
-    flex-direction: column;
-    align-items: stretch;
+  /* Los campos de a dos por renglón (Fecha · Proveedor y Categoría · Solo los bajos) */
+  .compra-campos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  /* Los campos a todo el ancho (arriba tienen 220px fijos) */
-  .compra-datos label,
-  .compra-filtros label {
-    width: auto;
+  /* La lista conserva sus 6 columnas a plomada y se mueve también de costado (760 px: la fecha entra entera) */
+  .compra-encabezado,
+  .renglon-compra {
+    min-width: 760px;
   }
 
-  .compra-datos input,
-  .compra-filtros select {
-    width: 100%;
-    box-sizing: border-box;
+  /* El pie: los textos arriba y los dos botones abajo, mitad y mitad */
+  .compra-pie {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  /* Los dos botones mitad y mitad (arriba, .btn-compra se pone al 100% en celular) */
   .modal-botones button {
     flex: 1;
   }

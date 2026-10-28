@@ -136,16 +136,20 @@ function calcularVencimiento(fechaCompra, diasDuracion) {
   return fechaLocalISO(fecha);                           // Date → 'AAAA-MM-DD'
 }
 
-// Dibuja un renglón por insumo en la tabla del modal
+// Dibuja un renglón por insumo en la lista del modal
+// 28/10: la lista ya no es una <table>: cada renglón es un <div class="renglon-compra"> con las mismas 6 columnas
+// de grilla que los títulos (los nombres tbody y tr quedan como estaban: ahora son la lista y su renglón)
 function renderizarInsumosModal(insumos) {
-  const tbody = document.getElementById("comprasItemsBody"); // buscar el tbody
-  tbody.innerHTML = "";                                       // vaciarlo
+  const tbody = document.getElementById("comprasItemsBody"); // buscar la lista de renglones
+  tbody.innerHTML = "";                                       // vaciarla
 
   // Los bajos primero. Se ordena una copia para no desordenar listaInsumos
   const ordenados = [...insumos].sort((a, b) => estaBajo(b) - estaBajo(a));
 
   ordenados.forEach((insumo) => {              // recorrer: "insumo" es uno solo en cada vuelta
-    const tr = document.createElement("tr");   // crear un renglón nuevo
+    const tr = document.createElement("div");  // crear un renglón nuevo (28/10: un div de la grilla)
+    tr.className = "renglon-compra";           // las 6 columnas de la grilla (CSS)
+    tr.setAttribute("role", "row");            // para el lector de pantalla: un renglón de la tabla
     tr.dataset.id = insumo.id;                 // data-id: de qué insumo es este renglón
 
     // data-categoria: de qué categoría es este renglón (lo usa el filtro)
@@ -155,38 +159,45 @@ function renderizarInsumosModal(insumos) {
       tr.dataset.categoria = "Sin categoría";
     }
 
-    // Si está bajo, fondo rojo suave (clase del CSS)
+    // Si está bajo, fondo rojo suave (clase del CSS; "Solo los bajos" también la usa)
     if (estaBajo(insumo)) tr.classList.add("fila-baja");
+    // 28/10: el stock va en una pastilla: gris, o roja si está bajo
+    const clasePastilla = estaBajo(insumo) ? "pastilla-stock pastilla-stock--baja" : "pastilla-stock";
+    const nombre = escHtml(insumo.nombre);     // el nombre, seguro para el HTML (también va en los aria-label)
 
     // Vencimiento ya calculado con la fecha de compra de arriba (se puede cambiar a mano)
     const vence = calcularVencimiento(compraFecha.value, insumo.dias_duracion);
+    // 28/10: el calendario no deja elegir un vencimiento anterior a HOY (min). Hoy es el día LOCAL ('AAAA-MM-DD',
+    // fechaLocalISO de fechas.js): toISOString pasaría a UTC y a las 21 h ya sería mañana. Ej: hoy 28/10 → '2026-10-28'
+    const hoy = fechaLocalISO(new Date());
 
     // Stock y mínimo en kg / lts. Los textos que vienen de la base
     // pasan por escHtml (escape.js) antes del innerHTML
     const stock  = escHtml(mostrarCantidad(insumo.stock_actual, insumo.unidad_medida));
     const minimo = escHtml(mostrarCantidad(insumo.stock_minimo, insumo.unidad_medida));
 
-    // Las 6 celdas del renglón. ${ } mete el dato del insumo en el texto
+    // Las 6 celdas del renglón. ${ } mete el dato del insumo en el texto.
+    // 28/10: celdas <span role="cell"> en lugar de <td>; cada casillero dice para qué insumo es (aria-label)
     tr.innerHTML = `
-      <td>${escHtml(insumo.nombre)}</td>
-      <td>${stock}</td>
-      <td>${minimo}</td>
-      <td><input type="number" min="0" step="any" class="compra-cantidad"></td>
-      <td>
-        <select class="compra-unidad">
+      <span role="cell" class="renglon-compra-nombre">${nombre}</span>
+      <span role="cell"><span class="${clasePastilla}">${stock}</span></span>
+      <span role="cell" class="renglon-compra-minimo">${minimo}</span>
+      <span role="cell"><input type="number" min="0" step="any" class="compra-cantidad" aria-label="Cantidad de ${nombre}"></span>
+      <span role="cell">
+        <select class="compra-unidad" aria-label="Unidad de ${nombre}">
           ${opcionesUnidad(insumo.unidad_medida)}
         </select>
-      </td>
-      <td><input type="date" class="compra-vence" value="${vence}"></td>
+      </span>
+      <span role="cell"><input type="date" class="compra-vence" value="${vence}" min="${hoy}" aria-label="Vencimiento de ${nombre}"></span>
     `;
 
-    tbody.appendChild(tr);   // pegar el renglón en la tabla
+    tbody.appendChild(tr);   // pegar el renglón en la lista
   });
 }
 
 // Recalcula la columna Vence de todos los renglones con la fecha de compra nueva
 function recalcularVencimientos() {
-  const filas = document.querySelectorAll("#comprasItemsBody tr[data-id]");
+  const filas = document.querySelectorAll("#comprasItemsBody .renglon-compra[data-id]");
 
   filas.forEach((tr) => {
     // Buscar el insumo de este renglón por su data-id
@@ -203,7 +214,7 @@ function filtrarRenglonesCompra() {
   const categoria = compraCategoria.value;   // lo elegido en el select ("" = Todas)
   const soloBajos = compraSoloBajos.checked; // true si está tildado
 
-  const filas = document.querySelectorAll("#comprasItemsBody tr[data-id]"); // todos los renglones
+  const filas = document.querySelectorAll("#comprasItemsBody .renglon-compra[data-id]"); // todos los renglones
 
   filas.forEach((tr) => {
     // ¿Eligió "Todas" O la categoría del renglón es la elegida?
@@ -239,7 +250,7 @@ function llenarCategorias(insumos) {
 // Recorre los renglones y devuelve solo los que tienen cantidad escrita
 function juntarItemsCompra() {
   const items = [];                                                          // acá se van juntando
-  const filas = document.querySelectorAll("#comprasItemsBody tr[data-id]");  // todos los renglones
+  const filas = document.querySelectorAll("#comprasItemsBody .renglon-compra[data-id]");  // todos los renglones
 
   filas.forEach((tr) => {
     const cantidad = Number(tr.querySelector(".compra-cantidad").value);  // el input de cantidad (por su class)

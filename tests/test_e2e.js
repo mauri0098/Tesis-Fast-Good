@@ -515,6 +515,7 @@ async function testCocinaYTareas() {
 //   testArmado         → (26/10) la sección ARMADO: corre adentro de testHeladera, con sus pedidos A y D
 //   necesarioConMuchas → (27/10) cuánto "necesitás" de cada insumo con 1.000.000 viandas de un plato (solo lee)
 //   testAvisosInsumos  → (27/10) la sección AVISOS DE INSUMOS: Pedir a cocina, Para stock y la red de "Hecho"
+//   testLotesFifo      → (28/10) los lotes de insumos: saldos = stock y caducidad bien en cada insumo (solo lee)
 //   testHeladera       → la sección entera, de principio a fin (los pasos están numerados adentro)
 // Eran 7 (más testArmado, 26/10) porque cada una hace un trabajo que se repite varias veces en la sección (leer la heladera,
 // crear y anular pedidos, revisar); testHeladera es la receta que las usa en orden.
@@ -772,6 +773,40 @@ async function testAvisosInsumos(plato, comoCocinero) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// testLotesFifo → (28/10) los lotes de insumos (sql/insumos_lotes_fifo.sql), SOLO LEYENDO la base
+// ENTRADA: nada · SALIDA: nada (escribe ✅ / ❌, o ⚠️ si todavía no se corrió el SQL)
+// En cada insumo: la suma de los saldos de sus lotes = su stock (o 0 si es negativo), y su fecha_caducidad = el
+// vencimiento más próximo entre sus lotes con saldo. Ej: harina 2500 g con lotes 2000 + 500 + 0 → coincide.
+// ─────────────────────────────────────────────────────────────────────────────
+async function testLotesFifo() {
+  console.log('\n══════ LOTES DE INSUMOS (FIFO por vencimiento) ══════');
+  const lotes = await supabase.from('lotes_insumo').select('id_insumo, cantidad_restante, fecha_vencimiento');
+  if (lotes.error) {
+    warn('Lotes de insumos', 'no se probó: todavía no existe la tabla lotes_insumo (correr sql/insumos_lotes_fifo.sql)');
+    return;
+  }
+  const insumos = await supabase.from('insumos').select('id, nombre, stock_actual, fecha_caducidad');
+  if (!comprobar('Lotes: leer los insumos', !insumos.error, insumos.error ? 'error de la base' : `${insumos.data.length} insumos`)) return;
+
+  // Por insumo: la suma de los saldos y el vencimiento más próximo con saldo ('AAAA-MM-DD' se compara como texto)
+  const porInsumo = {};
+  lotes.data.forEach(lote => {
+    const actual = porInsumo[lote.id_insumo] || { saldos: 0, vence: null };
+    const conSaldo = Number(lote.cantidad_restante) > 0 && Boolean(lote.fecha_vencimiento);
+    const venceAntes = conSaldo && (!actual.vence || lote.fecha_vencimiento < actual.vence);
+    porInsumo[lote.id_insumo] = { saldos: actual.saldos + Number(lote.cantidad_restante), vence: venceAntes ? lote.fecha_vencimiento : actual.vence };
+  });
+  const malos = insumos.data.filter(insumo => {
+    const datos = porInsumo[insumo.id] || { saldos: 0, vence: null };
+    const saldosBien = Math.abs(datos.saldos - Math.max(Number(insumo.stock_actual) || 0, 0)) < 0.001;
+    const caducidad = insumo.fecha_caducidad ? String(insumo.fecha_caducidad).slice(0, 10) : null;
+    return !saldosBien || caducidad !== datos.vence;
+  });
+  comprobar('Lotes: en cada insumo, saldos = stock y caducidad = el vencimiento más próximo', malos.length === 0,
+    malos.length === 0 ? `${insumos.data.length} insumos bien` : malos.slice(0, 3).map(i => i.nombre).join(', ') + (malos.length > 3 ? ` y ${malos.length - 3} más` : ''));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // testHeladera → la sección HELADERA entera, por las rutas, contra la base real (ver las REGLAS arriba)
 // ENTRADA: nada (usa el .env y el servidor prendido)
 // SALIDA:  nada (escribe ✅ / ❌ / ⚠️ por cada prueba; los totales salen en el resumen del final)
@@ -942,6 +977,9 @@ async function testHeladera() {
 
     // 11c. (27/10) AVISOS DE INSUMOS, con D abierto (sus 2 "sin sal" en estado 2 cuentan como comprometido)
     const conDAbierto = await testAvisosInsumos(plato, comoCocinero);
+
+    // 11d. (28/10) LOTES DE INSUMOS: solo lee (si todavía no se corrió el SQL, queda en aviso)
+    await testLotesFifo();
 
     // 12. ANULAR DEVUELVE: A (en 3) devuelve N y D (en 2) devuelve N − 2 (los "sin sal" no habían salido)
     const antesDeAnular = await leerHeladera(idsUsados);

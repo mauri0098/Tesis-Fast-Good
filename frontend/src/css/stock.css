@@ -170,6 +170,11 @@ body {
 
 .badge-normal { background-color: #d4edda; color: #155724; }
 .badge-bajo { background-color: #f8d7da; color: #721c24; }
+/* 28/10: un insumo ya vencido (rojo oscuro, letra blanca) y uno que vence hoy (naranja). Tienen prioridad sobre "Bajo mínimo" */
+.badge-vencido { background-color: #8a1c14; color: #ffffff; }
+.badge-vence-hoy { background-color: #ffe3c7; color: #9a3412; }
+/* 28/10: la fecha de caducidad en rojo si ya venció o vence hoy */
+.fecha-vencida { color: #b42318; font-weight: 700; }
 
 /* =========================================
    MODAL AGREGAR STOCK (Se mantiene intacto)

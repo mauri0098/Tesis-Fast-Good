@@ -2422,6 +2422,20 @@ app.delete('/api/movimientos-stock/:id', requireAuth, requireRol(6, 5, 1), async
       return res.status(409).json({ error: 'Esta salida pertenece a una tanda de viandas y no se puede borrar desde acá' });
     }
 
+    // (28/10, FIFO por lotes: sql/insumos_lotes_fifo.sql) Una ENTRADA que ya se usó, en todo o en parte, no se borra:
+    // su lote (lotes_insumo) tiene menos saldo que lo que entró. Si se borrara, el stock quedaría bien pero se perdería
+    // de qué compra salió lo que ya se cocinó. Una entrada sin usar sí se borra: su lote se va con ella (on delete cascade).
+    // Ej: compra de 2000 g de la que ya salieron 500 → 409. "condición ? await … : …" = solo se consulta si es una entrada.
+    const consultaLote = mov.tipo === 'entrada'
+      ? await supabase.from('lotes_insumo').select('cantidad_inicial, cantidad_restante').eq('id_movimiento', mov.id).maybeSingle()
+      : { data: null, error: null };
+    if (consultaLote.error) return errorInterno(res, consultaLote.error);
+    const lote = consultaLote.data;                               // el lote de esta entrada (o null si no tiene)
+    const yaSeUso = Boolean(lote) && Number(lote.cantidad_restante) < Number(lote.cantidad_inicial);
+    if (yaSeUso) {
+      return res.status(409).json({ error: 'Esta entrada ya se usó (en todo o en parte): no se puede borrar' });
+    }
+
     const { data: insumo, error: errInsumo } = await supabase
       .from('insumos')
       .select('id, stock_actual, unidad_medida')

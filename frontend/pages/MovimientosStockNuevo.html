@@ -101,73 +101,80 @@
     </div>
     <!-- cierra page-container -->
 
-    <!-- MODAL COMPRA: arranca oculto (hidden), el JS lo muestra -->
+    <!-- MODAL COMPRA: arranca oculto (hidden), el JS lo muestra.
+         28/10: la caja es una grilla de 4 filas (título · campos · lista · pie): solo la lista se mueve, así el título,
+         los campos y los botones quedan siempre a la vista. La lista ya no es una <table>: es una grilla de columnas fijas -->
     <div id="modalCompra" class="modal-fondo" hidden>
-      <div class="modal-caja">
-        <h3>Registrar compra</h3>
+      <div class="modal-caja" role="dialog" aria-modal="true" aria-labelledby="compraTitulo">
+        <!-- Fila 1: el título -->
+        <h3 id="compraTitulo">Registrar compra</h3>
 
-        <!-- Datos de la compra -->
-        <div class="compra-datos">
-          <label>
-            Fecha
-            <input type="date" id="compraFecha" />
-          </label>
-          <label>
-            Proveedor (opcional)
-            <input type="text" id="compraProveedor" placeholder="Ej: Verdulería Juan" />
-          </label>
+        <!-- Fila 2: los campos (Fecha · Proveedor · Categoría · Solo los bajos), en una sola grilla alineada abajo -->
+        <div class="compra-campos">
+          <!-- Datos de la compra -->
+          <div class="compra-datos">
+            <label>
+              Fecha
+              <input type="date" id="compraFecha" />
+            </label>
+            <label>
+              Proveedor (opcional)
+              <input type="text" id="compraProveedor" placeholder="Ej: Verdulería Juan" />
+            </label>
+          </div>
+          <!-- cierra compra-datos -->
+
+          <!-- Filtros: categoría y solo los bajos -->
+          <div class="compra-filtros">
+            <label>
+              Categoría
+              <select id="compraCategoria">
+                <option value="">Todas</option>
+              </select>
+            </label>
+            <label>
+              <input type="checkbox" id="compraSoloBajos" />
+              Solo los bajos
+            </label>
+          </div>
+          <!-- cierra compra-filtros -->
         </div>
-        <!-- cierra compra-datos -->
+        <!-- cierra compra-campos -->
 
-        <!-- Filtros: categoría y solo los bajos -->
-        <div class="compra-filtros">
-          <label>
-            Categoría
-            <select id="compraCategoria">
-              <option value="">Todas</option>
-            </select>
-          </label>
-          <label>
-            <input type="checkbox" id="compraSoloBajos" />
-            Solo los bajos
-          </label>
+        <!-- Fila 3: la lista de insumos (lo único que se mueve). Los títulos y cada renglón usan las mismas 6 columnas.
+             role="table" / "row" / "columnheader": el lector de pantalla la lee como una tabla -->
+        <div class="compra-lista" role="table" aria-label="Insumos de la compra">
+          <div class="compra-encabezado" role="row">
+            <span role="columnheader">Insumo</span>
+            <span role="columnheader">Stock</span>
+            <span role="columnheader">Mínimo</span>
+            <span role="columnheader">Cantidad</span>
+            <span role="columnheader">Unidad</span>
+            <span role="columnheader">Vence</span>
+          </div>
+          <!-- Los renglones: el JS dibuja uno por insumo (renderizarInsumosModal) -->
+          <div id="comprasItemsBody" class="compra-renglones" role="rowgroup">
+            <div class="compra-renglon-vacio" role="row"><span role="cell">Cargando...</span></div>
+          </div>
         </div>
-        <!-- cierra compra-filtros -->
+        <!-- cierra compra-lista -->
 
-        <!-- Lista de insumos: el JS dibuja un renglón por insumo -->
-        <div class="compra-tabla">
-          <table>
-            <thead>
-              <tr>
-                <th>Insumo</th>
-                <th>Stock</th>
-                <th>Mínimo</th>
-                <th>Cantidad</th>
-                <th>Unidad</th>
-                <th>Vence</th>
-              </tr>
-            </thead>
-            <tbody id="comprasItemsBody">
-              <tr class="empty-row">
-                <td colspan="6">Cargando...</td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Fila 4: el pie. A la izquierda cuántos se cargaron y el error; a la derecha los botones -->
+        <div class="compra-pie">
+          <div class="compra-pie-textos">
+            <!-- Cuántos insumos tienen cantidad cargada -->
+            <p id="compraContador">0 insumos cargados</p>
+            <!-- Acá aparecen los errores (vacío al principio) -->
+            <p id="compraError" class="compra-error"></p>
+          </div>
+          <!-- Botones -->
+          <div class="modal-botones">
+            <button type="button" id="btnCancelarCompra" class="btn-cancelar">Cancelar</button>
+            <button type="button" id="btnGuardarCompra" class="btn-compra">Guardar</button>
+          </div>
+          <!-- cierra modal-botones -->
         </div>
-        <!-- cierra compra-tabla -->
-
-        <!-- Cuántos insumos tienen cantidad cargada -->
-        <p id="compraContador">0 insumos cargados</p>
-
-        <!-- Acá aparecen los errores (vacío al principio) -->
-        <p id="compraError" class="compra-error"></p>
-
-        <!-- Botones -->
-        <div class="modal-botones">
-          <button type="button" id="btnCancelarCompra" class="btn-cancelar">Cancelar</button>
-          <button type="button" id="btnGuardarCompra" class="btn-compra">Guardar</button>
-        </div>
-        <!-- cierra modal-botones -->
+        <!-- cierra compra-pie -->
       </div>
       <!-- cierra modal-caja -->
     </div>

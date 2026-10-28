@@ -62,30 +62,41 @@ function crearFilaInsumo(insumo) {// SE ARMA LA FILA DE UN INSUMO, LA PAGINACION
   const categoria = insumo.categorias_insumos?.nombre || '-';
 
   // Fecha de caducidad (puede venir null si el insumo no vence)
+  // 28/10: se lee como fecha LOCAL. new Date('2026-10-29') la tomaba como medianoche UTC, que en Argentina son las
+  // 21 h del 28: se mostraba un día antes. slice(0, 10) = solo 'AAAA-MM-DD' (por si viniera con hora);
+  // parseFechaLocal y fechaDDMMAAAA están en fechas.js. Ej: '2026-10-29' → "29/10/2026"
   let fechaCaducidad;
   if (insumo.fecha_caducidad) {
-    fechaCaducidad = new Date(insumo.fecha_caducidad).toLocaleDateString('es-AR', {
-      day: '2-digit', month: '2-digit', year: 'numeric'
-    });
+    fechaCaducidad = fechaDDMMAAAA(parseFechaLocal(String(insumo.fecha_caducidad).slice(0, 10)));
   } else {
     fechaCaducidad = '-';
   }
 
   const esBajo = insumo.stock_actual <= insumo.stock_minimo;//ESTO ES PARA SABER SI EL STOCK ESTA BAJO O NO, COMPARANDO EL STOCK ACTUAL CON EL MINIMO
 
-  let estado;
-  if (esBajo) {
-    estado = 'Bajo mínimo';
-  } else {
-    estado = 'Normal';
-  }
+  // 28/10: ¿ya venció o vence hoy? Se comparan los días como texto 'AAAA-MM-DD' (así no hay desfase de UTC):
+  // hoy es el día LOCAL (fechaLocalISO, de fechas.js). Ej: hoy '2026-10-28' y vence '2026-10-26' → vencido
+  const hoyISO = fechaLocalISO(new Date());
+  const venceISO = insumo.fecha_caducidad ? String(insumo.fecha_caducidad).slice(0, 10) : '';   // '' = no vence
+  const vencido = venceISO !== '' && venceISO < hoyISO;
+  const venceHoy = venceISO === hoyISO;
 
-  let badgeClass;
-  if (esBajo) {
-    badgeClass = 'badge-bajo';
-  } else {
-    badgeClass = 'badge-normal';
-  }
+  // El estado, por prioridad: vencido > vence hoy > bajo mínimo > normal (el último "if" que se cumple gana)
+  const ESTADOS_INSUMO = {
+    vencido:  { texto: 'Vencido',     clase: 'badge-vencido' },     // rojo oscuro
+    venceHoy: { texto: 'Vence hoy',   clase: 'badge-vence-hoy' },   // naranja
+    bajo:     { texto: 'Bajo mínimo', clase: 'badge-bajo' },
+    normal:   { texto: 'Normal',      clase: 'badge-normal' }
+  };
+  let claveEstado = 'normal';
+  if (esBajo) claveEstado = 'bajo';
+  if (venceHoy) claveEstado = 'venceHoy';
+  if (vencido) claveEstado = 'vencido';
+  const estado = ESTADOS_INSUMO[claveEstado].texto;
+  const badgeClass = ESTADOS_INSUMO[claveEstado].clase;
+
+  // La fecha en rojo si ya venció o vence hoy (calculado antes: nada de "? :" adentro del HTML)
+  const claseFecha = vencido || venceHoy ? 'fecha-vencida' : '';
 
   if (esBajo) tr.classList.add('row-bajo');
 
@@ -95,7 +106,7 @@ function crearFilaInsumo(insumo) {// SE ARMA LA FILA DE UN INSUMO, LA PAGINACION
     <td style="font-weight:600">${stockActual}</td>
     <td>${unidad}</td>
     <td>${categoria}</td>
-    <td>${fechaCaducidad}</td>
+    <td><span class="${claseFecha}">${fechaCaducidad}</span></td>
     <td><span class="badge-estado ${badgeClass}">${estado}</span></td>
     <td class="td-acciones">
       <div class="acciones-grupo">
