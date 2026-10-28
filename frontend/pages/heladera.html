@@ -35,13 +35,15 @@
     <symbol id="icono-historial" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"></path><path d="M3.5 4.5v4h4"></path><path d="M12 8v4l3 2"></path></symbol>
     <symbol id="icono-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></symbol>
     <symbol id="icono-lapiz" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></symbol>
-    <symbol id="icono-puntos" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="18" cy="12" r="1.6"></circle></symbol>
+    <symbol id="icono-puntos" viewBox="0 0 24 24" fill="currentColor"><circle cx="4.5" cy="12" r="2.4"></circle><circle cx="12" cy="12" r="2.4"></circle><circle cx="19.5" cy="12" r="2.4"></circle></symbol>
     <symbol id="icono-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></symbol>
     <symbol id="icono-cerrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></symbol>
     <symbol id="icono-enviar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L10 14"></path><path d="M21 3l-6.5 18-4.5-7-7-4.5L21 3z"></path></symbol>
     <symbol id="icono-heladera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"></rect><path d="M5 10h14M9 5.5v2M9 13v3"></path></symbol>
     <symbol id="icono-basura" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M9 7V4h6v3"></path><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"></path></symbol>
     <symbol id="icono-alerta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l9.5 16.5h-19L12 3.5z"></path><path d="M12 10v4M12 17h.01"></path></symbol>
+    <symbol id="icono-calendario" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></symbol>
+    <symbol id="icono-flecha-abajo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></symbol>
     <symbol id="icono-olla" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11h17"></path><path d="M5 11v2a7 7 0 0 0 14 0v-2"></path><path d="M9.5 4c0 1.5 1 1.5 1 3M13.5 4c0 1.5 1 1.5 1 3"></path></symbol>
   </svg>
 
@@ -49,7 +51,7 @@
   <header class="cabecera-produccion">
     <div class="cabecera-textos">
       <h1>Producción</h1>
-      <p class="cabecera-frase">Controlá las viandas que hay en la heladera, cuáles ya están reservadas para pedidos y pedile a la cocina lo que falta.</p>
+      <p class="cabecera-frase bajada-pantalla">Controlá las viandas de la heladera, cuáles están reservadas y pedile a la cocina lo que falta.</p>
     </div>
 
     <!-- Los 4 botones de arriba (en el celu, en 2 columnas) -->
@@ -74,7 +76,7 @@
 
   <main class="page-container pagina-produccion">
 
-    <!-- LA TARJETA: arriba la barra (pestañas, buscador y Plan), los filtros elegidos, y la tabla.
+    <!-- LA TARJETA: arriba la barra (pestañas, buscador y Plan), los filtros elegidos, la tabla y el pie.
          Si la tabla no entra a lo ancho, se mueve de costado solo acá adentro -->
     <div class="tarjeta-tabla">
       <div class="barra-tarjeta">
@@ -92,16 +94,18 @@
 
           <!-- "Plan": abre la lista de planes con casillas (la arma heladera.js) -->
           <div class="caja-filtro-plan">
-            <button id="btnFiltroPlan" type="button" class="boton-filtros" aria-expanded="false" aria-controls="menuFiltroPlan">
+            <button id="btnFiltroPlan" type="button" class="boton-filtros boton-filtro" aria-expanded="false" aria-controls="menuFiltroPlan">
               <svg class="icono-boton" aria-hidden="true"><use href="#icono-filtros"></use></svg>Plan
+              <!-- Con un plan elegido: "· Mantenimiento" (el nombre lo escribe heladera.js; el "·" se ve solo con algo elegido) -->
+              <span class="separador-filtro" aria-hidden="true">·</span>
               <span id="cantidadFiltroPlan" class="cantidad-filtros" hidden></span>
             </button>
-            <div id="menuFiltroPlan" class="menu-filtro-plan" hidden>
+            <div id="menuFiltroPlan" class="menu-filtro-plan menu-filtro" hidden>
               <div class="menu-filtro-plan-buscar">
                 <input type="text" id="buscarPlan" class="campo-buscar-plan" placeholder="Buscar plan…" aria-label="Buscar plan">
               </div>
               <div id="listaFiltroPlan" class="lista-filtro-plan"></div>
-              <button id="btnLimpiarPlan" type="button" class="boton-limpiar-plan" hidden>Limpiar filtro</button>
+              <button id="btnLimpiarPlan" type="button" class="boton-limpiar-plan limpiar-filtro" hidden>Limpiar filtro</button>
             </div>
           </div>
         </div>
@@ -114,7 +118,7 @@
         <table class="standard-table tabla-produccion">
           <thead>
             <tr>
-              <!-- Plato, Plan, Estado, Disponibles y Total se ordenan tocando el título (heladera.js) -->
+              <!-- Plato, Plan, Disponibles, Total y Estado se ordenan tocando el título (heladera.js) -->
               <th class="col-plato" aria-sort="none">
                 <button type="button" class="boton-ordenar" data-columna="nombre">Plato
                   <svg class="icono-orden" viewBox="0 0 24 24" aria-hidden="true"><path class="flecha-sube" d="M8 10l4-4 4 4"></path><path class="flecha-baja" d="M8 14l4 4 4-4"></path></svg>
@@ -122,11 +126,6 @@
               </th>
               <th class="col-plan" aria-sort="none">
                 <button type="button" class="boton-ordenar" data-columna="plan">Plan
-                  <svg class="icono-orden" viewBox="0 0 24 24" aria-hidden="true"><path class="flecha-sube" d="M8 10l4-4 4 4"></path><path class="flecha-baja" d="M8 14l4 4 4-4"></path></svg>
-                </button>
-              </th>
-              <th class="col-estado" aria-sort="none">
-                <button type="button" class="boton-ordenar" data-columna="estado">Estado
                   <svg class="icono-orden" viewBox="0 0 24 24" aria-hidden="true"><path class="flecha-sube" d="M8 10l4-4 4 4"></path><path class="flecha-baja" d="M8 14l4 4 4-4"></path></svg>
                 </button>
               </th>
@@ -152,6 +151,11 @@
                   <span class="ayuda" tabindex="0" data-ayuda="Lo que tenés en la heladera (disponibles + reservadas)." aria-label="Total: lo que tenés en la heladera (disponibles + reservadas)."><svg class="icono-ayuda" aria-hidden="true"><use href="#icono-info"></use></svg></span>
                 </span>
               </th>
+              <th class="col-estado" aria-sort="none">
+                <button type="button" class="boton-ordenar" data-columna="estado">Estado
+                  <svg class="icono-orden" viewBox="0 0 24 24" aria-hidden="true"><path class="flecha-sube" d="M8 10l4-4 4 4"></path><path class="flecha-baja" d="M8 14l4 4 4-4"></path></svg>
+                </button>
+              </th>
               <th class="col-minimo">Mínimo</th>
               <th class="col-menu"><span class="solo-lector">Acciones</span></th>
             </tr>
@@ -163,12 +167,12 @@
           </tbody>
         </table>
       </div>
-    </div>
 
-    <!-- PIE DE LA TABLA: "Mostrando X de Y platos" y las páginas -->
-    <div class="pie-produccion">
-      <span id="resumenPlatos" class="resumen-platos"></span>
-      <div id="paginacion" class="paginacion paginacion-con-palabras"></div>
+      <!-- PIE DE LA TABLA (adentro de la tarjeta): "Mostrando X de Y platos" y las páginas -->
+      <div class="pie-produccion pie-tabla">
+        <span id="resumenPlatos" class="resumen-platos"></span>
+        <div id="paginacion" class="paginacion"></div>
+      </div>
     </div>
   </main>
 
@@ -188,7 +192,7 @@
   </div>
 
   <!-- VENTANA: Pedir a cocina (a la izquierda los platos, a la derecha "Tu pedido" con el total y Enviar) -->
-  <div id="modalPedido" class="modal">
+  <div id="modalPedido" class="modal fondo-ventana-pedido">
     <div class="modal-content ventana-panel modal-pedido">
       <div class="cabecera-ventana">
         <span class="icono-ventana"><svg aria-hidden="true"><use href="#icono-enviar"></use></svg></span>
@@ -202,51 +206,66 @@
       </div>
 
       <div class="pedido-cuerpo">
-        <!-- Izquierda: aviso, controles, pestañas, cargar rápido y la tabla de platos -->
+        <!-- Izquierda: aviso (en el diseño nuevo no se ve), los campos y la tarjeta de la tabla (pestañas, cargar rápido y platos) -->
         <div class="pedido-izquierda">
           <!-- "N platos están abajo del mínimo" (lo escribe pedirCocina.js; si no falta nada, no se ve) -->
           <div id="pAviso" class="aviso-pedido" hidden></div>
 
+          <!-- Para cuándo (con el 📅 a la izquierda), Plan (con la ▾) y Buscar (con la lupa) -->
           <div class="pedido-controles">
-            <label class="control-pedido">Para cuándo
-              <input id="pFecha" type="date">
+            <label class="control-pedido control-fecha">Para cuándo
+              <span class="caja-control">
+                <svg class="icono-control" aria-hidden="true"><use href="#icono-calendario"></use></svg>
+                <input id="pFecha" type="date">
+              </span>
             </label>
-            <label class="control-pedido">Plan
-              <select id="pPlan"></select>
+            <label class="control-pedido control-plan">Plan
+              <span class="caja-control">
+                <select id="pPlan"></select>
+                <svg class="icono-flecha-control" aria-hidden="true"><use href="#icono-flecha-abajo"></use></svg>
+              </span>
             </label>
-            <label class="control-pedido">Buscar
-              <input id="pBuscar" type="text" placeholder="Buscar plato…">
+            <label class="control-pedido control-buscar">Buscar
+              <span class="caja-control">
+                <svg class="icono-control" aria-hidden="true"><use href="#icono-buscar"></use></svg>
+                <input id="pBuscar" type="text" placeholder="Buscar plato…">
+              </span>
             </label>
           </div>
 
-          <!-- Pestañas: se pueden elegir varias (arranca con Sin stock y Bajos). Las arma pedirCocina.js -->
-          <div class="caja-pestanas">
-            <div id="pPestanas" class="pestanas-pedido" role="group" aria-label="Mostrar por estado"></div>
-          </div>
+          <!-- LA TARJETA DE LA TABLA: arriba la barra (pestañas y "Cargar rápido") y abajo los platos -->
+          <div class="tarjeta-tabla-pedido">
+            <div class="barra-tabla-pedido">
+              <!-- Pestañas: se pueden elegir varias (arranca con Sin stock y Bajos). Las arma pedirCocina.js -->
+              <div class="caja-pestanas">
+                <div id="pPestanas" class="pestanas-pedido pestanas-estado" role="group" aria-label="Mostrar por estado"></div>
+              </div>
 
-          <!-- Cargar rápido: actúa sobre los platos que se ven -->
-          <div class="carga-rapida">
-            <span class="carga-rapida-titulo">Cargar rápido a los que se ven</span>
-            <input id="pRapidoCantidad" type="number" min="1" step="1" placeholder="Cant." aria-label="Cantidad para cargar rápido">
-            <button type="button" class="btn-rapido" onclick="cargaRapida('cada')">A cada uno</button>
-            <button type="button" class="btn-rapido" onclick="cargaRapida('repartir')">Repartir</button>
-            <button type="button" class="btn-rapido btn-limpiar" onclick="cargaRapida('limpiar')">Limpiar</button>
-          </div>
+              <!-- Cargar rápido: actúa sobre los platos que se ven -->
+              <div class="carga-rapida" title="Actúa sobre los platos que se ven">
+                <span class="carga-rapida-titulo">Cargar rápido:</span>
+                <input id="pRapidoCantidad" type="number" min="1" step="1" placeholder="Cant." aria-label="Cantidad para cargar rápido">
+                <button type="button" class="btn-rapido" onclick="cargaRapida('cada')">A cada uno</button>
+                <button type="button" class="btn-rapido" onclick="cargaRapida('repartir')">Repartir</button>
+                <button type="button" class="btn-rapido btn-limpiar" onclick="cargaRapida('limpiar')">Limpiar</button>
+              </div>
+            </div>
 
-          <div class="caja-tabla-pedido">
-            <table class="tabla-pedido">
-              <thead>
-                <tr>
-                  <th class="col-plato">Plato</th>
-                  <th class="col-plan">Plan</th>
-                  <th class="col-numero">Disponibles</th>
-                  <th class="col-numero">Reservadas</th>
-                  <th class="col-numero">Mínimo</th>
-                  <th class="col-pedir">Pedir</th>
-                </tr>
-              </thead>
-              <tbody id="pPlatos" class="lista-pedido"></tbody>
-            </table>
+            <div class="caja-tabla-pedido">
+              <table class="tabla-pedido">
+                <thead>
+                  <tr>
+                    <th class="col-plato">Plato</th>
+                    <th class="col-plan">Plan</th>
+                    <th class="col-numero col-libres">Disponibles</th>
+                    <th class="col-numero col-reservadas">Reservadas</th>
+                    <th class="col-numero col-minimo">Mínimo</th>
+                    <th class="col-pedir">Pedir</th>
+                  </tr>
+                </thead>
+                <tbody id="pPlatos" class="lista-pedido"></tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -269,7 +288,7 @@
             </div>
             <div class="botones-ventana">
               <button type="button" class="btn-cancelar" onclick="cerrarVentana('modalPedido')">Cancelar</button>
-              <button id="pEnviar" type="button" class="btn-confirmar btn-enviar-cocina" onclick="enviarPedidoACocina()" disabled>Enviar a cocina</button>
+              <button id="pEnviar" type="button" class="btn-confirmar btn-enviar-cocina" onclick="enviarPedidoACocina()" disabled><svg class="icono-boton" aria-hidden="true"><use href="#icono-enviar"></use></svg>Enviar a cocina</button>
             </div>
           </div>
         </aside>

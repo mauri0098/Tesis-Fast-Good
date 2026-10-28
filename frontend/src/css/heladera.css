@@ -1,22 +1,25 @@
 /* ============================================================
    heladera.css — La pantalla "Producción" (pages/heladera.html)
 
-   Solo lo propio de esta pantalla. Lo que se repite en otras pantallas está en global.css:
-     - sección 8: el estilo de las tablas (títulos verdes, línea verde clarita abajo);
-     - sección 13: botones de arriba, pestañas de estado, buscador, pastillas de estado, filtros elegidos,
-       ventanas nuevas, panel de la derecha y paginación con palabras.
+   Solo lo propio de esta pantalla. El molde del panel está en global.css:
+     - sección 2: el título (28 px) y la bajada;
+     - sección 8: las tablas (títulos en MAYÚSCULA, filas de 60 px, líneas finitas) y el pie "Mostrando X de Y";
+     - sección 9: las páginas (‹ Anterior · 1 · Siguiente ›);
+     - sección 13: botones de arriba, pestañas de estado, buscador, pastillas de estado, botón de filtro y su menú,
+       ventanas nuevas y el panel de la derecha.
+   Acá van los colores de cada estado (pastillas, puntitos y filas), los anchos de la tabla y las ventanas de esta pantalla.
    El menú de la izquierda está en menuPanel.css y las tarjetas de "Pendientes de cocina" en
    pedidosCocina.css (compartido con Tareas de Cocina: acá solo se cambia cómo se ven adentro de la
    ventana de esta pantalla, con reglas que empiezan con .modal-pendientes).
 
    Secciones:
-     0. Perillas de esta pantalla
+     0. Perillas de esta pantalla (y los colores de cada estado)
      1. Mostrar la página cuando terminó de cargar
      2. Piezas generales
      3. Título: título, bajada y los 4 botones
-     4. La tarjeta: barra (pestañas, buscador y Plan) y filtros elegidos
+     4. La tarjeta: barra (pestañas, buscador y Plan)
      5. Tabla de platos
-     6. Pie de la tabla: "Mostrando X de Y platos" y las páginas
+     6. Pie de la tabla (6b: compu más chica)
      7. Menú ⋯ de las filas
      8. Ventanas: lo de esta pantalla
      9. Ventana "Pedir a cocina"
@@ -31,36 +34,65 @@
 
 /* ===== 0. PERILLAS DE ESTA PANTALLA ===== */
 :root {
-    /* La tabla de platos */
-    --prod-tabla-ancho-minimo: 1090px;  /* lo más angosta que queda la tabla: si la pantalla es más chica, se mueve de costado adentro de su tarjeta */
-    --prod-ancho-plato: 29%;            /* el ancho de la columna Plato (nombre + descripción). Las demás tienen lo justo para su título */
-    --prod-ancho-plan: 160px;           /* Plan: entra "MANTENIMIENTO" en un renglón */
-    --prod-ancho-estado: 106px;         /* Estado: entra la pastilla "Sin stock" */
-    --prod-ancho-disponibles: 142px;    /* Disponibles (con sus flechitas y su ⓘ) */
-    --prod-ancho-reservadas: 128px;     /* Reservadas (con su ⓘ) */
-    --prod-ancho-total: 102px;          /* Total (con sus flechitas y su ⓘ) */
-    --prod-ancho-minimo: 82px;          /* Mínimo */
-    --prod-ancho-menu: 54px;            /* la columna del ⋯ */
-    --prod-fila-alto: 10px;             /* aire arriba y abajo de cada fila: si lo subís, filas más altas */
-    --prod-letra-numeros: 15px;         /* Disponibles, Reservadas, Total y Mínimo: todos del mismo tamaño */
-    --prod-color-numeros: #26312a;      /* …y del mismo color */
+    /* La tabla de platos: Plato, Plan, Estado y ••• tienen un ancho fijo. Disponibles, Reservadas, Total y Mínimo no tienen
+       ancho: miden lo que su título (nunca menos) y se reparten lo que sobra en una pantalla grande (así Plan queda pegada a
+       Plato). Si la tabla no entra, se mueve de costado adentro de su tarjeta */
+    --prod-tabla-ancho-minimo: 1080px;  /* lo más angosta que queda la tabla (las fijas + los títulos de los números): más chica,
+                                           se mueve de costado adentro de su tarjeta y ninguna columna se achica */
+    --prod-ancho-plato: 260px;          /* Plato: fijo (lo que sobra no va acá); un nombre largo se corta con "…" */
+    --prod-ancho-plan: 160px;           /* Plan: fija, pegada a Plato */
+    --prod-ancho-estado: 140px;         /* Estado (la pastilla, al medio): fija */
+    --prod-ancho-menu: 60px;            /* la columna del •••: fija */
 
-    /* Los colores de las filas según su estado */
-    --prod-fila-bajo: #fffaeb;          /* Bajo: amarillo suave */
-    --prod-fila-bajo-encima: #fff6db;   /* …al pasar el mouse */
-    --prod-fila-sin: #fff3f1;           /* Sin stock: rojo suave */
-    --prod-fila-sin-encima: #ffebe8;    /* …al pasar el mouse */
-    --prod-fila-encima: #fbfcfb;        /* Bien y Sin mínimo, al pasar el mouse */
+    /* Las pastillas de estado: el fondo y la letra de cada una */
+    --prod-bien-fondo: #dcf5e3;   --prod-bien-letra: #127f36;   /* Bien: verde */
+    --prod-bajo-fondo: #fff3df;   --prod-bajo-letra: #a35f00;   /* Bajo: naranja */
+    --prod-sin-fondo:  #fdecea;   --prod-sin-letra:  #b3261e;   /* Sin stock: rojo */
+    --prod-nada-fondo: #f0f2f0;   --prod-nada-letra: #4a564d;   /* Sin mínimo: gris */
+
+    /* El puntito de color de cada pestaña */
+    --prod-punto-sin:  #d93025;         /* Sin stock: rojo */
+    --prod-punto-bajo: #e09a1a;         /* Bajos: naranja */
+    --prod-punto-bien: #12893a;         /* Bien: verde */
+    --prod-punto-nada: #8a948d;         /* Sin mínimo: gris */
+
+    /* El fondo de las filas al pasar el mouse (el de siempre de Bajo y Sin stock está en global.css: --fila-bajo y --fila-sin) */
+    --prod-fila-bajo-encima: #fff5e2;   /* Bajo */
+    --prod-fila-sin-encima: #ffefed;    /* Sin stock */
+    --prod-fila-con-pedido: #f6fbf7;    /* "Pedir a cocina": la fila de un plato con cantidad */
+
+    /* Los fondos de "para hoy" y "atrasado" de la ventana "Pendientes de cocina" (quedan como estaban) */
+    --prod-fila-bajo: #fffaeb;          /* para hoy: amarillo suave */
+    --prod-fila-sin: #fff3f1;           /* atrasado: rojo suave */
 
     /* Lo que necesita pedidosCocina.css (antes lo daba stock.css) */
     --primary-green: var(--verde-principal);
     --radius: var(--radio-boton-panel);
 }
 
-/* El fondo de cada fila según su estado. Lo usan la tabla y la ventana "Pedir a cocina" */
-.fila-bien, .fila-sincontrol { --fondo-fila: #ffffff;              --fondo-fila-encima: var(--prod-fila-encima); }
-.fila-bajo                   { --fondo-fila: var(--prod-fila-bajo); --fondo-fila-encima: var(--prod-fila-bajo-encima); }
-.fila-sin                    { --fondo-fila: var(--prod-fila-sin);  --fondo-fila-encima: var(--prod-fila-sin-encima); }
+/* El fondo de cada fila de la tabla según su estado (y al pasar el mouse) */
+.fila-bien, .fila-sincontrol { --fondo-fila: var(--blanco);   --fondo-fila-encima: var(--fila-encima); }
+.fila-bajo                   { --fondo-fila: var(--fila-bajo); --fondo-fila-encima: var(--prod-fila-bajo-encima); }
+.fila-sin                    { --fondo-fila: var(--fila-sin);  --fondo-fila-encima: var(--prod-fila-sin-encima); }
+
+/* Las pastillas de estado (la pieza está en global.css, sección 13d): el color de cada una.
+   Las usan la tabla y la ventana "Pedir a cocina" */
+.estado-bien       { background: var(--prod-bien-fondo); color: var(--prod-bien-letra); }
+.estado-bajo       { background: var(--prod-bajo-fondo); color: var(--prod-bajo-letra); }
+.estado-sin        { background: var(--prod-sin-fondo);  color: var(--prod-sin-letra); }
+.estado-sincontrol { background: var(--prod-nada-fondo); color: var(--prod-nada-letra); }
+
+/* El puntito de las pestañas (la pieza está en global.css, sección 13b): el color de su estado ("Todos" no tiene) */
+.pestana-sin .punto-pestana        { background: var(--prod-punto-sin); }
+.pestana-bajo .punto-pestana       { background: var(--prod-punto-bajo); }
+.pestana-bien .punto-pestana       { background: var(--prod-punto-bien); }
+.pestana-sincontrol .punto-pestana { background: var(--prod-punto-nada); }
+
+/* El puntito de color de cada plan: en el diseño nuevo no se ve (ni en la tabla, ni en el menú "Plan", ni en "Pedir a cocina").
+   heladera.js y pedirCocina.js lo siguen armando: para volverlo, sacar esta regla (los colores quedan abajo) */
+.punto-plan {
+    display: none;
+}
 
 /* El color fijo del puntito de cada plan (heladera.js elige punto-plan-0 a -5 con el número del plan) */
 .punto-plan-0 { background: #12893a; }   /* verde */
@@ -109,50 +141,29 @@ body.cargada {
     color: var(--rojo);
 }
 
-/* La página: una columna, con 20 px entre la tarjeta y el pie */
+/* La página: una columna con la tarjeta (el pie va adentro). El aire de arriba, 22 px, es el de global.css */
 .pagina-produccion {
     display: flex;
     flex-direction: column;
-    gap: 20px;
     min-width: 0;
-    padding-top: 20px;
 }
 
 
 /* ===== 3. TÍTULO: TÍTULO, BAJADA Y LOS 4 BOTONES ===== */
+/* El título (28 px) y la bajada están en global.css (sección 2). Acá, cómo se acomodan */
 
-/* El título y la bajada a la izquierda; los botones a la derecha, a la altura del medio. Si no entran, bajan */
+/* El título y la bajada a la izquierda; los botones a la derecha, arriba. Si no entran, los botones bajan */
 .cabecera-produccion {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 16px;
+    gap: 16px 24px;
     flex-wrap: wrap;
 }
 
 .cabecera-textos {
     flex: 1 1 320px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.cabecera-produccion h1 {
-    margin: 0;
-    color: var(--titulo);
-    font-size: 28px;
-    font-weight: 800;
-    line-height: 1.2;
-    letter-spacing: -.02em;
-    white-space: nowrap;
-}
-
-.cabecera-frase {
-    max-width: 560px;
-    margin: 0;
-    color: var(--texto-gris);
-    font-size: 13px;
-    line-height: 1.45;
+    min-width: 0;
 }
 
 /* Los 4 botones (cada uno está en global.css, sección 13a) */
@@ -164,9 +175,9 @@ body.cargada {
 }
 
 
-/* ===== 4. LA TARJETA: BARRA (PESTAÑAS, BUSCADOR Y PLAN) Y FILTROS ELEGIDOS ===== */
+/* ===== 4. LA TARJETA: BARRA (PESTAÑAS, BUSCADOR Y PLAN) ===== */
 
-/* La tarjeta blanca con sombra suave: adentro van la barra, los filtros elegidos y la tabla */
+/* La tarjeta blanca con borde finito (el molde): adentro van la barra, la tabla y el pie */
 .tarjeta-tabla {
     border-radius: var(--radio-tarjeta);
     background: var(--blanco);
@@ -175,13 +186,13 @@ body.cargada {
 
 /* La barra de arriba: las pestañas a la izquierda y el buscador con "Plan" a la derecha */
 .barra-tarjeta {
-    min-height: 52px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: space-between;
+    gap: 8px 12px;
     flex-wrap: wrap;
-    padding: 9px 10px;
-    border-bottom: 1px solid #e6ebe4;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--linea-tabla);
 }
 
 /* Las pestañas (cada una está en global.css, sección 13b): si no entran a lo ancho, se mueven de costado */
@@ -200,184 +211,107 @@ body.cargada {
     margin-left: auto;
 }
 
-/* El botón "Plan" y su lista de planes (que se abre debajo) */
+/* El botón "Plan" (la pieza está en global.css, sección 13e) y su menú, que se abre debajo */
 .caja-filtro-plan {
     position: relative;
 }
 
-.boton-filtros {
-    height: var(--alto-control-panel);
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 0 12px;
-    border: 1px solid var(--borde-gris);
-    border-radius: var(--radio-chico);
-    background: var(--blanco);
-    color: var(--titulo);
-    font: inherit;
-    font-size: 14px;
-    font-weight: 600;
-    white-space: nowrap;
-    cursor: pointer;
-    box-shadow: var(--sombra-chica);
+/* Con un plan elegido, al lado de "Plan": "· Mantenimiento". El "·" es su propia cajita (se ve solo con algo elegido) */
+.separador-filtro {
+    display: none;
+    margin-right: -3px;
 }
 
-.boton-filtros:hover,
-.boton-filtros[aria-expanded="true"] {
-    background: var(--gris-encima);
+.con-filtros .separador-filtro {
+    display: inline;
 }
 
-/* Con planes elegidos: borde verde (la clase "con-filtros" la pone heladera.js) */
-.boton-filtros.con-filtros {
-    border-color: var(--verde-principal);
-    background: #f4faf5;
-}
-
-/* El número verde de "Plan" (cuántos planes hay elegidos) */
+/* El plan elegido (lo escribe heladera.js): "MANTENIMIENTO" se ve "Mantenimiento" (todo en minúscula y la primera en mayúscula).
+   inline-block: así puede tener ::first-letter */
 .cantidad-filtros {
-    min-width: 20px;
-    height: 18px;
-    padding: 0 6px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radio-pastilla);
-    background: var(--verde-principal);
-    color: var(--blanco);
-    font-size: 11.5px;
-    font-weight: 700;
+    display: inline-block;
+    text-transform: lowercase;
+}
+
+.cantidad-filtros::first-letter {
+    text-transform: uppercase;
 }
 
 .cantidad-filtros[hidden] {
     display: none;
 }
 
-/* La lista de planes: debajo del botón, alineada a su derecha */
+/* El menú de planes (la caja está en global.css, sección 13e): debajo del botón, alineado a su derecha */
 .menu-filtro-plan {
     position: absolute;
-    top: 40px;
-    right: 0;
+    top: calc(100% + 6px);
+    right: -4px;
     z-index: 31;
-    width: 264px;
-    overflow: hidden;
-    border: 1px solid var(--borde-gris);
-    border-radius: var(--radio-boton-panel);
-    background: var(--blanco);
-    box-shadow: 0 16px 40px -12px rgba(17, 26, 20, .22);
+    width: 220px;
 }
 
+/* "Buscar plan…" no está en el diseño (PLAN.md, duda 3): no se muestra */
 .menu-filtro-plan-buscar {
-    padding: 8px;
-    border-bottom: 1px solid var(--borde-gris);
-}
-
-.campo-buscar-plan {
-    width: 100%;
-    height: 34px;
-    padding: 0 10px;
-    border: 1px solid var(--borde-gris);
-    border-radius: var(--radio-boton-panel);
-    font: inherit;
-    font-size: 13.5px;
-    outline: none;
-}
-
-.campo-buscar-plan:focus {
-    border-color: var(--verde-principal);
+    display: none;
 }
 
 .lista-filtro-plan {
     display: flex;
     flex-direction: column;
-    gap: 2px;
     max-height: 300px;
     overflow-y: auto;
-    padding: 6px;
 }
 
-/* Cada plan: casilla, puntito de color, nombre y cuántos platos tiene */
-.opcion-plan {
-    min-height: 38px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 0 8px;
-    border-radius: var(--radio-boton-panel);
-    color: var(--texto);
-    font-size: 14px;
-    cursor: pointer;
-}
-
-.opcion-plan:hover {
-    background: var(--gris-encima);
-}
-
+/* Cada plan (la pieza está en global.css, sección 13e: "opcion-filtro"). La casilla no se ve, pero sigue andando:
+   tocar el renglón la tilda (es un <label>) y con el teclado se llega con Tab */
 .casilla-plan {
-    width: 17px;
-    height: 17px;
+    position: absolute;
+    width: 1px;
+    height: 1px;
     margin: 0;
-    flex: none;
-    accent-color: var(--verde-principal);   /* la casilla tildada, en verde */
-    cursor: pointer;
+    opacity: 0;
 }
 
+/* Con el teclado, el renglón de la casilla elegida se marca */
+.opcion-plan:focus-within {
+    box-shadow: inset 0 0 0 2px var(--verde-borde-filtro);
+}
+
+/* El nombre del plan: "MANTENIMIENTO" se ve "Mantenimiento" (es un ítem de la fila: ya puede tener ::first-letter) */
 .nombre-plan {
     flex: 1;
     min-width: 0;
+    text-transform: lowercase;
     overflow-wrap: anywhere;
 }
 
+.nombre-plan::first-letter {
+    text-transform: uppercase;
+}
+
+/* Cuántos platos tiene cada plan: no está en el diseño (PLAN.md, duda 3) */
 .cantidad-plan {
-    color: var(--texto-gris);
-    font-size: 12.5px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
+    display: none;
 }
 
 .plan-vacio {
     margin: 0;
     padding: 10px;
-    color: var(--texto-gris);
+    color: var(--texto-apagado);
     font-size: 13px;
     text-align: center;
 }
 
-.boton-limpiar-plan {
-    width: 100%;
-    height: 38px;
-    border: 0;
-    border-top: 1px solid var(--borde-gris);
-    background: var(--blanco);
-    color: var(--verde-texto);
-    font: inherit;
-    font-size: 13.5px;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.boton-limpiar-plan:hover {
-    background: var(--gris-encima);
-}
-
-/* Debajo de la barra: "Plan: Mantenimiento ✕" y "Limpiar todo" (cada chip está en global.css, sección 13e) */
+/* Debajo de la barra iba "Plan: Mantenimiento ✕" y "Limpiar todo": no está en el diseño (PLAN.md, duda 2).
+   El botón ya dice "Plan · Mantenimiento" y su menú tiene "Limpiar filtro". heladera.js la sigue armando */
 .fila-chips {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    padding: 10px 14px;
-    border-bottom: 1px solid #e6ebe4;
-}
-
-.fila-chips[hidden] {
     display: none;
 }
 
 
 /* ===== 5. TABLA DE PLATOS ===== */
-/* Los títulos y las líneas son los de todas las tablas del panel (global.css, sección 8).
-   Acá va solo lo de esta tabla: anchos, colores de fila y números. */
+/* Los títulos, las filas de 60 px y las líneas son los de todas las tablas del panel (global.css, sección 8).
+   Acá va solo lo de esta tabla: anchos, colores de fila, Plan, números, Mínimo y el •••. */
 
 /* Si la tabla no entra a lo ancho, se mueve de costado solo acá adentro (nunca toda la página).
    position: relative: lo escondido de adentro (el texto "Acciones" y las ayudas ⓘ) se ubica respecto de esta caja;
@@ -385,14 +319,15 @@ body.cargada {
 .caja-tabla-produccion {
     position: relative;
     overflow-x: auto;
-    border-radius: 0 0 var(--radio-tarjeta) var(--radio-tarjeta);
 }
 
 /* "table." adelante: así les gana a las reglas de tablas de global.css */
+/* table-layout: auto = cada columna sin ancho (los números) mide lo que tiene adentro (como mínimo, su título entero) y
+   se lleva una parte de lo que sobra; las que tienen ancho (Plato, Plan, Estado y •••) quedan como están */
 table.tabla-produccion {
     width: 100%;
     min-width: var(--prod-tabla-ancho-minimo);
-    table-layout: fixed;
+    table-layout: auto;
     border-collapse: separate;
     border-spacing: 0;
 }
@@ -402,33 +337,35 @@ table.tabla-produccion thead th {
     white-space: nowrap;
 }
 
-/* El ancho de cada columna (si sobra lugar, se lo reparten entre todas) */
+/* El ancho de las columnas fijas (las perillas de la sección 0). Las de números no tienen: se reparten lo que sobra */
 table.tabla-produccion thead .col-plato       { width: var(--prod-ancho-plato); }
 table.tabla-produccion thead .col-plan        { width: var(--prod-ancho-plan); }
 table.tabla-produccion thead .col-estado      { width: var(--prod-ancho-estado); }
-table.tabla-produccion thead .col-libres      { width: var(--prod-ancho-disponibles); }
-table.tabla-produccion thead .col-reservadas  { width: var(--prod-ancho-reservadas); }
-table.tabla-produccion thead .col-en-heladera { width: var(--prod-ancho-total); }
-table.tabla-produccion thead .col-minimo      { width: var(--prod-ancho-minimo); }
 table.tabla-produccion thead .col-menu        { width: var(--prod-ancho-menu); }
 
-/* Los números (Disponibles, Reservadas, Total y Mínimo), a la derecha */
+/* Los números (Disponibles, Reservadas, Total y Mínimo) y el •••, a la derecha; Estado, al medio */
 table.tabla-produccion .col-numero,
-table.tabla-produccion .col-minimo {
+table.tabla-produccion .col-minimo,
+table.tabla-produccion .col-menu {
     text-align: right;
 }
 
-/* Los títulos que ordenan: el texto con sus dos flechitas (toma la letra gris del título) */
+table.tabla-produccion .col-estado {
+    text-align: center;
+}
+
+/* Los títulos que ordenan: el texto (toma la letra del título). Las flechitas no ocupan lugar (van flotando al costado) */
 .boton-ordenar {
+    position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
     padding: 0;
     border: 0;
     background: transparent;
     color: inherit;
     font: inherit;
     letter-spacing: inherit;
+    text-transform: inherit;
     white-space: nowrap;
     cursor: pointer;
 }
@@ -437,17 +374,34 @@ table.tabla-produccion .col-minimo {
     color: var(--texto);
 }
 
-/* Las dos flechitas: chiquitas y grises, como el diseño; las de la columna elegida, un poco más oscuras y la de su sentido marcada */
+/* Las dos flechitas: el diseño no las muestra, así que aparecen solo al pasar el mouse por el título (o con el teclado),
+   también en la columna por la que se está ordenando (PLAN.md, duda 5). Van a la derecha del título */
 .icono-orden {
+    position: absolute;
+    top: 50%;
+    left: calc(100% + 3px);
     width: 13px;
     height: 13px;
-    flex: none;
-    color: #9aa59d;
+    margin-top: -6.5px;
+    color: var(--icono-suave);
     fill: none;
     stroke: currentColor;
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
+    opacity: 0;
+    transition: opacity .15s;
+}
+
+/* En las columnas de números (alineadas a la derecha), la flechita va a la izquierda del título */
+table.tabla-produccion th.col-numero .icono-orden {
+    left: auto;
+    right: calc(100% + 3px);
+}
+
+.boton-ordenar:hover .icono-orden,
+.boton-ordenar:focus-visible .icono-orden {
+    opacity: 1;
 }
 
 .icono-orden path {
@@ -456,7 +410,7 @@ table.tabla-produccion .col-minimo {
 
 .orden-sube .icono-orden,
 .orden-baja .icono-orden {
-    color: var(--texto-gris);
+    color: var(--texto-apagado);
 }
 
 .orden-sube .flecha-sube,
@@ -513,6 +467,7 @@ table.tabla-produccion .col-minimo {
     line-height: 1.4;
     letter-spacing: normal;
     text-align: left;
+    text-transform: none;
     white-space: normal;
     box-shadow: 0 10px 24px -10px rgba(17, 26, 20, .45);
     opacity: 0;
@@ -527,22 +482,21 @@ table.tabla-produccion .col-minimo {
     transform: translateY(0);
 }
 
-/* Las celdas: el fondo sale del estado de la fila (sección 0). La línea de abajo es la de global.css */
+/* Las celdas: el alto, el aire y la letra son los de global.css; el fondo sale del estado de la fila (sección 0) */
 table.tabla-produccion tbody td {
-    padding: var(--prod-fila-alto) var(--celda-espacio);
     background: var(--fondo-fila, #fff);
-    font-size: 14px;
-    vertical-align: middle;
-    transition: background .2s;
+    transition: background var(--transicion-fila);
 }
 
 table.tabla-produccion tbody tr:hover td {
     background: var(--fondo-fila-encima, #fff);
 }
 
-/* Plato: el nombre en un renglón y la descripción en otro, con "…" si no entran */
+/* Plato: el nombre (500) y, si tiene, la descripción abajo en gris; con "…" si no entran */
 .plato-nombre,
 .plato-descripcion {
+    width: 0;                      /* width 0 + min-width 100%: el nombre no estira la columna (mide lo que mide Plato) */
+    min-width: 100%;               /* y si no entra, se corta con "…" */
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -550,53 +504,64 @@ table.tabla-produccion tbody tr:hover td {
 
 .plato-nombre {
     color: var(--texto);
-    font-size: 14px;
     font-weight: 500;
-    line-height: 20px;
+    line-height: var(--alto-dato-principal);   /* las perillas de las celdas de 2 renglones (global.css) */
 }
 
 .plato-descripcion {
-    color: var(--texto-gris);
-    font-size: 12.5px;
-    line-height: 18px;
+    margin-top: 1px;
+    color: var(--texto-apagado);
+    font-size: var(--letra-dato-chico);
+    line-height: var(--alto-dato-chico);   /* 19 + 1 + 16 = 36: con el aire de la celda, la fila de 2 renglones mide 52 (como el molde) */
 }
 
 .plato-descripcion:empty {
     display: none;
 }
 
-/* Plan: el puntito de color y el nombre */
+/* Plan: solo el nombre (el puntito no se ve), gris oscuro y sin mayúsculas: "MANTENIMIENTO" se ve "Mantenimiento".
+   inline-block: así puede tener ::first-letter. Lo usan la tabla y "Pedir a cocina" */
 .plan-con-punto {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: #26312a;
-    font-size: 13.5px;
-    font-weight: 400;
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--titulo);
+    text-overflow: ellipsis;
+    text-transform: lowercase;
     white-space: nowrap;
+    vertical-align: middle;
 }
 
-.punto-plan {
-    width: 8px;
-    height: 8px;
-    flex: none;
-    border-radius: 50%;
+.plan-con-punto::first-letter {
+    text-transform: uppercase;
 }
 
-/* Disponibles, Reservadas, Total y Mínimo: todos iguales (15 px, semibold, cifras del mismo ancho) */
-table.tabla-produccion tbody .numero-libres,
-table.tabla-produccion tbody .numero-secundario,
-.boton-minimo,
-.numero-minimo {
-    color: var(--prod-color-numeros);
-    font-size: var(--prod-letra-numeros);
-    font-weight: 600;
+/* Disponibles, Reservadas y Total: la letra de la celda, con las cifras del mismo ancho. Total, en negrita */
+table.tabla-produccion tbody .col-numero {
     font-variant-numeric: tabular-nums;
 }
 
-/* Mínimo: el ✎ y el número (al tocarlo aparece el casillero con ✓).
+table.tabla-produccion tbody .numero-total {
+    font-weight: 600;
+}
+
+/* Mínimo: el ✎ gris a la izquierda y el número (o "—" si no tiene). Al tocarlo aparece el casillero con ✓.
    row-reverse = el ✎ va a la izquierda, así el número queda alineado a la derecha como los demás.
    margin-right: -8px = el número queda justo donde terminan los de las otras columnas */
+.boton-minimo,
+.numero-minimo {
+    color: var(--texto);
+    font-size: inherit;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Sin mínimo: el "—" en gris clarito (la fila tiene la clase fila-sincontrol) */
+.fila-sincontrol .boton-minimo,
+.fila-sincontrol .numero-minimo {
+    color: var(--texto-suave);
+}
+
 .boton-minimo {
     height: 30px;
     display: inline-flex;
@@ -623,12 +588,14 @@ table.tabla-produccion tbody .numero-secundario,
 }
 
 .icono-lapiz {
-    width: 14px;
-    height: 14px;
+    width: 13px;
+    height: 13px;
     color: var(--icono-suave);
 }
 
 .minimo-editar {
+    width: 0;                      /* width 0 + min-width 100%: al editar, el casillero no ensancha la columna (si no, */
+    min-width: 100%;               /* la tabla se movería); como va a la derecha, lo que sobra sale hacia la izquierda */
     display: flex;
     justify-content: flex-end;     /* a la derecha, como el número */
     align-items: center;
@@ -693,34 +660,35 @@ table.tabla-produccion tbody .numero-secundario,
     height: 16px;
 }
 
-/* La columna ⋯ */
+/* La columna •••: un poco menos de aire a la derecha, como el diseño */
 table.tabla-produccion tbody .col-menu {
-    text-align: right;
+    padding-right: 12px;
 }
 
+/* El ••• verde, en un botón de 32 px */
 .boton-menu-fila {
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     padding: 0;
-    border: 1px solid transparent;
-    border-radius: var(--radio-boton-panel);
+    border: 0;
+    border-radius: var(--radio-chico);
     background: transparent;
-    color: var(--titulo);
+    color: var(--verde-principal);
     cursor: pointer;
-    transition: background .18s, border-color .18s;
+    transition: background .18s;
 }
 
 .boton-menu-fila:hover,
 .boton-menu-fila:focus-visible {
-    background: var(--gris-encima);
+    background: var(--verde-suave);
 }
 
 .boton-menu-fila svg {
-    width: 18px;
-    height: 18px;
+    width: 22px;
+    height: 22px;
 }
 
 /* Cuando no hay platos para mostrar: el dibujo, el texto y "Limpiar filtros" */
@@ -745,7 +713,7 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
     justify-content: center;
     border-radius: 50%;
     background: var(--verde-suave);
-    color: var(--verde-principal);
+    color: var(--verde-texto);
     box-shadow: 0 0 0 8px #f4faf5;
 }
 
@@ -763,7 +731,7 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
 
 .tabla-vacia-texto {
     max-width: 320px;
-    color: var(--texto-gris);
+    color: var(--texto-apagado);
     font-size: 14px;
 }
 
@@ -771,7 +739,7 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
     height: 38px;
     margin-top: 4px;
     padding: 0 16px;
-    border: 1px solid var(--borde-gris);
+    border: 1px solid var(--borde-casillero);
     border-radius: var(--radio-boton-panel);
     background: var(--blanco);
     color: var(--verde-texto);
@@ -783,23 +751,33 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
 
 .boton-limpiar-filtros:hover {
     background: var(--verde-suave);
-    border-color: var(--verde-borde);
+    border-color: var(--verde-borde-filtro);
 }
 
 
 /* ===== 6. PIE DE LA TABLA: "MOSTRANDO X DE Y PLATOS" Y LAS PÁGINAS ===== */
-/* Los botones de las páginas están en global.css (sección 13h, "paginacion-con-palabras") */
-.pie-produccion {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-}
+/* Va adentro de la tarjeta y es la pieza del molde (global.css: ".pie-tabla" en la sección 8 y las páginas en la 9).
+   Acá no hace falta nada más: el celular está en la sección 15 */
 
-.resumen-platos {
-    color: var(--texto-gris);
-    font-size: 14px;
+
+/* ===== 6b. COMPU MÁS CHICA (hasta 1400 px): LAS COLUMNAS UN POCO MÁS ANGOSTAS ===== */
+/* Así la tabla entra entera también a 1280 px (más chico, se mueve de costado adentro de su tarjeta). La misma idea:
+   Plato, Plan, Estado y ••• fijos (más angostos); los números miden lo que su título y se reparten lo que sobra */
+@media (max-width: 1400px) {
+    :root {
+        --prod-tabla-ancho-minimo: 924px;
+        --prod-ancho-plato: 200px;
+        --prod-ancho-plan: 140px;
+        --prod-ancho-estado: 116px;
+        --prod-ancho-menu: 56px;
+    }
+
+    /* 12 px a los costados de cada celda (en vez de 18) */
+    table.tabla-produccion thead th,
+    table.tabla-produccion tbody td {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
 }
 
 
@@ -895,15 +873,79 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
 
 
 /* ===== 9. VENTANA "PEDIR A COCINA" ===== */
+/* La caja y sus botones salen de global.css (sección 13f); acá va lo de esta ventana (el diseño de la captura 03 y 04) */
 
-/* Grande: 1220 × 860 (o lo que entre) */
-.modal-pedido {
-    max-width: 1220px;
-    height: 860px;
-    max-height: 94vh;
+/* Lo de atrás, más clarito que en las otras ventanas */
+.modal.fondo-ventana-pedido {
+    background: rgba(17, 26, 20, .4);
 }
 
-/* Dos columnas: los platos y "Tu pedido" */
+/* Grande: 1220 × 760 (o lo que entre), con esquinas de 18 */
+.modal-pedido {
+    max-width: 1220px;
+    height: 760px;
+    border-radius: 18px;
+    box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .45);
+}
+
+/* Arriba, en una fila: el ícono, el título con su frase y la X redonda gris */
+.modal-pedido .cabecera-ventana {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 24px;
+    border-bottom-color: var(--linea-tabla);
+}
+
+.modal-pedido .icono-ventana {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    border: 0;
+    border-radius: 11px;
+    background: var(--verde-suave);
+    color: var(--verde-texto);
+    box-shadow: none;
+}
+
+.modal-pedido .icono-ventana svg {
+    width: 18px;
+    height: 18px;
+}
+
+.modal-pedido .textos-ventana {
+    gap: 0;
+}
+
+.modal-pedido h3 {
+    color: var(--titulo);
+    font-size: 19px;
+    letter-spacing: 0;
+}
+
+.modal-pedido .frase-ventana {
+    color: var(--texto-apagado);
+    font-size: 13.5px;
+}
+
+.modal-pedido .boton-cerrar-ventana {
+    top: calc(50% - 17px);
+    right: 24px;
+    border-radius: 50%;
+    background: #f1f3f0;
+    color: var(--titulo);
+}
+
+.modal-pedido .boton-cerrar-ventana:hover {
+    background: #e5e9e4;
+}
+
+.modal-pedido .boton-cerrar-ventana svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Dos columnas: los platos y "Tu pedido" (330 px) */
 .pedido-cuerpo {
     flex: 1;
     min-height: 0;
@@ -916,13 +958,8 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 18px 24px 24px;
-}
-
-/* Las pestañas de la ventana: adentro de una columna con scroll no se achican (si no, desaparecen) */
-.pedido-izquierda .caja-pestanas {
-    flex: none;
+    gap: 18px;
+    padding: 22px 24px;
 }
 
 /* "3 platos están abajo del mínimo": amarillo suave */
@@ -939,7 +976,8 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
     font-size: 14px;
 }
 
-.aviso-pedido[hidden] {
+/* …pero en el diseño nuevo no está (PLAN.md, duda 4): no se muestra. El JS lo sigue escribiendo; para volverlo, sacar esta regla */
+.pedido-izquierda .aviso-pedido {
     display: none;
 }
 
@@ -959,136 +997,170 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
     height: 15px;
 }
 
-/* Para cuándo · Plan · Buscar */
+/* Para cuándo (200 px) · Plan (220 px) · Buscar (lo que sobra) */
 .pedido-controles {
     flex: none;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    display: flex;
     gap: 12px;
 }
 
+/* Cada campo: su nombre chico y gris arriba, y abajo la cajita */
 .control-pedido {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    color: var(--titulo);
-    font-size: 13.5px;
-    font-weight: 600;
+    color: var(--texto-apagado);
+    font-size: 12.5px;
+    font-weight: 500;
 }
 
-.control-pedido input,
-.control-pedido select {
-    width: 100%;
-    height: 40px;
+.control-fecha {
+    width: 200px;
+    flex: none;
+}
+
+.control-plan {
+    width: 220px;
+    flex: none;
+}
+
+.control-buscar {
+    flex: 1;
+    min-width: 0;
+}
+
+/* La cajita blanca de 38 px con borde finito: el dibujo y el casillero adentro */
+.caja-control {
+    position: relative;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     padding: 0 12px;
-    border: 1px solid var(--borde-gris);
     border-radius: var(--radio-boton-panel);
     background: var(--blanco);
+    box-shadow: inset 0 0 0 1px var(--borde-casillero);
+    color: var(--texto);
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.caja-control:focus-within {
+    box-shadow: inset 0 0 0 1px var(--verde-principal), 0 0 0 3px var(--verde-suave);
+}
+
+/* El 📅 y la lupa, grises */
+.icono-control {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    color: var(--texto-apagado);
+}
+
+/* La ▾ del Plan, a la derecha (deja pasar el clic a la lista) */
+.icono-flecha-control {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 14px;
+    height: 14px;
+    color: var(--texto-suave);
+    pointer-events: none;
+}
+
+/* Los casilleros de adentro, sin borde (el borde es el de la cajita) */
+.caja-control input,
+.caja-control select {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
     color: var(--texto);
     font: inherit;
-    font-size: 14px;
-    font-weight: 500;
-    outline: none;
 }
 
-.control-pedido input:focus,
-.control-pedido select:focus {
-    border-color: var(--verde-principal);
-    box-shadow: 0 0 0 3px var(--verde-suave);
+.caja-control input::placeholder {
+    color: var(--texto-suave);
 }
 
-/* Las pestañas de la ventana (se pueden elegir varias): las elegidas, verdes */
-.pestanas-pedido {
-    flex: none;
-    display: flex;
-    gap: 2px;
-    padding: 4px;
-    border: 1px solid var(--borde-gris);
-    border-radius: var(--radio-pastilla);
-    background: #f2f5f1;
-}
-
-.pestana-pedido {
-    height: 34px;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 0 13px;
-    border: 0;
-    border-radius: var(--radio-pastilla);
-    background: transparent;
-    color: var(--titulo);
-    font: inherit;
-    font-size: 13.5px;
-    font-weight: 600;
-    white-space: nowrap;
+/* El Plan: sin la flechita del navegador (va la nuestra) y con lugar a la derecha para ella */
+.caja-control select {
+    appearance: none;
+    padding-right: 22px;
     cursor: pointer;
-    transition: background .2s, color .2s;
 }
 
-.pestana-pedido:hover {
-    background: rgba(17, 26, 20, .05);
+/* La fecha: el calendario del navegador queda invisible y estirado sobre toda la cajita, así un clic en cualquier
+   lado lo abre (el 📅 que se ve es el nuestro, a la izquierda) */
+.control-fecha input::-webkit-calendar-picker-indicator {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
 }
 
-.pestana-pedido.activo {
-    background: var(--verde-principal);
-    color: var(--blanco);
-    box-shadow: 0 4px 10px -4px rgba(18, 137, 58, .55);
+/* La tarjeta de la tabla: blanca, con borde finito. Arriba, la barra de las pestañas y "Cargar rápido" */
+.tarjeta-tabla-pedido {
+    flex: none;
+    border-radius: var(--radio-tarjeta);
+    background: var(--blanco);
+    box-shadow: var(--sombra-tarjeta-panel);
 }
 
-/* El número de cada pestaña de la ventana: en una pastillita gris (en la elegida, blanca transparente) */
-.pestana-pedido .cantidad-pestana {
-    min-width: 20px;
-    height: 18px;
-    padding: 0 6px;
-    display: inline-flex;
+.barra-tabla-pedido {
+    display: flex;
     align-items: center;
-    justify-content: center;
-    border-radius: var(--radio-pastilla);
-    background: rgba(17, 26, 20, .07);
-    color: var(--texto-gris);
-    font-size: 11.5px;
-    font-weight: 700;
+    justify-content: space-between;
+    gap: 8px 10px;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--linea-tabla);
 }
 
-.pestana-pedido.activo .cantidad-pestana {
-    background: rgba(255, 255, 255, .22);
-    color: var(--blanco);
-}
-
-/* "Cargar rápido a los que se ven": la franja gris con el casillero y los botones */
+/* "Cargar rápido: [Cant.] [A cada uno] [Repartir] Limpiar" (actúa sobre los platos que se ven) */
 .carga-rapida {
     flex: none;
     display: flex;
     align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    padding: 10px 14px;
-    border: 1px solid var(--borde-gris);
-    border-radius: var(--radio-boton-panel);
-    background: var(--gris-encima);
+    gap: 6px;
 }
 
 .carga-rapida-titulo {
-    margin-right: 4px;
-    color: var(--titulo);
-    font-size: 14px;
-    font-weight: 600;
+    color: var(--texto-apagado);
+    font-size: 12.5px;
+    white-space: nowrap;
 }
 
 #pRapidoCantidad {
-    width: 76px;
-    height: 34px;
+    width: 58px;
+    height: 30px;
+    padding: 0 6px;
     border: 1px solid var(--borde-casillero);
-    border-radius: var(--radio-boton-panel);
+    border-radius: var(--radio-chico);
     background: var(--blanco);
+    color: var(--texto);
     font: inherit;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 12.5px;
+    font-weight: 500;
     text-align: center;
     outline: none;
     -moz-appearance: textfield;
     appearance: textfield;
+}
+
+#pRapidoCantidad::placeholder {
+    color: var(--texto-suave);
 }
 
 #pRapidoCantidad::-webkit-inner-spin-button,
@@ -1102,67 +1174,79 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
 }
 
 .btn-rapido {
-    height: 34px;
-    padding: 0 12px;
+    height: 30px;
+    padding: 0 11px;
     border: 1px solid var(--borde-casillero);
-    border-radius: var(--radio-boton-panel);
+    border-radius: var(--radio-chico);
     background: var(--blanco);
-    color: var(--titulo);
+    color: var(--texto);
     font: inherit;
-    font-size: 13.5px;
+    font-size: 12.5px;
     font-weight: 600;
+    white-space: nowrap;
     cursor: pointer;
 }
 
 .btn-rapido:hover {
-    border-color: var(--verde-principal);
+    background: var(--gris-encima);
+}
+
+/* "Limpiar": sin borde, en verde */
+.btn-rapido.btn-limpiar {
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
     color: var(--verde-texto);
 }
 
-/* "Limpiar": sin borde */
-.btn-rapido.btn-limpiar {
-    border: 0;
-    background: transparent;
-    color: var(--texto-gris);
-}
-
 .btn-rapido.btn-limpiar:hover {
-    color: var(--texto);
+    color: var(--verde-hondo);
+    text-decoration: underline;
 }
 
-/* La tabla de platos de la ventana */
+/* La tabla de platos: si no entra a lo ancho, se mueve de costado acá adentro */
 .caja-tabla-pedido {
-    flex: none;
     overflow-x: auto;
-    border-radius: var(--radio-tarjeta);
-    box-shadow: 0 0 0 1px rgba(17, 26, 20, .07), 0 8px 24px -16px rgba(17, 26, 20, .16);
+    border-radius: 0 0 var(--radio-tarjeta) var(--radio-tarjeta);
 }
 
 .tabla-pedido {
     width: 100%;
     min-width: 700px;
+    table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 14px;
 }
 
-/* Los títulos: los mismos de todas las tablas del panel (las perillas de global.css, sección 0) */
+/* Los títulos: como los de las tablas del panel, un poco más chicos (11,5 px) */
 .tabla-pedido th {
-    padding: var(--aire-titulos-tabla);
-    border-bottom: 1px solid var(--linea-titulos-tabla);
-    background: var(--fondo-titulos-tabla);
-    color: var(--color-titulos-tabla);
-    font-size: var(--letra-titulos-tabla);
-    font-weight: 500;
-    letter-spacing: .015em;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--linea-tabla);
+    background: var(--blanco);
+    color: var(--titulo);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .04em;
     text-align: left;
+    text-transform: uppercase;
     white-space: nowrap;
 }
 
+/* El ancho de cada columna (Plato se queda con lo que sobra) */
+.tabla-pedido th.col-plan       { width: 140px; }
+.tabla-pedido th.col-libres     { width: 104px; }
+.tabla-pedido th.col-reservadas { width: 104px; }
+.tabla-pedido th.col-minimo     { width: 78px; }
+.tabla-pedido th.col-pedir      { width: 132px; }
+
+/* Las celdas: 58 px de alto, blancas (sin el color del estado) y con una línea finita abajo */
 .tabla-pedido td {
-    padding: 10px var(--celda-espacio);
-    border-bottom: 1px solid var(--linea-renglones-tabla);
-    background: var(--fondo-fila, #fff);
+    height: 58px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--linea-tabla);
+    background: var(--blanco);
+    color: var(--texto);
     vertical-align: middle;
     transition: background .15s;
 }
@@ -1171,44 +1255,34 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
     border-bottom: 0;
 }
 
+/* Los números, a la derecha y con las cifras del mismo ancho; "Pedir", al medio */
 .tabla-pedido .col-numero {
-    text-align: right;               /* títulos y números, a la derecha */
-}
-
-.tabla-pedido td.col-numero {        /* td = solo los números (los títulos quedan como los demás) */
-    color: var(--prod-color-numeros);
-    font-size: var(--prod-letra-numeros);
-    font-weight: 600;
+    text-align: right;
     font-variant-numeric: tabular-nums;
 }
 
-.tabla-pedido th.col-pedir {
-    width: 150px;
+.tabla-pedido .col-pedir {
     text-align: center;
 }
 
-/* Un plato con cantidad: verde clarito (le gana al color de su estado) */
-.plato-pedido.con-cantidad {
-    --fondo-fila: #f1faf3;
+/* Un plato con cantidad: la fila verde clarito */
+.plato-pedido.con-cantidad td {
+    background: var(--prod-fila-con-pedido);
 }
 
+/* Plato: el nombre (500) y al lado su pastilla de estado (y "sin receta", si no tiene). Si el nombre es largo, la pastilla baja */
 .pp-nombre {
+    display: inline;
     color: var(--texto);
-    font-weight: 700;
-    overflow-wrap: anywhere;
+    font-weight: 500;
 }
 
 .pp-etiquetas {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 6px;
-    flex-wrap: wrap;
-    margin-top: 3px;
-}
-
-.pp-etiquetas .etiqueta-estado {
-    padding: 1px 8px 1px 6px;
-    font-size: 11.5px;
+    margin-left: 8px;
+    vertical-align: middle;
 }
 
 .etiqueta-sin-receta {
@@ -1217,24 +1291,33 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
     font-style: italic;
 }
 
-/* − cantidad +: tres piezas pegadas */
+/* − cantidad +: una sola cajita con borde, con una línea finita entre las tres partes */
 .pp-cantidad {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
+    vertical-align: middle;
+    border-radius: var(--radio-boton-panel);
+    background: var(--blanco);
+    box-shadow: inset 0 0 0 1px var(--borde-casillero);
+}
+
+/* Con cantidad: el borde verde y el número verde en negrita */
+.plato-pedido.con-cantidad .pp-cantidad {
+    box-shadow: inset 0 0 0 1.5px var(--verde-principal);
 }
 
 .btn-paso {
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 32px;
     flex: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     padding: 0;
-    border: 1px solid var(--borde-casillero);
+    border: 1px solid transparent;         /* transparente: así el fondo al pasar el mouse no tapa el borde de la cajita */
     border-radius: var(--radio-boton-panel) 0 0 var(--radio-boton-panel);
-    background: var(--blanco);
+    background: transparent;
+    background-clip: padding-box;
     color: var(--titulo);
     cursor: pointer;
 }
@@ -1245,29 +1328,38 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
 }
 
 .btn-paso:hover {
-    background: var(--gris-encima);
+    background-color: var(--gris-encima);
 }
 
 .btn-paso svg {
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
 }
 
 .pp-cantidad input {
-    width: 50px;
-    height: 34px;
+    width: 40px;
+    height: 32px;
     padding: 0;
-    border: 1px solid var(--borde-casillero);
-    border-left: 0;
-    border-right: 0;
+    border: 0;
+    border-left: 1px solid var(--linea-tabla);
+    border-right: 1px solid var(--linea-tabla);
     border-radius: 0;
-    background: var(--blanco);
+    background: transparent;
     color: var(--texto);
     font: inherit;
-    font-size: 15px;
-    font-weight: 800;
+    font-size: 14px;
+    font-weight: 500;
     text-align: center;
     outline: none;
+}
+
+.pp-cantidad input::placeholder {
+    color: var(--texto-suave);
+}
+
+.plato-pedido.con-cantidad .pp-cantidad input {
+    color: var(--verde-principal);
+    font-weight: 700;
 }
 
 .pp-cantidad input:focus {
@@ -1275,7 +1367,6 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
 }
 
 .pp-cantidad input.invalido {
-    border-color: #d23b2e;
     background: #fff5f5;
     color: #9b1f16;
 }
@@ -1289,13 +1380,13 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
     text-align: center;
 }
 
-/* Derecha: "Tu pedido", sobre gris clarito */
+/* Derecha: "Tu pedido", blanco, con una línea finita a la izquierda */
 .pedido-resumen {
     min-height: 0;
     display: flex;
     flex-direction: column;
-    border-left: 1px solid var(--borde-gris);
-    background: #f8faf7;
+    border-left: 1px solid var(--linea-tabla);
+    background: var(--blanco);
 }
 
 .pedido-resumen-cabecera {
@@ -1303,7 +1394,7 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
     display: flex;
     flex-direction: column;
     gap: 3px;
-    padding: 20px 22px 12px;
+    padding: 22px 22px 0;
 }
 
 .pedido-resumen-titulo {
@@ -1311,16 +1402,19 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
     align-items: center;
     gap: 8px;
     color: var(--titulo);
-    font-size: 16px;
-    font-weight: 800;
+    font-size: 15px;
+    font-weight: 700;
 }
 
 .pedido-resumen-titulo .icono-boton {
-    color: var(--verde-principal);
+    width: 18px;
+    height: 18px;
+    color: var(--verde-texto);
 }
 
+/* "Para el miércoles 28/10" */
 .pedido-resumen-fecha {
-    color: var(--texto-gris);
+    color: var(--texto-apagado);
     font-size: 13px;
 }
 
@@ -1331,20 +1425,18 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 4px 14px 12px;
+    padding: 10px 22px;
 }
 
+/* Cada plato pedido: el nombre y abajo "10 viandas", y la X para sacarlo. Una línea finita debajo de cada uno */
 .item-resumen {
     flex: none;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 10px;
-    padding: 8px 6px 8px 12px;
-    border: 1px solid var(--borde-gris);
-    border-radius: var(--radio-boton-panel);
-    background: var(--blanco);
-    box-shadow: var(--sombra-chica);
+    padding: 12px 0;
+    border-bottom: 1px solid var(--linea-tabla);
 }
 
 .item-resumen-textos {
@@ -1355,48 +1447,42 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
 .item-resumen-nombre {
     overflow: hidden;
     color: var(--texto);
-    font-size: 13.5px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 600;
     white-space: nowrap;
     text-overflow: ellipsis;
 }
 
-.item-resumen-plan {
-    color: var(--texto-gris);
-    font-size: 12px;
-}
-
 .item-resumen-cantidad {
-    color: var(--verde-texto);
-    font-size: 15px;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
+    margin-top: 1px;
+    color: var(--texto-apagado);
+    font-size: 12.5px;
 }
 
 .quitar-del-pedido {
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     flex: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     padding: 0;
     border: 0;
-    border-radius: var(--radio-boton-panel);
-    background: transparent;
+    border-radius: var(--radio-chico);
+    background: var(--blanco);
+    box-shadow: inset 0 0 0 1px #e3e7e2;
     color: var(--texto-suave);
     cursor: pointer;
 }
 
 .quitar-del-pedido:hover {
-    background: var(--gris-encima);
-    color: #c9372c;
+    background: #fdecea;
+    color: #b3261e;
 }
 
 .quitar-del-pedido svg {
-    width: 14px;
-    height: 14px;
+    width: 13px;
+    height: 13px;
 }
 
 /* Sin nada pedido: el recuadro punteado con la olla */
@@ -1406,18 +1492,18 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
     flex-direction: column;
     align-items: center;
     gap: 10px;
-    margin-top: 4px;
-    padding: 26px 16px;
-    border: 1.5px dashed #d3ddd1;
-    border-radius: 14px;
-    color: var(--texto-gris);
+    margin-top: 6px;
+    padding: 28px 18px;
+    border: 1.5px dashed #d6ddd5;
+    border-radius: var(--radio-tarjeta);
+    color: var(--texto-apagado);
     font-size: 13.5px;
     text-align: center;
 }
 
 .resumen-vacio .icono-vacio {
-    width: 44px;
-    height: 44px;
+    width: 46px;
+    height: 46px;
     box-shadow: none;
 }
 
@@ -1435,9 +1521,9 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
     flex: none;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
     padding: 16px 22px 20px;
-    border-top: 1px solid var(--borde-gris);
+    border-top: 1px solid var(--linea-tabla);
     background: var(--blanco);
 }
 
@@ -1455,27 +1541,62 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
 
 .pedido-total-titulo {
     color: var(--titulo);
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 600;
 }
 
 .pedido-total-platos {
-    color: var(--texto-gris);
+    color: var(--texto-apagado);
     font-size: 12.5px;
 }
 
+/* "30 viandas": el número grande y la palabra chica */
 .pedido-total-numero {
-    color: var(--texto-gris);
-    font-size: 14px;
+    color: var(--texto-apagado);
+    font-size: 13px;
     white-space: nowrap;
 }
 
 .total-numero {
     color: var(--texto);
-    font-size: 30px;
+    font-size: 28px;
     font-weight: 800;
     line-height: 1;
     font-variant-numeric: tabular-nums;
+}
+
+/* Cancelar (blanco) y "Enviar a cocina" (verde, un poco más ancho, con su ícono). Apagado: verde clarito */
+.pedido-pie .botones-ventana {
+    display: flex;
+    gap: 8px;
+}
+
+.pedido-pie .btn-cancelar {
+    flex: 1;
+    height: 42px;
+    border-radius: 10px;
+    color: var(--texto);
+    font-size: 14px;
+    box-shadow: none;
+}
+
+.pedido-pie .btn-confirmar {
+    flex: 1.4;
+    height: 42px;
+    gap: 7px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: none;
+}
+
+.pedido-pie .btn-confirmar:disabled {
+    background: var(--verde-borde-filtro);
+}
+
+.pedido-pie .btn-confirmar .icono-boton {
+    width: 18px;
+    height: 18px;
 }
 
 
@@ -1812,6 +1933,32 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
     display: none;
 }
 
+/* Su ✕ (vuelve a todos los platos). Antes estaba en global.css (13e, junto con la fila de filtros elegidos,
+   que el diseño nuevo ya no usa): ahora vive acá, que es la única pantalla que lo tiene */
+.quitar-chip {
+    width: 22px;
+    height: 22px;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.quitar-chip:hover {
+    background: rgba(17, 26, 20, .08);
+}
+
+.quitar-chip svg {
+    width: 14px;
+    height: 14px;
+}
+
 /* La lista: toma el alto que sobra y se mueve adentro */
 .lista-movimientos {
     flex: 1;
@@ -2108,15 +2255,26 @@ p.info-descarte {
         width: 100%;
     }
 
+    /* El pie: "Mostrando…" arriba y las páginas abajo */
     .pie-produccion {
         flex-direction: column;
         align-items: flex-start;
     }
 
-    /* "Pedir a cocina": a pantalla completa (le gana a su alto de compu), todo en una columna y el total pegado abajo */
+    /* "Pedir a cocina": a pantalla completa (le gana a su alto y a sus esquinas de compu), todo en una columna
+       y el total pegado abajo */
     .modal-pedido {
         height: 100%;
         max-height: none;
+        border-radius: 0;
+    }
+
+    .modal-pedido .cabecera-ventana {
+        padding: 16px 18px;
+    }
+
+    .modal-pedido .boton-cerrar-ventana {
+        right: 16px;
     }
 
     .pedido-cuerpo {
@@ -2131,22 +2289,41 @@ p.info-descarte {
         padding: 16px;
     }
 
+    /* Para cuándo y Plan, uno al lado del otro; Buscar, abajo a todo el ancho */
+    .pedido-controles {
+        flex-wrap: wrap;
+    }
+
+    .control-fecha,
+    .control-plan {
+        width: auto;
+        flex: 1 1 140px;
+    }
+
+    .control-buscar {
+        flex: 1 1 100%;
+    }
+
+    /* "Cargar rápido": todo el ancho de la barra y, si no entra en un renglón, sigue en el de abajo */
+    .carga-rapida {
+        flex: 1 1 100%;
+        flex-wrap: wrap;
+    }
+
     /* "Tu pedido" se suelta: así su pie (total y botones) queda pegado abajo mientras se baja */
     .pedido-resumen {
         display: contents;
     }
 
     .pedido-resumen-cabecera {
-        padding: 16px 16px 8px;
-        border-top: 1px solid var(--borde-gris);
-        background: #f8faf7;
+        padding: 16px 16px 0;
+        border-top: 1px solid var(--linea-tabla);
     }
 
     .pedido-resumen-lista {
         flex: none;
         min-height: 0;
-        padding: 4px 16px 16px;
-        background: #f8faf7;
+        padding: 6px 16px 16px;
     }
 
     .pedido-pie {
@@ -2178,8 +2355,12 @@ p.info-descarte {
         align-items: center;
         gap: 6px 14px;
         padding: 12px 14px;
-        border-bottom: 1px solid var(--borde-gris);
-        background: var(--fondo-fila, #fff);
+        border-bottom: 1px solid var(--linea-tabla);
+        background: var(--blanco);
+    }
+
+    .tabla-pedido tr.con-cantidad {
+        background: var(--prod-fila-con-pedido);
     }
 
     .tabla-pedido tbody tr:last-child {
@@ -2187,6 +2368,7 @@ p.info-descarte {
     }
 
     .tabla-pedido td {
+        height: auto;
         padding: 0;
         border: 0;
         background: transparent;
@@ -2209,13 +2391,13 @@ p.info-descarte {
     .tabla-pedido td.col-plan,
     .tabla-pedido td.col-numero {
         order: 3;
-        color: var(--texto-gris);
+        color: var(--texto-apagado);
         font-size: 12.5px;
     }
 
-    .tabla-pedido .col-libres::before     { content: "Disponibles "; font-weight: 400; }
-    .tabla-pedido .col-reservadas::before { content: "Reservadas "; font-weight: 400; }
-    .tabla-pedido .col-minimo::before     { content: "Mínimo "; font-weight: 400; }
+    .tabla-pedido td.col-libres::before     { content: "Disponibles "; }
+    .tabla-pedido td.col-reservadas::before { content: "Reservadas "; }
+    .tabla-pedido td.col-minimo::before     { content: "Mínimo "; }
 
     /* Las pestañas de la ventana, un poco más juntas: así entran enteras en 390 px */
     .pestana-pedido {
@@ -2229,6 +2411,7 @@ p.info-descarte {
     }
 
     .pp-cantidad input {
+        width: 44px;
         height: 40px;
     }
 

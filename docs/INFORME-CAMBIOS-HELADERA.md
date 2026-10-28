@@ -19,6 +19,12 @@
 > referencia (pantallas que entran desde la derecha, armado a pantalla completa, datos en una hoja con los días como
 > botones). 3 columnas nuevas (SQL que corriste vos) y 5 rutas GET que las mandan. Pedidos de prueba #34, #35 y #38 y
 > test 40/40 (#36 y #37), todos anulados (sección 15).
+> **Panel con el diseño final** (27/10, `diseno-panel-final/`): el molde en `global.css` y la barra de arriba, Producción
+> con "Pedir a cocina" y Consultar Pedidos como las capturas. Solo HTML, CSS y JS para mostrar; sin cambios en el servidor ni
+> en la base. Pedido de prueba #58 (Consultar) y los del test (#59 y #60), todos anulados; test HELADERA 37/40: los 3 que
+> fallan son por la fecha de la compu, que no coincide con la de la base (sección 19).
+> **Cambio chico** (27/10): Consultar Pedidos vuelve a 11 columnas (con Acciones fija a la derecha) y Producción con Plato
+> fijo y Plan pegada (sección 20). Test HELADERA 37/40, por la misma fecha.
 > **Este informe se actualiza con cada cambio nuevo** (código, SQL, pantallas), con el mismo formato (regla del 15/10).
 > Los ejemplos usan tus datos: **fideos con 71 viandas**, el combo de prueba "PRUEBA Mantenimiento x10" y la
 > receta de fideos que mostró la prueba de H3: **300 g de harina integral y 2 huevos por vianda**.
@@ -4163,3 +4169,413 @@ Capturas: `diseno-produccion/capturas-resultado/` (1440 y 390: la pantalla y cad
 - **Celu:** armado aparte, como pediste (el del diseño estaba roto).
 
 **Ajuste (21/10, noche):** los títulos de TODAS las tablas del panel quedaron como el diseño de Producción (franja `#f5f7f4`, letra `#4a564d` de 12,5 px y peso 500, `.015em`, aire 9/18 px con la perilla nueva `--aire-titulos-tabla`, línea de 1 px `#e6ebe4`; flechitas de 13 px grises), solo con las perillas de `global.css` (secciones 0 y 8), y Plato volvió a 29 % porque ahora entra todo en 1440.
+
+## 19. Panel con el diseño final (27/10, `diseno-panel-final/`): el molde, Producción y Consultar Pedidos
+**Qué se pidió:** pasar al panel real el diseño final de `diseno-panel-final/` (las 6 capturas y `PROMPT.md`): primero el
+molde común en `global.css` y la barra de arriba (parte A), después Producción con "Pedir a cocina" (parte B) y después
+Consultar Pedidos (parte C). Todo de corrido, sin esperar, cambiando lo mínimo: JS solo para mostrar algo, sin tocar datos,
+rutas, validaciones, `server.js` ni `sql/`. El plan está en `diseno-panel-final/PLAN.md` (su sección 8 dice lo que cambió
+al programar). Sin commit.
+
+### 19.1 Choques con el CLAUDE.md (y qué se hizo)
+1. El CLAUDE.md dice "de a un paso chico y frenar"; el pedido dice "todo de corrido, sin esperarme": se siguió el pedido.
+2. El CLAUDE.md dice que en los cambios de diseño no se actualizan el INFORME ni el AVANCE y no se sacan capturas; el pedido
+   pide las tres cosas: se siguió el pedido.
+3. El pedido dice "test completo (`node tests/test_e2e.js`)", pero el mismo test avisa que sin "heladera" no se corre
+   contra la base real (crea un producto, pasa pedidos a 3 y 4 y gasta insumos). Se corrió `node tests/test_e2e.js heladera`.
+
+### 19.2 Qué archivos cambiaron
+| Archivo | Tipo | Qué cambió |
+|---|---|---|
+| `.gitignore` | — | `diseno-panel-final/` (las capturas y las referencias no se suben) |
+| `pages/heladera.html` | HTML | La bajada nueva, Estado después de Total, el pie adentro de la tarjeta y la ventana "Pedir a cocina" (19.3) |
+| `pages/ConsultarPedidos.html` | HTML | La bajada, la barra de filtros en 3 partes con la lista de Estado y la tabla en 9 columnas (19.3) |
+| `src/css/global.css` | CSS | El molde: perillas (19.6), título y bajada, tablas, pie "Mostrando X de Y", páginas y la sección 13 (19.5) |
+| `src/css/menuPanel.css` | CSS | Sección 5: la barra de arriba ("Panel / pantalla" y la fecha). El menú no se tocó |
+| `src/css/heladera.css` | CSS | Secciones 0, 3 a 6 (con la 6b nueva), 9 y 15 reescritas; `.quitar-chip` vino de global |
+| `src/css/ConsultarPedidos.css` | CSS | Secciones 0, 2 a 6 y 9 reescritas. Las ventanas (7) y los avisos (8), igual |
+| `src/css/movimientosStockNuevo.css` | CSS | Los títulos y las celdas de su tabla con las perillas del molde (antes: franja verde propia) |
+| `src/js/adminSidebar.js` | JS | La barra de arriba (19.4) |
+| `src/js/paginacion.js` | JS | "Mostrando" con los números en negrita (19.4) |
+| `src/js/heladera.js` | JS | El orden de las columnas, Total en negrita, el "—" y el plan elegido en el botón (19.4) |
+| `src/js/pedirCocina.js` | JS | Las pestañas con puntito, "10 viandas" y "Para el miércoles 28/10" (19.4) |
+| `src/js/ListarPedidos.js` | JS | La fila en 9 celdas, `colspan` 9 y la lista de Estado (19.4) |
+
+**No cambió:** `server.js`, las rutas, `sql/`, la base, lo que se manda al servidor, las validaciones, ningún id, ninguna
+función renombrada, el menú de la izquierda y las ventanas (salvo "Pedir a cocina", que tenía diseño nuevo).
+
+### 19.3 HTML
+**`heladera.html` (Producción)**
+| Antes | Ahora | Por qué |
+|---|---|---|
+| Bajada "Controlá las viandas que hay en la heladera, cuáles ya están reservadas para pedidos…" | "Controlá las viandas de la heladera, cuáles están reservadas y pedile a la cocina lo que falta.", con la clase del molde `bajada-pantalla` | El texto del diseño |
+| Botón "Plan", su menú y "Limpiar filtro" | Los mismos, con una clase más del molde (`boton-filtro`, `menu-filtro`, `limpiar-filtro`) y el "·" en su propia cajita (`separador-filtro`) | Que tomen el molde y se lea "Plan · Mantenimiento" |
+| Títulos: Plato · Plan · Estado · Disponibles · Reservadas · Total · Mínimo | Plato · Plan · Disponibles · Reservadas · Total · **Estado** · Mínimo | El orden del diseño |
+| El pie ("Mostrando…" y las páginas) afuera de la tarjeta, con `paginacion-con-palabras` | Adentro de la tarjeta, con la pieza del molde `pie-tabla`; `#paginacion` solo con `paginacion` | Como el diseño. "Anterior / Siguiente" ahora las pone global en todas las pantallas |
+| Los ••• con círculos de 1,6 | Círculos de 2,4 | El ••• del diseño |
+| "Pedir a cocina": 3 casilleros sueltos | Cada uno en su cajita (`caja-control`) con 📅, ▾ o lupa. Mismos ids | Los campos del diseño |
+| Pestañas y "Cargar rápido a los que se ven", sueltos arriba de la tabla | Adentro de la tarjeta de la tabla (`tarjeta-tabla-pedido` > `barra-tabla-pedido`); dice "Cargar rápido:" (lo de "a los que se ven" quedó en el `title`) | Como el diseño |
+| "Enviar a cocina", solo texto | Con el ícono del avioncito | El diseño (el JS solo lo prende y apaga: nunca cambia su texto) |
+| `#modalPedido` con `modal` | `modal fondo-ventana-pedido` | Lo de atrás más clarito, como la captura |
+
+**`ConsultarPedidos.html`**
+| Antes | Ahora | Por qué |
+|---|---|---|
+| Solo el título | El título y la bajada "Buscá, filtrá y gestioná los pedidos de los clientes: estado, pago y detalle." | El diseño |
+| "Buscar" y "Fecha de entrega" con su nombre arriba, Aplicar y Ver todos | Una barra de 38 px en 3 partes: 🔍 Buscar · 📅 "Entrega: …" · 🕒 "Estado: …", y al lado Aplicar y Ver todos. Mismos ids (`CampoBusqueda`, `FechaDesde`, `FechaHasta`, `btnAplicarFechas`, `btnVerTodos`) | El diseño |
+| `#FechaDesde` | Con `required` y al lado el texto "Cualquier día", que solo se ve con la fecha vacía | Que diga "Cualquier día" sin JS. No hay formulario: `required` no cambia nada más |
+| Los 6 botones de estado en una fila arriba de la tabla | Los mismos 6 botones (con su `data-estado`, sus clics y sus cantidades) adentro de la lista que abre "Estado", con `data-nombre` | La lista del diseño; elegir uno hace lo mismo que antes |
+| Tabla de 11 columnas | 9: Pedido · Cliente · Dirección · Teléfono · Viandas · Costo · Pago · Estado · Acciones | El diseño |
+| Los dibujos ✓ y billete (de la pastilla de pago) | Sacados; nuevos: calendario, reloj y ▾ | La pastilla de pago ya no está |
+
+### 19.4 JS, línea por línea (los números de línea son los de ahora)
+**`adminSidebar.js`: la barra blanca de arriba** (corre sola al abrir cada pantalla del panel)
+| Línea | Antes | Ahora | Por qué |
+|---|---|---|---|
+| 50–51 | — | `DIAS_SEMANA` y `MESES_ANIO` | Para "Martes 27 de octubre" |
+| 166–169 | — | `pantallaActual` (la de esta página en `MENU_PANEL`, con `find`), `nombrePantalla` y `fechaDeHoy` | "Panel / Producción" y la fecha |
+| 172–178 | El buscador (de adorno) y el círculo "M" | "Panel" / el nombre (con `textContent`) y la fecha. Una pantalla que no está en el menú muestra solo "Panel" | El diseño no tiene buscador ni avatar |
+| 244–245 (sacadas) | Escribían la inicial en el avatar | — | El avatar ya no existe (si no, daba error) |
+- **ENTRADA:** la página abierta (`paginaActual`) y la fecha de la compu. **SALIDA:** la barra "Panel / Producción ·
+  Martes 27 de octubre". **Ej:** `heladera.html` → "Panel / Producción". **Se conecta con** `MENU_PANEL`, la misma lista del
+  menú. Los textos son nuestros y van con `textContent`.
+
+**`paginacion.js`: `crearPaginacion` → `renderizar`**
+| Línea | Antes | Ahora | Por qué |
+|---|---|---|---|
+| 108–117 | `textContent = 'Mostrando 4 de 4 platos'` | Dos `<strong>` armados con `createElement` y `append` | El diseño tiene los números en negrita. Sin `innerHTML`: nada se interpreta como HTML |
+Solo cambia en Producción y Consultar (las que le pasan dónde va el resumen).
+
+**`heladera.js`**
+| Línea | Función | Antes | Ahora | Por qué |
+|---|---|---|---|---|
+| 393 | `renderizarFiltroPlan` | `className = 'opcion-plan'` | `'opcion-plan opcion-filtro'` | El estilo del molde |
+| 402 | `renderizarFiltroPlan` | — | `opcion.classList.toggle('opcion-elegida', casilla.checked)` | El ✓ y el fondo de la elegida |
+| 414–416 | `renderizarFiltroPlan` | El botón decía cuántos planes ("1") | Dice el plan ("MANTENIMIENTO", que el CSS muestra "Mantenimiento") o "2 planes" | "Plan · Mantenimiento" |
+| 490, 492, 498 | `crearFilaPlato` | El mínimo como número (0) | `textoMinimo`: "—" si es 0 | El diseño. El casillero para editarlo sigue con 0 |
+| 510–515 | `crearFilaPlato` | Estado era la 3ª celda | Va después de Total; Total lleva `numero-total` | El orden del diseño y Total en negrita |
+| 257, 287–288, 362–366, 478–479, 501–502 | — | Comentarios viejos | Comentarios al día | Que digan lo que pasa |
+Las ENTRADAS y SALIDAS no cambian: `renderizarFiltroPlan` dibuja el menú y el botón; `crearFilaPlato(plato)` devuelve la fila.
+
+**`pedirCocina.js`**
+| Línea | Función | Antes | Ahora | Por qué |
+|---|---|---|---|---|
+| 32–33 | — | `MESES_CORTOS` | `DIAS_SEMANA` | Para "Para el miércoles 28/10" |
+| 165–171 | `renderizarPestanasPedido` | `className = 'pestana-pedido'` y el texto | `+ ' pestana-estado pestana-' + valor` y el puntito (menos en "Todos") | Las pestañas del molde, como las de la pantalla |
+| 316–322 | `actualizarTotalPedido` | Cada renglón: el nombre, el plan y "× 10" | El nombre y abajo "10 viandas" (`conPlural`); sin `const plan` | El diseño |
+| 342–348 | `actualizarTotalPedido` | "Para 28 oct 2026" | "Para el miércoles 28/10" (`new Date(año, mes − 1, día).getDay()`) | El diseño |
+Lo que se manda al servidor (`enviarPedidoACocina`) no cambió.
+
+**`ListarPedidos.js`**
+| Línea | Función | Antes | Ahora | Por qué |
+|---|---|---|---|---|
+| 93 | `iniciarConsultarPedidos` (2b) | — | Al elegir un estado, `mostrarListaEstados(false)` | La lista se cierra |
+| 96–103 | `iniciarConsultarPedidos` (2c) | — | El botón "Estado" abre o cierra la lista; un clic afuera la cierra | La lista desplegable es nueva |
+| 105–108 | `iniciarConsultarPedidos` (3) | Escape cerraba las ventanas | Además cierra la lista | Ídem |
+| 132 y 183 | `iniciarConsultarPedidos`, `renderizarPedidos` | `colspan="11"` | `colspan="9"` | 9 columnas |
+| 208–221 | `renderizarFiltrosEstado` | Contaba y marcaba el elegido | Además anota su nombre (`data-nombre`) y lo escribe en la barra; `con-filtro` si no es "Todos" | "Estado: Registrado" en verde |
+| 224–236 | **`mostrarListaEstados` (nueva)** | — | `hidden` de la lista y `aria-expanded` del botón | Ver abajo |
+| 251–252 | `crearFilaPedido` | La fecha "19/10/2026" en su propia columna | "19/10" debajo del N° (`slice(0, 5)`); la fecha entera en el `title` | El diseño |
+| 254–256 | `crearFilaPedido` | `'-'` si no hay dato | `'—'` | El diseño |
+| 258 | `crearFilaPedido` | `clasePagado` e `iconoPagado` (la pastilla) | Sacadas; queda `textoPagado` (el cartelito al pasar el mouse) | La pastilla de pago ya no está |
+| 290–299 | `crearFilaPedido` | Anulado: la pastilla gris sin detalle | Anulado: sin detalle. Si ya pagó: "✓ Cobrado" / "✓ Débito" en verde (`pago-cobrado`) | El diseño |
+| 325–346 | `crearFilaPedido` | 11 celdas | 9; las de 2 renglones con `dato-principal` y `dato-chico`; Estado en su cajita con la ▾ | El diseño |
+| 348–357 | `crearFilaPedido` | Cliente en `cells[2]`, dirección `[3]`, teléfono `[4]`, mail `[5]` | Cliente y mail en `cells[1]`, dirección `[2]`, teléfono `[3]`; `title` con el texto entero | Las celdas se movieron |
+| 378 | `crearFilaPedido` | `cells[8].appendChild(select)` | `cells[7].firstElementChild.prepend(select)` | El select va en su cajita, antes de la ▾ (así la ▾ toma su color) |
+
+**`mostrarListaEstados` (nueva)**
+- **Qué hace:** abre o cierra la lista de "Estado" de la barra de filtros.
+- **ENTRADA:** `abrir` (true o false). **SALIDA:** nada; la lista se ve o no (`hidden`) y el botón dice si está abierta
+  (`aria-expanded`, para los lectores de pantalla).
+- **Por qué así:** se usa en 4 lugares (el botón, elegir un estado, un clic afuera y Escape); así no se repiten 2 líneas.
+- **Ej:** `mostrarListaEstados(true)` → debajo de "Estado: Todos ▾" se ve Todos 59 · ● Registrado 1 · …
+- **Se conecta con:** la llaman los escuchadores de `iniciarConsultarPedidos`. No llama a nadie.
+
+**`crearFilaPedido` (cambiada)**
+- **Qué hace:** arma la fila de un pedido, ahora en 9 celdas.
+- **ENTRADA:** el pedido (como lo manda `GET /api/pedidos`). **SALIDA:** el `<tr>` con sus botones andando.
+- **Ej:** #058 / 02/11 · PRUEBA – NO PREPARAR / — · PRUEBA (no entregar) / Retiro en local · 0 · 5 · $ 20.000 ·
+  Transferencia / Sin confirmar · [Registrado ▾] · [Detalles] [Pago] [Anular].
+- **Se conecta con:** la llama `crearPaginacion` por cada pedido de la página; llama a `pintarEstado`, `alCambiarEstado`,
+  `abrirDetalles`, `abrirPago` y `abrirAnular`, igual que antes.
+
+**`renderizarFiltrosEstado` (cambiada):** la misma ENTRADA (los pedidos que pasaron la fecha y el buscador); además escribe
+el nombre del elegido en la barra. Ej: "Registrado" → "Estado: Registrado" en verde. La llama `renderizarPedidos`.
+
+### 19.5 CSS
+- **`global.css` (el molde):**
+  - sección 0: perillas (19.6);
+  - sección 2: el título (28 px, 700, `#3a4640`) y la bajada (`bajada-pantalla`, 14,5 px gris);
+  - sección 8: la tarjeta de la tabla (radio 12, borde `#e9ece8`); títulos de 12 px, 600, en MAYÚSCULA y sin franja; filas
+    de 60 px (64 con 2 renglones) y letra de 14,5; las celdas de 2 renglones (`dato-principal`, `dato-chico`); el pie
+    adentro de la tarjeta (`pie-tabla`, los números en negrita);
+  - sección 9: las páginas "‹ Anterior · 1 · Siguiente ›" (32 px, radio 8, la actual verde), para todas las pantallas;
+  - sección 13: botones de arriba (38 px), pestañas (28 px, puntito de 6, la elegida gris y en negrita), buscador (32 px),
+    pastillas (24 px, sin punto), el botón de filtro (con algo elegido: verde suave) y su menú (`menu-filtro`,
+    `opcion-filtro`, `opcion-elegida` con ✓, `limpiar-filtro`);
+  - las ventanas quedaron como estaban (sus esquinas y botones no tomaron los radios nuevos).
+- **`menuPanel.css`:** la barra de 56 px con "Panel / pantalla" y la fecha (en el celu la fecha no se ve). El menú, igual.
+- **`heladera.css`:** los colores de cada estado (pastillas, puntitos y filas); los anchos de la tabla (más angostos hasta
+  1400 px); el plan en minúscula con la primera en mayúscula; las flechitas de ordenar escondidas hasta pasar el mouse; el
+  ✎ y el ••• verde; la ventana "Pedir a cocina" entera con los valores del diseño; el celu.
+- **`ConsultarPedidos.css`:** la barra en 3 partes con "Cualquier día"; la lista de Estado; la tabla de 9 columnas con "…";
+  el select de estado como pastilla con su ▾ del color de su estado (`field-sizing: content`: del ancho del elegido); las 3
+  pastillas de Acciones; los cancelados en gris con el costo tachado; el celu (la barra en 3 renglones). La regla del celu
+  de Asignar Cocineros (que también carga este archivo) sigue igual.
+- **`movimientosStockNuevo.css`:** sus títulos y celdas con las perillas del molde.
+
+Sin `!important`, sin `:has()`, sin `nth-child`, sin anidar; un `[hidden]` por clase donde hace falta.
+
+### 19.6 Perillas
+**`global.css`**
+| | Perillas |
+|---|---|
+| Nuevas | `--linea-tabla` #e9ece8 · `--fila-bajo` #fffaf0 · `--fila-sin` #fff7f6 · `--alto-fila` 60px · `--alto-barra` 56px · `--alto-pestana` 28px · `--radio-pestana` 7px · `--fondo-pestana-elegida` #eef1ee · `--fondo-cantidad` #eef1ee · `--fondo-opcion-elegida` #f3f8f4 · `--verde-borde-filtro` #bfe0c8 · `--sombra-menu` · `--rojo-borde` #f5c9c4 · `--rojo-error` #9b1f16 |
+| Cambiadas | `--radio-tarjeta` 16→12 · `--titulo-pantalla` 36→28 · `--borde-casillero` #d9e1d7→#dde2dc · `--texto-suave` #7a857d→#8a948d · `--alto-boton-panel` 40→38 · `--alto-control-panel` 34→32 · `--radio-boton-panel` 12→9 · `--radio-chico` 10→8 · `--fondo-titulos-tabla` #f5f7f4→blanco · `--color-titulos-tabla` → #3a4640 · `--letra-titulos-tabla` 12,5→12 · `--aire-titulos-tabla` 9/18→13/18 · `--linea-titulos-tabla` y `--linea-renglones-tabla` → #e9ece8 · `--letra-celdas-tabla` 13,5→14,5 · `--celda-alto` 15→13 · `--celda-espacio` 12→18 · `--sombra-tarjeta-panel` (un borde finito y casi nada de sombra) |
+| Sacadas | `--estado-bien/-bajo/-sin/-nada` × `-fondo/-letra/-punto/-borde` (16): cada pantalla pone sus colores (Producción, en heladera.css) |
+
+**`heladera.css`**
+| | Perillas |
+|---|---|
+| Nuevas | `--prod-bien/-bajo/-sin/-nada-fondo` y `-letra` (las 4 pastillas) · `--prod-punto-sin/-bajo/-bien/-nada` · `--prod-fila-con-pedido` #f6fbf7 |
+| Cambiadas | anchos: Plan 160→170, Disponibles 142→140, Reservadas 128→138, Total 102→96, Estado 106→140, Mínimo 82→100, ••• 54→60; `--prod-tabla-ancho-minimo` 1090→1044; `--prod-fila-bajo-encima` y `--prod-fila-sin-encima` (nuevos tonos) |
+| Sacadas | `--prod-ancho-plato` (Plato se queda con lo que sobra), `--prod-fila-alto`, `--prod-letra-numeros`, `--prod-color-numeros`, `--prod-fila-encima` (ahora la de global) |
+
+**`ConsultarPedidos.css`**
+| | Perillas |
+|---|---|
+| Nuevas | `--accion-detalles/-pago/-anular/-anulado-fondo` y `-letra` · `--letra-personalizados` · `--alto-barra-filtros` 38 · `--radio-barra-filtros` 10 · `--ancho-parte-filtro` 210 · `--ancho-lista-estados` 230 · `--ancho-pedido/-direccion/-telefono/-viandas/-costo/-pago/-estado/-acciones` (74/142/104/78/98/118/158/204) · `--alto-fila-pedidos` 64 · `--letra-celdas-pedidos` 14 · `--alto-estado` 26 · `--alto-acciones` 28 |
+| Cambiadas | los 15 colores `--estado-…` (los del diseño) y `--tabla-ancho-minimo` 1240→1096 |
+| Sacadas | `--azul-suave`, `--azul-letra`, `--verde-pastilla`, `--apagado-letra`, `--letra-numero`, `--letra-destacada`, `--letra-contacto`, `--letra-dato-chico`, `--letra-pastillas`, `--alto-pastillas`, `--ancho-minimo-cliente/-direccion/-contacto`, `--fila-cancelada-opacidad`, `--alto-boton-estado` |
+
+### 19.7 Reglas viejas que se sacaron
+- **`global.css`:**
+  - `.paginacion-con-palabras …` (8 reglas: pasaron a ser las de `.paginacion` de siempre) y `.paginacion-flecha`;
+  - `.pestana-todos/-sin/-bajo/-bien/-sincontrol.activo` y `.pestana-estado.activo .cantidad-pestana` (la elegida ya no
+    toma el color de su estado);
+  - `.pestana-… .punto-pestana` y `.estado-bien/-bajo/-sin/-sincontrol` (con su `.punto-estado`): pasaron a heladera.css;
+  - `.chip-filtro` y `.boton-limpiar-todo` (la fila de filtros elegidos no está en el diseño); `.quitar-chip` pasó a
+    heladera.css (lo usa la ✕ de "Plato: X" en "Últimos movimientos").
+- **`menuPanel.css`:** `.barra-buscador`, `.barra-icono-lupa`, `.barra-buscador-campo`, `.barra-atajo`, `.barra-espacio`,
+  `.barra-avatar`.
+- **`heladera.css`:** el estilo propio de `boton-filtros`, `menu-filtro-plan`, `opcion-plan`, `boton-limpiar-plan`,
+  `campo-buscar-plan`, `cabecera-frase`, `pie-produccion`, `resumen-platos`, `pestana-pedido`, `pestanas-pedido`,
+  `item-resumen-plan` y `control-pedido input/select` (ahora los da el molde o `caja-control`).
+- **`ConsultarPedidos.css`:** la barra vieja (`.etiqueta-buscar`, `.caja-buscar`, `.icono-lupa`, `.campo-buscar`,
+  `.filtro-fecha`); la pastilla de pago (`.pastilla-pago`, `.pago-por-cobrar`, `.pago-anulado`, `.icono-pago`); su
+  `.dato-chico`, su `.pie-tabla` y `.paginacion-pedidos` (ahora del molde); los anchos mínimos de las columnas; y
+  `.fila-cancelada { opacity }` (ahora el texto va en gris).
+
+### 19.8 Cómo se comprobó
+Con la copia del servidor en el 3001 y un Chrome sin ventana.
+- **Todas las pantallas del panel** (13, con el login) a 1440, 1280, 1024 y 390: ninguna con scroll de costado salvo Tareas
+  de Cocina a 390, que ya era así antes de esta parte (su tabla mide 592 px y los títulos "Cliente" y "Platos" se pisan: se
+  arregla cuando se rediseñe esa pantalla); ningún ícono sin tamaño, la consola sin errores y la barra "Panel / [pantalla]"
+  con la fecha en todas.
+- **Producción: 51 de 51 controles.** Lo que escribe en la base se atajó en el navegador (no llegó): `PUT …/3/minimo
+  {"stock_minimo":7}`, `POST /api/ordenes-produccion`, `POST /api/viandas-stock/descarte` y `POST …/detalles/990001/hecho`
+  (un plato falso: los 9 pedidos a cocina del 08/10 no se tocaron). Se probó: la barra, el título, los 4 botones de 38 px;
+  las pestañas (la elegida gris); el orden de las columnas y sus estilos (títulos 12/600/MAYÚSCULA, filas de 60, Plan
+  "Mantenimiento" sin punto, Total 600, números 400, Estado al medio, ••• verde); el pie con negrita; las flechitas (solo con
+  el mouse); ordenar; la ⓘ; "Plan" (menú de 220 px con ✓, "Plan · Mantenimiento", "Limpiar filtro"); el mínimo; el •••;
+  "Pedir a cocina" vacía (1220 × 760, campos de 38, barra adentro de la tarjeta, "Para el miércoles 28/10", "Enviar"
+  apagado con ícono) y con platos ("10 viandas", total, fila verde clarito, − n + verde); Cargar rápido; Descartar;
+  Pendientes; Hecho hoy; Últimos movimientos (también "Plato: canelones ✕"); la tabla vacía; 1280 (entra entera) y 1024 (se
+  mueve 219 px adentro de su tarjeta); el cocinero; el celu. Con **datos de ejemplo** (los 8 platos de la captura,
+  inventados en el navegador, sin tocar la base): las filas Bajo `#fffaf0` y Sin stock `#fff7f6`, las 4 pastillas, el "—"
+  gris y los puntitos de las pestañas.
+- **Consultar Pedidos: con UN pedido "PRUEBA – NO PREPARAR" (#58)**, creado por la ruta de la web (Transferencia,
+  "Combo semanal" con 5 berenjenas rellenas). Se probó: la barra (38 px, partes de 210), "Cualquier día" con "Ver todos", las
+  9 columnas, la tabla entera a 1440, las páginas, la lista de Estado (sus cantidades suman el total), elegir "Registrado"
+  (se cierra y la barra dice "Estado: Registrado" en verde), Escape y clic afuera, Entrega + Aplicar, buscar; con el pedido de
+  prueba: pasar a "En preparación" → "Confirmar pago" → "No, todavía no pagó" (vuelve y no manda nada) → otra vez → "Sí, ya
+  pagó" (todo salía de la heladera: quedó en "Listo para Entregar" y "✓ Cobrado"), Detalles, Pago (Cancelar: no manda nada),
+  Anular con el PIN del `.env` (sin mostrarlo). Lo único que llegó a la base: `PUT /api/pedidos/58/estado`,
+  `PUT /api/pedidos/58/pagado` y `POST /api/pedidos/58/anular`. Al final el #58 quedó anulado y **la heladera quedó igual que
+  al empezar**. Ningún pedido real se tocó (la prueba cortaba cualquier escritura que no fuera del #58).
+  27 de 29 controles bien; los 2 que no daban se arreglaron y se volvieron a mirar sin escribir en la base: las filas medían
+  66 px (ahora 64) y en el celu "Aplicar" y "Ver todos" no eran del mismo ancho (ahora 175 y 175).
+- **`node tests/test_e2e.js heladera`: 37 de 40** (crea y anula solo sus pedidos de prueba, #59 y #60; al final la heladera
+  quedó igual). Los 3 que fallan son "Movimientos de Stock: la venta de A / la venta de D
+  / la devolución de A": buscan los movimientos **de hoy** con la fecha de esta compu (27/10), pero la base les pone la fecha
+  de su propio reloj (los pedidos #59 y #60 del test quedaron con `fecha_pedido` 2026-10-22). Pidiendo el 22/10 están los 3
+  y son los correctos: venta de A, salida, "PRUEBA – NO PREPARAR", 5 berenjenas; venta de D, 3 berenjenas (lo que salió de
+  la heladera); devolución de A, entrada, 5. No tiene que ver con el diseño (no se tocó `server.js` ni `sql/`). Con la fecha
+  de la compu igual a la de la base, esos 3 tendrían que dar bien (no se volvió a correr: cada corrida crea pedidos de
+  prueba en la base).
+
+### 19.9 Seguridad (qué protege cada cosa)
+- Lo que viene de la base sigue entrando con `textContent` o `escHtml`: cliente, mail, dirección, forma de entrega y
+  teléfono con `textContent`; el `title` con la propiedad `.title`; la fecha de entrega con `escHtml` también adentro del
+  atributo. Protege de que alguien escriba código en su nombre o su dirección en la web y se ejecute en el panel (XSS).
+- Lo nuevo que se escribe con `innerHTML` son textos nuestros (el puntito, "10 viandas" con un número de `conPlural`), sin
+  datos de la base sin escapar.
+- La barra de arriba: el nombre de la pantalla sale de nuestra lista `MENU_PANEL` y va con `textContent`.
+- No cambió ninguna ruta ni ningún control del servidor: el estado, el pago y la anulación los sigue controlando el servidor
+  (`requireAuth` + `requireRol`; el PIN se revisa en el servidor). Mostrar o esconder algo en la pantalla no da permisos.
+- En la prueba, el PIN salió del `.env` y no se mostró en ningún lado.
+
+### 19.10 Lo que no quedó igual al diseño (y por qué)
+1. **La ⓘ** de Disponibles, Reservadas y Total (el pedido dice que queda): esas columnas son más anchas (140, 138 y 96 px en
+   vez de 118, 118 y 90) y Plato más angosta (253 px a 1440 en vez de 316).
+2. **La barra de scroll de Windows** (15 px): todo queda 15 px más a la izquierda y la bajada de Producción entra en 3
+   renglones en vez de 2.
+3. **Los nombres de los platos en minúscula** ("berenjenas rellenas"): así están cargados. Los planes sí se ven
+   "Mantenimiento" (el pedido lo pide).
+4. **La pestaña "Sin mínimo"** aparece si hay un plato sin mínimo (como hoy, decisión del 21/10).
+5. **El "—" del mínimo con ✎** para quien administra (si no, no se le podría poner un mínimo).
+6. **Las flechitas de ordenar**: invisibles; aparecen al pasar el mouse.
+7. **"‹ Anterior" y "Siguiente ›"** en gris clarito cuando no hay otra página (en la captura están oscuros).
+8. **Los números de "Pendientes de cocina" y "Hecho hoy"** son los de verdad (hoy, 0).
+9. **El desplegable "Plan" de "Pedir a cocina"** sigue en mayúsculas: es un `<select>` y el CSS no puede cambiar eso.
+10. **Las fechas** ("Para cuándo" y "Entrega") son el campo del navegador (dd/mm/aaaa). Un clic en el campo abre el calendario.
+11. **Los nombres del select de Estado** ("En Preparación", "Listo para Entregar") vienen así de la base.
+12. **Al abrir Consultar, "Entrega"** muestra el próximo día hábil (la lógica de siempre: lo que se cocina hoy); "Cualquier
+    día" aparece con "Ver todos".
+13. **Dirección:** se ve la dirección que cargó el cliente y abajo cómo se entrega ("Delivery · Centro" o "Retiro en local"),
+    los datos de siempre (en el diseño, "Retiro en local / Villa Allende").
+14. **Acciones mide 204 px** en vez de 200 (con "Anulado", faltaban 2 px).
+15. **1280 y 1024:** Consultar se mueve de costado adentro de su tarjeta (159 y 415 px); Producción entra entera a 1280 y a
+    1024 se mueve 219 px. A 1440 las dos entran enteras.
+16. **Las 4 ventanas de Consultar en el celu:** una tarjeta que entra entera, no a pantalla completa (duda 12).
+17. **"⚠ 2 personalizados"** sale un poquito de su columna (igual que en el diseño).
+18. **Pantallas que no se rediseñaron:** las tablas de Generar Receta y Movimientos de Stock ya se movían de costado adentro
+    de su caja, y la de Tareas de Cocina en el celu ya se salía (de antes). Toman el molde nuevo, pero su armado sigue igual.
+
+### 19.11 Dudas y qué se decidió (siempre lo que no cambia lógica ni datos)
+1. **Test completo o `heladera`:** el completo escribe en la base real → `heladera`.
+2. **La fila de filtros elegidos ("Plan: X ✕", "Limpiar todo"):** no está en el diseño → escondida con CSS; el botón dice
+   "Plan · Mantenimiento" y su menú tiene "Limpiar filtro". El JS que la arma no se tocó.
+3. **"Buscar plan…" y la cantidad de platos de cada plan:** no están en el diseño → escondidos con CSS.
+4. **El aviso "N platos están abajo del mínimo" de "Pedir a cocina":** no está en el diseño → escondido con CSS (volverlo
+   es sacar una regla).
+5. **Las flechitas de ordenar:** se puede seguir ordenando; se ven solo al pasar el mouse (también la de la columna elegida,
+   porque de entrada se ordena por Estado y el diseño no tiene flechita ahí).
+6. **"Entrega: Cualquier día":** `required` + CSS, sin JS.
+7. **El mínimo "—":** con su ✎ para quien administra.
+8. **La barra de arriba (56 px) y la fila del logo del menú (64 px):** el menú no se toca; las dos líneas quedan a 8 px.
+9. **"Texto gris" #5f6b63:** es `--texto-apagado`. `--texto-gris` (#4a564d) lo usa el menú y no se cambió.
+10. **Los planes en mayúsculas:** "Mantenimiento" con CSS en la tabla, el menú y "Pedir a cocina"; en el `<select>` no se puede.
+11. **Las pantallas con `stock.css`** (Gestión de Stock, Combos): toman el molde de la tabla; su tarjeta queda como está.
+12. **Las 4 ventanas de Consultar en el celu:** quedan como están (el punto 4 del pedido); a pantalla completa, "Confirmar
+    pago" y "Anular" quedarían casi en blanco.
+13. **El test 37/40:** la diferencia de fecha entre la compu y la base (19.8).
+14. **Los nombres del select de Estado:** como vienen de la base.
+15. **La bajada de Producción en 3 renglones:** por la barra de scroll de Windows; no se achicó la letra para forzar 2.
+
+### 19.12 Capturas
+En `diseno-panel-final/resultado/` (la carpeta no se sube):
+- **Producción:** `1440-produccion`, `1440-produccion-plan-abierto`, `390-produccion`, `390-produccion-abajo`,
+  `390-produccion-plan-abierto`, `1280-produccion`, `1024-produccion`; con datos de ejemplo: `1440-produccion-datos-ejemplo` y
+  `1440-produccion-plan-abierto-datos-ejemplo`.
+- **Pedir a cocina:** `1440-pedir-cocina-vacia`, `1440-pedir-cocina-con-platos`, `390-pedir-cocina-vacia`,
+  `390-pedir-cocina-con-platos` (y `-abajo`); con datos de ejemplo: `1440-pedir-cocina-vacia-datos-ejemplo` y
+  `1440-pedir-cocina-con-platos-datos-ejemplo`.
+- **Consultar Pedidos:** `1440-consultar-pedidos`, `1440-consultar-estado-abierto` (con "Registrado" elegido) y
+  `-estado-abierto-todos`, lo mismo a 1280, 1024 y 390; con el pedido de prueba: `1440-consultar-buscar-prueba`,
+  `-confirmar-pago`, `-estado-cambiado`, `-detalles`, `-pago`, `-anular`, `-anulado` y `390-consultar-detalles`.
+- **Las otras pantallas:** `otras-pantallas/` (1440 y 390 de Inicio, Envíos, Tareas de Cocina, Asignar Cocineros,
+  Movimientos de Stock, Gestión de Stock, Combos, Generar Receta, Gestión de Usuarios y el login).
+
+## 20. Cambio chico (27/10): Consultar Pedidos en 11 columnas y Producción con Plato fijo
+**Qué se pidió:**
+- **Consultar Pedidos:** volver a las 11 columnas de antes, en su orden, con el estilo nuevo: N° Pedido · Entrega · Cliente ·
+  Dirección · Teléfono · Mail · Viandas · Costo · Estado · Método Pago · Acciones. Que ninguna columna quede gigante (más lugar
+  para Dirección; Cliente y Mail chicas, con "…") y que, si a 1440 no entra, se mueva lo menos posible y Acciones quede fija a
+  la derecha.
+- **Producción:** Plato con un ancho fijo y Plan pegada al lado; lo que sobra en una pantalla grande, para las columnas de
+  números.
+- "Pedir a cocina" no se toca. Sin cambios en datos, rutas ni lógica. Sin commit.
+
+**Por qué pasaba:** en las dos tablas había UNA columna sin ancho (Cliente en Consultar, Plato en Producción). En una pantalla
+grande, esa columna se quedaba con todo el espacio que sobraba.
+
+### 20.1 Qué archivos cambiaron
+| Archivo | Tipo | Qué cambió |
+|---|---|---|
+| `pages/ConsultarPedidos.html` | HTML | Los 11 títulos en el orden de antes (Mail con la clase nueva `col-mail`, para su ancho); `colspan="11"` en "Cargando datos…" |
+| `src/js/ListarPedidos.js` | JS | Solo `crearFilaPedido` (la fila en 11 celdas) y los dos `colspan` (20.2) |
+| `src/css/ConsultarPedidos.css` | CSS | Los anchos de las 11 columnas (perillas), Acciones fija a la derecha, las celdas de un renglón con "…" (20.3) |
+| `src/css/heladera.css` | CSS | Plato, Plan, Estado y ••• con ancho fijo; los números, sin ancho (20.3) |
+
+No cambió: `server.js`, las rutas, `sql/`, lo que se manda al servidor, ningún id ni ninguna función nueva. "Pedir a cocina",
+igual (su tabla mide lo mismo: 284 · 140 · 104 · 104 · 78 · 132 px).
+
+### 20.2 JS: `ListarPedidos.js`, línea por línea
+| Línea | Antes | Ahora | Por qué |
+|---|---|---|---|
+| 132 y 183 | `colspan="9"` | `colspan="11"` | Vuelven las 11 columnas |
+| 240–246 | El comentario con la fila de 9 celdas | El comentario con la de 11 (y el ejemplo nuevo) | Que diga lo que hace |
+| 321–346 | 9 celdas: N° con la fecha abajo, Cliente con el mail abajo, Pago antes de Estado | 11 celdas: N° solo; Entrega en su celda ("26/10"; la fecha entera en el `title`); Cliente solo el nombre; Mail en su celda (`col-contacto col-mail`); Estado y después Método Pago. Dirección, Viandas, Costo, Estado y Acciones, igual | El orden de antes |
+| 349–358 | Cliente y mail en `cells[1]`, dirección `[2]`, teléfono `[3]` | Cliente `cells[2]`, dirección `[3]`, teléfono `[4]`, mail `[5]`; cada uno con `title` = el texto entero (por el "…") | Las celdas cambiaron de lugar |
+| 379 | `cells[7]…prepend(select)` | `cells[8]…prepend(select)` | El select de estado va en la celda 9 |
+
+**`crearFilaPedido` (cambiada)**
+- **Qué hace:** arma la fila de un pedido, ahora en 11 celdas.
+- **ENTRADA:** el pedido (como lo manda `GET /api/pedidos`). **SALIDA:** el `<tr>` con sus botones andando.
+- **Ej:** #057 · 26/10 · MARTIN RO… · Mendiolaza, Prov… / Delivery · Ampliació… · 75494894 · mauriro… · 5 / ⚠ 1
+  personalizado · $ 20.000 · [Entregado ▾] · Transferencia / ✓ Cobrado · [Detalles] [Pago] [Anular].
+- **Se conecta con:** la llama `crearPaginacion` por cada pedido de la página; llama a `pintarEstado`, `alCambiarEstado`,
+  `abrirDetalles`, `abrirPago` y `abrirAnular`, igual que antes. Lo del cliente sigue entrando con `textContent` (XSS).
+
+### 20.3 CSS
+**`ConsultarPedidos.css`**
+- **Los anchos (perillas de la sección 0):**
+  - fijos: N° 78 · Entrega 72 · Teléfono 100 · Viandas 100 · Costo 94 · Estado 156 · Método Pago 114 · Acciones 206 (en px);
+  - Cliente, Dirección y Mail van en % (7,2 · 12 · 7,2): con la tabla en su ancho mínimo miden 90 · 150 · 90 px. En una
+    pantalla grande, Chrome reparte lo que sobra entre las columnas de ancho fijo, así que todas crecen un poco y ninguna
+    queda gigante. A 1920, por ejemplo: N° 91 · Cliente 114 · Dirección 189 · Mail 114 · Acciones 262.
+  - `--tabla-ancho-minimo` 1.250 px. A 1440 la tarjeta mide 1.097, así que la tabla se mueve 153 px adentro de ella. Antes del
+    diseño nuevo, con 11 columnas, se movía 143.
+- **Acciones fija** (`position: sticky; right: 0`): queda pegada a la derecha de la tarjeta mientras lo demás se mueve, con
+  fondo blanco y una línea con una sombrita a la izquierda (perilla `--sombra-acciones`). Al pasar el mouse por la fila, se
+  pinta igual que la fila.
+- **Las celdas:** N° en negrita; Entrega con cifras del mismo ancho; Cliente, Teléfono y Mail en un renglón con "…"; los
+  cancelados en gris también en esas columnas.
+- **"⚠ 2 personalizados":** con Viandas de 100 px baja a un segundo renglón, sin partir la palabra (lo pediste así). A 1920,
+  "⚠ 1 personalizado" entra en uno.
+- **Detalles · Pago · Anular:** padding de 9 a 8 px, así las 3 entran con "Anulado".
+- **Acciones mide 206 px** (pediste ~190): las 3 pastillas con "Anulado" miden 186 px más el aire de los costados.
+
+**`heladera.css`**
+- **Fijas:** Plato 260 px · Plan 160 · Estado 140 · ••• 60 (hasta 1400 px: 200 · 140 · 116 · 56).
+- **Los números (Disponibles, Reservadas, Total y Mínimo) no tienen ancho:** la tabla pasa a `table-layout: auto`, así cada
+  una mide lo que su título (nunca menos, con su ⓘ) y se lleva una parte de lo que sobra.
+  - A 1920: Plato 260 · Plan 160 · Disponibles 289 · Reservadas 288 · Total 199 · Mínimo 180.
+  - A 1440 y a 1280 entra entera.
+- **Para que Plato no se estire con un nombre largo:** el nombre y la descripción llevan `width: 0` + `min-width: 100%`. Miden
+  lo que mide Plato y, si no entran, "…".
+- **Lo mismo en el casillero del mínimo:** al editarlo no ensancha la columna (si no, la tabla se movía).
+- **`--prod-tabla-ancho-minimo`** (1.080 px; 924 hasta 1400): más chico, la tabla se mueve adentro de su tarjeta, sin
+  achicar Plato ni Estado.
+- **Se sacaron** las perillas de ancho de los números (`--prod-ancho-disponibles`, `-reservadas`, `-total`, `-minimo`).
+
+**Una aclaración del plan:** la prueba con una página aparte se había leído al revés. Chrome, con `table-layout: fixed`, le da
+lo que sobra a las columnas en px (no a las de %). En Producción eso hacía crecer Plato. Por eso Producción pasó a
+`table-layout: auto`. En Consultar el reparto entre todas las columnas sirve: ninguna queda gigante.
+
+### 20.4 Cómo se comprobó (solo leyendo: lo que no fuera GET se cortaba en el navegador)
+- **16 de 16 controles** a 1440, 1920, 1280, 1024 y 390:
+  - las 11 columnas y sus celdas (N° en negrita, Entrega con el `title`, Cliente y Mail con "…", Método Pago después de
+    Estado);
+  - la tabla se mueve solo adentro de su tarjeta y Acciones queda en el mismo lugar con la tabla al principio y al final;
+  - a 1920 entra entera;
+  - la lista de Estado (las cantidades suman el total), las páginas;
+  - Detalles, Pago y Anular se abren y se cancelan sin mandar nada.
+- **Cambiar el estado:** se probó con el pedido #057. Lo que iba a mandar (`PUT /api/pedidos/57/estado {"estado_id":1}`) se
+  cortó en el navegador: el select sigue andando con el pedido de su fila y, como se cortó, volvió a "Entregado". Después se
+  miró en la base (solo leyendo): el #057 sigue en Entregado y cobrado.
+- **Consola:** el único error es el que provoca la prueba al cortar ese PUT ("No se pudo cambiar el estado: Failed to fetch").
+- **Producción:** Plato 260 (200 hasta 1400) y Plan pegada en todas las medidas; los títulos entran; a 1440 y 1280 entra
+  entera, a 1024 y 390 se mueve adentro de su tarjeta.
+- **`node tests/test_e2e.js heladera`: 37/40**, los mismos 3 de antes: la fecha de la compu (27/10) no es la de la base
+  (22/10). Pedidos de prueba #61 y #62, anulados por el test; la heladera quedó igual.
+
+### 20.5 Lo que hay que saber
+- **En el celu**, Acciones también queda fija y ocupa más de la mitad del ancho (206 de 358 px). Lo demás se mueve en lo que
+  queda. Si en el celu preferís que no quede fija, es sacar el `sticky` con una regla para menos de 768 px.
+- **A 1440**, Cliente, Dirección y Mail quedan chicas y con "…" (90 · 150 · 90 px): es lo que entra con Acciones a la vista.
+  El texto entero aparece al pasar el mouse.
+
+**Capturas:** `diseno-panel-final/resultado/cambio-columnas/`: `1440-consultar-11-columnas`, `1440-consultar-11-columnas-movida`
+(con la tabla al final: Acciones sigue en su lugar), `1440-produccion-columnas`, y las dos a 1920.

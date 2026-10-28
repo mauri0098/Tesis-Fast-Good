@@ -105,9 +105,15 @@ function crearPaginacion({
       contenedorTabla.appendChild(funcionRenderFila(item));
     });
 
-    // "Mostrando X de Y …": cuántos hay en esta página y cuántos en total. Ej: página 3 de 40 → "Mostrando 10 de 40 pedidos"
+    // "Mostrando X de Y …": cuántos hay en esta página y cuántos en total. Ej: página 3 de 40 → "Mostrando 10 de 40 pedidos".
+    // Los dos números van en <strong> (negrita, 27/10). Se arman con createElement + textContent: nada se interpreta como HTML.
+    // append agrega varias cosas al final, en orden (textos y elementos)
     if (contenedorResumen) {
-      contenedorResumen.textContent = 'Mostrando ' + filasDeEstaPagina.length + ' de ' + datos.length + ' ' + nombreDatos;
+      const cantidadPagina = document.createElement('strong');
+      cantidadPagina.textContent = filasDeEstaPagina.length;
+      const cantidadTotal = document.createElement('strong');
+      cantidadTotal.textContent = datos.length;
+      contenedorResumen.append('Mostrando ', cantidadPagina, ' de ', cantidadTotal, ' ' + nombreDatos);
     }
 
     crearControles();

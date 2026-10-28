@@ -1,8 +1,8 @@
 // ============================================================================
 // adminSidebar.js — El menú de la izquierda de todas las pantallas del panel
 //
-// Arma el menú (logo, links, usuario y cerrar sesión) y la barra blanca de arriba (buscador, avatar
-// y, en pantallas de menos de 900 px, el botón ☰). Corre apenas se lee (está al principio del <body>).
+// Arma el menú (logo, links, usuario y cerrar sesión) y la barra blanca de arriba ("Panel / [la pantalla]",
+// la fecha de hoy y, en pantallas de menos de 900 px, el botón ☰). Corre apenas se lee (está al principio del <body>).
 // Qué pantallas ve cada rol lo decide roles.js (la misma tabla que usa guard.js).
 // El estilo está en src/css/menuPanel.css, que este archivo carga.
 //
@@ -45,6 +45,10 @@
     { ruta: 'pages/generarReceta.html',         grupo: 'Catálogo',       icono: 'icono-menu-receta',      nombre: 'Generar Receta' },
     { ruta: 'pages/gestionUsuarios.html',       grupo: 'Administración', icono: 'icono-menu-usuarios',    nombre: 'Gestión de Usuarios' }
   ];
+
+  // Para la fecha de la barra de arriba ("Martes 27 de octubre"): getDay() da 0 para el domingo y getMonth() da 0 para enero
+  const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const MESES_ANIO = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
   // Los dibujos de los íconos (de línea, del color de la letra). Cada link usa el suyo con <use href="#…">
   const ICONOS_MENU = `
@@ -144,7 +148,7 @@
   });
 
   // Pantallas de menos de 900 px: lo oscuro que tapa el contenido con el menú abierto.
-  // Y en todas: la barra blanca de arriba con el ☰ (solo se ve en el celu), el buscador y el avatar
+  // Y en todas: la barra blanca de arriba con el ☰ (solo se ve en el celu), "Panel / [la pantalla]" y la fecha
   const overlay = document.createElement('div');
   overlay.className = 'sidebar-overlay';
   document.body.appendChild(overlay);
@@ -156,18 +160,24 @@
   toggleBtn.setAttribute('aria-expanded', 'false');   // para los lectores de pantalla: el menú está cerrado
   toggleBtn.textContent = '☰';
 
-  // El buscador es SOLO VISUAL por ahora: no busca nada y Ctrl K no hace nada (se conecta más adelante)
+  // La barra de arriba (27/10): a la izquierda "Panel / Producción" y a la derecha la fecha de hoy.
+  // El nombre sale de MENU_PANEL, la misma lista del menú. Ej: heladera.html → "Producción".
+  // Una pantalla que no está en el menú (Movimientos viejo) muestra solo "Panel".
+  const pantallaActual = MENU_PANEL.find(item => item.ruta.endsWith(paginaActual));   // find = la de esta página (o undefined)
+  const nombrePantalla = pantallaActual ? pantallaActual.nombre : '';
+  const hoy = new Date();                                                              // hoy, en la computadora
+  const fechaDeHoy = DIAS_SEMANA[hoy.getDay()] + ' ' + hoy.getDate() + ' de ' + MESES_ANIO[hoy.getMonth()];  // "Martes 27 de octubre"
   const barra = document.createElement('div');
   barra.className = 'barra-menu-celu barra-panel';           // barra-menu-celu: el nombre de antes; el estilo va en barra-panel
   barra.innerHTML = `
-    <label class="barra-buscador">
-      <svg class="barra-icono-lupa" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
-      <input type="search" class="barra-buscador-campo" placeholder="Buscar…" aria-label="Buscar (todavía no anda)">
-      <kbd class="barra-atajo">Ctrl K</kbd>
-    </label>
-    <span class="barra-espacio"></span>
-    <span class="barra-avatar" id="barraAvatar" aria-hidden="true">-</span>`;
-  barra.insertBefore(toggleBtn, barra.firstChild);           // el ☰ a la izquierda del buscador
+    <span class="barra-migas">
+      <span>Panel</span><span class="barra-migas-separador" aria-hidden="true">/</span><span class="barra-migas-pantalla"></span>
+    </span>
+    <span class="barra-fecha"></span>`;
+  barra.querySelector('.barra-migas-pantalla').textContent = nombrePantalla;            // textContent: se muestra como texto
+  barra.querySelector('.barra-migas-separador').hidden = nombrePantalla === '';         // sin pantalla, sin la "/"
+  barra.querySelector('.barra-fecha').textContent = fechaDeHoy;
+  barra.insertBefore(toggleBtn, barra.firstChild);           // el ☰ a la izquierda de "Panel /"
   document.body.insertBefore(barra, sidebar.nextSibling);    // la barra, arriba del contenido de la pantalla
 
   function toggleAdminSidebar(abrir) {
@@ -226,14 +236,12 @@
 
   // Escribe el nombre del usuario logueado y su inicial. Los dos salen de lo que guardó auth.js en el
   // navegador al iniciar sesión (el mismo dato que da obtenerDatosUsuario, que solo está en admin.html).
-  // Ej: "Mauricio" → "M" en el círculo verde, "Mauricio" al lado y "M" en el avatar de la barra de arriba
+  // Ej: "Mauricio" → "M" en el círculo verde y "Mauricio" al lado (la barra de arriba ya no tiene avatar: 27/10)
   function cargarDatosUsuario() {
     const nombre = localStorage.getItem('usuario_nombre') || '-';
     const inicial = nombre.charAt(0).toUpperCase();                                          // charAt(0) = la primera letra
     document.getElementById('sidebarUserName').textContent = nombre;                         // textContent: se muestra como texto
     document.getElementById('sidebarUserInicial').textContent = inicial;
-    document.getElementById('barraAvatar').textContent = inicial;
-    document.getElementById('barraAvatar').title = nombre;                                   // el nombre, al pasar el mouse
   }
 
   // Lo escribe al DOMContentLoaded (o enseguida, si la página ya cargó)

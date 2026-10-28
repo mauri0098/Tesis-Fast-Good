@@ -29,8 +29,8 @@ const PESTANAS_PEDIDO = [
   { valor: 'bien', texto: 'Bien' }
 ];
 
-// Los meses en corto, para "Para 21 oct 2026" (el 0 es enero)
-const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+// Los días de la semana, para "Para el miércoles 28/10" (getDay() da 0 para el domingo)
+const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -162,11 +162,13 @@ function renderizarPestanasPedido() {
   pestanas.forEach(pestana => {                                                     // por cada pestaña...
     const boton = document.createElement('button');
     boton.type = 'button';
-    boton.className = 'pestana-pedido';
-    if (pestana.elegida) boton.classList.add('activo');                             // la elegida, verde
+    boton.className = 'pestana-pedido pestana-estado pestana-' + pestana.valor;      // el estilo del molde (global.css). Ej: "pestana-bajo"
+    if (pestana.elegida) boton.classList.add('activo');                             // la elegida, con fondo gris
     boton.setAttribute('aria-pressed', String(pestana.elegida));                    // para los lectores de pantalla
+    // El puntito de color va en todas menos "Todos" (calculado antes: nada de "? :" adentro del HTML)
+    const puntito = pestana.valor === 'todos' ? '' : '<span class="punto-pestana"></span>';
     // Los textos son nuestros (de la lista de arriba) y la cantidad es un número: no hace falta escHtml
-    boton.innerHTML = `${pestana.texto}<span class="cantidad-pestana">${Number(pestana.cantidad)}</span>`;
+    boton.innerHTML = `${puntito}${pestana.texto}<span class="cantidad-pestana">${Number(pestana.cantidad)}</span>`;
     boton.addEventListener('click', () => {                                         // al tocarla...
       const esTodos = pestana.valor === 'todos';
       estadosPedido = estadosPedido.filter(valor => valor !== pestana.valor);       // ...si estaba elegida, se saca
@@ -293,9 +295,9 @@ function leerCantidadPedida(idProducto) {
 // ─────────────────────────────────────────────────────────────────────────────
 // actualizarTotalPedido → "Tu pedido" (lo pedido y para cuándo), el total y si se puede enviar
 // ENTRADA: nada (cuenta TODOS los platos, también los que no se ven con el filtro)
-// SALIDA:  nada (escribe "Para 21 oct 2026", la lista de lo pedido con su ✕, "N viandas" y "de M platos",
+// SALIDA:  nada (escribe "Para el miércoles 28/10", la lista de lo pedido con su ✕, "N viandas" y "de M platos",
 //          muestra el error si hay algo inválido y prende "Enviar a cocina" solo si hay algo pedido y nada inválido)
-// Ej: 4 fideos y 6 canelones → "fideos × 4", "canelones × 6" · "10 viandas" · "de 2 platos"
+// Ej: 4 fideos y 6 canelones → "fideos / 4 viandas", "canelones / 6 viandas" · "10 viandas" · "de 2 platos"
 // ─────────────────────────────────────────────────────────────────────────────
 function actualizarTotalPedido() {
   let total = 0;                                               // viandas pedidas
@@ -311,14 +313,13 @@ function actualizarTotalPedido() {
     total += cantidad;                                         // ...se suma
     if (cantidad === 0) return;                                // ...sin nada pedido: saltear (no va a "Tu pedido")
     platos += 1;                                               // ...cuenta como plato pedido
-    const plan = plato.plan_nombre || 'Sin plan';
+    // ...y su renglón: el nombre y abajo "10 viandas" (conPlural: un número y una palabra nuestra)
     htmlResumen += `
       <div class="item-resumen">
         <div class="item-resumen-textos">
           <div class="item-resumen-nombre">${escHtml(plato.nombre)}</div>
-          <div class="item-resumen-plan">${escHtml(plan)}</div>
+          <div class="item-resumen-cantidad">${conPlural(cantidad, 'vianda', 'viandas')}</div>
         </div>
-        <span class="item-resumen-cantidad">× ${cantidad}</span>
         <button type="button" class="quitar-del-pedido" data-id="${Number(plato.id)}" aria-label="Sacar ${escHtml(plato.nombre)} del pedido"><svg aria-hidden="true"><use href="#icono-cerrar"></use></svg></button>
       </div>`;
   });
@@ -338,11 +339,13 @@ function actualizarTotalPedido() {
     });
   });
 
-  // 2. Para cuándo: '2026-10-21' → "Para 21 oct 2026" (split parte el texto en los guiones: ['2026', '10', '21'])
+  // 2. Para cuándo: '2026-10-28' → "Para el miércoles 28/10" (split parte el texto en los guiones: ['2026', '10', '28']).
+  //    new Date(año, mes - 1, día) = ese día en la computadora (los meses van de 0 a 11), para saber qué día de la semana es
   const fecha = document.getElementById('pFecha').value;
   const partes = fecha.split('-');
-  const fechaLinda = Number(partes[2]) + ' ' + MESES_CORTOS[Number(partes[1]) - 1] + ' ' + partes[0];
-  document.getElementById('pParaCuando').textContent = fecha ? 'Para ' + fechaLinda : 'Elegí para cuándo';
+  const diaElegido = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+  const fechaLinda = DIAS_SEMANA[diaElegido.getDay()] + ' ' + partes[2] + '/' + partes[1];   // ej: "miércoles 28/10"
+  document.getElementById('pParaCuando').textContent = fecha ? 'Para el ' + fechaLinda : 'Elegí para cuándo';
 
   // 3. El total: "10 viandas" (el número grande) y "de 2 platos". Solo números y palabras nuestras: sin escHtml
   const palabraViandas = total === 1 ? 'vianda' : 'viandas';

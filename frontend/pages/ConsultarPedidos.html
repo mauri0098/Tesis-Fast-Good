@@ -27,8 +27,9 @@
   <!-- Los dibujos de los íconos de esta pantalla: no se ven acá, cada uno se usa con <use href="#…"> -->
   <svg class="iconos-pantalla" aria-hidden="true">
     <symbol id="icono-buscar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M20 20l-4-4"></path></symbol>
-    <symbol id="icono-cobrado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></symbol>
-    <symbol id="icono-por-cobrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle></symbol>
+    <symbol id="icono-calendario" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></symbol>
+    <symbol id="icono-reloj" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></symbol>
+    <symbol id="icono-flecha-abajo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></symbol>
     <symbol id="icono-cerrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></symbol>
   </svg>
 
@@ -36,42 +37,63 @@
     <div class="container-centrado">
       <h1>Administración de Pedidos</h1>
     </div>
+    <p class="bajada-pantalla">Buscá, filtrá y gestioná los pedidos de los clientes: estado, pago y detalle.</p>
   </header>
 
   <main class="page-container pagina-pedidos">
 
-    <!-- FILTROS: Buscar + una sola fecha de entrega + Aplicar + Ver todos -->
+    <!-- FILTROS: una barra larga en 3 partes (Buscar · Entrega · Estado) y al lado Aplicar y Ver todos -->
     <div class="filtros-container">
-      <label class="etiqueta etiqueta-buscar">Buscar
-        <span class="caja-buscar">
-          <svg class="icono-lupa" aria-hidden="true"><use href="#icono-buscar"></use></svg>
-          <input type="text" id="CampoBusqueda" class="filtro-input campo-buscar" placeholder="Nombre o N° de pedido" autocomplete="one-time-code">
-        </span>
-      </label>
-      <!-- Filtra por fecha de entrega; se aplica con el botón "Aplicar" -->
-      <label class="etiqueta">Fecha de entrega
-        <input type="date" id="FechaDesde" class="filtro-input filtro-fecha" title="Fecha de entrega">
-      </label>
-      <!-- "Hasta" no se ve: al tocar "Aplicar" toma la misma fecha de entrega (el filtro de siempre, con un solo día) -->
-      <input type="date" id="FechaHasta" class="filtro-input filtro-fecha" title="Entrega hasta" hidden>
+      <div class="barra-filtros">
+        <!-- 1. Buscar: por nombre o N° de pedido (filtra al escribir) -->
+        <label class="parte-filtro parte-buscar">
+          <svg class="icono-parte" aria-hidden="true"><use href="#icono-buscar"></use></svg>
+          <input type="text" id="CampoBusqueda" class="filtro-input campo-buscar" placeholder="Nombre o N° de pedido…" aria-label="Buscar por nombre o N° de pedido" autocomplete="one-time-code">
+        </label>
+
+        <!-- 2. Entrega: la fecha de entrega (se aplica con "Aplicar"). Vacía dice "Cualquier día" (solo CSS:
+             required + vacía = :invalid; no hay formulario, así que no cambia nada más) -->
+        <label class="parte-filtro parte-entrega">
+          <svg class="icono-parte" aria-hidden="true"><use href="#icono-calendario"></use></svg>
+          <span class="nombre-parte">Entrega:</span>
+          <span class="caja-fecha-entrega">
+            <input type="date" id="FechaDesde" class="filtro-input filtro-fecha" title="Fecha de entrega" aria-label="Fecha de entrega" required>
+            <span class="texto-cualquier-dia" aria-hidden="true">Cualquier día</span>
+          </span>
+          <svg class="flecha-parte" aria-hidden="true"><use href="#icono-flecha-abajo"></use></svg>
+        </label>
+        <!-- "Hasta" no se ve: al tocar "Aplicar" toma la misma fecha de entrega (el filtro de siempre, con un solo día) -->
+        <input type="date" id="FechaHasta" class="filtro-input filtro-fecha" title="Entrega hasta" hidden>
+
+        <!-- 3. Estado: abre la lista con los estados y cuántos pedidos hay de cada uno (la abre y la cierra ListarPedidos.js) -->
+        <div class="parte-filtro parte-estado">
+          <button type="button" id="btnFiltroEstado" class="boton-parte-estado" aria-expanded="false" aria-controls="filtros-estado">
+            <svg class="icono-parte" aria-hidden="true"><use href="#icono-reloj"></use></svg>
+            <span class="nombre-parte">Estado:</span>
+            <span id="estadoElegido" class="valor-parte">Todos</span>
+            <svg class="flecha-parte" aria-hidden="true"><use href="#icono-flecha-abajo"></use></svg>
+          </button>
+
+          <!-- ESTADOS: filtran la lista. La cantidad de cada uno la escribe ListarPedidos.js; data-nombre = lo que dice la barra -->
+          <div id="filtros-estado" class="filtros-estado menu-filtro menu-estado" role="group" aria-label="Filtrar por estado" hidden>
+            <button type="button" class="boton-estado boton-estado-elegido" data-estado="todos" data-nombre="Todos" aria-pressed="true"><span class="punto-estado punto-todos" aria-hidden="true"></span>Todos <span class="cantidad-estado">0</span></button>
+            <button type="button" class="boton-estado" data-estado="1" data-nombre="Registrado" aria-pressed="false"><span class="punto-estado punto-registrado" aria-hidden="true"></span>Registrado <span class="cantidad-estado">0</span></button>
+            <button type="button" class="boton-estado" data-estado="2" data-nombre="En preparación" aria-pressed="false"><span class="punto-estado punto-en-preparacion" aria-hidden="true"></span>En preparación <span class="cantidad-estado">0</span></button>
+            <button type="button" class="boton-estado" data-estado="3" data-nombre="Listo para entregar" aria-pressed="false"><span class="punto-estado punto-listo" aria-hidden="true"></span>Listo para entregar <span class="cantidad-estado">0</span></button>
+            <button type="button" class="boton-estado" data-estado="4" data-nombre="Entregado" aria-pressed="false"><span class="punto-estado punto-entregado" aria-hidden="true"></span>Entregado <span class="cantidad-estado">0</span></button>
+            <button type="button" class="boton-estado" data-estado="5" data-nombre="Cancelado" aria-pressed="false"><span class="punto-estado punto-cancelado" aria-hidden="true"></span>Cancelado <span class="cantidad-estado">0</span></button>
+          </div>
+        </div>
+      </div>
       <button type="button" id="btnAplicarFechas" class="btn-filtro btn-filtro-aplicar boton-principal">Aplicar</button>
       <button type="button" id="btnVerTodos"      class="btn-filtro btn-filtro-todos boton-secundario">Ver todos</button>
     </div>
 
-    <!-- LA TARJETA DE LA TABLA: arriba los estados, al medio la tabla y abajo las páginas -->
+    <!-- LA TARJETA DE LA TABLA: la tabla y abajo las páginas -->
     <div class="table-wrapper tarjeta-pedidos">
 
-      <!-- ESTADOS: filtran la lista. La cantidad de cada uno la escribe ListarPedidos.js -->
-      <div id="filtros-estado" class="filtros-estado" role="group" aria-label="Filtrar por estado">
-        <button type="button" class="boton-estado boton-estado-elegido" data-estado="todos" aria-pressed="true">Todos <span class="cantidad-estado">0</span></button>
-        <button type="button" class="boton-estado" data-estado="1" aria-pressed="false"><span class="punto-estado punto-registrado" aria-hidden="true"></span>Registrado <span class="cantidad-estado">0</span></button>
-        <button type="button" class="boton-estado" data-estado="2" aria-pressed="false"><span class="punto-estado punto-en-preparacion" aria-hidden="true"></span>En preparación <span class="cantidad-estado">0</span></button>
-        <button type="button" class="boton-estado" data-estado="3" aria-pressed="false"><span class="punto-estado punto-listo" aria-hidden="true"></span>Listo para entregar <span class="cantidad-estado">0</span></button>
-        <button type="button" class="boton-estado" data-estado="4" aria-pressed="false"><span class="punto-estado punto-entregado" aria-hidden="true"></span>Entregado <span class="cantidad-estado">0</span></button>
-        <button type="button" class="boton-estado" data-estado="5" aria-pressed="false"><span class="punto-estado punto-cancelado" aria-hidden="true"></span>Cancelado <span class="cantidad-estado">0</span></button>
-      </div>
-
-      <!-- Si la tabla no entra a lo ancho, se mueve de costado solo acá adentro (nunca toda la página) -->
+      <!-- Si la tabla no entra a lo ancho, se mueve de costado solo acá adentro (nunca toda la página), y Acciones queda
+           siempre a la vista, pegada a la derecha. Lo que no entra en una celda se corta con "…" -->
       <div class="caja-tabla">
       <table class="standard-table tabla-pedidos grilla-fg">
         <thead>
@@ -80,13 +102,13 @@
             <th class="col-numero">N° Pedido</th>
             <th class="col-entrega" title="Fecha de entrega">Entrega</th>
             <th class="col-cliente">Cliente</th>
-            <th class="col-direccion">Dirección</th>
+            <th class="col-direccion" title="Dirección y, abajo, cómo se entrega">Dirección</th>
             <th class="col-contacto">Teléfono</th>
-            <th class="col-contacto">Mail</th>
+            <th class="col-contacto col-mail">Mail</th>
             <th class="col-viandas">Viandas</th>
             <th class="col-costo">Costo</th>
             <th class="col-estado">Estado</th>
-            <th class="col-pago">Método Pago</th>
+            <th class="col-pago" title="Método de pago y, abajo, si ya se cobró">Método Pago</th>
             <th class="col-acciones">Acciones</th>
           </tr>
         </thead>

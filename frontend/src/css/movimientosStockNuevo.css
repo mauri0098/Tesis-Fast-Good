@@ -117,7 +117,7 @@
 }
 
 
-/* ── TABLA: caja blanca con sombra, encabezado verde con letras blancas ── */
+/* ── TABLA: caja blanca con sombra; los títulos y las celdas con el molde del panel (global.css, 27/10) ── */
 /* Si la tabla no entra, scroll de costado solo dentro de la caja */
 .table-wrapper {
   overflow-x: auto;
@@ -131,20 +131,27 @@ table {
   background: white;
 }
 
+/* Los títulos: los de todas las tablas del panel (antes: franja verde con letra blanca). Salen de las perillas de global.css */
 thead th {
-  background: var(--color-primary);
-  color: white;
-  padding: 0.85rem 1rem;
+  padding: var(--aire-titulos-tabla);
+  background: var(--fondo-titulos-tabla);
+  color: var(--color-titulos-tabla);
   text-align: left;
-  font-size: 0.85rem;
+  font-size: var(--letra-titulos-tabla);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--espacio-letras-titulos);
   white-space: nowrap;
+  border-bottom: 1px solid var(--linea-titulos-tabla);
 }
 
+/* Las celdas: las del molde (letra de 14,5 px, filas de 60 px y la línea finita entre filas) */
 tbody td {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 0.88rem;
+  height: var(--alto-fila);
+  padding: var(--celda-alto) var(--celda-espacio);
+  border-bottom: 1px solid var(--linea-renglones-tabla);
+  color: var(--texto);
+  font-size: var(--letra-celdas-tabla);
   vertical-align: middle;
 }
 

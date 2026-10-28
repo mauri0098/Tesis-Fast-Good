@@ -254,7 +254,7 @@ async function cargarPlatos(mantenerPagina) {
 // ENTRADA: mantenerPagina: true para quedarse en la misma página (recarga automática o después de guardar un mínimo)
 // SALIDA:  nada (dibuja las pestañas con cuántos hay, los filtros de plan y la tabla paginada de a 15,
 //          con "Mostrando X de Y platos" abajo)
-// Columnas: Plato · Plan · Estado · Libres · Reservadas · En heladera · Mínimo · ⋯
+// Columnas: Plato · Plan · Disponibles · Reservadas · Total · Estado · Mínimo · •••
 // Ej: 2 platos sin stock y 3 bajos → pestañas "Sin stock 2" y "Bajos 3"
 // ─────────────────────────────────────────────────────────────────────────────
 function renderizarTabla(mantenerPagina) {
@@ -284,8 +284,8 @@ function renderizarTabla(mantenerPagina) {
     const elegida = opcion.valor === filtroEstado;                           // ¿es la elegida?
     const boton = document.createElement('button');                         // ...se crea
     boton.type = 'button';                                                   // no envía ningún formulario
-    boton.className = 'btn-filtro-estado pestana-estado pestana-' + opcion.valor;  // su estilo (ej: "pestana-bajo" = amarilla si está elegida)
-    if (elegida) boton.classList.add('activo');                              // la elegida queda blanca
+    boton.className = 'btn-filtro-estado pestana-estado pestana-' + opcion.valor;  // su estilo (ej: "pestana-bajo" = puntito naranja)
+    if (elegida) boton.classList.add('activo');                              // la elegida, con fondo gris
     boton.setAttribute('aria-pressed', String(elegida));                     // para los lectores de pantalla
     // El puntito de color va en todas menos "Todos" (calculado antes: nada de "? :" adentro del HTML)
     const puntito = opcion.valor === 'todos' ? '' : '<span class="punto-pestana"></span>';
@@ -359,11 +359,11 @@ function renderizarTabla(mantenerPagina) {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// renderizarFiltroPlan → dibuja lo de "Filtros": la lista de planes con casillas, el número del botón
-//                        y, debajo de los filtros, un ✕ por cada plan elegido (y "Limpiar todo")
+// renderizarFiltroPlan → dibuja lo de "Plan": la lista de planes (la elegida con ✓), lo elegido al lado del botón
+//                        ("Plan · Mantenimiento") y, debajo de los filtros, un ✕ por cada plan elegido (y "Limpiar todo")
 // ENTRADA: nada (usa todosPlatos, planesElegidos y lo escrito en "Buscar plan…")
 // SALIDA:  nada (dibuja; al tildar o destildar un plan cambia planesElegidos y redibuja la tabla)
-// Ej: tilda "Mantenimiento" → el botón dice "Filtros 1", abajo aparece "Plan: Mantenimiento ✕" y la tabla muestra solo esos
+// Ej: elige "Mantenimiento" → el botón dice "Plan · Mantenimiento" (con dos planes: "Plan · 2 planes") y la tabla muestra solo esos
 // La llaman renderizarTabla (cada vez que se dibuja) y "Buscar plan…" (al escribir).
 // ─────────────────────────────────────────────────────────────────────────────
 function renderizarFiltroPlan() {
@@ -390,7 +390,7 @@ function renderizarFiltroPlan() {
   if (planesVisibles.length === 0) lista.innerHTML = '<p class="plan-vacio">No hay planes con ese nombre</p>';
   planesVisibles.forEach(plan => {                                           // por cada plan...
     const opcion = document.createElement('label');                          // ...un renglón (label: tocar el texto tilda la casilla)
-    opcion.className = 'opcion-plan';
+    opcion.className = 'opcion-plan opcion-filtro';                          // opcion-filtro: el estilo del molde (global.css)
     const clasePunto = 'punto-plan-' + (Number(plan.id) % CANTIDAD_COLORES_PLAN);   // su color (% = el resto de dividir)
     opcion.innerHTML = `
       <input type="checkbox" class="casilla-plan">
@@ -399,6 +399,7 @@ function renderizarFiltroPlan() {
       <span class="cantidad-plan">${Number(plan.cantidad)}</span>`;
     const casilla = opcion.querySelector('input');                           // la casilla
     casilla.checked = planesElegidos.includes(plan.id);                      // tildada si ya estaba elegido
+    opcion.classList.toggle('opcion-elegida', casilla.checked);              // la elegida: fondo verde clarito y ✓ (solo se ve)
     casilla.addEventListener('change', () => {                               // al tildar o destildar...
       planesElegidos = planesElegidos.filter(idPlan => idPlan !== plan.id);  // ...primero se saca (si estaba)
       if (casilla.checked) planesElegidos.push(plan.id);                     // ...y si quedó tildada, se agrega
@@ -407,9 +408,12 @@ function renderizarFiltroPlan() {
     lista.appendChild(opcion);
   });
 
-  // 4. El número del botón "Filtros" y "Limpiar filtro": solo si hay planes elegidos
+  // 4. Al lado de "Plan", lo elegido: el nombre del plan, o "2 planes" si hay más de uno. Y "Limpiar filtro".
+  //    Todo solo si hay planes elegidos. Ej: [3] → "MANTENIMIENTO" (el CSS lo muestra "Mantenimiento")
   const hayElegidos = planesElegidos.length > 0;
-  document.getElementById('cantidadFiltroPlan').textContent = String(planesElegidos.length);
+  const nombreElegido = hayElegidos ? planesPorId[planesElegidos[0]].nombre : '';      // el primero elegido
+  const textoElegidos = planesElegidos.length > 1 ? planesElegidos.length + ' planes' : nombreElegido;
+  document.getElementById('cantidadFiltroPlan').textContent = textoElegidos;             // textContent: se muestra como texto
   document.getElementById('cantidadFiltroPlan').hidden = !hayElegidos;
   document.getElementById('btnLimpiarPlan').hidden = !hayElegidos;
   document.getElementById('btnFiltroPlan').classList.toggle('con-filtros', hayElegidos);   // "Plan" con borde verde si hay elegidos
@@ -471,8 +475,8 @@ function ordenarPor(columna) {
 // crearFilaPlato → arma la fila de un plato para la tabla (la llama crearPaginacion, una vez por fila)
 // ENTRADA: plato (uno de todosPlatos)
 // SALIDA:  la fila <tr> lista para poner en la tabla, con sus botones andando
-// Ej: fideos con 61 libres, 10 reservadas y mínimo 5 →
-//     "fideos / Con salsa · ● Mantenimiento · ● Bien · 61 · 10 · 71 · 5 ✎ · ⋯"
+// Ej: fideos con 61 disponibles, 10 reservadas y mínimo 5 →
+//     "fideos / Con salsa · Mantenimiento · 61 · 10 · 71 · Bien · ✎ 5 · •••" (sin mínimo: "—" en vez del número)
 //     (el cocinero ve el mínimo como número, sin ✎)
 // ─────────────────────────────────────────────────────────────────────────────
 function crearFilaPlato(plato) {
@@ -483,17 +487,19 @@ function crearFilaPlato(plato) {
   const clasePunto = 'punto-plan-' + (Number(plato.id_plan || 0) % CANTIDAD_COLORES_PLAN);  // el color fijo de su plan
   const descripcion = plato.descripcion || '';                               // la frase de abajo del nombre ('' si no tiene)
   const minimo = Number(plato.stock_minimo);                                 // el mínimo
+  const textoMinimo = minimo === 0 ? '—' : String(minimo);                   // sin mínimo (0) se ve "—"; el casillero sigue con 0
   const editorMinimo = `
-          <button type="button" class="boton-minimo" title="Cambiar el mínimo">${minimo}<svg class="icono-lapiz" aria-hidden="true"><use href="#icono-lapiz"></use></svg></button>
+          <button type="button" class="boton-minimo" title="Cambiar el mínimo">${textoMinimo}<svg class="icono-lapiz" aria-hidden="true"><use href="#icono-lapiz"></use></svg></button>
           <div class="minimo-editar" hidden>
             <input type="number" class="input-minimo" min="0" max="9999" step="1" value="${minimo}"
                    aria-label="Mínimo de ${escHtml(plato.nombre)}">
             <button type="button" class="btn-guardar-minimo" title="Guardar el mínimo" aria-label="Guardar el mínimo"><svg aria-hidden="true"><use href="#icono-check"></use></svg></button>
           </div>`;                                                           // ✎ abre el casillero con ✓ (los que administran)
-  const numeroMinimo = `<span class="numero-minimo">${minimo}</span>`;       // el cocinero solo ve el número
+  const numeroMinimo = `<span class="numero-minimo">${textoMinimo}</span>`;  // el cocinero solo ve el número (o "—")
   const celdaMinimo = puedeAdministrar ? editorMinimo : numeroMinimo;
 
-  // 2. La fila, pintada según su estado (lo que viene de la base pasa por escHtml; los números, por Number)
+  // 2. La fila, pintada según su estado (lo que viene de la base pasa por escHtml; los números, por Number).
+  //    Columnas (27/10): Plato · Plan · Disponibles · Reservadas · Total (numero-total: en negrita) · Estado · Mínimo · •••
   const fila = document.createElement('tr');
   fila.className = 'fila-plato fila-' + estado;                              // ej: "fila-bajo" = amarillo clarito
   fila.innerHTML = `
@@ -502,10 +508,10 @@ function crearFilaPlato(plato) {
           <div class="plato-descripcion" title="${escHtml(descripcion)}">${escHtml(descripcion)}</div>
         </td>
         <td class="col-plan"><span class="plan-con-punto"><span class="punto-plan ${clasePunto}"></span>${escHtml(plan)}</span></td>
-        <td class="col-estado"><span class="etiqueta-estado ${datosEstado.clase}"><span class="punto-estado"></span>${datosEstado.texto}</span></td>
         <td class="col-numero numero-libres">${Number(plato.stock_heladera)}</td>
         <td class="col-numero numero-secundario">${Number(plato.reservadas)}</td>
-        <td class="col-numero numero-secundario">${Number(plato.en_heladera)}</td>
+        <td class="col-numero numero-secundario numero-total">${Number(plato.en_heladera)}</td>
+        <td class="col-estado"><span class="etiqueta-estado ${datosEstado.clase}"><span class="punto-estado"></span>${datosEstado.texto}</span></td>
         <td class="col-minimo">${celdaMinimo}</td>
         <td class="col-menu">
           <button type="button" class="boton-menu-fila" title="Más acciones" aria-label="Más acciones de ${escHtml(plato.nombre)}" aria-haspopup="menu">

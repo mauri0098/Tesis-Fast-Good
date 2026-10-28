@@ -23,8 +23,8 @@
     10. Utilidades y menú viejo
     11. Animaciones
     12. Celular (hasta 768 px)
-    13. Piezas del panel nuevo (botones de arriba, pestañas, buscador, pastillas, filtros elegidos,
-        ventanas, panel de la derecha y paginación con palabras). Las estrena Producción (21/10)
+    13. Piezas del panel nuevo (el molde, 27/10): botones de arriba, pestañas, buscador, pastillas,
+        botón de filtro y su menú, ventanas y panel de la derecha
    ============================================================ */
 
 
@@ -38,8 +38,8 @@
     --verde-suave: #e8f5eb;       /* fondo verde suave: al pasar el mouse, franjas y la X de las ventanas */
     --titulo: #3a4640;            /* títulos grandes ("Administración de Pedidos") */
     --texto: #111a14;             /* texto común */
-    --texto-gris: #4a564d;        /* textos secundarios: etiquetas, datos chicos */
-    --texto-apagado: #5f6b63;     /* títulos de las columnas, de los grupos del menú y la lupa */
+    --texto-gris: #4a564d;        /* textos secundarios del menú y de las ventanas (el menú lo usa: no cambiarlo) */
+    --texto-apagado: #5f6b63;     /* el "texto gris" del panel nuevo (27/10): bajadas, renglón chico de las celdas, "Panel /", la fecha, la lupa */
     --borde-gris: #e3e9e1;        /* bordes de tarjetas, casilleros y botones blancos */
     --linea-suave: #edf1ec;       /* líneas finitas entre renglones de una tabla */
     --gris-boton: #f3f6f2;        /* fondo de los botones redondos y de las cantidades */
@@ -49,6 +49,8 @@
     --rojo: #b42318;              /* el botón de anular y los textos de error */
     --rojo-suave: #f3e3e1;        /* fondo rojo suave de los avisos de "cuidado" */
     --rojo-texto: #8a2219;        /* letra de esos avisos */
+    --rojo-borde: #f5c9c4;        /* borde rojo clarito: el ícono de "Descartar viandas" y el error de las ventanas nuevas */
+    --rojo-error: #9b1f16;        /* la letra del error de las ventanas nuevas */
     --fondo-ventana: rgb(14 20 26 / .5);  /* lo oscuro que tapa la pantalla detrás de una ventana (.5 = a medias) */
 
     /* ── Tamaños ────────────────────────────────────────────────────────────────── */
@@ -56,22 +58,34 @@
     --alto-boton-chico: 34px;     /* alto de los botones de las tablas (Detalles, Pago, Anular) */
     --radio-pastilla: 999px;      /* esquinas de los botones: 999 = redondas del todo (forma de pastilla) */
     --radio-casillero: 12px;      /* esquinas de los casilleros donde se escribe */
-    --radio-tarjeta: 16px;        /* esquinas de las tarjetas blancas (filtros, tabla) */
+    --radio-tarjeta: 12px;        /* esquinas de las tarjetas blancas (la de la tabla) y de los menús que se abren (27/10: antes 16) */
     --radio-ventana: 20px;        /* esquinas de las ventanas */
     --espacio-pantalla: 32px;     /* aire a los costados de cada pantalla en compu: si lo subís, el contenido queda más angosto */
-    --titulo-pantalla: 36px;      /* tamaño del título de cada pantalla en compu */
+    --titulo-pantalla: 28px;      /* tamaño del título de cada pantalla en compu (27/10: antes 36) */
 
     /* ── Tablas: los títulos de las columnas y las celdas (valen para TODAS las tablas del panel) ── */
-    --fondo-titulos-tabla: #f5f7f4;               /* fondo de los títulos de las columnas: una franja gris clarita (21/10, como el diseño de Producción) */
-    --color-titulos-tabla: var(--texto-gris);     /* letra de los títulos: gris (#4a564d) */
-    --letra-titulos-tabla: 12.5px;                /* tamaño de la letra de los títulos (chica, peso 500): si lo subís, títulos más grandes */
-    --linea-titulos-tabla: #e6ebe4;               /* la línea de 1 px debajo de los títulos: gris clarito */
-    --aire-titulos-tabla: 9px 18px;               /* aire de los títulos: 9 px arriba y abajo, 18 px a los costados */
+    --linea-tabla: #e9ece8;                       /* las líneas finitas de las tablas: el borde de la tarjeta, abajo de los títulos y entre filas */
+    --fondo-titulos-tabla: #ffffff;               /* fondo de los títulos de las columnas: blanco, sin franja (27/10) */
+    --color-titulos-tabla: #6b766e;               /* letra de los títulos: gris */
+    --letra-titulos-tabla: 11px;                  /* tamaño de la letra de los títulos (en MAYÚSCULA, peso 600): si lo subís, títulos más grandes */
+    --espacio-letras-titulos: .06em;              /* lo separadas que van las letras de los títulos */
+    --linea-titulos-tabla: var(--linea-tabla);    /* la línea de 1 px debajo de los títulos */
+    --aire-titulos-tabla: 10px 12px;              /* aire de los títulos: 10 px arriba y abajo, 12 px a los costados (como las celdas) */
     --letra-celdas-tabla: 13.5px;                 /* tamaño de la letra de las celdas */
-    --celda-alto: 15px;                           /* aire arriba y abajo de cada celda: si lo subís, renglones más altos */
+    --alto-fila: 48px;                            /* alto de cada fila (con 2 renglones queda en 52, sola): si lo subís, filas más altas */
+    --celda-alto: 8px;                            /* aire arriba y abajo de cada celda (es lo que da los 52 px de una celda de 2 renglones) */
     --celda-espacio: 12px;                        /* aire a los costados de cada celda: si lo bajás, entran más columnas */
-    --linea-renglones-tabla: var(--linea-suave);  /* la línea suave entre renglones (#edf1ec) */
-    --fila-encima: #f6faf6;                       /* el renglón al pasar el mouse: verde clarito */
+    --alto-dato-principal: 19px;                  /* el renglón de arriba de una celda de 2 renglones (19 + 1 + 16 = 36 px: la fila, 52) */
+    --letra-dato-chico: 12px;                     /* lo de abajo de cada celda (el barrio, "✓ Cobrado"…): 12 px, gris */
+    --alto-dato-chico: 16px;                      /* …y su renglón */
+    --alto-pastilla-estado: 24px;                 /* las pastillas de estado (Bien, Bajo… y el Estado de los pedidos): alto… */
+    --letra-pastilla-estado: 12.5px;              /* …y letra */
+    --numeros-tabla: "cv11", "ss01", "tnum";      /* detalles de la letra Inter en las tablas: la "a" simple, los números abiertos y todos del mismo ancho */
+    --linea-renglones-tabla: var(--linea-tabla);  /* la línea entre filas */
+    --fila-encima: #f7faf7;                       /* el renglón al pasar el mouse: verde muy clarito */
+    --transicion-fila: .15s;                      /* lo que tarda en pintarse el renglón al pasar el mouse */
+    --fila-bajo: #fffaf0;                         /* el fondo de una fila "Bajo" (amarillo muy suave) */
+    --fila-sin: #fff7f6;                          /* el fondo de una fila "Sin stock" (rojo muy suave) */
 
     /* ── Letra ──────────────────────────────────────────────────────────────────── */
     --fuente: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;  /* la del panel (20/10; el index sigue con Figtree). Se carga en el <head> de cada pantalla */
@@ -80,26 +94,28 @@
     --sombra-suave: 0 1px 2px rgb(22 50 30 / .06), 0 8px 24px rgb(22 50 30 / .08);  /* la de las tarjetas del index */
     --sombra-ventana: 0 24px 60px rgb(14 22 30 / .22);                               /* la de las ventanas */
 
-    /* ── Piezas del panel nuevo (sección 13: las estrena Producción y las pueden usar las demás pantallas) ── */
-    --borde-casillero: #d9e1d7;   /* borde de los casilleros y de los botones de las ventanas (un poco más marcado que --borde-gris) */
+    /* ── Piezas del panel nuevo (sección 13: las usan Producción y Consultar Pedidos, y las pueden usar las demás) ── */
+    --borde-casillero: #dde2dc;   /* el borde de los botones blancos, los buscadores y los casilleros (27/10) */
     --gris-encima: #f4f7f3;       /* el fondo de los botones blancos al pasar el mouse */
-    --texto-suave: #7a857d;       /* textos muy suaves: lo que se escribe de ejemplo, "Ctrl K", los números de las pestañas */
-    --icono-suave: #8a948d;       /* íconos suaves: la ⓘ, el ✎ y la X de las ventanas */
+    --texto-suave: #8a948d;       /* textos muy suaves: lo que se escribe de ejemplo, "Ctrl K", las cantidades de las pestañas */
+    --icono-suave: #8a948d;       /* íconos suaves: la ⓘ, el ✎, las flechitas ▾ y la X de las ventanas */
     --verde-borde: #cfe7d6;       /* borde verde clarito (los íconos de las ventanas, la franja de "Hecho hoy") */
-    --alto-boton-panel: 40px;     /* alto de los botones blancos de arriba ("Pendientes de cocina"…) y del verde */
-    --alto-control-panel: 34px;   /* alto del buscador y del botón "Plan" de las tarjetas */
-    --radio-boton-panel: 12px;    /* esquinas de esos botones, de los casilleros y de los menús */
-    --radio-chico: 10px;          /* esquinas de las pestañas, del buscador y del botón "Plan" */
+    --verde-borde-filtro: #bfe0c8;  /* el borde de un botón de filtro con algo elegido ("Plan · Mantenimiento") */
+    --alto-barra: 56px;           /* alto de la barra blanca de arriba ("Panel / Producción" y la fecha) */
+    --alto-boton-panel: 38px;     /* alto de los botones de arriba ("Pendientes de cocina"…, "+ Pedir a cocina") */
+    --radio-boton-panel: 9px;     /* esquinas de esos botones y de los casilleros de 38 px */
+    --alto-control-panel: 32px;   /* alto del buscador y del botón de filtro ("Plan") de la barra de la tabla */
+    --radio-chico: 8px;           /* esquinas del buscador, del botón de filtro y de los botones de las páginas */
+    --alto-pestana: 28px;         /* alto de las pestañas de estado (Todos · Sin stock · Bajos · Bien) */
+    --radio-pestana: 7px;         /* esquinas de las pestañas */
+    --fondo-pestana-elegida: #eef1ee;  /* el fondo gris de la pestaña elegida */
+    --fondo-cantidad: #eef1ee;    /* el circulito gris con la cantidad de los botones de arriba */
+    --fondo-opcion-elegida: #f3f8f4;   /* la opción elegida de un menú que se abre (con su ✓ verde) */
     --sombra-chica: 0 1px 2px rgba(17, 26, 20, .04);   /* la sombrita casi invisible de los botones blancos */
-    --sombra-tarjeta-panel: 0 0 0 1px rgba(17, 26, 20, .07), 0 2px 4px rgba(17, 26, 20, .03), 0 16px 40px -20px rgba(17, 26, 20, .18);  /* la tarjeta de la tabla */
+    --sombra-tarjeta-panel: 0 0 0 1px var(--linea-tabla), 0 1px 2px rgba(17, 26, 20, .04);  /* la tarjeta de la tabla: un borde finito y casi nada de sombra */
+    --sombra-menu: 0 0 0 1px rgba(17, 26, 20, .07), 0 16px 36px -10px rgba(17, 26, 20, .22);   /* la de los menús que se abren (Plan, Estado) */
     --fondo-ventana-panel: rgba(40, 44, 41, .72);       /* lo oscuro detrás de las ventanas nuevas */
     --ancho-panel-lateral: 460px; /* el ancho del panel que entra por la derecha ("Últimos movimientos") */
-
-    /* Los colores de cada estado de un plato: fondo, letra, puntito y borde de su pastilla (y de su pestaña) */
-    --estado-bien-fondo: #e6f4ea;  --estado-bien-letra: #0f6a2d;  --estado-bien-punto: #12893a;  --estado-bien-borde: #cfe8d6;
-    --estado-bajo-fondo: #fdf0cf;  --estado-bajo-letra: #6b4300;  --estado-bajo-punto: #e8890c;  --estado-bajo-borde: #f3dca0;
-    --estado-sin-fondo:  #fde3e0;  --estado-sin-letra:  #9b1f16;  --estado-sin-punto:  #d23b2e;  --estado-sin-borde:  #f5c9c4;
-    --estado-nada-fondo: #eef1ee;  --estado-nada-letra: #4f5a52;  --estado-nada-punto: #8a948d;  --estado-nada-borde: #dde3dc;   /* "Sin mínimo" */
 
     /* ── Las variables de antes (en inglés) ─────────────────────────────────────── */
     /* Las usan los CSS de cada pantalla y login.css: siguen con el mismo nombre y ahora toman el valor de las perillas nuevas */
@@ -173,19 +189,27 @@ main,
 /* Ya no es una barra verde: es el título grande, sobre el blanco (el logo ahora está en el menú) */
 header {
     width: 100%;
-    padding: 28px var(--espacio-pantalla) 0;
+    padding: 30px var(--espacio-pantalla) 0;
     background: transparent;
     color: var(--titulo);
 }
 
-/* El título: grande, en negrita y gris oscuro */
+/* El título: 28 px, en negrita (700) y gris oscuro, no negro (27/10) */
 header h1 {
     font-size: var(--titulo-pantalla);
-    font-weight: 900;
-    letter-spacing: -.035em;
+    font-weight: 700;
+    letter-spacing: -.015em;
     line-height: 1.2;
     color: var(--titulo);
     animation: fade-up 0.5s 0.10s var(--easing-out) both;
+}
+
+/* La bajada: la frase gris debajo del título (ej: "Controlá las viandas de la heladera…") */
+.bajada-pantalla {
+    margin: 6px 0 0;
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: var(--texto-apagado);
 }
 
 /* El logo de cada pantalla no se muestra: ya está arriba del menú */
@@ -604,9 +628,10 @@ footer {
 
 /* ===== 8. TABLAS ===== */
 
-/* La tarjeta blanca que tiene la tabla. Si la tabla no entra, se mueve de costado solo adentro de la tarjeta */
+/* La tarjeta blanca que tiene la tabla (radio 12, borde finito). Si la tabla no entra, se mueve de costado solo adentro
+   de la tarjeta. Las pantallas que cargan stock.css (Gestión de Stock, Combos…) siguen con la tarjeta de su CSS */
 .table-wrapper {
-    border: 1px solid var(--borde-gris);
+    border: 1px solid var(--linea-tabla);
     border-radius: var(--radio-tarjeta);
     background: var(--blanco);
     padding: 16px;
@@ -645,29 +670,84 @@ table.grilla-fg tbody td {
     word-wrap: break-word;
 }
 
+/* --- La letra de TODAS las tablas del panel: Inter con sus detalles (la "a" simple, los números abiertos y todos del
+   mismo ancho, así quedan alineados en columna) y bien prolija --- */
+table {
+    font-feature-settings: var(--numeros-tabla);
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+}
+
 /* --- Los títulos de las columnas de TODAS las tablas del panel (.standard-table y .grilla-fg) ---
-   Como el diseño de Producción (21/10): franja gris clarita, letra chica gris de peso 500, sin mayúsculas,
-   apenas separada (.015em), y una línea gris de 1 px abajo. Se escribe "table." adelante para ganarle al CSS
-   propio de cada pantalla (que pintaba sus títulos con una franja verde y letra en mayúscula) */
+   Sin franja, letra de 11 px en MAYÚSCULA, peso 600, separada (.06em), gris, y una línea finita abajo.
+   Se escribe "table." adelante para ganarle al CSS propio de cada pantalla */
 table.standard-table thead th,
 table.grilla-fg thead th {
     padding: var(--aire-titulos-tabla);
     background-color: var(--fondo-titulos-tabla);
     color: var(--color-titulos-tabla);
     font-size: var(--letra-titulos-tabla);
-    font-weight: 500;
-    text-transform: none;
-    letter-spacing: .015em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: var(--espacio-letras-titulos);
     border-bottom: 1px solid var(--linea-titulos-tabla);
 }
 
-/* --- Las celdas de TODAS las tablas del panel: letra de 15 px, 15 px de aire arriba y abajo,
-   12 px a los costados y una línea suave entre renglones (con "table." adelante, por lo mismo) --- */
+/* --- Las celdas de TODAS las tablas del panel: letra de 13,5 px, filas de 48 px (52 con 2 renglones),
+   aire de 8 px arriba y abajo y 12 a los costados, y una línea finita entre filas (con "table." adelante, por lo mismo) ---
+   height en una celda de tabla es el alto MÍNIMO: si tiene más cosas adentro, la fila crece sola */
 table.standard-table tbody td,
 table.grilla-fg tbody td {
+    height: var(--alto-fila);
     padding: var(--celda-alto) var(--celda-espacio);
+    color: var(--texto);
     font-size: var(--letra-celdas-tabla);
     border-bottom: 1px solid var(--linea-renglones-tabla);
+}
+
+/* --- Las celdas de 2 renglones: arriba el dato (500) y abajo el renglón chico gris de 12 px ---
+   (ej: el N° de pedido y abajo la fecha; el cliente y abajo el mail) */
+.dato-principal {
+    font-weight: 500;
+    line-height: var(--alto-dato-principal);
+}
+
+.dato-chico {
+    display: block;
+    margin-top: 1px;
+    font-size: var(--letra-dato-chico);
+    font-weight: 400;
+    line-height: var(--alto-dato-chico);   /* 19 + 1 + 16 = 36 px de texto: con el aire de la celda, la fila mide 52 */
+    color: var(--texto-apagado);
+}
+
+/* Si el JS lo esconde (hidden), no se ve ni ocupa lugar (el "display: block" de arriba le ganaría al hidden) */
+.dato-chico[hidden] {
+    display: none;
+}
+
+/* --- El pie de la tabla, adentro de la tarjeta: "Mostrando X de Y" a la izquierda y las páginas a la derecha --- */
+.pie-tabla {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--linea-tabla);
+    font-size: 13.5px;
+    color: var(--texto-apagado);
+}
+
+/* Los dos números de "Mostrando 8 de 8 platos", en negrita (los pone paginacion.js en <strong>) */
+.pie-tabla strong {
+    color: var(--texto);
+    font-weight: 600;
+}
+
+/* Las páginas, adentro del pie: sin el aire de arriba que tienen sueltas */
+.pie-tabla .paginacion {
+    padding: 0;
 }
 
 /* El último renglón, sin línea abajo */
@@ -676,7 +756,12 @@ table.grilla-fg tbody tr:last-child td {
     border-bottom: none;
 }
 
-/* Al pasar el mouse, el renglón se pinta de verde clarito */
+/* Al pasar el mouse, el renglón se pinta de verde muy clarito, de a poco */
+table.standard-table tbody tr,
+table.grilla-fg tbody tr {
+    transition: background-color var(--transicion-fila);
+}
+
 table.standard-table tbody tr:hover,
 table.grilla-fg tbody tr:hover {
     background-color: var(--fila-encima);
@@ -714,7 +799,9 @@ table.grilla-fg tbody tr:hover {
 }
 
 
-/* ===== 9. PAGINACIÓN (paginacion.js): ‹ 1 … 4 5 6 … 12 › debajo de las tablas ===== */
+/* ===== 9. PAGINACIÓN (paginacion.js): ‹ Anterior · 1 · 2 · Siguiente › debajo de las tablas ===== */
+/* paginacion.js es el de siempre (no se toca): arma "‹", los números y "›". Las palabras "Anterior" y
+   "Siguiente" las agrega este CSS (27/10: antes solo en Producción, con la clase paginacion-con-palabras) */
 
 /* La fila de botones, a la derecha */
 .paginacion {
@@ -722,7 +809,7 @@ table.grilla-fg tbody tr:hover {
     justify-content: flex-end;
     align-items: center;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 6px;
     padding: 1rem 0 0.25rem;
 }
 
@@ -731,19 +818,22 @@ table.grilla-fg tbody tr:hover {
     display: none;
 }
 
-/* Cada botón: un circulito blanco con borde finito */
+/* Cada botón: blanco con borde finito, de 32 px y esquinas de 8 */
 .paginacion-btn {
     min-width: 32px;
     height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
     padding: 0 8px;
-    border: 1px solid var(--borde-gris);
-    border-radius: var(--radio-pastilla);
+    border: 1px solid var(--borde-casillero);
+    border-radius: var(--radio-chico);
     background: var(--blanco);
-    color: var(--texto);
-    font-size: 13px;
-    font-weight: 700;
-    line-height: 30px;
-    text-align: center;
+    color: var(--titulo);
+    font: inherit;
+    font-size: 13.5px;
+    line-height: normal;
     cursor: pointer;
     transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
@@ -757,18 +847,23 @@ table.grilla-fg tbody tr:hover {
     background: var(--verde-principal);
     border-color: var(--verde-principal);
     color: var(--blanco);
+    font-weight: 600;
     cursor: default;
 }
 
-/* Las flechas ‹ y › */
-.paginacion-flecha {
-    font-size: 15px;
+/* Las flechas con su palabra: "‹ Anterior" y "Siguiente ›" */
+.paginacion-flecha[aria-label="Página anterior"]::after {
+    content: "Anterior";
+}
+
+.paginacion-flecha[aria-label="Página siguiente"]::before {
+    content: "Siguiente";
 }
 
 /* Una flecha que no lleva a ningún lado (en la primera o la última página): clarita */
 .paginacion-btn:disabled {
-    border-color: var(--borde-gris);
-    opacity: .4;
+    border-color: var(--borde-casillero);
+    color: #9aa59d;
     cursor: default;
 }
 
@@ -925,37 +1020,36 @@ table.grilla-fg tbody tr:hover {
 }
 
 
-/* ===== 13. PIEZAS DEL PANEL NUEVO (las estrena Producción) =====
+/* ===== 13. PIEZAS DEL PANEL NUEVO (el molde: las usan Producción y Consultar Pedidos) =====
    Cada pieza tiene su clase propia: una pantalla la usa solo si pone esa clase en su HTML,
-   así ninguna de las pantallas de antes cambia. Los colores y tamaños están en las perillas (sección 0). */
+   así las pantallas que todavía no se rediseñaron no cambian. Los colores y tamaños están en las
+   perillas (sección 0). Los colores de cada estado (Bien, Bajo, Registrado…) los pone cada pantalla en su CSS. */
 
-/* --- 13a. Botones de arriba: blancos con borde ("Pendientes de cocina") y el verde ("+ Pedir a cocina") --- */
+/* --- 13a. Botones de arriba: blancos con borde ("Pendientes de cocina 3") y el verde ("+ Pedir a cocina") --- */
 .boton-ventana {
     height: var(--alto-boton-panel);
     flex: none;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 0 13px;
-    border: 1px solid var(--borde-gris);
+    padding: 0 14px;
+    border: 1px solid var(--borde-casillero);
     border-radius: var(--radio-boton-panel);
     background: var(--blanco);
-    color: var(--titulo);
+    color: var(--texto);
     font: inherit;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 500;
     white-space: nowrap;
     cursor: pointer;
-    box-shadow: var(--sombra-chica);
     transition: background .15s, border-color .15s;
 }
 
 .boton-ventana:hover {
     background: var(--gris-encima);
-    border-color: #d3ddd1;
 }
 
-/* El numerito verde de un botón (cuántos pendientes, cuántos hechos hoy) */
+/* La cantidad de un botón (cuántos pendientes, cuántos hechos hoy), en un circulito gris */
 .cantidad-ventana {
     min-width: 20px;
     height: 20px;
@@ -964,10 +1058,10 @@ table.grilla-fg tbody tr:hover {
     align-items: center;
     justify-content: center;
     border-radius: var(--radio-pastilla);
-    background: var(--verde-suave);
-    color: var(--verde-texto);
+    background: var(--fondo-cantidad);
+    color: var(--texto);
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
 }
 
@@ -981,15 +1075,15 @@ table.grilla-fg tbody tr:hover {
     flex: none;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 0 18px;
+    gap: 7px;
+    padding: 0 16px;
     border: 0;
     border-radius: var(--radio-boton-panel);
     background: var(--verde-principal);
     color: var(--blanco);
     font: inherit;
-    font-size: 14.5px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 600;
     white-space: nowrap;
     cursor: pointer;
     transition: background .15s;
@@ -1003,33 +1097,34 @@ table.grilla-fg tbody tr:hover {
     display: none;
 }
 
-/* El dibujito de adentro de un botón */
+/* El dibujito de adentro de un botón (de línea, del color de la letra) */
 .icono-boton {
-    width: 17px;
-    height: 17px;
+    width: 16px;
+    height: 16px;
     flex: none;
 }
 
 
-/* --- 13b. Pestañas de estado (Todos · ● Sin stock 1 · ● Bajos 2 · ● Bien 1) --- */
+/* --- 13b. Pestañas de estado (Todos 8 · ● Sin stock 1 · ● Bajos 2 · ● Bien 4) --- */
 .pestanas-estado {
     display: flex;
+    align-items: center;
     gap: 2px;
 }
 
 .pestana-estado {
-    height: 32px;
+    height: var(--alto-pestana);
     flex: none;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 0 12px;
+    padding: 0 10px;
     border: 0;
-    border-radius: var(--radio-chico);
+    border-radius: var(--radio-pestana);
     background: transparent;
     color: var(--titulo);
     font: inherit;
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 500;
     white-space: nowrap;
     cursor: pointer;
@@ -1040,64 +1135,45 @@ table.grilla-fg tbody tr:hover {
     background: var(--gris-encima);
 }
 
-/* El puntito de color de cada estado ("Todos" no tiene) */
+/* El puntito de color de cada estado ("Todos" no tiene). El color lo pone cada pantalla */
 .punto-pestana {
-    width: 7px;
-    height: 7px;
+    width: 6px;
+    height: 6px;
     flex: none;
     border-radius: 50%;
 }
 
-.pestana-sin .punto-pestana        { background: var(--estado-sin-punto); }
-.pestana-bajo .punto-pestana       { background: var(--estado-bajo-punto); }
-.pestana-bien .punto-pestana       { background: var(--estado-bien-punto); }
-.pestana-sincontrol .punto-pestana { background: var(--estado-nada-punto); }
-
-/* El número de cada pestaña: gris suave */
+/* La cantidad de cada pestaña: gris suave */
 .cantidad-pestana {
     color: var(--texto-suave);
-    font-size: 12px;
+    font-size: 12.5px;
     font-weight: 500;
     font-variant-numeric: tabular-nums;
 }
 
-/* La elegida: con el fondo de su estado ("Todos", gris) */
+/* La elegida: fondo gris y en negrita (todas iguales, sin el color de su estado) */
 .pestana-estado.activo {
+    background: var(--fondo-pestana-elegida);
+    color: var(--texto);
     font-weight: 600;
 }
 
-.pestana-todos.activo      { background: #eef1ed; color: var(--texto); }
-.pestana-sin.activo        { background: var(--estado-sin-fondo);  color: var(--estado-sin-letra); }
-.pestana-bajo.activo       { background: var(--estado-bajo-fondo); color: var(--estado-bajo-letra); }
-.pestana-bien.activo       { background: var(--estado-bien-fondo); color: var(--estado-bien-letra); }
-.pestana-sincontrol.activo { background: var(--estado-nada-fondo); color: var(--estado-nada-letra); }
 
-/* En la elegida, el número toma el color de su letra ("Todos": gris) */
-.pestana-estado.activo .cantidad-pestana {
-    color: inherit;
-}
-
-.pestana-todos.activo .cantidad-pestana {
-    color: var(--texto-gris);
-}
-
-
-/* --- 13c. Buscador de una tarjeta ("Buscar plato…" con la lupa y "Ctrl K") --- */
+/* --- 13c. Buscador de la barra de una tabla ("Buscar plato…" con la lupa y "Ctrl K") --- */
 .buscador-tabla {
-    width: 260px;
+    width: 250px;
     max-width: 100%;
     min-width: 160px;
     height: var(--alto-control-panel);
-    flex: 0 1 260px;
+    flex: 0 1 250px;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 0 8px 0 12px;
-    border: 1px solid var(--borde-gris);
+    gap: 8px;
+    padding: 0 10px;
+    border: 1px solid var(--borde-casillero);
     border-radius: var(--radio-chico);
     background: var(--blanco);
     color: var(--texto-suave);
-    box-shadow: var(--sombra-chica);
     cursor: text;
     transition: border-color .15s, box-shadow .15s;
 }
@@ -1107,7 +1183,7 @@ table.grilla-fg tbody tr:hover {
     box-shadow: 0 0 0 3px var(--verde-suave);
 }
 
-/* El casillero de adentro, sin borde (el borde es el de la caja). "input." le gana a .filtro-input */
+/* El casillero de adentro, sin borde (el borde es el de la caja). Le gana a .filtro-input */
 .buscador-tabla input {
     flex: 1;
     min-width: 0;
@@ -1120,115 +1196,136 @@ table.grilla-fg tbody tr:hover {
     box-shadow: none;
     color: var(--texto);
     font: inherit;
-    font-size: 14px;
+    font-size: 13px;
+}
+
+.buscador-tabla input::placeholder {
+    color: var(--texto-suave);
 }
 
 .buscador-tabla .icono-lupa {
-    width: 17px;
-    height: 17px;
+    width: 16px;
+    height: 16px;
     flex: none;
 }
 
-/* "Ctrl K" (de adorno, como el buscador de la barra de arriba) */
+/* "Ctrl K" (de adorno) */
 .buscador-tabla .atajo-teclado {
-    padding: 2px 6px;
-    border: 1px solid var(--borde-gris);
-    border-radius: 6px;
+    padding: 1px 5px;
+    border: 1px solid var(--borde-casillero);
+    border-radius: 5px;
     color: var(--texto-suave);
     font-family: inherit;
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 600;
     white-space: nowrap;
 }
 
 
-/* --- 13d. Pastillas de estado (● Bien, ● Bajo, ● Sin stock, ● Sin mínimo) --- */
+/* --- 13d. Pastillas de estado (Bien, Bajo, Sin stock…): redondas, de 24 px, sin punto ---
+   El fondo y la letra de cada una los pone cada pantalla en su CSS */
 .etiqueta-estado {
+    height: var(--alto-pastilla-estado);
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 9px 2px 7px;
+    padding: 0 10px;
     border-radius: var(--radio-pastilla);
-    font-size: 12.5px;
+    font-size: var(--letra-pastilla-estado);
     font-weight: 500;
     white-space: nowrap;
 }
 
-/* El puntito de adentro (".etiqueta-estado" adelante: Consultar Pedidos tiene otro .punto-estado) */
+/* El puntito que arma el JS adentro de la pastilla: en el diseño nuevo no se ve
+   (".etiqueta-estado" adelante: Consultar Pedidos tiene otro .punto-estado) */
 .etiqueta-estado .punto-estado {
-    width: 7px;
-    height: 7px;
-    flex: none;
-    border-radius: 50%;
+    display: none;
 }
 
-.estado-bien       { background: var(--estado-bien-fondo); color: var(--estado-bien-letra); box-shadow: inset 0 0 0 1px var(--estado-bien-borde); }
-.estado-bajo       { background: var(--estado-bajo-fondo); color: var(--estado-bajo-letra); box-shadow: inset 0 0 0 1px var(--estado-bajo-borde); }
-.estado-sin        { background: var(--estado-sin-fondo);  color: var(--estado-sin-letra);  box-shadow: inset 0 0 0 1px var(--estado-sin-borde); }
-.estado-sincontrol { background: var(--estado-nada-fondo); color: var(--estado-nada-letra); box-shadow: inset 0 0 0 1px var(--estado-nada-borde); }
 
-.estado-bien .punto-estado       { background: var(--estado-bien-punto); }
-.estado-bajo .punto-estado       { background: var(--estado-bajo-punto); }
-.estado-sin .punto-estado        { background: var(--estado-sin-punto); }
-.estado-sincontrol .punto-estado { background: var(--estado-nada-punto); }
-
-
-/* --- 13e. Filtros elegidos ("Plan: Mantenimiento ✕" y "Limpiar todo") --- */
-.chip-filtro {
-    height: 28px;
+/* --- 13e. Botón de filtro ("Plan") y el menú que abre ---
+   El botón: blanco con borde y el embudo. Con algo elegido (clase "con-filtros", la pone el JS) o abierto:
+   verde suave, borde verde clarito y la letra verde, y al lado lo elegido ("Plan · Mantenimiento") */
+.boton-filtro {
+    height: var(--alto-control-panel);
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 0 4px 0 10px;
-    border: 1px solid var(--borde-gris);
-    border-radius: var(--radio-pastilla);
-    background: var(--gris-boton);
-    color: #26312a;
-    font-size: 13px;
-    font-weight: 500;
-}
-
-/* La ✕ de cada filtro elegido */
-.quitar-chip {
-    width: 22px;
-    height: 22px;
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-}
-
-.quitar-chip:hover {
-    background: rgba(17, 26, 20, .08);
-}
-
-.quitar-chip svg {
-    width: 14px;
-    height: 14px;
-}
-
-.boton-limpiar-todo {
-    height: 30px;
-    padding: 0 8px;
-    border: 0;
-    background: transparent;
-    color: var(--texto-gris);
+    gap: 7px;
+    padding: 0 12px;
+    border: 1px solid var(--borde-casillero);
+    border-radius: var(--radio-chico);
+    background: var(--blanco);
+    color: var(--texto);
     font: inherit;
     font-size: 13px;
     font-weight: 600;
-    text-decoration: underline;
-    text-underline-offset: 3px;
+    white-space: nowrap;
     cursor: pointer;
 }
 
-.boton-limpiar-todo:hover {
+.boton-filtro:hover {
+    background: var(--gris-encima);
+}
+
+.boton-filtro.con-filtros,
+.boton-filtro[aria-expanded="true"] {
+    border-color: var(--verde-borde-filtro);
+    background: var(--verde-suave);
+    color: var(--verde-texto);
+}
+
+/* El menú que se abre: caja blanca con esquinas de 12 y sombra suave */
+.menu-filtro {
+    padding: 6px;
+    border-radius: var(--radio-tarjeta);
+    background: var(--blanco);
+    box-shadow: var(--sombra-menu);
+}
+
+/* Cada opción: 13 px; la elegida (clase "opcion-elegida") con fondo verde clarito, en negrita y con ✓ verde */
+.opcion-filtro {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: var(--radio-pestana);
     color: var(--texto);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.opcion-filtro:hover {
+    background: var(--gris-encima);
+}
+
+.opcion-filtro.opcion-elegida {
+    background: var(--fondo-opcion-elegida);
+    font-weight: 600;
+}
+
+.opcion-filtro.opcion-elegida::after {
+    content: "✓";
+    margin-left: auto;
+    color: var(--verde-texto);
+}
+
+/* "Limpiar filtro", abajo, en verde, con una línea finita arriba */
+.limpiar-filtro {
+    width: 100%;
+    margin-top: 4px;
+    padding: 8px 12px 2px;
+    border: 0;
+    border-top: 1px solid var(--linea-tabla);
+    background: transparent;
+    color: var(--verde-texto);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+.limpiar-filtro[hidden] {
+    display: none;
 }
 
 
@@ -1268,7 +1365,7 @@ table.grilla-fg tbody tr:hover {
     align-items: center;
     justify-content: center;
     border: 1px solid var(--verde-borde);
-    border-radius: var(--radio-boton-panel);
+    border-radius: var(--radio-tarjeta);       /* 12 px, como siempre */
     background: var(--blanco);
     color: var(--verde-principal);
     box-shadow: 0 1px 2px rgba(17, 26, 20, .06);
@@ -1281,7 +1378,7 @@ table.grilla-fg tbody tr:hover {
 
 /* El de las ventanas de "cuidado" (Descartar), en rojo */
 .icono-ventana-peligro {
-    border-color: var(--estado-sin-borde);
+    border-color: var(--rojo-borde);
     color: #c9372c;
 }
 
@@ -1321,7 +1418,7 @@ p.frase-ventana {
     justify-content: center;
     padding: 0;
     border: 0;
-    border-radius: var(--radio-chico);
+    border-radius: 10px;                        /* las ventanas quedan como estaban (27/10) */
     background: transparent;
     color: var(--icono-suave);
     cursor: pointer;
@@ -1367,7 +1464,7 @@ p.frase-ventana {
     height: 44px;
     padding: 0 16px;
     border: 1px solid var(--borde-casillero);
-    border-radius: var(--radio-boton-panel);
+    border-radius: var(--radio-tarjeta);
     background: var(--blanco);
     color: var(--titulo);
     font: inherit;
@@ -1389,7 +1486,7 @@ p.frase-ventana {
     gap: 8px;
     padding: 0 16px;
     border: 0;
-    border-radius: var(--radio-boton-panel);
+    border-radius: var(--radio-tarjeta);
     background: var(--verde-principal);
     color: var(--blanco);
     font: inherit;
@@ -1433,10 +1530,10 @@ p.frase-ventana {
 .ventana-panel .modal-error {
     display: none;
     padding: 10px 12px;
-    border: 1px solid var(--estado-sin-borde);
-    border-radius: var(--radio-boton-panel);
+    border: 1px solid var(--rojo-borde);
+    border-radius: var(--radio-tarjeta);
     background: #fdecea;
-    color: var(--estado-sin-letra);
+    color: var(--rojo-error);
     font-size: 13.5px;
 }
 
@@ -1464,57 +1561,7 @@ p.frase-ventana {
 }
 
 
-/* --- 13h. Paginación con palabras: "‹ Anterior  1  Siguiente ›" ---
-   paginacion.js es el de siempre (no se toca). La pantalla que la quiere así le pone al contenedor
-   "paginacion paginacion-con-palabras"; las palabras las agrega este CSS */
-.paginacion-con-palabras {
-    gap: 6px;
-    padding: 0;
-}
-
-.paginacion-con-palabras .paginacion-btn {
-    min-width: 36px;
-    height: 36px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    padding: 0 10px;
-    border-radius: var(--radio-boton-panel);
-    color: var(--titulo);
-    font-size: 13.5px;
-    font-weight: 600;
-    line-height: normal;
-}
-
-.paginacion-con-palabras .paginacion-btn.activa {
-    color: var(--blanco);
-    font-weight: 800;
-    box-shadow: 0 4px 10px -4px rgba(18, 137, 58, .5);
-}
-
-.paginacion-con-palabras .paginacion-flecha {
-    padding: 0 12px;
-    font-size: 15px;
-}
-
-.paginacion-con-palabras .paginacion-flecha[aria-label="Página anterior"]::after {
-    content: "Anterior";
-    font-size: 13.5px;
-}
-
-.paginacion-con-palabras .paginacion-flecha[aria-label="Página siguiente"]::before {
-    content: "Siguiente";
-    font-size: 13.5px;
-}
-
-.paginacion-con-palabras .paginacion-btn:disabled {
-    opacity: 1;
-    color: #9aa59d;
-}
-
-
-/* --- 13i. Si la compu pide "menos movimiento" (Accesibilidad), el panel no se desliza --- */
+/* --- 13h. Si la compu pide "menos movimiento" (Accesibilidad), el panel no se desliza --- */
 @media (prefers-reduced-motion: reduce) {
     .panel-lateral {
         animation: none;
@@ -1522,7 +1569,7 @@ p.frase-ventana {
 }
 
 
-/* --- 13j. Celular (hasta 768 px): las ventanas nuevas ocupan toda la pantalla --- */
+/* --- 13i. Celular (hasta 768 px): las ventanas nuevas ocupan toda la pantalla --- */
 @media (max-width: 768px) {
     .ventana-panel {
         width: 100%;

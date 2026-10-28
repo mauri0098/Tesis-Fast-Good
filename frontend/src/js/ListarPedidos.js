@@ -4,7 +4,9 @@
 // Funciones:
 //   iniciarConsultarPedidos → al abrir: engancha el buscador, las fechas, los estados y las teclas, y carga estados y pedidos
 //   renderizarPedidos       → el filtro (fecha + buscador + estado) y la tabla de a 15
-//   renderizarFiltrosEstado → escribe en los botones de estado cuántos pedidos hay de cada uno y marca el elegido
+//   renderizarFiltrosEstado → escribe en la lista de estados cuántos pedidos hay de cada uno, marca el elegido y
+//                             lo muestra en la barra ("Estado: Registrado")
+//   mostrarListaEstados     → abre o cierra la lista de "Estado" de la barra de filtros
 //   crearFilaPedido         → arma la fila de un pedido (la llama crearPaginacion por cada pedido de la página)
 //   aplicarFechas           → "Aplicar" (la fecha de entrega) o "Ver todos"
 //   alCambiarEstado         → cambió el select de estado: si hace falta, pregunta si ya pagó; si no, guarda
@@ -16,7 +18,7 @@
 //   cerrarVentana           → cierra una ventana (si es "Confirmar pago", cuenta como "No, todavía no pagó")
 //   mostrarCartel           → un aviso flotante: verde (salió bien) o amarillo (atención)
 //   formatearPrecio         → un número como precio. Ej: 137000 → "$ 137.000"
-// Son 14 porque la pantalla tiene la grilla, sus filtros (fecha, buscador y estados) y 4 ventanas
+// Son 15 porque la pantalla tiene la grilla, sus filtros (fecha, buscador y la lista de estados) y 4 ventanas
 // (Detalles, Pago, Confirmar pago y Anular).
 // El pago (ventanas "Pago del Pedido" y "Confirmar Pago") está aparte, en pagoPedido.js.
 //
@@ -45,7 +47,7 @@ const COLORES_ESTADO = {
   5: 'estado-cancelado'         // Cancelado: rojo claro
 };
 
-// Lo que dice la pastilla de Método Pago: con tarjeta, solo "Tarjeta" (el tipo va abajo, en el detalle chiquito).
+// Lo que dice la columna Pago (arriba): con tarjeta, solo "Tarjeta" (el tipo va abajo, en el renglón chico).
 // Los demás métodos dicen su nombre tal cual.
 const TEXTO_PASTILLA_METODO = {
   'Tarjeta Débito':  'Tarjeta',
@@ -88,11 +90,22 @@ async function iniciarConsultarPedidos() {
     if (!boton) return;                                            // se tocó entre los botones: nada
     filtroEstado = boton.dataset.estado;                           // 'todos', '1', '2'… (el data-estado del HTML)
     renderizarPedidos(1);
+    mostrarListaEstados(false);                                    // ya se eligió: la lista se cierra
   });
 
-  // 3. Escape cierra la ventana que esté abierta; Enter en el PIN confirma la anulación
+  // 2c. La lista de "Estado" de la barra: su botón la abre (o la cierra, si ya estaba abierta).
+  //     Un clic afuera de la lista y de su botón la cierra (closest = el elemento tocado o el de afuera que tenga esa clase)
+  const listaEstados = document.getElementById('filtros-estado');  // la lista con los 6 botones de estado
+  document.getElementById('btnFiltroEstado').addEventListener('click', () => mostrarListaEstados(listaEstados.hidden));  // escondida → se abre
+  document.addEventListener('click', evento => {
+    const tocoAdentro = Boolean(evento.target.closest('.parte-estado'));  // ¿se tocó la lista o su botón?
+    if (!tocoAdentro) mostrarListaEstados(false);                  // afuera: se cierra
+  });
+
+  // 3. Escape cierra la lista de "Estado" y la ventana que esté abierta; Enter en el PIN confirma la anulación
   document.addEventListener('keydown', evento => {                 // al apretar una tecla...
     if (evento.key !== 'Escape') return;                           // ...si no es Escape, nada
+    mostrarListaEstados(false);                                    // la lista de "Estado", si estaba abierta, se cierra
     ['modalDetalles', 'modalPago', 'modalAnular', 'modalConfirmarPago'].forEach(idVentana => {  // por cada ventana...
       const abierta = document.getElementById(idVentana).classList.contains('visible');
       if (abierta) cerrarVentana(idVentana);                       // ...si está abierta, se cierra
@@ -176,12 +189,13 @@ function renderizarPedidos(pagina) {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// renderizarFiltrosEstado → los botones de estado de arriba de la tabla: cuántos pedidos hay de cada estado
-//                           y cuál está elegido (en verde)
+// renderizarFiltrosEstado → la lista de "Estado" de la barra de filtros: cuántos pedidos hay de cada estado,
+//                           cuál está elegido (con ✓) y, en la barra, su nombre ("Estado: Registrado", en verde)
 // ENTRADA: pedidos: los que pasaron el filtro de fechas y el buscador (todavía sin filtrar por estado)
-// SALIDA:  nada (escribe el número de cada botón y marca el elegido)
+// SALIDA:  nada (escribe el número de cada botón, marca el elegido y escribe su nombre en la barra)
 // Ej: hoy hay 3 pedidos, 2 registrados y 1 entregado → "Todos 3" · "Registrado 2" · "Entregado 1" · los demás 0
-// La llama renderizarPedidos cada vez que dibuja la tabla. Los botones ya están en el HTML (data-estado="todos", "1"…).
+// La llama renderizarPedidos cada vez que dibuja la tabla. Los botones ya están en el HTML (data-estado="todos", "1"…;
+// data-nombre = lo que dice la barra).
 // ─────────────────────────────────────────────────────────────────────────────
 function renderizarFiltrosEstado(pedidos) {
   // 1. Cuántos hay de cada estado, en un objeto. Ej: { todos: 3, 1: 2, 4: 1 }
@@ -191,37 +205,57 @@ function renderizarFiltrosEstado(pedidos) {
     cantidades[estado] = (cantidades[estado] || 0) + 1;            // uno más de ese estado
   });
 
-  // 2. Cada botón: su número y si es el elegido
+  // 2. Cada botón: su número y si es el elegido (del elegido se anota el nombre, para la barra)
+  let nombreElegido = 'Todos';
   document.querySelectorAll('.boton-estado').forEach(boton => {
     const clave = boton.dataset.estado;                            // 'todos', '1', '2'…
     const elegido = clave === filtroEstado;
     boton.querySelector('.cantidad-estado').textContent = cantidades[clave] || 0;  // si no hay ninguno, 0
     boton.classList.toggle('boton-estado-elegido', elegido);       // toggle(clase, sí/no): la pone si es sí y la saca si es no
     boton.setAttribute('aria-pressed', String(elegido));           // para los lectores de pantalla: apretado o no
+    if (elegido) nombreElegido = boton.dataset.nombre;             // ej: "Registrado" (el data-nombre del HTML)
   });
+
+  // 3. En la barra: el nombre del elegido ("Estado: Registrado") y, si no es "Todos", la parte en verde
+  document.getElementById('estadoElegido').textContent = nombreElegido;
+  document.getElementById('btnFiltroEstado').classList.toggle('con-filtro', filtroEstado !== 'todos');  // verde si hay uno elegido
 }
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// crearFilaPedido → arma la fila de un pedido
+// mostrarListaEstados → abre o cierra la lista de "Estado" de la barra de filtros
+// ENTRADA: abrir: true para abrirla, false para cerrarla
+// SALIDA:  nada (la muestra o la esconde, y su botón dice si está abierta: aria-expanded, para los lectores de pantalla
+//          y para el CSS, que lo pinta como abierto)
+// Ej: mostrarListaEstados(true) → debajo de "Estado: Todos ▾" se ve la lista: Todos 14 · ● Registrado 5 · …
+// La llaman el botón "Estado", elegir un estado, un clic afuera y la tecla Escape (iniciarConsultarPedidos).
+// ─────────────────────────────────────────────────────────────────────────────
+function mostrarListaEstados(abrir) {
+  document.getElementById('filtros-estado').hidden = !abrir;                               // abierta o escondida
+  document.getElementById('btnFiltroEstado').setAttribute('aria-expanded', String(abrir)); // 'true' o 'false'
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// crearFilaPedido → arma la fila de un pedido: 11 celdas (Dirección y Método Pago con 2 renglones: el dato y abajo uno chico gris)
 // ENTRADA: pedido (como lo manda GET /api/pedidos)
 // SALIDA:  la fila (<tr>) lista para la tabla, con sus botones enganchados
-// Ej: #250 · 19/10/2026 · PRUEBA – NO PREPARAR · Ituzaingó 431 / Delivery · Centro · … · 10 / ⚠ 2 personalizados ·
-//     $ 137.000 · [Registrado] · [Efectivo] / Cobra al entregar · [Detalles] [Pago] [Anular]
-//     Si está anulado: la fila apagada con el costo tachado, el select y "Pago" apagados, y "Anulado" en gris.
+// Ej: #250 · 19/10 · PRUEBA – NO PREPARAR · Ituzaingó 431 / Delivery · Centro · 351 555-0100 · prueba@mail.com ·
+//     10 / ⚠ 2 personalizados · $ 137.000 · [Registrado ▾] · Efectivo / Cobra al entregar · [Detalles] [Pago] [Anular]
+//     Si ya pagó, el renglón chico de Método Pago va en verde y con ✓ ("✓ Cobrado", "✓ Débito").
+//     Si está anulado: la fila en gris con el costo tachado, el select y "Pago" apagados, y "Anulado" en gris.
 // ─────────────────────────────────────────────────────────────────────────────
 function crearFilaPedido(pedido) {
   // 1. Lo que va en cada celda, calculado antes (nada de "? :" adentro del HTML)
   const numero      = '#' + String(pedido.id).padStart(3, '0');                      // ej: "#005"
-  const entrega     = pedido.fecha_entrega ? fechaDDMMAAAA(parseFechaLocal(pedido.fecha_entrega)) : '—';
+  const entregaCompleta = pedido.fecha_entrega ? fechaDDMMAAAA(parseFechaLocal(pedido.fecha_entrega)) : '—';  // ej: "19/10/2026"
+  const entrega     = entregaCompleta.slice(0, 5);                                   // solo día y mes (slice = los primeros 5): "19/10"
   const cliente     = pedido.cliente_nombre || pedido.usuarios?.nombre || 'Anónimo'; // ?. = "si existe usuarios, su nombre"
-  const direccion   = pedido.cliente_direccion || '-';
-  const telefono    = pedido.cliente_telefono  || '-';
-  const email       = pedido.cliente_email     || '-';
+  const direccion   = pedido.cliente_direccion || '—';
+  const telefono    = pedido.cliente_telefono  || '—';
+  const email       = pedido.cliente_email     || '—';
   const metodo      = pedido.metodo_pago       || 'Efectivo';                        // sin método = Efectivo
-  const clasePagado = pedido.pagado ? 'pago-cobrado' : 'pago-por-cobrar';            // la pastilla: verde si ya pagó, naranja si falta
-  const textoPagado = pedido.pagado ? 'Pagado' : 'Pendiente de pago';                // el cartelito al pasar el mouse por la pastilla
-  const iconoPagado = pedido.pagado ? 'icono-cobrado' : 'icono-por-cobrar';          // ✓ si ya pagó; el billete si falta
+  const textoPagado = pedido.pagado ? 'Pagado' : 'Pendiente de pago';                // el cartelito al pasar el mouse por el método
   const textoMetodo = TEXTO_PASTILLA_METODO[metodo] || metodo;                       // ej: 'Tarjeta Débito' → 'Tarjeta'
 
   // a. Debajo del método, el detalle chiquito, según sea el método
@@ -251,21 +285,18 @@ function crearFilaPedido(pedido) {
       break;
   }
 
-  // b. Un pedido anulado no se cobra ni se anula otra vez: "Pago" apagado y "Anulado" en gris.
-  //    Su pastilla de pago va en gris, sin ícono ni detalle.
+  // b. Un pedido anulado no se cobra ni se anula otra vez: "Pago" apagado, "Anulado" en gris y sin el detalle de pago.
+  //    Si ya pagó (y no está anulado), el detalle va en verde y con ✓. Ej: '' → "✓ Cobrado" · 'Débito' → "✓ Débito"
   const anulado     = pedido.id_estado === ESTADO_CANCELADO;
   const pagoApagado = anulado ? 'disabled title="Un pedido anulado no se cobra"' : '';
   const botonAnular = anulado
     ? '<button type="button" class="btn-eliminar" disabled>Anulado</button>'
     : '<button type="button" class="btn-eliminar btn-anular">Anular</button>';
-  let clasePastilla = clasePagado;
-  let iconoPastilla = '<svg class="icono-pago" aria-hidden="true"><use href="#' + iconoPagado + '"></use></svg>';
-  if (anulado) {
-    clasePastilla = 'pago-anulado';
-    iconoPastilla = '';
-    detallePago = '';
-  }
-  const detalleHTML = detallePago ? '<span class="dato-chico">' + escHtml(detallePago) + '</span>' : '';
+  if (anulado) detallePago = '';
+  const yaPago = pedido.pagado && !anulado;
+  if (yaPago) detallePago = '✓ ' + (detallePago || 'Cobrado');
+  const claseCobrado = yaPago ? ' pago-cobrado' : '';                                // el renglón en verde (ConsultarPedidos.css)
+  const detalleHTML = detallePago ? '<span class="dato-chico' + claseCobrado + '">' + escHtml(detallePago) + '</span>' : '';
 
   // c. Las viandas: cuántas son en total y cuántas personalizadas (se suman las cantidades de los platos)
   //    Ej: 8 fideos + 2 fideos "sin sal" → 10 viandas y "⚠ 2 personalizados"
@@ -277,8 +308,9 @@ function crearFilaPedido(pedido) {
     if (detalle.personalizado) viandasPersonalizadas = viandasPersonalizadas + cantidad;
   });
   const palabraPersonalizado = viandasPersonalizadas === 1 ? 'personalizado' : 'personalizados';
+  const textoPersonalizados = escHtml(viandasPersonalizadas) + ' ' + palabraPersonalizado;   // ej: "2 personalizados" (también va en el title: si la pastillita lo corta, se lee entero al pasar el mouse)
   const avisoPersonalizados = viandasPersonalizadas > 0
-    ? '<span class="dato-chico aviso-personalizados">⚠ ' + escHtml(viandasPersonalizadas) + ' ' + palabraPersonalizado + '</span>'
+    ? '<span class="dato-chico aviso-personalizados" title="' + textoPersonalizados + '">⚠ ' + textoPersonalizados + '</span>'
     : '';
 
   // d. Debajo de la dirección, cómo se entrega: "Delivery · Centro" o "Retiro en local" (los pedidos viejos no lo tienen)
@@ -287,21 +319,22 @@ function crearFilaPedido(pedido) {
   let textoEntrega = pedido.tipo_entrega || '';
   if (conBarrio) textoEntrega = 'Delivery · ' + barrio;
 
-  // 2. La fila. Cada celda lleva la clase de su columna (col-…: el color y el tamaño están en ConsultarPedidos.css).
+  // 2. La fila: 11 celdas, cada una con la clase de su columna (col-…: el ancho y el color están en ConsultarPedidos.css).
+  //    Dirección y Método Pago tienen el dato arriba (dato-principal) y abajo el renglón chico gris (dato-chico, global.css).
   //    Las celdas con lo que escribió el cliente quedan vacías y se llenan abajo con textContent.
   const fila = document.createElement('tr');
   fila.innerHTML = `
     <td class="col-numero">${escHtml(numero)}</td>
-    <td class="col-entrega">${escHtml(entrega)}</td>
-    <td class="col-cliente"><strong></strong></td>
-    <td class="col-direccion"><span></span><span class="dato-chico"></span></td>
+    <td class="col-entrega" title="Entrega: ${escHtml(entregaCompleta)}">${escHtml(entrega)}</td>
+    <td class="col-cliente"></td>
+    <td class="col-direccion"><span class="dato-principal"></span><span class="dato-chico"></span></td>
     <td class="col-contacto"></td>
-    <td class="col-contacto"></td>
+    <td class="col-contacto col-mail"></td>
     <td class="col-viandas">${escHtml(totalViandas)}${avisoPersonalizados}</td>
     <td class="col-costo">${escHtml(formatearPrecio(pedido.total))}</td>
-    <td class="col-estado"></td>
+    <td class="col-estado"><span class="caja-estado"><svg class="flecha-estado" aria-hidden="true"><use href="#icono-flecha-abajo"></use></svg></span></td>
     <td class="col-pago">
-      <span class="pastilla-pago ${clasePastilla}" title="${textoPagado}">${iconoPastilla}${escHtml(textoMetodo)}</span>
+      <span class="dato-principal" title="${textoPagado}">${escHtml(textoMetodo)}</span>
       ${detalleHTML}
     </td>
     <td class="col-acciones">
@@ -312,14 +345,19 @@ function crearFilaPedido(pedido) {
       </div>
     </td>`;
 
-  // 3. Lo que escribió el cliente va con textContent: se muestra como texto y nunca se ejecuta (XSS)
-  fila.cells[2].firstElementChild.textContent = cliente;           // columna 3: nombre del cliente
+  // 3. Lo que escribió el cliente va con textContent: se muestra como texto y nunca se ejecuta (XSS).
+  //    title = el texto entero al pasar el mouse (si no entra, la celda lo corta con "…")
+  fila.cells[2].textContent = cliente;                             // columna 3: nombre del cliente
+  fila.cells[2].title = cliente;                                   // …entero al pasar el mouse
   fila.cells[3].firstElementChild.textContent = direccion;         // columna 4: dirección…
   fila.cells[3].lastElementChild.textContent = textoEntrega;       // …y abajo, cómo se entrega
   fila.cells[3].lastElementChild.hidden = textoEntrega === '';     // sin forma de entrega (pedidos viejos) no ocupa lugar
+  fila.cells[3].title = (direccion + '\n' + textoEntrega).trim();  // trim = sin el salto de renglón del final si no hay entrega
   fila.cells[4].textContent = telefono;                            // columna 5: teléfono
-  fila.cells[5].textContent = email;                               // columna 6: email
-  fila.classList.toggle('fila-cancelada', anulado);                // anulado: la fila apagada y el costo tachado (CSS)
+  fila.cells[4].title = telefono;                                  // …entero al pasar el mouse
+  fila.cells[5].textContent = email;                               // columna 6: mail
+  fila.cells[5].title = email;                                     // …entero al pasar el mouse
+  fila.classList.toggle('fila-cancelada', anulado);                // anulado: la fila en gris y el costo tachado (CSS)
 
   // 4. El select de estado
   const estadoActual = pedido.id_estado || 1;                      // el estado del pedido (1 si no tiene)
@@ -339,7 +377,7 @@ function crearFilaPedido(pedido) {
   pintarEstado(select, estadoActual);                              // su color
   select.disabled = anulado;                                       // un anulado no cambia más (el servidor también lo frena)
   select.addEventListener('change', () => alCambiarEstado(pedido, select));  // al elegir otro estado
-  fila.cells[8].appendChild(select);                               // columna 9: estado
+  fila.cells[8].firstElementChild.prepend(select);                 // columna 9: estado (prepend = adentro y primero: antes de su ▾)
 
   // 5. Los botones de la fila (?. = "si existe el botón": un anulado no tiene "Anular")
   fila.querySelector('.btn-detalles').addEventListener('click', () => abrirDetalles(pedido.id));  // "Detalles"

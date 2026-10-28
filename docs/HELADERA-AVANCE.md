@@ -315,9 +315,9 @@ el usuario). Recién ahí se pasa a la siguiente.
 |---|---|---|---|
 | 1 | Index (web nueva) | Paso 1: cambiar solo cómo se ve `index-combos.html` con el diseño de `docs/diseno-index/`. Paso 2: reemplazar el index viejo. Diseño final: `docs/diseno-final-index/` | ✍ **Paso 1, paso 2 y diseño final hechos (16/10)**: la web nueva es `index.html` (`/`), igual al diseño final v5, con animaciones y login en ventana (INFORME 13.9 a 13.11). Login y cerrar sesión llevan a donde corresponde. Pedido de prueba #27 desde la web (anulado, la heladera quedó igual) y test 40/40. **Limpieza hecha (17/10)**: se borró el index viejo y todo lo que no se usaba, y el index quedó con 1 HTML + 1 CSS (`index.css`); se ve igual (INFORME 14). **Index final hecho (17/10, `diseno-index-final2/`)**: CSS ordenado; compu con las tarjetas de categoría primero y la tarjeta nueva; celu con el flujo de la referencia (INFORME 15). Pedidos de prueba #34, #35 y #38 y test 40/40, todos anulados. Falta: tu recorrido a mano (el nuevo, más abajo) y reiniciar el servidor |
 | 2 | Login | `auth.js` muestra el nombre del usuario sin `escHtml` (en el botón de sesión del encabezado) y trae estilos fijos de letra blanca (para el encabezado verde viejo), que en la web nueva se pisan desde `index-combos.css`. Sus nombres están en inglés (`auth-btn-container`, `login-btn-header`, `auth-dropdown`): pasarlos a español en todos los archivos que los usan | ⏭ |
-| 3 | Consultar Pedidos | (con el menú nuevo del panel y `global.css` al estilo del index, para las 13 pantallas que lo cargan) | ✍ **Hecho (19/10, `diseno-panel-v2/`)**: menú lateral nuevo en las 12 pantallas del panel, `global.css` con el estilo del index (también el login), Consultar Pedidos como la referencia (filtros con una sola fecha, botones de estado, tabla y las 4 ventanas) y, a la tarde, títulos de tabla verdes y letra más grande en todas las tablas (INFORME 16). Pedido de prueba #039 y test 40/40 dos veces (#040 a #043), todos anulados. Falta: tu recorrido a mano (el del panel, más abajo) |
+| 3 | Consultar Pedidos | (con el menú nuevo del panel y `global.css` al estilo del index, para las 13 pantallas que lo cargan) | ✍ **Hecho (19/10, `diseno-panel-v2/`)**: menú lateral nuevo en las 12 pantallas del panel, `global.css` con el estilo del index (también el login), Consultar Pedidos como la referencia (filtros con una sola fecha, botones de estado, tabla y las 4 ventanas) y, a la tarde, títulos de tabla verdes y letra más grande en todas las tablas (INFORME 16). Pedido de prueba #039 y test 40/40 dos veces (#040 a #043), todos anulados. Falta: tu recorrido a mano (el del panel, más abajo) · ✍ **Diseño final (27/10, `diseno-panel-final/`)**: la barra de filtros en 3 partes (Buscar · Entrega · Estado con su lista) y la tabla en 9 columnas, como las capturas 05 y 06. Pedido de prueba #58, anulado (INFORME 19). Falta: tu recorrido a mano (Pantalla 5, más abajo) |
 | 4 | Tareas de Cocina | (el punto 8 ya está escrito: el plato primero y el plan entre paréntesis) | ⏭ |
-| 5 | Pedir a cocina + Producción | Cancelar un pedido a cocina pendiente (y limpiar los 9 de prueba del 08/10) | ✍ **Paso 1 hecho (20/10, `diseno-produccion/`)**: menú lateral y barra de arriba nuevos para todo el panel (lista sin títulos, menú achicable, buscador solo visual, globito de Tareas de Cocina escondido) y letra Inter en el panel (el index sigue con Figtree). Test 40/40 (INFORME 17). Falta: tu prueba del Paso 1 y el Paso 2 (Producción) |
+| 5 | Pedir a cocina + Producción | Cancelar un pedido a cocina pendiente (y limpiar los 9 de prueba del 08/10) | ✍ **Paso 1 hecho (20/10, `diseno-produccion/`)**: menú lateral y barra de arriba nuevos para todo el panel (lista sin títulos, menú achicable, buscador solo visual, globito de Tareas de Cocina escondido) y letra Inter en el panel (el index sigue con Figtree). Test 40/40 (INFORME 17). Falta: tu prueba del Paso 1 y el Paso 2 (Producción) · ✍ **Diseño final (27/10, `diseno-panel-final/`)**: el molde en `global.css` para todo el panel, la barra "Panel / pantalla" con la fecha, y Producción y "Pedir a cocina" como las capturas 01 a 04 (INFORME 19). Falta: tu recorrido a mano (Pantalla 5, más abajo) |
 | 6 | Movimientos de Stock + Compras | Puntos 1 a 6 de "Ajustes después de probar a mano" (salidas, orden, repetidos, hora real, columnas, filtro de fecha) | ⏭ |
 | 7 | Combos | Punto 7 (filtros por plan y por nombre) | ⏭ |
 | 8 | Productos y Recetas | | ⏭ |
@@ -618,6 +618,89 @@ sabiendo que "Hecho" suma viandas y gasta insumos), o cancelá antes de confirma
 | 12 | Con un usuario cocinero | No ve "+ Pedir a cocina", ni ✎, ni "Pedir a cocina" en el ⋯ |
 | 13 | Celu (390 px) | Título arriba, los 4 botones en 2 columnas, pestañas, buscador y Plan uno debajo del otro; la tabla se mueve de costado adentro de su tarjeta. Cada ventana ocupa toda la pantalla |
 | 14 | Otra pantalla (Consultar Pedidos, Gestión de Stock) | Igual que antes |
+
+### Pantalla 5 (27/10): el panel con el diseño final (`diseno-panel-final/`) — qué se hizo y cómo mirarlo
+Detalle completo (archivos, HTML, JS línea por línea, perillas, reglas sacadas, pruebas, seguridad, lo que no quedó igual
+y las dudas) en la sección 19 de `INFORME-CAMBIOS-HELADERA.md`. El plan: `diseno-panel-final/PLAN.md`. Las capturas:
+`diseno-panel-final/resultado/`.
+- **Todo el panel (el molde, en `global.css`):**
+  - la barra de arriba: "Panel / [pantalla]" y la fecha de hoy (sin el buscador ni la "M");
+  - el título de 28 px gris oscuro y la bajada gris;
+  - las tablas: títulos de 12 px en MAYÚSCULA sin franja, filas de 60 px, líneas finitas, y el pie adentro de la tarjeta
+    con "Mostrando **X** de **Y**" y "‹ Anterior · 1 · Siguiente ›".
+- **Producción:**
+  - las columnas Plato · Plan · Disponibles · Reservadas · Total · Estado · Mínimo · •••;
+  - las pastillas y las filas con los colores del diseño; "—" en un plato sin mínimo; el ••• verde;
+  - "Plan · Mantenimiento" con su menú (✓ y "Limpiar filtro");
+  - "Pedir a cocina" como las capturas 03 y 04.
+- **Consultar Pedidos:**
+  - la bajada y una barra en 3 partes: Buscar · "Entrega: Cualquier día" · "Estado: Todos ▾" (con la lista y sus cantidades);
+  - la tabla en 9 columnas, con 2 renglones por celda; Estado como pastilla con ▾; Detalles · Pago · Anular siempre a la
+    vista; los anulados en gris con el costo tachado.
+- **Comprobado:**
+  - todas las pantallas a 1440, 1280, 1024 y 390, con la consola sin errores;
+  - Producción 51/51, con lo que escribe atajado en el navegador (nada llegó a la base);
+  - Consultar con un pedido de prueba (#58): cambió de estado, se cobró y se anuló; la heladera quedó igual;
+  - test HELADERA **37/40**: los 3 que fallan son por la fecha. Esta compu dice 27/10 y la base guarda 22/10, y el test
+    busca "los movimientos de hoy" con la fecha de la compu. Los movimientos están y son los correctos (INFORME 19.8).
+- **Para mirar vos:** la fecha de la compu. Si está mal, la barra de arriba muestra otro día y ese test falla.
+
+**Recorrido a mano (Pantalla 5, 27/10).** No hace falta reiniciar el servidor: solo cambiaron archivos del frontend.
+Ctrl+F5 en cada pantalla, con tu usuario. Para el celu: F12 → ícono del celular (Ctrl+Shift+M) → ancho 390.
+**Cambiar un estado, "Pago → Guardar", "Anular", "Enviar a cocina", "Hecho" y "Confirmar descarte" escriben en la base de
+verdad:** hacelos solo con un pedido "PRUEBA – NO PREPARAR" (y anulalo al final), o cancelá antes de confirmar.
+| # | Qué hacés | Qué tiene que pasar |
+|---|---|---|
+| 1 | Abrís cualquier pantalla del panel | Arriba, "Panel / [pantalla]" a la izquierda y la fecha de hoy a la derecha; el título más chico y gris oscuro |
+| 2 | Producción | La bajada nueva; los 4 botones a la derecha; la tarjeta con las pestañas (con puntito de color), el buscador y "Plan"; Estado después de Total; los títulos en MAYÚSCULA; el pie adentro, con los números en negrita |
+| 3 | Pestañas "Bien", "Bajos" y "Todos" | La elegida con fondo gris y en negrita; la tabla muestra solo esos |
+| 4 | "Plan" → elegís un plan | El botón se pone verde y dice "Plan · Mantenimiento"; en el menú, la elegida con ✓; "Limpiar filtro" lo saca |
+| 5 | Pasás el mouse por "Disponibles" y la tocás dos veces | Aparece la flechita; ordena de menos a más y al revés |
+| 6 | ✎ en Mínimo, cambiás el número y Enter (o Escape) | Se guarda (con Escape, no). Un plato sin mínimo muestra "—" |
+| 7 | ••• de un plato | Ver movimientos del plato · Pedir a cocina · Descartar viandas (como antes) |
+| 8 | "+ Pedir a cocina" | El ícono, el título y la X redonda; los campos con 📅, ▾ y lupa; las pestañas y "Cargar rápido:" pegados arriba de la tabla; cada plato con su pastilla al lado; "Tu pedido" blanco con "Para el [día] dd/mm" |
+| 9 | "+" en dos platos | La fila verde clarito y el número verde; en "Tu pedido", cada plato con "N viandas" y su X; "Enviar a cocina" se prende. Cancelar |
+| 10 | Consultar Pedidos | La bajada; la barra en 3 partes con "Entrega: [el próximo día hábil]" y "Estado: Todos"; la tabla en 9 columnas |
+| 11 | "Ver todos" | "Entrega: Cualquier día" y todos los pedidos; las páginas abajo |
+| 12 | "Estado: Todos ▾" | Se abre la lista con el puntito y la cantidad de cada estado. Tocás "Registrado": se cierra, la barra dice "Estado: Registrado" en verde y la tabla muestra solo esos. Escape o un clic afuera la cierran |
+| 13 | Elegís una fecha en "Entrega" y "Aplicar" | Solo los pedidos de ese día |
+| 14 | Un pedido de prueba: Detalles, Pago (Cancelar) y Anular (Cancelar) | Las ventanas como antes |
+| 15 | Un pedido anulado | Todo en gris, el costo tachado, "Pago" clarito y "Anulado" en gris |
+| 16 | Celu (390 px) | Producción: el título arriba, los 4 botones en 2 columnas, los filtros uno debajo del otro, la tabla se mueve adentro de su tarjeta y "Pedir a cocina" a pantalla completa. Consultar: la barra en 3 renglones, Aplicar y Ver todos uno al lado del otro y la tabla se mueve adentro |
+| 17 | Otras pantallas (Gestión de Stock, Usuarios, Combos, Movimientos de Stock…) | Andan como antes, con la barra nueva y los títulos de las tablas en MAYÚSCULA |
+
+**Para commitear (lo hacés vos), después del recorrido:** `.gitignore`, `frontend/pages/heladera.html`,
+`frontend/pages/ConsultarPedidos.html`, `frontend/src/css/global.css`, `frontend/src/css/menuPanel.css`,
+`frontend/src/css/heladera.css`, `frontend/src/css/ConsultarPedidos.css`, `frontend/src/css/movimientosStockNuevo.css`,
+`frontend/src/js/adminSidebar.js`, `frontend/src/js/paginacion.js`, `frontend/src/js/heladera.js`,
+`frontend/src/js/pedirCocina.js`, `frontend/src/js/ListarPedidos.js` y los dos `docs/`. `diseno-panel-final/` no se sube.
+
+### Pantalla 5, cambio chico (27/10): Consultar en 11 columnas y Producción con Plato fijo
+Detalle en la sección 20 de `INFORME-CAMBIOS-HELADERA.md`. Capturas: `diseno-panel-final/resultado/cambio-columnas/`.
+- **Consultar Pedidos:**
+  - vuelven las 11 columnas de antes, con el estilo nuevo: N° Pedido · Entrega · Cliente · Dirección · Teléfono · Mail ·
+    Viandas · Costo · Estado · Método Pago · Acciones;
+  - Cliente y Mail chicas, con "…" (el texto entero, al pasar el mouse);
+  - a 1440 la tabla se mueve 153 px adentro de su tarjeta y **Acciones queda fija a la derecha**; a 1920 entra entera y
+    ninguna columna queda gigante.
+- **Producción:**
+  - Plato fijo (260 px) y Plan pegada;
+  - lo que sobra en una pantalla grande va a las columnas de números;
+  - "Pedir a cocina", igual.
+- **Comprobado:**
+  - 16/16 controles a 1440, 1920, 1280, 1024 y 390, solo leyendo. Cambiar un estado se probó con el #057: lo que iba a mandar
+    se cortó en el navegador y el #057 sigue igual en la base;
+  - test HELADERA 37/40, los mismos 3 por la fecha (pedidos #61 y #62, anulados por el test).
+
+**Recorrido a mano (cambio chico, 27/10).** Ctrl+F5, con tu usuario.
+| # | Qué hacés | Qué tiene que pasar |
+|---|---|---|
+| 1 | Consultar Pedidos → "Ver todos" | Las 11 columnas en el orden de antes; el N° en negrita; la fecha en Entrega; Cliente y Mail con "…" si son largos |
+| 2 | Movés la tabla de costado (con la rueda + Shift, o la barrita de abajo de la tabla) | Lo demás se mueve y Acciones (Detalles · Pago · Anular) queda quieta a la derecha, con una línea a su izquierda |
+| 3 | Pasás el mouse por un cliente o un mail cortado | Aparece entero |
+| 4 | Un pedido con personalizados | "⚠ N personalizados" debajo de las viandas (puede ir en 2 renglones) |
+| 5 | Producción en tu pantalla | Plan pegada a Plato; si la pantalla es grande, el espacio de más queda en Disponibles, Reservadas, Total y Mínimo |
+| 6 | Celu (390 px) | Consultar: Acciones queda fija a la derecha (ocupa más de la mitad: decime si en el celu la preferís suelta). Producción: la tabla se mueve adentro de su tarjeta |
 
 ## Ajustes después de probar a mano (16/10) — de a uno, con freno
 (Desde el 16/10 se hacen cuando se llega a su pantalla: ver la tabla de arriba.)

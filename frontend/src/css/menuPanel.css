@@ -4,7 +4,7 @@
    Los colores salen de las perillas de global.css (--verde-principal, --borde-gris…).
 
    En compu: el menú queda fijo a la izquierda (se puede achicar a solo íconos con la flechita del
-   borde) y, a su derecha, la barra blanca de arriba (buscador y avatar) y el contenido de la pantalla.
+   borde) y, a su derecha, la barra blanca de arriba ("Panel / [la pantalla]" y la fecha) y el contenido de la pantalla.
    En pantallas de menos de 900 px: el menú se esconde a la izquierda y en la barra de arriba
    aparece el botón ☰, que lo abre.
 
@@ -14,7 +14,7 @@
      2. Logo de arriba y la flechita para achicar
      3. Links y el globito con la cantidad
      4. Usuario y cerrar sesión (abajo)
-     5. La barra de arriba (buscador y avatar)
+     5. La barra de arriba ("Panel / [la pantalla]" y la fecha)
      6. Lugar del contenido (a la derecha del menú)
      7. Menú achicado (solo íconos, en compu)
      8. Pantallas de menos de 900 px: el ☰ y el menú que se abre
@@ -30,7 +30,7 @@
     --menu-alto-link: 38px;       /* alto de cada link */
     --menu-icono: 18px;           /* tamaño de los íconos de los links */
     --menu-logo: 38px;            /* tamaño del logo redondo de arriba */
-    --menu-barra-alto: 64px;      /* alto de la barra blanca de arriba (y de la fila del logo, para que queden parejas) */
+    --menu-barra-alto: 64px;      /* alto de la fila del logo del menú (la barra de arriba usa --alto-barra de global.css: 56 px) */
     --menu-link-fondo-encima: #f4f7f3;  /* fondo de un link al pasar el mouse: gris verdoso muy clarito */
     --menu-texto-link: #3a4640;   /* letra de los links */
     --menu-gris-logo: #5d6a61;    /* "Fast" del logo */
@@ -332,92 +332,61 @@
 }
 
 
-/* ===== 5. LA BARRA DE ARRIBA (buscador y avatar) ===== */
+/* ===== 5. LA BARRA DE ARRIBA ("Panel / [la pantalla]" y la fecha) ===== */
 
-/* La barra blanca con una línea finita abajo. Queda pegada arriba al bajar (sticky).
-   Empieza donde termina el menú. z-index 997: arriba del contenido; lo oscuro (998) y el menú (999) la tapan */
+/* La barra blanca de 56 px con una línea finita abajo (27/10: antes 64, con buscador y avatar). Queda pegada
+   arriba al bajar (sticky). Empieza donde termina el menú. z-index 997: arriba del contenido; lo oscuro (998)
+   y el menú (999) la tapan. El alto sale de la perilla --alto-barra (global.css); la fila del logo del menú
+   sigue con --menu-barra-alto (el menú no se tocó) */
 .barra-panel {
     position: sticky;
     top: 0;
     z-index: 997;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 12px;
-    height: var(--menu-barra-alto);
+    height: var(--alto-barra);
     margin-left: var(--menu-ancho);
     padding: 0 var(--espacio-pantalla);
     background: var(--blanco);
-    border-bottom: 1px solid var(--borde-gris);
+    border-bottom: 1px solid var(--linea-tabla);
     transition: margin-left var(--menu-duracion) ease;
 }
 
-/* El buscador general (por ahora solo se ve: todavía no busca): la lupa, el casillero y "Ctrl K" */
-.barra-buscador {
-    display: flex;
-    flex: 1;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;                /* en el celu se puede achicar, así el avatar entra a la derecha */
-    max-width: 340px;
-    height: 40px;
-    padding: 0 12px;
-    border: 1px solid var(--borde-gris);
-    border-radius: 12px;
-    color: var(--texto-apagado);
-    cursor: text;
-}
-
-.barra-icono-lupa {
-    flex: none;
-    width: 17px;
-    height: 17px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.75;
-    stroke-linecap: round;
-}
-
-/* El casillero, sin borde propio (el borde es el de la caja de afuera) */
-.barra-buscador-campo {
+/* "Panel / Producción": Panel en gris y el nombre de la pantalla en negro semibold.
+   Si no entra (celu), el nombre termina en "…" */
+.barra-migas {
     flex: 1;
     min-width: 0;
-    border: 0;
-    outline: none;
-    background: transparent;
-    color: var(--texto);
-    font-size: 14px;
-}
-
-/* La cajita "Ctrl K" (el atajo de teclado, cuando ande) */
-.barra-atajo {
-    padding: 2px 6px;
-    border: 1px solid var(--borde-gris);
-    border-radius: 5px;
+    overflow: hidden;
     color: var(--texto-apagado);
-    font-family: inherit;
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 13.5px;
     white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
-/* El espacio del medio, que empuja el avatar a la derecha */
-.barra-espacio {
-    flex: 1;
+/* La "/" del medio, gris clarito */
+.barra-migas-separador {
+    margin: 0 6px;
+    color: #b9c1ba;
 }
 
-/* El avatar redondo, con la inicial del usuario */
-.barra-avatar {
-    display: grid;
-    place-items: center;
+.barra-migas-separador[hidden] {
+    display: none;
+}
+
+.barra-migas-pantalla {
+    color: var(--texto);
+    font-weight: 600;
+}
+
+/* La fecha de hoy, a la derecha ("Martes 27 de octubre") */
+.barra-fecha {
     flex: none;
-    width: 36px;
-    height: 36px;
-    border: 1px solid #d3e8d8;   /* verde clarito, un poco más fuerte que el fondo */
-    border-radius: 50%;
-    background: var(--verde-suave);
-    color: var(--verde-texto);
-    font-size: 14px;
-    font-weight: 700;
+    color: var(--texto-apagado);
+    font-size: 13.5px;
+    white-space: nowrap;
 }
 
 /* El botón ☰ (lo crea adminSidebar.js adentro de la barra). En compu no se ve (sección 8) */
@@ -532,19 +501,11 @@
         margin-left: 0;
     }
 
-    /* El ☰ aparece a la izquierda del buscador */
+    /* El ☰ aparece a la izquierda de "Panel /" */
     .sidebar-toggle-btn {
         display: grid;
     }
 
-    /* Sin el espacio del medio: el buscador ocupa todo lo que sobra entre el ☰ y el avatar */
-    .barra-espacio {
-        display: none;
-    }
-
-    .barra-buscador {
-        max-width: none;
-    }
 
     /* Lo oscuro que tapa el contenido mientras el menú está abierto (tocarlo cierra el menú) */
     .sidebar-overlay.visible {
@@ -553,6 +514,13 @@
         inset: 0;
         z-index: 998;
         background: var(--fondo-ventana);
+    }
+}
+
+/* Pantallas de menos de 600 px (celu): la fecha no entra al lado de "Panel / [la pantalla]": se esconde */
+@media (max-width: 599px) {
+    .barra-fecha {
+        display: none;
     }
 }
 
