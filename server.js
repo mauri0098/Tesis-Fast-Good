@@ -2755,19 +2755,21 @@ app.post('/api/ordenes-produccion', requireAuth, requireRol(...ROLES_PIDEN_COCIN
 //                                         ("Pendientes de cocina" de Producción y "Para stock" de Tareas de Cocina)
 // ENTRADA: nada (el usuario logueado). Un cocinero (rol 2) ve los que le tocan (cocinero del plato o, si no tiene,
 //          principal o suplente del plan) y los que no tienen a nadie. Los demás roles ven todo.
-// SALIDA:  [{ id, id_cocinero, id_orden, fecha_para, plato, plan, cantidad, cocinero }], ordenados por fecha_para,
-//          número de pedido a cocina y plato · 500
-// Ej: [{ id: 21, id_orden: 9, fecha_para: '2026-10-16', plato: 'fideos', plan: 'Mantenimiento', cantidad: 2, cocinero: 'Ana López' }]
+// SALIDA:  [{ id, id_cocinero, id_orden, fecha_para, fecha_pedido, pidio, plato, plan, cantidad, cocinero }], ordenados
+//          por fecha_para, número de pedido a cocina y plato · 500
+// Ej: [{ id: 21, id_orden: 9, fecha_para: '2026-10-16', fecha_pedido: '2026-10-15T13:05:00+00:00', pidio: 'Mauri',
+//        plato: 'fideos', plan: 'Mantenimiento', cantidad: 2, cocinero: 'Ana López' }]
 // El id_cocinero del renglón es solo para mostrar (agrupar por cocinero).
+// 28/10 (Tareas de Cocina nueva): se suman fecha_pedido (cuándo se pidió) y pidio (quién lo pidió), solo para mostrar.
 // ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/ordenes-produccion/pendientes', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
   try {
-    // 1. Los platos de pedidos a cocina sin hacer, con su pedido, su plato, su plan y su cocinero
+    // 1. Los platos de pedidos a cocina sin hacer, con su pedido (y quién lo pidió), su plato, su plan y su cocinero
     const { data, error } = await supabase                        // pide a la base...
       .from('orden_produccion_detalles')                          // ...los platos de los pedidos a cocina...
       .select(`
         id, cantidad, id_cocinero,
-        ordenes_produccion ( id, fecha_para ),
+        ordenes_produccion ( id, fecha_para, fecha_pedido, pidio:usuarios!id_usuario ( nombre, apellido ) ),
         productos ( nombre, id_cocinero, planes ( nombre, id_cocinero, id_cocinero_suplente ) ),
         cocinero:usuarios!id_cocinero ( nombre, apellido )
       `)                                                          // ...con su pedido, plato, plan y cocinero...
@@ -2785,11 +2787,15 @@ app.get('/api/ordenes-produccion/pendientes', requireAuth, requireRol(...ROLES_H
       const plan = detalle.productos?.planes ? detalle.productos.planes.nombre : null;   // el de su plan (?. = "si vino el plato, su plan")
       const asignado = detalle.cocinero;                          // el cocinero asignado (o null)
       const cocinero = asignado ? ((asignado.nombre || '') + ' ' + (asignado.apellido || '')).trim() : null;  // "Ana López" (trim saca el espacio de más)
+      const quienPidio = detalle.ordenes_produccion.pidio;        // el usuario que hizo el pedido a cocina (o null)
+      const pidio = quienPidio ? ((quienPidio.nombre || '') + ' ' + (quienPidio.apellido || '')).trim() : null;  // "Mauri"
       resultado.push({                                            // se agrega a la respuesta:
-        id:          detalle.id,                                  // número del renglón (el botón "Hecho" lo usa)
-        id_cocinero: detalle.id_cocinero,                         // para agrupar por cocinero
-        id_orden:    detalle.ordenes_produccion.id,               // número del pedido a cocina
-        fecha_para:  detalle.ordenes_produccion.fecha_para,       // para cuándo
+        id:           detalle.id,                                 // número del renglón (el botón "Hecho" lo usa)
+        id_cocinero:  detalle.id_cocinero,                        // para agrupar por cocinero
+        id_orden:     detalle.ordenes_produccion.id,              // número del pedido a cocina
+        fecha_para:   detalle.ordenes_produccion.fecha_para,      // para cuándo
+        fecha_pedido: detalle.ordenes_produccion.fecha_pedido,    // cuándo se pidió (solo para mostrar)
+        pidio:        pidio,                                      // quién lo pidió (solo para mostrar)
         plato:       plato,                                       // el plato
         plan:        plan,                                        // su plan
         cantidad:    detalle.cantidad,                            // cuántas viandas
@@ -2919,6 +2925,76 @@ app.get('/api/ordenes-produccion/hechos-hoy', requireAuth, requireRol(...ROLES_H
     });
 
     res.json(resultado);                                          // se manda la lista
+  } catch (e) {                                                   // si algo falló de golpe...
+    errorInterno(res, e);                                         // ...500 con un mensaje simple
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/ordenes-produccion/:id → un pedido a cocina con TODOS sus platos, hechos y sin hacer
+//                                   (ventana "Detalles" de "Para stock" en Tareas de Cocina). Solo lee: no cambia nada.
+// ENTRADA: el número del pedido a cocina en la dirección. El usuario sale del token.
+//          Un cocinero (rol 2) ve solo los platos que le tocan y los que no tienen a nadie (la regla de siempre).
+// SALIDA:  { id, fecha_pedido, fecha_para, pidio, platos: [{ id, plato, plan, cantidad, hecho }] }
+//          · 400 número inválido · 404 no existe (o el cocinero no tiene ningún plato ahí) · 500
+// Ej: /api/ordenes-produccion/112 → { id: 112, fecha_pedido: '2026-10-24T13:05:00+00:00', fecha_para: '2026-10-25',
+//        pidio: 'Mauri', platos: [{ id: 301, plato: 'Canelones de verdura', plan: 'Keto', cantidad: 12, hecho: false }, …] }
+// Va DESPUÉS de /pendientes y /hechos-hoy: así esas dos direcciones no se toman como un número.
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/ordenes-produccion/:id', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
+  // 1. El número: entero, mayor a 0 y que entre en la base (Number: "12abc" no pasa)
+  const idOrden = Number(req.params.id);
+  const idInvalido = !Number.isInteger(idOrden) || idOrden <= 0 || idOrden > ENTERO_MAXIMO_BASE;
+  if (idInvalido) return res.status(400).json({ error: 'Número de pedido a cocina inválido' });
+
+  try {
+    // 2. El pedido a cocina, quién lo pidió y todos sus platos (con su plan y sus cocineros, para la regla del cocinero)
+    const { data, error } = await supabase                        // pide a la base...
+      .from('ordenes_produccion')                                 // ...el pedido a cocina...
+      .select(`
+        id, fecha_pedido, fecha_para,
+        pidio:usuarios!id_usuario ( nombre, apellido ),
+        orden_produccion_detalles (
+          id, cantidad, hecho,
+          productos ( nombre, id_cocinero, planes ( nombre, id_cocinero, id_cocinero_suplente ) )
+        )
+      `)                                                          // ...con quién lo pidió y sus platos...
+      .eq('id', idOrden)                                          // ...el de este número
+      .maybeSingle();                                             // (uno solo, o null si no existe)
+    if (error) return errorInterno(res, error);                   // si falló la base: 500
+    if (!data) return res.status(404).json({ error: 'El pedido a cocina no existe' });  // no existe: 404
+
+    // 3. Un objeto por plato (el cocinero ve solo lo suyo y lo que no tiene a nadie)
+    const esCocinero = Number(req.usuario.rol) === 2;             // si el que mira es un cocinero
+    const platos = [];                                            // los platos que se devuelven
+    (data.orden_produccion_detalles || []).forEach(detalle => {   // por cada plato del pedido...
+      const loPuedeVer = Boolean(detalle.productos) && platoVisibleParaCocinero(detalle.productos, req.usuario.id);  // ¿es suyo o no tiene cocinero?
+      const ocultoAlCocinero = esCocinero && !loPuedeVer;         // un cocinero no ve los platos de otro cocinero
+      if (ocultoAlCocinero) return;                               // (return = saltear este plato y seguir con el siguiente)
+      const plato = detalle.productos ? detalle.productos.nombre : null;                 // el nombre del plato (null si no vino)
+      const plan = detalle.productos?.planes ? detalle.productos.planes.nombre : null;   // el de su plan (?. = "si vino el plato, su plan")
+      platos.push({                                               // se agrega:
+        id:       detalle.id,                                     // número del renglón
+        plato:    plato,                                          // el plato
+        plan:     plan,                                           // su plan
+        cantidad: detalle.cantidad,                               // cuántas viandas
+        hecho:    detalle.hecho                                   // si ya está hecho
+      });
+    });
+    if (platos.length === 0) return res.status(404).json({ error: 'El pedido a cocina no existe' });  // un cocinero sin platos ahí: como si no existiera
+
+    // 4. En el orden en que se cargaron (sort: negativo = a va antes)
+    platos.sort((a, b) => a.id - b.id);
+
+    const quienPidio = data.pidio;                                // el usuario que hizo el pedido (o null)
+    const pidio = quienPidio ? ((quienPidio.nombre || '') + ' ' + (quienPidio.apellido || '')).trim() : null;  // "Mauri"
+    res.json({                                                    // la respuesta:
+      id:           data.id,                                      // el número del pedido a cocina
+      fecha_pedido: data.fecha_pedido,                            // cuándo se pidió
+      fecha_para:   data.fecha_para,                              // para cuándo
+      pidio:        pidio,                                        // quién lo pidió
+      platos:       platos                                        // sus platos
+    });
   } catch (e) {                                                   // si algo falló de golpe...
     errorInterno(res, e);                                         // ...500 con un mensaje simple
   }

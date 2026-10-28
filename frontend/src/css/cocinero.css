@@ -1,522 +1,1073 @@
-/* =========================================
-   VARIABLES & RESET
-   ========================================= */
+/* ============================================================
+   cocinero.css — La pantalla "Tareas de Cocina" (pages/cocinero.html)
+
+   Solo lo propio de esta pantalla. El molde del panel está en global.css:
+     - sección 2: el título (28 px) y la bajada;
+     - sección 8: las tablas (títulos en MAYÚSCULA, filas de 48 px, líneas finitas) y el pie "Mostrando X de Y";
+     - sección 9: las páginas (‹ Anterior · 1 · Siguiente ›);
+     - sección 13: el botón de arriba, las pestañas, el buscador, las pastillas de estado, las ventanas y el panel de la derecha.
+   El cuadro del resultado de "✓ Hecho" está en pedidosCocina.css (compartido con Producción): acá solo se acomoda.
+
+   Secciones:
+     0. Perillas de esta pantalla (y los colores de cada día y estado)
+     1. Mostrar la página cuando terminó de cargar
+     2. Piezas generales
+     3. Título: título, bajada y "Resumen del turno"
+     4. Elegir la vista: "Para stock" / "Pedidos de clientes"
+     5. La tarjeta: barra (días y buscador)
+     6. Las dos tablas
+     7. Ventanas "Detalles" y "Marcar platos listos"
+     8. Panel "Resumen del turno"
+     9. Avisos (el de "Hecho" y el flotante)
+    10. Celular (hasta 768 px)
+   ============================================================ */
+
+
+/* ===== 0. PERILLAS DE ESTA PANTALLA ===== */
 :root {
-  --primary-green: #28a745;
-  --bg-color: #f4f6f9;
-  --white: #ffffff;
-  --text-dark: #343a40;
-  --text-muted: #6c757d;
-  --border-light: #DEE2E6;
-  --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --radius: 8px;
+    /* Las tablas: lo más angostas que quedan (más chica la pantalla, se mueven de costado adentro de su tarjeta) */
+    --cocina-tabla-ancho-minimo: 900px;
+
+    /* Los anchos de las columnas (con "table-layout: fixed": Plato y Plato personalizado se llevan lo que sobra) */
+    --cocina-ancho-numero: 92px;           /* N° pedido */
+    --cocina-ancho-fecha-pedido: 120px;    /* Fecha pedido */
+    --cocina-ancho-fecha-entrega: 130px;   /* Fecha entrega */
+    --cocina-ancho-cantidad: 130px;        /* Cantidad ("12 viandas") */
+    --cocina-ancho-viandas-listas: 150px;  /* Viandas listas ("9 del stock") */
+    --cocina-ancho-estado: 118px;          /* Estado (la pastilla, al medio) */
+    --cocina-ancho-botones-stock: 170px;   /* Detalles y ✓ Hecho */
+    --cocina-ancho-botones-clientes: 240px;  /* Detalles y ✓ Listo para entregar (miden 213 px + el aire de la celda) */
+
+    /* El selector de vistas (la caja gris con "Para stock" y "Pedidos de clientes") */
+    --cocina-fondo-selector: #f1f3f0;      /* la caja gris de atrás */
+    --cocina-alto-vista: 40px;             /* alto de cada botón */
+    --cocina-borde-vista-elegida: #d7e9dc; /* el borde verde clarito del elegido */
+    --cocina-fondo-cantidad: #e3e7e2;      /* el circulito gris del que no está elegido */
+
+    /* Las pastillas de fecha de entrega: hoy (y atrasado) rojo, mañana naranja, más adelante azul */
+    --cocina-hoy-fondo: #fdecea;      --cocina-hoy-letra: #c62828;
+    --cocina-manana-fondo: #fff1db;   --cocina-manana-letra: #a35f00;
+    --cocina-despues-fondo: #e7effc;  --cocina-despues-letra: #1d5fbf;
+    --cocina-alto-pastilla-fecha: 26px;    /* alto de esas pastillas y de "12 viandas" */
+    --cocina-letra-pastilla-fecha: 13px;   /* su letra (en negrita, 700) */
+
+    /* El puntito de color de cada pestaña de día */
+    --cocina-punto-hoy: #d93025;      /* hoy y atrasados: rojo */
+    --cocina-punto-manana: #e09a1a;   /* mañana: naranja */
+    --cocina-punto-despues: #2f6fd6;  /* más adelante: azul */
+
+    /* Las pastillas de estado (la pieza está en global.css, 13d) */
+    --cocina-por-hacer-fondo: #fff3df;   --cocina-por-hacer-letra: #a35f00;   /* Por hacer: naranja */
+    --cocina-hecho-fondo: #dcf5e3;       --cocina-hecho-letra: #127f36;       /* Hecho: verde */
+
+    /* La etiqueta roja del plato personalizado ("SIN SAL") */
+    --cocina-personalizado-fondo: #fdecea;
+    --cocina-personalizado-letra: #b3261e;
+
+    /* Los botones de las filas: pastillas de 26 px */
+    --cocina-alto-boton-fila: 26px;
+    --cocina-letra-boton-fila: 12px;
+    --cocina-detalles-fondo: #fff1df;         /* "Detalles": naranja suave (el mismo de Consultar Pedidos) */
+    --cocina-detalles-fondo-encima: #ffe6c4;  /* …al pasar el mouse */
+    --cocina-detalles-letra: #a35f00;
+
+    /* Las ventanas "Detalles" */
+    --cocina-radio-ventana: 18px;             /* esquinas */
+    --cocina-ancho-ventana-stock: 680px;      /* la del pedido a cocina */
+    --cocina-ancho-ventana-cliente: 560px;    /* la del pedido de cliente */
+    --cocina-ancho-ventana-listo: 440px;      /* la de "Marcar platos listos" */
+    --cocina-fondo-dato: #f7f8f6;             /* las cajitas de datos (Fecha, Pidió…) y las observaciones */
+    --cocina-fondo-cerrar: #f1f3f0;           /* la ✕ redonda */
+    --cocina-fondo-cerrar-encima: #e6eae5;    /* …al pasar el mouse */
+    --cocina-fondo-barra-avance: #eef1ee;     /* la barra del avance, vacía */
+
+    /* El panel "Resumen del turno" */
+    --cocina-ancho-resumen: 400px;
+    --cocina-borde-casilla: #c9d0c8;          /* la casilla vacía */
+
+    /* Lo oscuro de atrás de las ventanas y del panel */
+    --cocina-fondo-ventana: rgba(17, 26, 20, .4);
+    --cocina-fondo-resumen: rgba(17, 26, 20, .25);
+
+    /* Lo que necesita pedidosCocina.css (el cuadro del resultado de "Hecho") */
+    --primary-green: var(--verde-principal);
+    --radius: var(--radio-tarjeta);
 }
 
+/* El color de cada día: la pastilla de la fecha y el puntito de la pestaña ("atrasado" va como hoy) */
+.fecha-atrasado, .fecha-hoy { background: var(--cocina-hoy-fondo);     color: var(--cocina-hoy-letra); }
+.fecha-manana               { background: var(--cocina-manana-fondo);  color: var(--cocina-manana-letra); }
+.fecha-despues              { background: var(--cocina-despues-fondo); color: var(--cocina-despues-letra); }
+
+.punto-atrasado, .punto-hoy { background: var(--cocina-punto-hoy); }
+.punto-manana               { background: var(--cocina-punto-manana); }
+.punto-despues              { background: var(--cocina-punto-despues); }
+
+/* El color de cada estado */
+.estado-por-hacer { background: var(--cocina-por-hacer-fondo); color: var(--cocina-por-hacer-letra); }
+.estado-hecho     { background: var(--cocina-hecho-fondo);     color: var(--cocina-hecho-letra); }
+
+
+/* ===== 1. MOSTRAR LA PÁGINA CUANDO TERMINÓ DE CARGAR ===== */
+/* El body aparece cuando el <script> del final de cocinero.html le pone "cargada" (antes era un <style> en el HTML) */
 body {
-  background-color: var(--bg-color);
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.15s ease-in;
 }
 
-/* =========================================
-   BADGE CONTADOR EN EL HEADER
-   ========================================= */
-.badge-contador {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 26px;
-  height: 26px;
-  padding: 0 7px;
-  border-radius: 50px;
-  background-color: #6c757d;
-  color: #fff;
-  font-size: 0.8rem;
-  font-weight: 700;
-  transition: background-color 0.3s;
-}
-
-/* =========================================
-   LAYOUT PRINCIPAL
-   ========================================= */
-.page-container {
-  flex: 1;
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-.table-wrapper {
-  background: var(--white);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 1.5rem;
-  overflow-x: auto;
-}
-
-/* =========================================
-   TABLA
-   ========================================= */
-.standard-table {
-  width: 100%;                /* ocupa todo el ancho de la tarjeta */
-  border-collapse: separate;
-  border-spacing: 0;
-  min-width: 480px;           /* en pantallas muy angostas aparece la barra horizontal */
-  table-layout: fixed;        /* los anchos salen de los títulos: los platos quedan alineados debajo */
-}
-
-.standard-table thead th {
-  background-color: #e8f5e9;
-  color: #4CAF50;
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  padding: 1.1rem;
-  text-align: left;
-  letter-spacing: 0.05em;
-  border-bottom: 2px solid var(--primary-green);
-}
-
-.standard-table thead th:first-child { border-top-left-radius: var(--radius); }
-.standard-table thead th:last-child  { border-top-right-radius: var(--radius); }
-
-/* Anchos de columna: una fila por pedido.
-   Con table-layout: fixed, los anchos los fijan los títulos y todas las filas los siguen.
-   Cliente y Observaciones se reparten el espacio que sobra. */
-.standard-table thead th:nth-child(1) { width: 90px; }   /* Nº Pedido */
-.standard-table thead th:nth-child(2) { width: 110px; }  /* Entrega */
-.standard-table thead th:nth-child(3) { width: auto; }   /* Cliente */
-.standard-table thead th:nth-child(4) { width: 130px; }  /* Platos (botón Detalles) */
-.standard-table thead th:nth-child(5) { width: auto; }   /* Observaciones */
-.standard-table thead th:nth-child(6) { width: 180px; }  /* Acción (Listo) */
-
-.standard-table tbody td {
-  padding: 0.9rem 1rem;
-  border-bottom: 1px solid var(--border-light);
-  font-size: 0.82rem;
-  vertical-align: middle;
-  word-break: break-word;
-  overflow-wrap: break-word;
-  max-width: 0;
-}
-
-.standard-table tbody tr:last-child td { border-bottom: none; }
-.standard-table tbody tr:hover         { background-color: #f1f8f3; }
-
-.loading-text {
-  text-align: center;
-  font-style: italic;
-  color: var(--text-muted);
-  padding: 2rem;
-}
-
-/* =========================================
-   BOTÓN LISTO PARA ENTREGAR
-   ========================================= */
-.btn-listo {
-  padding: 0.4rem 0.9rem;
-  background-color: var(--primary-green);
-  color: #fff;
-  border: none;
-  border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  transition: background-color 0.2s, opacity 0.2s;
-}
-
-.btn-listo:hover {
-  background-color: #218838;
-}
-
-.btn-listo:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* =========================================
-   MODAL CONFIRMAR LISTO + AVISOS
-   ========================================= */
-.modal-listo { max-width: 420px; padding: 2rem; }
-.modal-listo h3 { font-size: 1.4rem; }
-.modal-listo p { font-size: 0.95rem; }
-.modal-listo-acciones { display: flex; justify-content: center; gap: 0.75rem; }
-.modal-listo-acciones .btn-listo { font-size: 0.8rem; padding: 0.55rem 1.2rem; }
-
-.btn-cancelar-listo {
-  padding: 0.55rem 1.2rem;
-  background: #e9ecef;
-  color: #495057;
-  border: none;
-  border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-.btn-cancelar-listo:hover { background: #dee2e6; }
-
-/* Aviso flotante (mismo estilo que los de Consultar Pedidos) */
-.aviso-cocina {
-  position: fixed; top: 1.5rem; right: 1.5rem; z-index: 10000;
-  max-width: 420px; padding: 0.9rem 2.5rem 0.9rem 1.25rem;
-  border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.15);
-  font-size: 0.9rem; line-height: 1.5;
-}
-.aviso-cocina--exito { background: #d4edda; color: #155724; border-left: 4px solid var(--primary-green); }
-.aviso-cocina--info  { background: #e7f1ff; color: #084298; border-left: 4px solid #0d6efd; }
-.aviso-cocina--error { background: #fff3cd; color: #856404; border-left: 4px solid #e0a800; }
-.aviso-cocina-detalle { display: block; margin-top: 0.35rem; font-size: 0.82rem; }
-.aviso-cocina-cerrar {
-  position: absolute; top: 0.45rem; right: 0.7rem;
-  background: none; border: none; font-size: 1.1rem; line-height: 1;
-  cursor: pointer; color: inherit;
-}
-
-/* =========================================
-   LAYOUT DE DOS COLUMNAS (COCINA)
-   ========================================= */
-.pagina-cocina {
-  max-width: 1440px;
-}
-
-.cocina-layout {
-  display: flex;
-  gap: 1.5rem;
-  align-items: flex-start;
-}
-
-.cocina-tabla-col {
-  flex: 1;
-  min-width: 0; /* permite que el flex item encoja por debajo de su contenido */
-}
-
-/* =========================================
-   PANEL LATERAL DE RESUMEN
-   ========================================= */
-.panel-resumen {
-  width: 285px;
-  flex-shrink: 0;
-  background: var(--white);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-  position: sticky;
-  top: 82px; /* compensa el header sticky */
-  max-height: calc(100vh - 112px);
-  display: flex;
-  flex-direction: column;
-  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.panel-resumen.panel-colapsado {
-  width: 50px;
-}
-
-/* ---- Header del panel ---- */
-.panel-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 1rem;
-  background: #e8f5e9;
-  border-bottom: 2px solid var(--primary-green);
-  flex-shrink: 0;
-}
-
-.panel-header-info {
-  flex: 1;
-  overflow: hidden;
-  white-space: nowrap;
-  transition: opacity 0.2s ease, max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  max-width: 220px;
-}
-
-.panel-colapsado .panel-header-info {
-  opacity: 0;
-  max-width: 0;
-  pointer-events: none;
-}
-
-.panel-title {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #4CAF50;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin: 0;
-}
-
-.panel-kpis {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  margin-top: 0.45rem;
-}
-
-.kpi-chip {
-  font-size: 0.74rem;
-  color: var(--text-muted);
-}
-
-.kpi-chip strong {
-  color: var(--primary-green);
-  font-weight: 700;
-  font-size: 0.88rem;
-}
-
-/* ---- Botón toggle ---- */
-.btn-toggle-panel {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1.5px solid var(--border-light);
-  background: var(--white);
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--primary-green);
-  transition: background 0.2s;
-}
-
-.btn-toggle-panel:hover {
-  background: #f1f8f3;
-}
-
-.btn-toggle-panel svg {
-  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.panel-colapsado .btn-toggle-panel svg {
-  transform: rotate(180deg);
-}
-
-/* ---- Cuerpo del panel ---- */
-.panel-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0.85rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  transition: opacity 0.2s ease;
-}
-
-.panel-colapsado .panel-body {
-  opacity: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-/* ---- Tarjetas de resumen ---- */
-.resumen-card {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  background: #f4fbf5;
-  border: 1px solid #d4edd8;
-  border-left: 4px solid var(--primary-green);
-  border-radius: 8px;
-  padding: 0.65rem 0.8rem;
-  transition: box-shadow 0.2s;
-}
-
-.resumen-card:hover {
-  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.14);
-}
-
-/* Wrapper de texto (ocupa el espacio sobrante) */
-.resumen-card-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.resumen-card-nombre {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-dark);
-  line-height: 1.35;
-}
-
-.resumen-card-right {
-  text-align: center;
-  flex-shrink: 0;
-  min-width: 44px;
-}
-
-.resumen-card-cantidad {
-  display: block;
-  font-size: 1.55rem;
-  font-weight: 700;
-  color: var(--primary-green);
-  line-height: 1;
-}
-
-.resumen-card-label {
-  display: block;
-  font-size: 0.6rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  margin-top: 0.1rem;
-}
-
-/* ---- Tarjeta especial (con observación específica) ---- */
-.resumen-card--especial {
-  background: #fffbeb;
-  border-color: #fbbf24;
-  border-left-color: #f59e0b;
-  border-left-width: 4px;
-}
-
-.resumen-card--especial:hover {
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
-}
-
-.resumen-card--especial .resumen-card-cantidad {
-  color: #d97706; /* ámbar oscuro en lugar de verde */
-}
-
-.resumen-card-obs {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.3rem;
-  margin-top: 0.3rem;
-  font-size: 0.71rem;
-  font-weight: 700;
-  color: #92400e;
-  line-height: 1.3;
-}
-
-/* Botón "Detalles" de cada pedido (mismo color naranja que en Consultar Pedidos) */
-.btn-detalles {
-  padding: 0.35rem 0.9rem;
-  border: none;
-  border-radius: 50px;
-  background: var(--color-secondary, #ff9800);
-  color: #fff;
-  font-family: 'Poppins', sans-serif;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-.btn-detalles:hover { background: #e08700; }
-
-/* Ventana "Platos del pedido" */
-.modal-platos { max-width: 560px; padding: 1.8rem; }
-.modal-platos-cab {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-.modal-platos-cab h3 { font-size: 1.25rem; }
-.modal-platos-cerrar {
-  border: none;
-  background: none;
-  font-size: 1.3rem;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-.tabla-platos {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-  margin-bottom: 1.2rem;
-}
-.tabla-platos th {
-  padding: 0.6rem;
-  background: #e8f5e9;
-  color: #4CAF50;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  text-align: left;
-}
-.tabla-platos td {
-  padding: 0.6rem;
-  border-bottom: 1px solid var(--border-light);
-  font-size: 0.85rem;
-  overflow-wrap: anywhere;
-}
-.tabla-platos th:nth-child(1) { width: 90px; }    /* Código */
-.tabla-platos th:nth-child(3) { width: 90px; }    /* Cantidad */
-.tabla-platos th:nth-child(3),
-.tabla-platos td:nth-child(3) { text-align: center; }
-.modal-platos-pie { display: flex; justify-content: flex-end; }
-
-/* Texto de un plato personalizado en la tabla (ej: "⚠ sin sal"), mismo color que los especiales del resumen */
-.plato-especial {
-  display: inline-block;
-  margin-top: 0.2rem;
-  padding: 0.1rem 0.45rem;
-  border-radius: 4px;
-  background: #fffbeb;
-  border: 1px solid #fbbf24;
-  color: #92400e;
-  font-size: 0.8rem;
-  font-weight: 700;
-  overflow-wrap: anywhere;   /* un texto largo sin espacios no rompe la tabla */
-}
-
-.resumen-card-obs-icon {
-  flex-shrink: 0;
-  font-style: normal;
-  font-size: 0.75rem;
-}
-
-.panel-vacio {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  font-style: italic;
-  text-align: center;
-  padding: 1.5rem 0.5rem;
-}
-
-/* =========================================
-   RESPONSIVE — Panel lateral
-   ========================================= */
-@media (max-width: 1024px) {
-  .cocina-layout {
-    flex-direction: column;
-  }
-
-  .panel-resumen {
-    width: 100% !important;
-    position: static;
-    max-height: none;
-  }
-
-  .panel-colapsado.panel-resumen {
-    width: 100% !important; /* sin colapso de ancho en mobile */
-  }
-
-  .panel-colapsado .panel-body {
-    display: none;
-  }
-
-  .panel-colapsado .panel-header-info {
+body.cargada {
+    visibility: visible;
     opacity: 1;
+}
+
+
+/* ===== 2. PIEZAS GENERALES ===== */
+
+/* El lugar de los dibujos de los íconos: no se ve ni ocupa lugar */
+.iconos-pantalla {
+    position: absolute;
+    width: 0;
+    height: 0;
+}
+
+/* Un texto que solo leen los lectores de pantalla (el título "Acciones" de la columna de botones) */
+.solo-lector {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+/* Los mensajes de error */
+.texto-error {
+    color: var(--rojo);
+}
+
+/* "Cargando…" y "No hay…" de las ventanas y del panel */
+.panel-vacio {
+    margin: 0;
+    padding: 24px 0;
+    color: var(--texto-apagado);
+    font-size: 14px;
+    text-align: center;
+}
+
+/* La página: una columna (min-width: 0 = puede achicarse más que su contenido; la tabla se mueve adentro de su tarjeta) */
+.pagina-cocina {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+
+/* ===== 3. TÍTULO: TÍTULO, BAJADA Y "RESUMEN DEL TURNO" ===== */
+/* El título (28 px) y la bajada están en global.css (sección 2). Acá, cómo se acomodan */
+.cabecera-cocina {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px 24px;
+    flex-wrap: wrap;
+}
+
+.textos-cabecera-cocina {
+    flex: 1 1 320px;
+    min-width: 0;
+}
+
+
+/* ===== 4. ELEGIR LA VISTA: "PARA STOCK" / "PEDIDOS DE CLIENTES" ===== */
+
+/* La caja gris con los dos botones */
+.selector-vistas {
+    align-self: flex-start;
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: var(--radio-tarjeta);
+    background: var(--cocina-fondo-selector);
+}
+
+/* Cada botón: sin fondo, letra gris oscura */
+.boton-vista {
+    height: var(--cocina-alto-vista);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: var(--radio-boton-panel);
+    background: transparent;
+    color: var(--titulo);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+
+.boton-vista:hover {
+    background: rgba(255, 255, 255, .6);
+}
+
+/* El dibujito (la heladera, la persona) */
+.icono-vista {
+    width: 17px;
+    height: 17px;
+    flex: none;
+}
+
+/* La cantidad: un circulito gris */
+.cantidad-vista {
+    min-width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 7px;
+    border-radius: var(--radio-pastilla);
+    background: var(--cocina-fondo-cantidad);
+    color: var(--titulo);
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+/* El elegido: blanco, con borde verde clarito, letra verde y la cantidad en un circulito verde */
+.boton-vista.vista-elegida {
+    background: var(--blanco);
+    box-shadow: 0 1px 2px rgba(17, 26, 20, .1), 0 0 0 1px var(--cocina-borde-vista-elegida);
+    color: var(--verde-texto);
+    font-weight: 600;
+}
+
+.vista-elegida .cantidad-vista {
+    background: var(--verde-principal);
+    color: var(--blanco);
+}
+
+/* La vista que no se ve (hidden lo pone cocinero.js) */
+.vista-cocina[hidden] {
+    display: none;
+}
+
+
+/* ===== 5. LA TARJETA: BARRA (DÍAS Y BUSCADOR) ===== */
+
+/* La tarjeta blanca con borde finito (el molde): adentro van la barra, la tabla y el pie */
+.tarjeta-cocina {
+    margin-top: 14px;
+    border-radius: var(--radio-tarjeta);
+    background: var(--blanco);
+    box-shadow: var(--sombra-tarjeta-panel);
+    overflow: hidden;
+}
+
+/* La barra de arriba: los días a la izquierda y el buscador a la derecha */
+.barra-cocina {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--linea-tabla);
+}
+
+/* Las pestañas de días (cada una está en global.css, 13b): si no entran a lo ancho, se mueven de costado */
+.caja-dias {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    overflow-x: auto;
+}
+
+/* El buscador (la pieza está en global.css, 13c), de 230 px */
+.buscador-cocina {
+    width: 230px;
+    flex: 0 1 230px;
+    margin-left: auto;
+}
+
+
+/* ===== 6. LAS DOS TABLAS ===== */
+
+/* Si la tabla no entra a lo ancho, se mueve de costado solo acá adentro (nunca toda la página) */
+.caja-tabla-cocina {
+    position: relative;
+    overflow-x: auto;
+}
+
+/* "table." adelante: así les gana a las reglas de tablas de global.css */
+table.tabla-cocina {
+    min-width: var(--cocina-tabla-ancho-minimo);
+    table-layout: fixed;
+}
+
+/* Los anchos de cada columna (Plato y Plato personalizado no tienen: se llevan lo que sobra) */
+.tabla-cocina .col-numero-pedido       { width: var(--cocina-ancho-numero); }
+.tabla-cocina .col-fecha-pedido        { width: var(--cocina-ancho-fecha-pedido); }
+.tabla-cocina .col-fecha-entrega       { width: var(--cocina-ancho-fecha-entrega); }
+.tabla-cocina .col-cantidad            { width: var(--cocina-ancho-cantidad); }
+.tabla-cocina .col-viandas-listas      { width: var(--cocina-ancho-viandas-listas); }
+.tabla-cocina .col-estado              { width: var(--cocina-ancho-estado); }
+.tabla-cocina .col-botones-stock       { width: var(--cocina-ancho-botones-stock); }
+.tabla-cocina .col-botones-clientes    { width: var(--cocina-ancho-botones-clientes); }
+
+/* Estado, al medio (el título y la pastilla) */
+table.tabla-cocina th.col-estado,
+table.tabla-cocina td.col-estado {
+    text-align: center;
+}
+
+/* El N° de pedido: verde, en negrita ("#112") */
+.numero-pedido {
+    color: var(--verde-texto);
+    font-weight: 700;
+}
+
+/* El plato: en negrita; si es muy largo, se corta con "…" (y el plan, en gris al lado) */
+table.tabla-cocina td.celda-plato {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nombre-plato {
+    font-weight: 600;
+}
+
+.plan-plato {
+    color: var(--texto-apagado);
+    font-size: 13px;
+}
+
+/* La fecha del pedido: gris */
+table.tabla-cocina td.fecha-pedido {
+    color: var(--texto-apagado);
+    font-weight: 500;
+}
+
+/* La pastilla de la fecha de entrega ("25/10"): el color lo pone su día (sección 0) */
+.pastilla-fecha {
+    height: var(--cocina-alto-pastilla-fecha);
+    display: inline-flex;
+    align-items: center;
+    padding: 0 10px;
+    border-radius: var(--radio-chico);
+    font-size: var(--cocina-letra-pastilla-fecha);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* "12 viandas": verde suave, el número en negrita */
+.pastilla-cantidad {
+    height: var(--cocina-alto-pastilla-fecha);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 10px;
+    border-radius: var(--radio-chico);
+    background: var(--verde-suave);
+    color: var(--verde-texto);
+    font-size: var(--cocina-letra-pastilla-fecha);
+    white-space: nowrap;
+}
+
+.pastilla-cantidad b {
+    font-weight: 700;
+}
+
+/* "Plato personalizado": un renglón por plato, con su etiqueta roja al lado */
+.linea-personalizado {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    margin: 2px 0;
+}
+
+.texto-personalizado {
+    font-weight: 500;
+}
+
+/* La etiqueta roja ("SIN SAL"): en MAYÚSCULA; si es muy larga, se corta con "…" */
+.etiqueta-personalizado {
     max-width: 100%;
-    pointer-events: auto;
-  }
+    height: 22px;
+    display: inline-block;
+    padding: 0 7px;
+    border-radius: 6px;
+    background: var(--cocina-personalizado-fondo);
+    color: var(--cocina-personalizado-letra);
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 22px;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-/* Tareas de Cocina vista por administración (roles 6, 5, 1): sin botón "Listo" */
+/* "9 del stock" */
+.numero-stock {
+    font-weight: 600;
+}
+
+.texto-stock {
+    color: var(--texto-apagado);
+    font-size: 12px;
+}
+
+/* Los botones de la fila, a la derecha */
+table.tabla-cocina th.col-botones-stock,
+table.tabla-cocina th.col-botones-clientes,
+table.tabla-cocina td.celda-botones {
+    text-align: right;
+}
+
+.botones-fila {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+/* Cada botón: una pastilla de 26 px ("table." adelante: le gana al .btn-hecho de pedidosCocina.css) */
+table.tabla-cocina .boton-detalles-cocina,
+table.tabla-cocina .boton-hecho,
+table.tabla-cocina .boton-listo {
+    height: var(--cocina-alto-boton-fila);
+    min-height: 0;                              /* el .btn-hecho compartido pide 40 px de alto mínimo: acá no */
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: var(--radio-pastilla);
+    font: inherit;
+    font-size: var(--cocina-letra-boton-fila);
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color .15s;
+}
+
+/* "Detalles": naranja suave (como "Consultar" en Consultar Pedidos) */
+table.tabla-cocina .boton-detalles-cocina {
+    background: var(--cocina-detalles-fondo);
+    color: var(--cocina-detalles-letra);
+}
+
+table.tabla-cocina .boton-detalles-cocina:hover {
+    background: var(--cocina-detalles-fondo-encima);
+}
+
+/* "✓ Hecho" y "✓ Listo para entregar": verdes */
+table.tabla-cocina .boton-hecho,
+table.tabla-cocina .boton-listo {
+    background: var(--verde-principal);
+    color: var(--blanco);
+}
+
+table.tabla-cocina .boton-hecho:hover,
+table.tabla-cocina .boton-listo:hover {
+    background: var(--verde-hondo);
+}
+
+table.tabla-cocina .boton-hecho:disabled,
+table.tabla-cocina .boton-listo:disabled {
+    opacity: .5;
+    cursor: wait;
+}
+
+/* "Solo lectura" (administración, en Pedidos de clientes) */
 .solo-lectura {
-  font-size: 0.75rem;
-  color: #6c757d;
-  font-style: italic;
+    color: var(--texto-suave);
+    font-size: 12px;
+    white-space: nowrap;
 }
 
-/* "Para stock" (pedidos a cocina pendientes), arriba de las tareas */
-.para-stock { margin-bottom: 1.5rem; }
-.para-stock-titulo { margin: 0 0 0.8rem; font-size: 1.05rem; }
+
+/* ===== 7. VENTANAS "DETALLES" Y "MARCAR PLATOS LISTOS" ===== */
+/* La caja (centrada) está en global.css (13f, "ventana-panel"). Acá, cómo se ven las de esta pantalla */
+
+/* Lo oscuro de atrás, por encima del menú (999), de la barra de arriba y del ☰ (1001) */
+.modal {
+    z-index: 1100;
+    background: var(--cocina-fondo-ventana);
+}
+
+/* La caja: esquinas de 18 y una sombra más honda */
+.ventana-cocina {
+    border-radius: var(--cocina-radio-ventana);
+    box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .45);
+}
+
+.ventana-pedido-cocina { max-width: var(--cocina-ancho-ventana-stock); }
+.modal-platos          { max-width: var(--cocina-ancho-ventana-cliente); }
+.modal-listo           { max-width: var(--cocina-ancho-ventana-listo); }
+
+/* Arriba: el título y la ✕ redonda */
+.cabecera-detalles {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 22px 0;
+}
+
+/* ".ventana-cocina" adelante: le gana al h3 de las ventanas de global.css */
+.ventana-cocina h3 {
+    margin: 0;
+    color: var(--titulo);
+    font-size: 20px;
+    font-weight: 700;
+}
+
+/* La ✕: un círculo gris de 34 px (también la del panel del resumen) */
+.boton-cerrar-redondo {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--cocina-fondo-cerrar);
+    color: var(--titulo);
+    cursor: pointer;
+    transition: background .15s;
+}
+
+.boton-cerrar-redondo:hover {
+    background: var(--cocina-fondo-cerrar-encima);
+}
+
+.boton-cerrar-redondo svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* El cuerpo: si es más largo que la pantalla, se mueve adentro */
+.cuerpo-detalles {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 14px 22px 6px;
+}
+
+/* Las cajitas de datos (Fecha de pedido · Fecha de entrega · Pidió · Total) */
+.datos-detalles {
+    display: flex;
+    gap: 8px;
+}
+
+.dato-detalles {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--cocina-fondo-dato);
+    box-shadow: inset 0 0 0 1px var(--linea-tabla);
+}
+
+.nombre-dato {
+    color: var(--texto-apagado);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.valor-dato {
+    margin-top: 2px;
+    overflow: hidden;
+    color: var(--texto);
+    font-size: 14px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Los títulos de cada parte ("VIANDAS QUE SE PIDIERON", "PLATOS A COCINAR HOY").
+   "p." adelante: le gana a .modal-content p (global.css) */
+p.titulo-seccion-ventana {
+    margin: 22px 0 8px;
+    color: var(--texto-apagado);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+/* La tabla chiquita de los platos del pedido a cocina, en su caja con borde finito */
+.caja-tabla-detalles {
+    overflow: hidden;
+    border-radius: var(--radio-tarjeta);
+    box-shadow: 0 0 0 1px var(--linea-tabla);
+}
+
+.tabla-detalles {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tabla-detalles th {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--linea-tabla);
+    color: var(--color-titulos-tabla);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.tabla-detalles td {
+    padding: 10px;
+    border-bottom: 1px solid var(--linea-tabla);
+    color: var(--texto);
+    font-size: 14px;
+}
+
+.tabla-detalles td:first-child {
+    font-weight: 500;
+}
+
+.tabla-detalles tr:last-child td {
+    border-bottom: 0;
+}
+
+/* Un plato ya hecho: tachado y gris */
+.tabla-detalles td.plato-hecho {
+    color: var(--texto-suave);
+    text-decoration: line-through;
+}
+
+/* Cantidad a la derecha ("12 viandas", la palabra en gris) y Estado al medio */
+.tabla-detalles .cantidad-detalles {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.cantidad-detalles span {
+    color: var(--texto-apagado);
+    font-size: 12.5px;
+}
+
+.tabla-detalles .estado-detalles {
+    width: 110px;
+    text-align: center;
+}
+
+/* El avance: "Avance del pedido   1 de 2 platos hechos" y la barra verde */
+.fila-avance {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--texto-apagado);
+    font-size: 13.5px;
+}
+
+.avance-pedido {
+    padding: 16px 0 6px;
+}
+
+.nombre-avance {
+    color: var(--titulo);
+    font-weight: 600;
+}
+
+.texto-avance b {
+    color: var(--texto);
+}
+
+.barra-avance {
+    height: 8px;
+    overflow: hidden;
+    border-radius: var(--radio-pastilla);
+    background: var(--cocina-fondo-barra-avance);
+}
+
+/* Lo lleno de la barra: el ancho lo pone cocinero.js (ej: 50%) */
+.relleno-avance {
+    width: 0;
+    height: 100%;
+    border-radius: var(--radio-pastilla);
+    background: var(--verde-principal);
+    transition: width .3s;
+}
+
+/* Un renglón de la ventana del cliente: "1 Berenjenas rellenas [SIN SAL]   Por hacer" */
+.renglon-detalles {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--linea-tabla);
+    font-size: 14px;
+}
+
+.plato-detalles {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    font-weight: 600;
+}
+
+/* Las observaciones del pedido, en una cajita gris */
+.observaciones-detalles {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--cocina-fondo-dato);
+    box-shadow: inset 0 0 0 1px var(--linea-tabla);
+    font-size: 13.5px;
+    overflow-wrap: anywhere;
+}
+
+/* La pregunta de "Marcar platos listos" ("p." adelante: le gana a .modal-content p) */
+p.texto-confirmar {
+    margin: 4px 0 10px;
+    color: var(--texto-gris);
+    font-size: 15px;
+}
+
+/* Abajo: los botones a la derecha, con una línea finita arriba */
+.pie-detalles {
+    flex: none;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 14px 22px 18px;
+    border-top: 1px solid var(--linea-tabla);
+}
+
+/* "Cerrar" / "Cancelar": blanco con borde finito */
+.boton-cerrar-detalles {
+    height: 40px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--blanco);
+    box-shadow: inset 0 0 0 1px var(--borde-casillero);
+    color: var(--texto);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.boton-cerrar-detalles:hover {
+    background: var(--gris-encima);
+}
+
+/* "✓ Listo para entregar" / "✓ Sí, están listos": verde */
+.boton-listo-detalles {
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--verde-principal);
+    color: var(--blanco);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+.boton-listo-detalles:hover {
+    background: var(--verde-hondo);
+}
+
+.boton-listo-detalles[hidden] {
+    display: none;
+}
+
+
+/* ===== 8. PANEL "RESUMEN DEL TURNO" ===== */
+/* El panel que entra por la derecha está en global.css (13g, "panel-lateral"). Acá, lo de adentro */
+
+/* Lo de atrás, más clarito que en las ventanas */
+.modal.fondo-resumen {
+    background: var(--cocina-fondo-resumen);
+}
+
+.panel-resumen {
+    width: var(--cocina-ancho-resumen);
+}
+
+/* Arriba: "Resumen del turno", "Hoy, miércoles 28/10" y la ✕ */
+.cabecera-resumen {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--linea-tabla);
+}
+
+.titulo-resumen {
+    margin: 0;
+    color: var(--titulo);
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.fecha-resumen {
+    margin: 0;
+    color: var(--texto-apagado);
+    font-size: 13px;
+}
+
+/* El avance ("Avance   2 de 8 hechos" y la barra) */
+.avance-resumen {
+    flex: none;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--linea-tabla);
+}
+
+.avance-resumen .fila-avance {
+    margin-bottom: 8px;
+}
+
+.avance-resumen .nombre-avance {
+    color: var(--texto);
+}
+
+/* La lista: toma el alto que sobra y se mueve adentro si hace falta */
+.cuerpo-resumen {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px 22px;
+}
+
+.cuerpo-resumen p.titulo-seccion-ventana {
+    margin: 0 0 4px;
+    font-size: 11.5px;
+    letter-spacing: .05em;
+}
+
+/* Cada plato: la casilla, el nombre (y de dónde es, abajo) y la cantidad a la derecha */
+.renglon-resumen {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--linea-tabla);
+}
+
+.casilla-resumen {
+    width: 20px;
+    height: 20px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 1.5px var(--cocina-borde-casilla);
+}
+
+/* Hecho: la casilla verde con ✓ */
+.casilla-marcada {
+    background: var(--verde-principal);
+    box-shadow: none;
+    color: var(--blanco);
+}
+
+.casilla-marcada svg {
+    width: 14px;
+    height: 14px;
+}
+
+.textos-renglon {
+    flex: 1;
+    min-width: 0;
+}
+
+.nombre-renglon {
+    color: var(--texto);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* El personalizado ("· SIN SAL"), en MAYÚSCULA */
+.obs-resumen {
+    text-transform: uppercase;
+}
+
+.origen-renglon {
+    color: var(--texto-apagado);
+    font-size: 12px;
+}
+
+.cantidad-renglon {
+    font-size: 14px;
+}
+
+/* Lo ya hecho: tachado y gris */
+.renglon-hecho .nombre-renglon,
+.renglon-hecho .cantidad-renglon {
+    color: var(--texto-suave);
+    text-decoration: line-through;
+}
+
+
+/* ===== 9. AVISOS ===== */
+
+/* El cuadro del resultado de "✓ Hecho" (pedidosCocina.css), arriba de la tarjeta */
+#listaParaStock .aviso-hecho {
+    margin: 14px 0 0;
+}
+
+/* El aviso flotante de "Listo para entregar" (arriba a la derecha) */
+.aviso-cocina {
+    position: fixed;
+    top: 72px;
+    right: 24px;
+    z-index: 1200;
+    max-width: 420px;
+    padding: 12px 40px 12px 16px;
+    border-radius: var(--radio-tarjeta);
+    box-shadow: var(--sombra-menu);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.aviso-cocina--exito { background: var(--cocina-hecho-fondo);     color: var(--verde-texto); }
+.aviso-cocina--info  { background: var(--cocina-despues-fondo);   color: var(--cocina-despues-letra); }
+.aviso-cocina--error { background: var(--cocina-por-hacer-fondo); color: var(--cocina-por-hacer-letra); }
+
+.aviso-cocina-detalle {
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+}
+
+.aviso-cocina-cerrar {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+
+/* ===== 10. CELULAR (hasta 768 px) ===== */
+@media (max-width: 768px) {
+    /* El título arriba y "Resumen del turno" abajo, a lo ancho */
+    .cabecera-cocina {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+    }
+
+    /* En columna, el "320px" de la compu sería el ALTO: acá mide lo que tiene adentro */
+    .textos-cabecera-cocina {
+        flex: none;
+    }
+
+    .cabecera-cocina .boton-ventana {
+        justify-content: center;
+    }
+
+    /* Los dos botones de la vista, mitad y mitad (sin el dibujito, así entran en 390 px) */
+    .selector-vistas {
+        align-self: stretch;
+        display: flex;
+    }
+
+    .boton-vista {
+        flex: 1 1 0;
+        min-width: 0;
+        justify-content: center;
+        padding: 0 8px;
+        font-size: 13.5px;
+    }
+
+    .icono-vista {
+        display: none;
+    }
+
+    /* La barra de la tarjeta: los días arriba y el buscador abajo, a lo ancho */
+    .barra-cocina {
+        flex-direction: column;
+        flex-wrap: nowrap;
+        align-items: stretch;
+    }
+
+    .caja-dias {
+        flex: none;
+    }
+
+    .buscador-cocina {
+        width: 100%;
+        flex: none;
+        margin-left: 0;
+    }
+
+    /* Las ventanas ocupan toda la pantalla (global.css, 13i); las cajitas de datos, de a dos */
+    .ventana-cocina {
+        max-width: none;
+        border-radius: 0;
+    }
+
+    .datos-detalles {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .cabecera-detalles,
+    .pie-detalles {
+        padding-left: 18px;
+        padding-right: 18px;
+    }
+
+    .cuerpo-detalles {
+        flex: 0 1 auto;
+        padding: 14px 18px 6px;
+    }
+
+    /* Los botones de abajo, del mismo ancho */
+    .pie-detalles > button {
+        flex: 1;
+        justify-content: center;
+    }
+
+    /* El panel del resumen, de todo el ancho */
+    .panel-resumen {
+        width: 100%;
+    }
+
+    .aviso-cocina {
+        left: 16px;
+        right: 16px;
+        max-width: none;
+    }
+}

@@ -1,95 +1,489 @@
-// ── Estado reactivo del módulo ────────────────────────────────────────────────
-// Se declara fuera de DOMContentLoaded para que marcarListo() también acceda.
-let _tareasActivas = [];
+// ============================================================================
+// cocinero.js — Tareas de Cocina (pages/cocinero.html): "Para stock" y "Pedidos de clientes"
+//
+// Funciones:
+//   describirDia          → de una fecha 'AAAA-MM-DD' saca "25/10", si es hoy / mañana / atrasada / más adelante
+//                           y el nombre de su pestaña ("Hoy", "Mañana", "Martes")
+//   cargarParaStock       → pide los pedidos a cocina sin hacer (GET /api/ordenes-produccion/pendientes) y dibuja "Para stock"
+//   dibujarTabla          → dibuja una de las dos tablas: las pestañas de días, el filtro (día + buscador) y las páginas
+//   crearFilaStock        → una fila de "Para stock" (un plato de un pedido a cocina) con "Detalles" y "✓ Hecho"
+//   crearFilaCliente      → una fila de "Pedidos de clientes" (un pedido) con "Detalles" y "✓ Listo para entregar"
+//   cambiarVista          → muestra "Para stock" o "Pedidos de clientes"
+//   construirResumen      → arma el panel "Resumen del turno": los platos a cocinar hoy y el avance
+//   abrirResumen          → abre ese panel (pide lo hecho hoy: GET /api/ordenes-produccion/hechos-hoy)
+//   abrirPedidoCocina     → ventana "Detalles" de un pedido a cocina (GET /api/ordenes-produccion/:id, solo lee)
+//   abrirDetallesPedido   → ventana "Detalles" de un pedido de cliente (con lo que ya tiene la pantalla)
+//   cerrarDetallesPedido, cerrarModalListo, cerrarVentanaCocina → cierran las ventanas
+//   marcarListo / confirmarListo → "Listo para entregar": pregunta y PUT /api/pedidos/:id/listo-cocinero
+//   quitarPedidoDeLaTabla → saca de la tabla y del resumen un pedido que ya quedó listo
+//   mostrarAviso          → el aviso flotante de arriba a la derecha
+//
+// "✓ Hecho" lo hace marcarHecho (pedidosCocina.js, el mismo de Producción): no se toca.
+// Necesita antes: roles.js, api.js, escape.js, fechas.js, paginacion.js y pedidosCocina.js.
+// Todo lo que viene de la base pasa por escHtml (o se pone con textContent).
+// ============================================================================
 
-// ── Normalización de observaciones ────────────────────────────────────────────
-// Vacíos, nulos y "sin observaciones" se tratan como la clave estándar.
-const _OBS_STD = 'Sin observaciones';
-function _normObs(obs) {
-  if (!obs || obs.trim() === '' || obs.trim().toLowerCase() === 'sin observaciones') {
-    return _OBS_STD;
+// ── Lo que la pantalla tiene en memoria ──────────────────────────────────────
+// Se declara fuera de DOMContentLoaded para que las demás funciones también lo vean.
+let _tareasActivas = [];          // los pedidos de clientes en preparación (con sus platos a cocinar)
+let _platosParaStock = [];        // los platos de pedidos a cocina sin hacer
+let _hechosHoy = [];              // lo que la cocina marcó "Hecho" hoy (para el resumen)
+
+// El cocinero marca "Hecho" y "Listo". Administración (6, 5, 1) ve toda la cocina, solo para mirar.
+const esCocinero = parseInt(localStorage.getItem('usuario_rol') || '0', 10) === FG_ROLES.ROL.COCINERO;
+
+// Lo elegido en cada vista: el día (pestaña) y lo escrito en el buscador
+const filtrosVista = {
+  stock:    { dia: 'todos', texto: '' },
+  clientes: { dia: 'todos', texto: '' }
+};
+
+// Las páginas de cada tabla (lo que devuelve crearPaginacion): así una recarga no vuelve a la página 1
+const paginacionVista = { stock: null, clientes: null };
+
+// Dónde va cada cosa de cada vista y qué dice si no hay nada
+const VISTAS = {
+  stock: {
+    idDias: 'diasStock', idBuscar: 'buscarStock', idCuerpo: 'cuerpoParaStock',
+    idPaginacion: 'paginacionStock', idResumen: 'resumenParaStock',
+    columnas: 7, nombreDatos: 'platos', vacio: 'No hay nada pendiente para stock.'
+  },
+  clientes: {
+    idDias: 'diasClientes', idBuscar: 'buscarClientes', idCuerpo: 'tablaTareas',
+    idPaginacion: 'paginacionClientes', idResumen: 'resumenClientes',
+    columnas: 6, nombreDatos: 'pedidos', vacio: 'No hay pedidos en preparación en este momento.'
   }
-  return obs.trim();
+};
+
+const NOMBRES_DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+// El nombre de la pestaña de hoy, mañana y lo atrasado (lo que viene después lleva el nombre del día)
+const ETIQUETAS_DIA = { atrasado: 'Atrasados', hoy: 'Hoy', manana: 'Mañana' };
+
+// Un pedido sin fecha de entrega (no debería pasar): va a su propia pestaña
+const SIN_FECHA = { clave: 'sin-fecha', etiqueta: 'Sin fecha', tipo: 'despues', diaMes: '—' };
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// describirDia → todo lo que la pantalla muestra de una fecha
+// ENTRADA: fechaISO, 'AAAA-MM-DD' (la fecha de entrega o la de un pedido)
+// SALIDA:  { clave, etiqueta, tipo, diaMes }
+//          clave: la pestaña ('atrasado', 'hoy', 'manana' o la misma fecha) · etiqueta: su nombre
+//          tipo: 'atrasado' | 'hoy' | 'manana' | 'despues' (el color) · diaMes: "25/10"
+// Ej (hoy 28/10): '2026-10-29' → { clave: 'manana', etiqueta: 'Mañana', tipo: 'manana', diaMes: '29/10' }
+//                 '2026-11-03' → { clave: '2026-11-03', etiqueta: 'Martes', tipo: 'despues', diaMes: '03/11' }
+// ─────────────────────────────────────────────────────────────────────────────
+function describirDia(fechaISO) {
+  const fecha = parseFechaLocal(fechaISO);                        // la fecha, a medianoche (fechas.js)
+  const hoy = parseFechaLocal(fechaLocalISO(new Date()));         // hoy, a medianoche
+  const distancia = Math.round((fecha - hoy) / 86400000);         // cuántos días faltan (86.400.000 ms = 1 día; negativo = ya pasó)
+  const diaMes = String(fecha.getDate()).padStart(2, '0') + '/' + String(fecha.getMonth() + 1).padStart(2, '0');  // "25/10"
+
+  // Qué tipo de día es (el último que se cumple gana)
+  let tipo = 'despues';                                           // más adelante
+  if (distancia === 1) tipo = 'manana';
+  if (distancia === 0) tipo = 'hoy';
+  if (distancia < 0) tipo = 'atrasado';
+
+  // El nombre de la pestaña: "Hoy", "Mañana", "Atrasados" o el día de la semana (a más de 6 días, "03/11")
+  const nombreDia = distancia <= 6 ? NOMBRES_DIAS[fecha.getDay()] : diaMes;
+  const etiqueta = ETIQUETAS_DIA[tipo] || nombreDia;
+  const clave = tipo === 'despues' ? fechaISO : tipo;             // lo atrasado va todo junto en una pestaña
+  return { clave: clave, etiqueta: etiqueta, tipo: tipo, diaMes: diaMes };
 }
 
-// ── Construir / actualizar el panel de resumen del turno ──────────────────────
-function construirResumen(tareas) {
-  const panelBody = document.getElementById('panel-body');
-  const elPlatos  = document.getElementById('resumen-total-platos');
-  const elPorc    = document.getElementById('resumen-total-porciones');
-  if (!panelBody) return;
 
-  // Agrupar por (nombre de plato + observación normalizada).
-  // Clave compuesta con separador improbable en datos reales.
-  const grupos = {};
-  tareas.forEach(pedido => {
-    const obsPedido = _normObs(pedido.observaciones);
-    (pedido.pedido_detalles || []).forEach(det => {
-      const nombre = det?.productos?.nombre;
-      if (!nombre || nombre === '—') return;
-
-      // Plato personalizado (de un combo): su texto va primero, y si el pedido además tiene
-      // observaciones se suman. Ej: "sin sal" + "sin cebolla" → "sin sal · sin cebolla".
-      // Así el resumen separa "fideos" de "fideos ⚠ sin sal".
-      let obs = obsPedido;
-      if (det.personalizado && det.observaciones_plato && det.observaciones_plato.trim() !== '') {
-        obs = det.observaciones_plato.trim();
-        if (obsPedido !== _OBS_STD) {
-          obs = obs + ' · ' + obsPedido;
-        }
-      }
-
-      const clave = `${nombre}|||${obs}`;
-      if (!grupos[clave]) grupos[clave] = { nombre, obs, cantidad: 0 };
-      grupos[clave].cantidad += (det.cantidad || 0);
-    });
-  });
-
-  const entradas       = Object.values(grupos);
-  const platosUnicos   = new Set(entradas.map(e => e.nombre)).size;
-  const totalPorciones = entradas.reduce((s, e) => s + e.cantidad, 0);
-
-  if (elPlatos) elPlatos.textContent = platosUnicos;
-  if (elPorc)   elPorc.textContent   = totalPorciones;
-
-  if (entradas.length === 0) {
-    panelBody.innerHTML = '<p class="panel-vacio">Sin tareas activas.</p>';
+// ─────────────────────────────────────────────────────────────────────────────
+// cargarParaStock → pide los platos de pedidos a cocina que no están hechos y dibuja "Para stock"
+// ENTRADA: nada
+// SALIDA:  nada. Llena _platosParaStock, el número de "Para stock" y la tabla. Deja todo listo para que
+//          marcarHecho (pedidosCocina.js) encuentre el plato tocado y vuelva a llamar a esta función.
+// Ej: [{ id: 21, id_orden: 112, fecha_para: '2026-10-29', plato: 'Canelones', cantidad: 12, … }] → 1 fila "#112 Canelones … 12 viandas"
+// ─────────────────────────────────────────────────────────────────────────────
+async function cargarParaStock() {
+  // 1. Se piden los pendientes
+  let pendientes = null;
+  try {
+    const respuesta = await apiFetch('/api/ordenes-produccion/pendientes');
+    if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);  // si el servidor dio error, va al catch
+    pendientes = await respuesta.json();
+  } catch (error) {                                               // si no se pudo...
+    console.error('No se pudieron cargar los pendientes de cocina:', error);  // ...el detalle a la consola
+    document.getElementById('cuerpoParaStock').innerHTML =
+      '<tr><td colspan="7" class="loading-text texto-error">Error al cargar los pendientes de cocina</td></tr>';
     return;
   }
 
-  // Orden: por nombre de plato A→Z; dentro del mismo plato, estándar antes
-  // que especiales; dentro del mismo grupo, mayor cantidad primero.
-  entradas.sort((a, b) => {
-    const nc = a.nombre.localeCompare(b.nombre, 'es');
-    if (nc !== 0) return nc;
-    const aEsp = a.obs !== _OBS_STD ? 1 : 0;
-    const bEsp = b.obs !== _OBS_STD ? 1 : 0;
-    if (aEsp !== bEsp) return aEsp - bEsp;
-    return b.cantidad - a.cantidad;
+  // 2. A cada plato se le agrega su día y el texto donde busca el buscador; y se guardan por número
+  const porId = {};                                               // { id del renglón: plato } (para "Hecho")
+  pendientes.forEach(plato => {
+    plato.dia = describirDia(plato.fecha_para);                   // "29/10", mañana…
+    plato.busqueda = ('#' + plato.id_orden + ' ' + (plato.plato || '')).toLowerCase();  // ej: "#112 canelones"
+    porId[plato.id] = plato;
   });
 
-  panelBody.innerHTML = entradas.map(({ nombre, obs, cantidad }) => {
-    const esEspecial = obs !== _OBS_STD;
-    const cardClass  = esEspecial ? 'resumen-card resumen-card--especial' : 'resumen-card';
-    const obsHTML    = esEspecial
-      ? `<div class="resumen-card-obs">
-           <span class="resumen-card-obs-icon">⚠</span>${escHtml(obs)}
-         </div>`
-      : '';
-    return `
-      <div class="${cardClass}">
-        <div class="resumen-card-info">
-          <div class="resumen-card-nombre">${escHtml(nombre)}</div>
-          ${obsHTML}
-        </div>
-        <div class="resumen-card-right">
-          <span class="resumen-card-cantidad">${cantidad}</span>
-          <span class="resumen-card-label">porc.</span>
-        </div>
-      </div>
-    `;
-  }).join('');
+  // 3. Lo que necesita marcarHecho (pedidosCocina.js): si hay botón, qué recargar y los platos por número
+  listasPendientes.listaParaStock = { conBotonHecho: esCocinero, recargar: cargarParaStock, porId: porId };
+
+  // 4. Se guardan, se cuenta y se dibuja (también el resumen, por si está abierto)
+  _platosParaStock = pendientes;
+  document.getElementById('cantidadParaStock').textContent = pendientes.length;
+  dibujarTabla('stock');
+  construirResumen(_tareasActivas);
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// dibujarTabla → dibuja una de las dos tablas con lo elegido en su barra
+// ENTRADA: vista, 'stock' o 'clientes'
+// SALIDA:  nada. Arma las pestañas (Todos · ● Hoy · ● Mañana · ● Martes…, una por cada día que aparece),
+//          filtra por día y por lo escrito, y dibuja la página que corresponde con "Mostrando X de Y".
+// Ej: dibujarTabla('stock') con la pestaña "Hoy" elegida → solo los platos para hoy
+// ─────────────────────────────────────────────────────────────────────────────
+function dibujarTabla(vista) {
+  const config = VISTAS[vista];
+  const filtro = filtrosVista[vista];
+  const datos = vista === 'stock' ? _platosParaStock : _tareasActivas;   // los platos o los pedidos
+  const crearFila = vista === 'stock' ? crearFilaStock : crearFilaCliente;
+
+  // 1. Los días que aparecen, en orden (los datos ya vienen ordenados por fecha de entrega)
+  const dias = [];                                                // las pestañas, sin repetir
+  const yaEsta = {};                                              // { clave: true } de las que ya están
+  datos.forEach(item => {
+    if (yaEsta[item.dia.clave]) return;                           // ya tiene su pestaña (return = saltear y seguir)
+    yaEsta[item.dia.clave] = true;
+    dias.push(item.dia);
+  });
+  const diaSinNada = filtro.dia !== 'todos' && !yaEsta[filtro.dia];  // el día elegido ya no tiene nada
+  if (diaSinNada) filtro.dia = 'todos';                           // vuelve a "Todos"
+
+  // 2. Las pestañas: "Todos" y un día con su puntito de color
+  const claseTodos = filtro.dia === 'todos' ? ' activo' : '';
+  let htmlDias = '<button type="button" class="pestana-estado' + claseTodos + '" data-dia="todos">Todos</button>';
+  dias.forEach(dia => {
+    const claseElegida = filtro.dia === dia.clave ? ' activo' : '';
+    htmlDias += `
+      <button type="button" class="pestana-estado${claseElegida}" data-dia="${escHtml(dia.clave)}">
+        <span class="punto-pestana punto-${dia.tipo}"></span>${escHtml(dia.etiqueta)}
+      </button>`;
+  });
+  document.getElementById(config.idDias).innerHTML = htmlDias;
+
+  // 3. Lo que se ve: el día elegido y lo escrito en el buscador (en minúscula: "Canel" encuentra "canelones")
+  const texto = filtro.texto.trim().toLowerCase();
+  const visibles = datos.filter(item => {
+    const pasaDia = filtro.dia === 'todos' || item.dia.clave === filtro.dia;
+    const pasaTexto = texto === '' || item.busqueda.includes(texto);
+    return pasaDia && pasaTexto;
+  });
+
+  // 4. Las páginas (paginacion.js): la misma página en la que estaba (si ya no existe, la última)
+  const mensajeVacio = datos.length > 0 ? 'No hay nada con ese filtro.' : config.vacio;
+  const paginaAnterior = paginacionVista[vista] ? paginacionVista[vista].paginaActual() : 1;
+  paginacionVista[vista] = crearPaginacion({
+    datos: visibles,
+    porPagina: 15,
+    contenedorTabla: document.getElementById(config.idCuerpo),
+    contenedorPaginacion: document.getElementById(config.idPaginacion),
+    funcionRenderFila: crearFila,
+    filaVacia: '<tr class="empty-row"><td colspan="' + config.columnas + '" class="loading-text">' + mensajeVacio + '</td></tr>',
+    paginaInicial: paginaAnterior,
+    contenedorResumen: document.getElementById(config.idResumen),
+    nombreDatos: config.nombreDatos
+  });
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// crearFilaStock → la fila de un plato de un pedido a cocina
+// ENTRADA: plato, uno de /pendientes (con su .dia, ver cargarParaStock)
+// SALIDA:  el <tr>: N° pedido · plato (plan) · fecha pedido · fecha entrega · "12 viandas" · Por hacer · botones
+// Ej: { id_orden: 112, plato: 'Canelones', plan: 'Keto', cantidad: 12 } → "#112 | Canelones (Keto) | 24/10 | 25/10 | 12 viandas | Por hacer"
+// "✓ Hecho" solo para el cocinero: lo escucha marcarHecho (pedidosCocina.js) por su clase btn-hecho y su data-id.
+// ─────────────────────────────────────────────────────────────────────────────
+function crearFilaStock(plato) {
+  // Lo que va en la fila, calculado antes (nada de "? :" adentro del HTML)
+  const idOrden = Number(plato.id_orden);
+  const cantidad = Number(plato.cantidad);
+  const palabraViandas = cantidad === 1 ? 'vianda' : 'viandas';
+  // La fecha del pedido llega con hora (timestamp): se pasa al día de acá y se escribe "24/10"
+  const fechaPedido = plato.fecha_pedido ? describirDia(fechaLocalISO(fechaDeTimestamp(plato.fecha_pedido))).diaMes : '—';
+  const plan = plato.plan ? ' <span class="plan-plato">(' + escHtml(plato.plan) + ')</span>' : '';
+  const botonHecho = esCocinero
+    ? '<button type="button" class="btn-hecho boton-hecho" data-id="' + Number(plato.id) + '">✓ Hecho</button>'
+    : '';
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><b class="numero-pedido">#${idOrden}</b></td>
+    <td class="celda-plato"><span class="nombre-plato">${escHtml(plato.plato)}</span>${plan}</td>
+    <td class="fecha-pedido">${escHtml(fechaPedido)}</td>
+    <td><span class="pastilla-fecha fecha-${plato.dia.tipo}">${escHtml(plato.dia.diaMes)}</span></td>
+    <td><span class="pastilla-cantidad"><b>${cantidad}</b> ${palabraViandas}</span></td>
+    <td class="col-estado"><span class="etiqueta-estado estado-por-hacer">Por hacer</span></td>
+    <td class="celda-botones">
+      <div class="botones-fila">
+        <button type="button" class="boton-detalles-cocina" onclick="abrirPedidoCocina(${idOrden})">Detalles</button>${botonHecho}
+      </div>
+    </td>`;
+  return tr;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// crearFilaCliente → la fila de un pedido de cliente
+// ENTRADA: pedido, uno de _tareasActivas (con su .dia y sus viandas del stock, ver DOMContentLoaded)
+// SALIDA:  el <tr>: N° pedido · fecha entrega · platos personalizados (con su etiqueta roja) · "9 del stock" · Por hacer · botones
+// Ej: pedido #57 con "1 Berenjenas rellenas" sin sal y 9 del stock → "#57 | 26/10 | 1 Berenjenas rellenas [SIN SAL] | 9 del stock | Por hacer"
+// Cada fila lleva data-pedido-id: así confirmarListo y quitarPedidoDeLaTabla la encuentran, igual que antes.
+// ─────────────────────────────────────────────────────────────────────────────
+function crearFilaCliente(pedido) {
+  const idPedido = Number(pedido.id);
+
+  // Los platos a cocinar, uno por renglón: "2 Tarta de zapallitos" y su etiqueta (el texto lo escribe el cliente: escHtml)
+  let htmlPlatos = '';
+  pedido.pedido_detalles.forEach(det => {
+    const nombre = det?.productos?.nombre || '—';                  // ?. = "si vino el producto, su nombre"
+    const etiqueta = det.observaciones_plato
+      ? '<span class="etiqueta-personalizado">' + escHtml(det.observaciones_plato) + '</span>'
+      : '';
+    htmlPlatos += `
+      <div class="linea-personalizado">
+        <span class="texto-personalizado">${Number(det.cantidad)} ${escHtml(nombre)}</span>${etiqueta}
+      </div>`;
+  });
+
+  // "✓ Listo para entregar" (marca listos TODOS los platos de este cocinero en el pedido, como siempre).
+  // La administración solo mira.
+  const accion = esCocinero
+    ? '<button type="button" class="btn-listo boton-listo" onclick="marcarListo(' + idPedido + ', this)">✓ Listo para entregar</button>'
+    : '<span class="solo-lectura">Solo lectura</span>';
+
+  const tr = document.createElement('tr');
+  tr.dataset.pedidoId = pedido.id;
+  tr.innerHTML = `
+    <td><b class="numero-pedido">#${idPedido}</b></td>
+    <td><span class="pastilla-fecha fecha-${pedido.dia.tipo}">${escHtml(pedido.dia.diaMes)}</span></td>
+    <td class="celda-personalizados">${htmlPlatos}</td>
+    <td><b class="numero-stock">${Number(pedido.viandas_stock)}</b> <span class="texto-stock">del stock</span></td>
+    <td class="col-estado"><span class="etiqueta-estado estado-por-hacer">Por hacer</span></td>
+    <td class="celda-botones">
+      <div class="botones-fila">
+        <button type="button" class="boton-detalles-cocina btn-detalles" onclick="abrirDetallesPedido(${idPedido})">Detalles</button>${accion}
+      </div>
+    </td>`;
+  return tr;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// cambiarVista → muestra una de las dos vistas y marca su botón
+// ENTRADA: vista, 'stock' o 'clientes'
+// SALIDA:  nada (se ve una sección y se esconde la otra; el botón elegido queda blanco con letra verde)
+// Ej: cambiarVista('clientes') → se ve "Pedidos de clientes"
+// ─────────────────────────────────────────────────────────────────────────────
+function cambiarVista(vista) {
+  const esStock = vista === 'stock';
+  document.getElementById('vistaStock').hidden = !esStock;
+  document.getElementById('vistaClientes').hidden = esStock;
+
+  const botonStock = document.getElementById('botonVistaStock');
+  const botonClientes = document.getElementById('botonVistaClientes');
+  botonStock.classList.toggle('vista-elegida', esStock);         // toggle con true pone la clase; con false la saca
+  botonClientes.classList.toggle('vista-elegida', !esStock);
+  botonStock.setAttribute('aria-pressed', String(esStock));       // para los lectores de pantalla
+  botonClientes.setAttribute('aria-pressed', String(!esStock));
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// construirResumen → arma el panel "Resumen del turno"
+// ENTRADA: tareas, los pedidos de clientes (_tareasActivas). Usa también _platosParaStock y _hechosHoy.
+// SALIDA:  nada. Escribe "Avance: 2 de 8 hechos", la barra y la lista "Platos a cocinar hoy":
+//          primero lo de stock (lo hecho hoy, tachado y con ✓) y después los personalizados de clientes.
+//          "Hoy" = fecha de entrega de hoy.
+// Ej: "☐ Canelones de verdura / para stock  12" · "☑ ~~Albóndigas~~ / para stock  10" · "☐ Pollo con arroz · SIN SAL / pedido #55  2"
+// ─────────────────────────────────────────────────────────────────────────────
+function construirResumen(tareas) {
+  const panelBody = document.getElementById('panel-body');
+  if (!panelBody) return;
+  const hoy = fechaLocalISO(new Date());                          // hoy, 'AAAA-MM-DD'
+
+  // 1. Lo de stock: lo pendiente para hoy y lo que ya se hizo hoy
+  const renglones = [];                                           // { nombre, obs, origen, cantidad, hecho }
+  _platosParaStock.forEach(plato => {
+    if (plato.fecha_para !== hoy) return;                         // no es para hoy (return = saltear y seguir)
+    renglones.push({ nombre: plato.plato, obs: '', origen: 'para stock', cantidad: plato.cantidad, hecho: false });
+  });
+  _hechosHoy.forEach(plato => {
+    renglones.push({ nombre: plato.plato, obs: '', origen: 'para stock', cantidad: plato.cantidad, hecho: true });
+  });
+  // Por nombre de plato (sort compara de a dos: negativo = a va antes)
+  renglones.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'));
+
+  // 2. Los personalizados de los pedidos que se entregan hoy.
+  //    flatMap: de cada pedido saca sus platos y los junta en una sola lista (así no hay un forEach adentro de otro).
+  //    Ej: [{ id: 53, platos: [A, B] }, { id: 54, platos: [C] }] → [A (del 53), B (del 53), C (del 54)]
+  const platosClientes = tareas.flatMap(pedido =>
+    pedido.pedido_detalles.map(det => ({ det: det, idPedido: pedido.id, fechaEntrega: pedido.fecha_entrega }))
+  );
+  platosClientes.forEach(item => {
+    if (item.fechaEntrega !== hoy) return;                        // no se entrega hoy (return = saltear y seguir)
+    renglones.push({
+      nombre: item.det?.productos?.nombre || '—',
+      obs: item.det.observaciones_plato || '',
+      origen: 'pedido #' + Number(item.idPedido),
+      cantidad: item.det.cantidad,
+      hecho: false
+    });
+  });
+
+  // 3. El avance: cuántos renglones están hechos de todos (filter = los que cumplen)
+  const hechos = renglones.filter(renglon => renglon.hecho).length;
+  const porcentaje = renglones.length > 0 ? Math.round((hechos / renglones.length) * 100) : 0;
+  document.getElementById('textoAvanceResumen').innerHTML = '<b>' + hechos + '</b> de ' + renglones.length + ' hechos';
+  document.getElementById('barraAvanceResumen').style.width = porcentaje + '%';   // la barra verde (el ancho cambia con el avance)
+
+  if (renglones.length === 0) {
+    panelBody.innerHTML = '<p class="panel-vacio">No hay platos para cocinar hoy.</p>';
+    return;
+  }
+
+  // 4. La lista: la casilla (con ✓ si está hecho), el plato (con su personalizado), de dónde es y cuántas
+  let html = '';
+  renglones.forEach(renglon => {
+    const claseHecho = renglon.hecho ? ' renglon-hecho' : '';
+    const casilla = renglon.hecho
+      ? '<span class="casilla-resumen casilla-marcada"><svg aria-hidden="true"><use href="#icono-check"></use></svg></span>'
+      : '<span class="casilla-resumen"></span>';
+    const obs = renglon.obs ? ' · <span class="obs-resumen">' + escHtml(renglon.obs) + '</span>' : '';
+    html += `
+      <div class="renglon-resumen${claseHecho}">
+        ${casilla}
+        <div class="textos-renglon">
+          <div class="nombre-renglon">${escHtml(renglon.nombre)}${obs}</div>
+          <div class="origen-renglon">${escHtml(renglon.origen)}</div>
+        </div>
+        <b class="cantidad-renglon">${Number(renglon.cantidad)}</b>
+      </div>`;
+  });
+  panelBody.innerHTML = html;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// abrirResumen → abre el panel "Resumen del turno" (el botón de arriba a la derecha)
+// ENTRADA: nada
+// SALIDA:  nada. Abre el panel, escribe "Hoy, miércoles 28/10", pide lo hecho hoy y arma la lista.
+//          Si lo hecho hoy no se pudo pedir, la lista sale igual (sin los tachados).
+// ─────────────────────────────────────────────────────────────────────────────
+async function abrirResumen() {
+  const hoy = new Date();
+  const diaHoy = describirDia(fechaLocalISO(hoy));               // para el "28/10"
+  document.getElementById('fechaResumen').textContent = 'Hoy, ' + NOMBRES_DIAS[hoy.getDay()].toLowerCase() + ' ' + diaHoy.diaMes;
+  document.getElementById('panel-body').innerHTML = '<p class="panel-vacio">Cargando...</p>';
+  document.getElementById('fondoResumen').style.display = 'block';   // se abre
+
+  try {
+    const respuesta = await apiFetch('/api/ordenes-produccion/hechos-hoy');
+    if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);  // si el servidor dio error, va al catch
+    _hechosHoy = await respuesta.json();
+  } catch (error) {
+    console.error('No se pudo cargar lo hecho hoy:', error);     // el detalle a la consola
+    _hechosHoy = [];                                              // la lista sale sin los hechos
+  }
+  construirResumen(_tareasActivas);
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// abrirPedidoCocina → la ventana "Detalles" de un pedido a cocina (desde "Para stock")
+// ENTRADA: idOrden, el número del pedido a cocina
+// SALIDA:  nada. Abre la ventana y la llena con lo que manda GET /api/ordenes-produccion/:id (solo lee):
+//          fecha de pedido · fecha de entrega · pidió · total, la tabla de sus platos (lo hecho, tachado) y el avance.
+// Ej: abrirPedidoCocina(112) → "Pedido a cocina #112" · 24/10 · 25/10 · Mauri · 22 viandas · "1 de 2 platos hechos"
+// ─────────────────────────────────────────────────────────────────────────────
+async function abrirPedidoCocina(idOrden) {
+  const numero = Number(idOrden);
+  const cuerpo = document.getElementById('cuerpoPedidoCocina');
+  document.getElementById('tituloPedidoCocina').textContent = 'Pedido a cocina #' + numero;
+  cuerpo.innerHTML = '<p class="panel-vacio">Cargando...</p>';
+  document.getElementById('modalPedidoCocina').style.display = 'block';   // se abre
+
+  // 1. Se pide el pedido con todos sus platos
+  let pedido = null;
+  try {
+    const respuesta = await apiFetch('/api/ordenes-produccion/' + numero);
+    if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);  // si el servidor dio error, va al catch
+    pedido = await respuesta.json();
+  } catch (error) {
+    console.error('No se pudo cargar el pedido a cocina:', error);   // el detalle a la consola
+    cuerpo.innerHTML = '<p class="panel-vacio texto-error">No se pudo cargar el pedido a cocina.</p>';
+    return;
+  }
+
+  // 2. Los datos de arriba, calculados antes
+  const fechaPedido = pedido.fecha_pedido ? describirDia(fechaLocalISO(fechaDeTimestamp(pedido.fecha_pedido))).diaMes : '—';
+  const fechaEntrega = describirDia(pedido.fecha_para).diaMes;
+  const pidio = pedido.pidio || '—';
+
+  // 3. Una fila por plato: lo hecho va tachado y con "Hecho" en verde
+  let totalViandas = 0;
+  let hechos = 0;
+  let filas = '';
+  pedido.platos.forEach(plato => {
+    totalViandas = totalViandas + Number(plato.cantidad);
+    if (plato.hecho) hechos = hechos + 1;
+    const claseHecho = plato.hecho ? ' class="plato-hecho"' : '';
+    const claseEstado = plato.hecho ? 'estado-hecho' : 'estado-por-hacer';
+    const textoEstado = plato.hecho ? 'Hecho' : 'Por hacer';
+    const palabraViandas = Number(plato.cantidad) === 1 ? 'vianda' : 'viandas';
+    filas += `
+      <tr>
+        <td${claseHecho}>${escHtml(plato.plato)}</td>
+        <td class="cantidad-detalles"><b>${Number(plato.cantidad)}</b> <span>${palabraViandas}</span></td>
+        <td class="estado-detalles"><span class="etiqueta-estado ${claseEstado}">${textoEstado}</span></td>
+      </tr>`;
+  });
+  const palabraPlatos = pedido.platos.length === 1 ? 'plato hecho' : 'platos hechos';
+
+  // 4. Todo junto: los 4 datos, la tabla y el avance
+  cuerpo.innerHTML = `
+    <div class="datos-detalles">
+      <div class="dato-detalles"><span class="nombre-dato">Fecha de pedido</span><span class="valor-dato">${escHtml(fechaPedido)}</span></div>
+      <div class="dato-detalles"><span class="nombre-dato">Fecha de entrega</span><span class="valor-dato">${escHtml(fechaEntrega)}</span></div>
+      <div class="dato-detalles"><span class="nombre-dato">Pidió</span><span class="valor-dato">${escHtml(pidio)}</span></div>
+      <div class="dato-detalles"><span class="nombre-dato">Total</span><span class="valor-dato">${conPlural(totalViandas, 'vianda', 'viandas')}</span></div>
+    </div>
+    <p class="titulo-seccion-ventana">Viandas que se pidieron</p>
+    <div class="caja-tabla-detalles">
+      <table class="tabla-detalles">
+        <thead><tr><th>Plato</th><th class="cantidad-detalles">Cantidad</th><th class="estado-detalles">Estado</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+    <div class="fila-avance avance-pedido">
+      <span class="nombre-avance">Avance del pedido</span>
+      <span class="texto-avance"><b>${hechos}</b> de ${pedido.platos.length} ${palabraPlatos}</span>
+    </div>
+    <div class="barra-avance"><div id="barraAvancePedido" class="relleno-avance"></div></div>`;
+  const porcentaje = Math.round((hechos / pedido.platos.length) * 100);   // el servidor nunca manda un pedido sin platos
+  document.getElementById('barraAvancePedido').style.width = porcentaje + '%';
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// cerrarVentanaCocina → cierra la ventana del pedido a cocina o el panel del resumen
+// ENTRADA: idVentana ('modalPedidoCocina' o 'fondoResumen') y, si viene de un clic, el evento
+// SALIDA:  nada. Con un clic, cierra solo si fue en lo oscuro de atrás (no adentro de la caja);
+//          con la ✕, "Cerrar" o Escape se llama sin evento y cierra siempre.
+// ─────────────────────────────────────────────────────────────────────────────
+function cerrarVentanaCocina(idVentana, evento) {
+  const ventana = document.getElementById(idVentana);
+  if (evento && evento.target !== ventana) return;               // el clic fue adentro: no se cierra
+  ventana.style.display = 'none';
+}
+
 
 // ── DOMContentLoaded ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -98,22 +492,37 @@ document.addEventListener('DOMContentLoaded', async () => {
   const contadorBadge  = document.getElementById('contador-badge');
   const cocineroId     = localStorage.getItem('usuario_id');
   // El cocinero ve y marca sus platos. Administración (6, 5, 1) ve toda la cocina, solo para mirar.
-  const soloLectura    = parseInt(localStorage.getItem('usuario_rol') || '0', 10) !== FG_ROLES.ROL.COCINERO;
+  const soloLectura    = !esCocinero;
 
-  // ── Toggle del panel lateral ─────────────────────────────────────────────
-  const panelEl   = document.getElementById('panel-resumen');
-  const btnToggle = document.getElementById('btn-toggle-panel');
-  if (btnToggle && panelEl) {
-    btnToggle.addEventListener('click', () => {
-      panelEl.classList.toggle('panel-colapsado');
+  // ── Las barras de las dos tablas: las pestañas de días y el buscador ──────
+  // Un clic en una pestaña (closest = la pestaña tocada, o null) o algo escrito vuelven a dibujar esa tabla, desde la página 1
+  ['stock', 'clientes'].forEach(vista => {
+    const config = VISTAS[vista];
+    document.getElementById(config.idDias).addEventListener('click', evento => {
+      const pestana = evento.target.closest('[data-dia]');
+      if (!pestana) return;                                       // se tocó entre las pestañas
+      filtrosVista[vista].dia = pestana.dataset.dia;
+      paginacionVista[vista] = null;                              // vuelve a la página 1
+      dibujarTabla(vista);
     });
-  }
+    document.getElementById(config.idBuscar).addEventListener('input', evento => {
+      filtrosVista[vista].texto = evento.target.value;
+      paginacionVista[vista] = null;
+      dibujarTabla(vista);
+    });
+  });
+
+  // "✓ Hecho" de "Para stock": el clic se escucha sobre la tabla entera, una sola vez (sirve para las filas nuevas).
+  // Lo hace marcarHecho (pedidosCocina.js), el mismo de Producción.
+  document.getElementById('cuerpoParaStock').addEventListener('click', evento => marcarHecho('listaParaStock', evento));
 
   // ── Helpers ──────────────────────────────────────────────────────────────
+  // Sin pedidos o con error: la tabla vacía con el mensaje, el contador en 0 y el resumen sin clientes
   function setVacio(msg) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${msg}</td></tr>`;
-    contadorBadge.textContent = '0';
     _tareasActivas = [];
+    contadorBadge.textContent = '0';
+    dibujarTabla('clientes');                                     // la barra con "Todos" y la tabla vacía
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="6" class="loading-text">${msg}</td></tr>`;
     construirResumen([]);
   }
 
@@ -127,12 +536,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     enPrep = await res.json();
 
     // Cada cocinero ve solo sus platos pendientes dentro del pedido (es_mio lo marca el servidor).
-    // Así la tabla y el resumen de porciones cuentan solo lo que le falta cocinar.
+    // Así la tabla y el resumen cuentan solo lo que le falta cocinar.
+    // Aparte se guardan las viandas que salen del stock (los platos normales: nacen listos), para "9 del stock".
     enPrep = enPrep
-      .map(pedido => ({
-        ...pedido,
-        pedido_detalles: (pedido.pedido_detalles || []).filter(det => det.es_mio && !det.listo)
-      }))
+      .map(pedido => {
+        const detalles = pedido.pedido_detalles || [];
+        const platosStock = detalles.filter(det => !det.personalizado && det.listo);   // los que salen de la heladera
+        let viandasStock = 0;
+        platosStock.forEach(det => { viandasStock = viandasStock + (Number(det.cantidad) || 0); });
+        return {
+          ...pedido,
+          platos_stock: platosStock,
+          viandas_stock: viandasStock,
+          pedido_detalles: detalles.filter(det => det.es_mio && !det.listo)
+        };
+      })
       .filter(pedido => pedido.pedido_detalles.length > 0);
   } catch {
     setVacio('Error al cargar pedidos. Verificá que el servidor esté corriendo.');
@@ -146,53 +564,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   contadorBadge.textContent = enPrep.length;
 
-  // ── 2. Renderizar filas: una por pedido ───────────────────────────────────
-  // Nº Pedido · Entrega · Cliente · Platos (botón Detalles) · Observaciones · Acción (Listo).
-  // Cada fila lleva data-pedido-id: así confirmarListo y quitarPedidoDeLaTabla siguen apagando
-  // el botón y sacando el pedido, igual que antes.
-  tbody.innerHTML = '';
-
+  // ── 2. Ordenar por fecha de entrega (y número) y preparar el día y la búsqueda de cada pedido ──
+  // sort compara de a dos: negativo = a va antes. "AAAA-MM-DD" se compara como texto; sin fecha, al final.
+  enPrep.sort((a, b) => {
+    const fechaA = a.fecha_entrega || '9999-12-31';
+    const fechaB = b.fecha_entrega || '9999-12-31';
+    if (fechaA !== fechaB) return fechaA.localeCompare(fechaB);
+    return Number(a.id) - Number(b.id);
+  });
   enPrep.forEach(pedido => {
-    const idPedido = Number(pedido.id);
-
-    // Fecha de entrega: llega como "AAAA-MM-DD". Se lee con fechas.js (parseFechaLocal): con
-    // new Date() se tomaría en hora UTC y en Argentina mostraría el día anterior.
-    let fechaEntrega = '—';
-    if (pedido.fecha_entrega) {
-      fechaEntrega = fechaDDMMAAAA(parseFechaLocal(pedido.fecha_entrega));
-    }
-
-    // Botón Detalles: con ⚠ si algún plato del pedido es personalizado, para que el cocinero lo abra.
-    // some responde true si AL MENOS UNO cumple: [{ personalizado: false }, { personalizado: true }] → true
-    const tienePersonalizado = (pedido.pedido_detalles || []).some(det => det.personalizado);
-    let textoDetalles = 'Detalles';
-    if (tienePersonalizado) {
-      textoDetalles = 'Detalles ⚠';
-    }
-
-    // Botón "✓ Listo" del pedido (marca listos TODOS los platos de este cocinero en el pedido,
-    // como siempre). La administración solo mira.
-    let accion = `<button class="btn-listo" onclick="marcarListo(${idPedido}, this)">✓ Listo para entregar</button>`;
-    if (soloLectura) {
-      accion = '<span class="solo-lectura">Solo lectura</span>';
-    }
-
-    // El cliente y las observaciones los escribe el cliente desde la web: escHtml
-    const tr = document.createElement('tr');
-    tr.dataset.pedidoId = pedido.id;
-    tr.innerHTML = `
-      <td><strong>#${idPedido}</strong></td>
-      <td>${escHtml(fechaEntrega)}</td>
-      <td>${escHtml(pedido.cliente_nombre || 'Sin nombre')}</td>
-      <td><button class="btn-detalles" onclick="abrirDetallesPedido(${idPedido})">${textoDetalles}</button></td>
-      <td>${escHtml(pedido.observaciones || 'Sin observaciones')}</td>
-      <td>${accion}</td>
-    `;
-    tbody.appendChild(tr);
+    pedido.dia = pedido.fecha_entrega ? describirDia(pedido.fecha_entrega) : SIN_FECHA;
+    // Lo que encuentra el buscador: el número y los nombres de todos sus platos. Ej: "#57 berenjenas rellenas pollo con arroz"
+    // map arma la lista de nombres: [{ productos: { nombre: 'pollo' } }] → ['pollo']
+    const nombres = pedido.pedido_detalles.concat(pedido.platos_stock).map(det => det?.productos?.nombre || '');
+    pedido.busqueda = ('#' + pedido.id + ' ' + nombres.join(' ')).toLowerCase();
   });
 
-  // ── 3. Sincronizar estado y pintar panel de resumen ───────────────────────
+  // ── 3. Sincronizar estado, dibujar la tabla y pintar el panel de resumen ──
   _tareasActivas = enPrep;
+  dibujarTabla('clientes');
   construirResumen(_tareasActivas);
 });
 
@@ -221,36 +611,73 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') window.cerrarModalListo();
 });
 
-// ── Ventana "Platos del pedido" (botón Detalles) ─────────────────────────────
-// Muestra los platos que ya tiene la pantalla en memoria (_tareasActivas): los mismos que ve
-// cada cocinero (los suyos sin terminar) o, para la administración, todos. No pide nada al servidor.
+// ── Ventana "Detalles" de un pedido de cliente ────────────────────────────────
+// Muestra lo que la pantalla ya tiene en memoria (_tareasActivas): los platos que ve cada cocinero
+// (los suyos sin terminar) o, para la administración, todos. No pide nada al servidor.
+// Arriba: fecha de entrega · viandas · estado. Después los personalizados (con su etiqueta y "Por hacer"),
+// las viandas que salen del stock y las observaciones del pedido.
 window.abrirDetallesPedido = function (pedidoId) {
   // find devuelve el pedido con ese número, o undefined si ya no está (por ejemplo, ya se marcó listo)
   const pedido = _tareasActivas.find(p => Number(p.id) === Number(pedidoId));
   if (!pedido) return;
+  const idPedido = Number(pedido.id);
 
-  // Una fila por plato: código, plato con su ⚠ personalizado y cantidad.
+  // Los personalizados: "1 Berenjenas rellenas [SIN SAL]   Por hacer".
   // Todo lo que viene de la base pasa por escHtml (el texto personalizado lo escribe el cliente).
-  let html = '';
-  (pedido.pedido_detalles || []).forEach(det => {
-    const codigo = det?.productos?.codigo_plato || '—';
+  let viandasCocina = 0;
+  let htmlPersonalizados = '';
+  pedido.pedido_detalles.forEach(det => {
     const nombre = det?.productos?.nombre || '—';
-
-    let avisoPersonalizado = '';
-    if (det.personalizado && det.observaciones_plato) {
-      avisoPersonalizado = `<br><span class="plato-especial">⚠ ${escHtml(det.observaciones_plato)}</span>`;
-    }
-
-    html += `
-      <tr>
-        <td><strong>${escHtml(codigo)}</strong></td>
-        <td>${escHtml(nombre)}${avisoPersonalizado}</td>
-        <td>x${escHtml(det.cantidad)}</td>
-      </tr>`;
+    viandasCocina = viandasCocina + (Number(det.cantidad) || 0);
+    const etiqueta = det.observaciones_plato
+      ? '<span class="etiqueta-personalizado">' + escHtml(det.observaciones_plato) + '</span>'
+      : '';
+    htmlPersonalizados += `
+      <div class="renglon-detalles">
+        <span class="plato-detalles">${escHtml(det.cantidad)} ${escHtml(nombre)}${etiqueta}</span>
+        <span class="etiqueta-estado estado-por-hacer">Por hacer</span>
+      </div>`;
   });
 
-  document.getElementById('modalPlatosTitulo').textContent = `Platos del pedido #${Number(pedido.id)}`;
-  document.getElementById('modalPlatosBody').innerHTML = html;
+  // Las viandas del stock: "3 Pollo con arroz" (sin pastilla: ya salieron de la heladera)
+  let htmlStock = '';
+  pedido.platos_stock.forEach(det => {
+    const nombre = det?.productos?.nombre || '—';
+    htmlStock += `<div class="renglon-detalles"><span>${escHtml(det.cantidad)} ${escHtml(nombre)}</span></div>`;
+  });
+  const seccionStock = htmlStock
+    ? '<p class="titulo-seccion-ventana">Viandas listas · se sacan del stock</p>' + htmlStock
+    : '';
+
+  // Las observaciones del pedido (las escribe el cliente)
+  const seccionObservaciones = pedido.observaciones
+    ? '<div class="observaciones-detalles"><b>Observaciones:</b> ' + escHtml(pedido.observaciones) + '</div>'
+    : '';
+
+  const totalViandas = viandasCocina + Number(pedido.viandas_stock);
+  document.getElementById('modalPlatosTitulo').textContent = `Pedido #${idPedido}`;
+  document.getElementById('modalPlatosBody').innerHTML = `
+    <div class="datos-detalles">
+      <div class="dato-detalles"><span class="nombre-dato">Fecha de entrega</span><span class="valor-dato">${escHtml(pedido.dia.diaMes)}</span></div>
+      <div class="dato-detalles"><span class="nombre-dato">Viandas</span><span class="valor-dato">${totalViandas}</span></div>
+      <div class="dato-detalles"><span class="nombre-dato">Estado</span><span class="valor-dato">Por hacer</span></div>
+    </div>
+    <p class="titulo-seccion-ventana">Plato personalizado · se prepara aparte</p>
+    ${htmlPersonalizados}
+    ${seccionStock}
+    ${seccionObservaciones}`;
+
+  // "✓ Listo para entregar" de la ventana: solo el cocinero. Cierra esta ventana y pide la confirmación de siempre
+  // (con el botón de la fila, así confirmarListo lo apaga igual que antes)
+  const botonListo = document.getElementById('botonListoDetalles');
+  botonListo.hidden = !esCocinero;
+  botonListo.textContent = '✓ Listo para entregar';
+  botonListo.onclick = () => {
+    window.cerrarDetallesPedido();
+    const botonFila = document.querySelector(`tr[data-pedido-id="${idPedido}"] .btn-listo`);
+    window.marcarListo(idPedido, botonFila || botonListo);
+  };
+
   document.getElementById('modalPlatos').style.display = 'block';
 };
 
@@ -262,8 +689,12 @@ window.cerrarDetallesPedido = function (e) {
   modal.style.display = 'none';
 };
 
+// Escape cierra también la ventana del pedido a cocina y el resumen
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') window.cerrarDetallesPedido();
+  if (e.key !== 'Escape') return;
+  window.cerrarDetallesPedido();
+  cerrarVentanaCocina('modalPedidoCocina');
+  cerrarVentanaCocina('fondoResumen');
 });
 
 window.confirmarListo = async function () {
@@ -317,18 +748,15 @@ function quitarPedidoDeLaTabla(pedidoId) {
   // Eliminar todas las filas de ese pedido de la tabla
   document.querySelectorAll(`tr[data-pedido-id="${pedidoId}"]`).forEach(f => f.remove());
 
-  // Actualizar badge contador
+  // Actualizar badge contador (el número de "Pedidos de clientes")
   const badge  = document.getElementById('contador-badge');
   const actual = parseInt(badge.textContent) - 1;
   badge.textContent = actual;
 
-  if (actual === 0) {
-    document.getElementById('tablaTareas').innerHTML =
-      '<tr class="empty-row"><td colspan="6">No hay pedidos en preparación en este momento.</td></tr>';
-  }
-
-  // Actualizar estado reactivo y refrescar panel lateral
+  // Actualizar estado reactivo, volver a dibujar la tabla (sin ese pedido; sin ninguno, "No hay pedidos…")
+  // y refrescar el resumen
   _tareasActivas = _tareasActivas.filter(p => String(p.id) !== String(pedidoId));
+  dibujarTabla('clientes');
   construirResumen(_tareasActivas);
 }
 

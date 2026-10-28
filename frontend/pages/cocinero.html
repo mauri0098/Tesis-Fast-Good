@@ -4,18 +4,15 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Fast Good - Tareas de Cocina</title>
-  <!-- Evita el flash de contenido sin estilos (FOUC): el body se muestra cuando la página terminó de cargar -->
-  <style>
-    body { visibility: hidden; opacity: 0; transition: opacity 0.15s ease-in; }
-    body.cargada { visibility: visible; opacity: 1; }
-  </style>
-  <!-- Letra: Inter, la del panel (20/10; el index sigue con Figtree). Poppins queda porque el CSS propio de esta pantalla todavía la usa -->
+  <!-- Letra: Inter, la del panel (20/10; el index sigue con Figtree) -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet"/>
   <link rel="icon" href="../src/assets/img/logo.webp" type="image/webp"/>
+  <!-- CSS: lo común (global.css), el cuadro del resultado de "Hecho" (pedidosCocina.css, compartido con Producción)
+       y lo propio de esta pantalla (cocinero.css, al final: así le gana a lo compartido; también el
+       "mostrar la página cuando terminó de cargar", que antes era un <style> acá) -->
   <link rel="stylesheet" href="../src/css/global.css"/>
-  <link rel="stylesheet" href="../src/css/cocinero.css"/>
   <link rel="stylesheet" href="../src/css/pedidosCocina.css"/>
+  <link rel="stylesheet" href="../src/css/cocinero.css"/>
 </head>
 <body>
 <script src="../src/js/roles.js"></script>
@@ -26,40 +23,107 @@
 
 <div class="admin-content">
 
-<header>
-  <div class="container-centrado">
-    <div style="display:flex;align-items:center;gap:.8rem;">
-      <img src="../src/assets/img/logo.webp" alt="Logo" style="height:44px;">
-      <h1>Tareas de Cocina <span id="contador-badge" class="badge-contador">0</span></h1>
-    </div>
+<!-- Los dibujos de los íconos de esta pantalla: no se ven acá, cada uno se usa con <use href="#…"> -->
+<svg class="iconos-pantalla" aria-hidden="true">
+  <symbol id="icono-buscar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M20 20l-4-4"></path></symbol>
+  <symbol id="icono-heladera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"></rect><path d="M5 10h14M9 5.5v2M9 13v3"></path></symbol>
+  <symbol id="icono-persona" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4.5 20.5c1.2-3.8 4-5.5 7.5-5.5s6.3 1.7 7.5 5.5"></path></symbol>
+  <symbol id="icono-lista" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h.01M4 12h.01M4 18h.01"></path></symbol>
+  <symbol id="icono-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></symbol>
+  <symbol id="icono-cerrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></symbol>
+</svg>
+
+<!-- TÍTULO: a la izquierda el título y la bajada; a la derecha "Resumen del turno" -->
+<header class="cabecera-cocina">
+  <div class="textos-cabecera-cocina">
+    <h1>Tareas de Cocina</h1>
+    <p class="bajada-pantalla">Lo que hay que cocinar: los pedidos a cocina para el stock y los platos personalizados de los clientes.</p>
   </div>
+  <button type="button" class="boton-ventana" onclick="abrirResumen()">
+    <svg class="icono-boton" aria-hidden="true"><use href="#icono-lista"></use></svg>Resumen del turno
+  </button>
 </header>
 
 <main class="page-container pagina-cocina">
 
-  <!-- PARA STOCK: pedidos a cocina pendientes (lo arma pedidosCocina.js) -->
-  <section class="table-wrapper para-stock">
-    <h2 class="para-stock-titulo">Para stock</h2>
+  <!-- ELEGIR LO QUE SE VE: "Para stock" o "Pedidos de clientes", cada uno con cuántos hay (los cuenta cocinero.js) -->
+  <div class="selector-vistas" role="group" aria-label="Qué ver">
+    <button type="button" id="botonVistaStock" class="boton-vista vista-elegida" aria-pressed="true" onclick="cambiarVista('stock')">
+      <svg class="icono-vista" aria-hidden="true"><use href="#icono-heladera"></use></svg>Para stock
+      <span id="cantidadParaStock" class="cantidad-vista">0</span>
+    </button>
+    <button type="button" id="botonVistaClientes" class="boton-vista" aria-pressed="false" onclick="cambiarVista('clientes')">
+      <svg class="icono-vista" aria-hidden="true"><use href="#icono-persona"></use></svg>Pedidos de clientes
+      <span id="contador-badge" class="badge-contador cantidad-vista">0</span>
+    </button>
+  </div>
+
+  <!-- VISTA 1, PARA STOCK: los pedidos a cocina sin hacer (los dibuja cocinero.js). Adentro de listaParaStock va
+       también el cuadro del resultado de "Hecho" (lo usa marcarHecho, de pedidosCocina.js) -->
+  <section id="vistaStock" class="vista-cocina">
     <div id="listaParaStock">
-      <p class="pend-vacio">Cargando...</p>
+      <div class="aviso-hecho" hidden></div>
+      <div class="tarjeta-cocina">
+        <!-- La barra: los días (Todos · Hoy · Mañana · …, los arma cocinero.js) y el buscador -->
+        <div class="barra-cocina">
+          <div class="caja-dias">
+            <div id="diasStock" class="pestanas-estado" role="group" aria-label="Filtrar por fecha de entrega"></div>
+          </div>
+          <label class="buscador-tabla buscador-cocina">
+            <svg class="icono-lupa" aria-hidden="true"><use href="#icono-buscar"></use></svg>
+            <input type="text" id="buscarStock" placeholder="Buscar plato o N° de pedido…" aria-label="Buscar plato o N° de pedido">
+          </label>
+        </div>
+        <!-- Si la tabla no entra a lo ancho, se mueve de costado solo acá adentro -->
+        <div class="caja-tabla-cocina">
+          <table class="standard-table tabla-cocina tabla-stock">
+            <thead>
+              <tr>
+                <th class="col-numero-pedido">N° pedido</th>
+                <th class="col-plato-stock">Plato</th>
+                <th class="col-fecha-pedido">Fecha pedido</th>
+                <th class="col-fecha-entrega">Fecha entrega</th>
+                <th class="col-cantidad">Cantidad</th>
+                <th class="col-estado">Estado</th>
+                <th class="col-botones-stock"><span class="solo-lector">Acciones</span></th>
+              </tr>
+            </thead>
+            <tbody id="cuerpoParaStock">
+              <tr><td colspan="7" class="loading-text">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- El pie: "Mostrando X de Y platos" y las páginas -->
+        <div class="pie-tabla">
+          <span id="resumenParaStock"></span>
+          <div id="paginacionStock" class="paginacion"></div>
+        </div>
+      </div>
     </div>
   </section>
 
-  <div class="cocina-layout">
-
-    <!-- Columna principal: tabla de tareas -->
-    <div class="cocina-tabla-col">
-      <div class="table-wrapper">
-        <table id="tablaPedidos" class="standard-table">
+  <!-- VISTA 2, PEDIDOS DE CLIENTES: los pedidos en preparación con platos personalizados (los dibuja cocinero.js) -->
+  <section id="vistaClientes" class="vista-cocina" hidden>
+    <div class="tarjeta-cocina">
+      <div class="barra-cocina">
+        <div class="caja-dias">
+          <div id="diasClientes" class="pestanas-estado" role="group" aria-label="Filtrar por fecha de entrega"></div>
+        </div>
+        <label class="buscador-tabla buscador-cocina">
+          <svg class="icono-lupa" aria-hidden="true"><use href="#icono-buscar"></use></svg>
+          <input type="text" id="buscarClientes" placeholder="Buscar plato o N° de pedido…" aria-label="Buscar plato o N° de pedido">
+        </label>
+      </div>
+      <div class="caja-tabla-cocina">
+        <table id="tablaPedidos" class="standard-table tabla-cocina tabla-clientes">
           <thead>
             <tr>
-              <!-- Una fila por pedido. Los platos se ven con el botón "Detalles" (ventana modalPlatos) -->
-              <th>Nº Pedido</th>
-              <th>Entrega</th>
-              <th>Cliente</th>
-              <th>Platos</th>
-              <th>Observaciones</th>
-              <th>Acción</th>
+              <th class="col-numero-pedido">N° pedido</th>
+              <th class="col-fecha-entrega">Fecha entrega</th>
+              <th class="col-plato-personalizado">Plato personalizado</th>
+              <th class="col-viandas-listas">Viandas listas</th>
+              <th class="col-estado">Estado</th>
+              <th class="col-botones-clientes"><span class="solo-lector">Acciones</span></th>
             </tr>
           </thead>
           <tbody id="tablaTareas">
@@ -67,93 +131,107 @@
           </tbody>
         </table>
       </div>
-    </div>
-
-    <!-- Panel lateral: resumen del turno -->
-    <aside id="panel-resumen" class="panel-resumen">
-      <div class="panel-header">
-        <div class="panel-header-info">
-          <p class="panel-title">Resumen del Turno</p>
-          <div class="panel-kpis">
-            <span class="kpi-chip">
-              <strong id="resumen-total-platos">0</strong> platos únicos
-            </span>
-            <span class="kpi-chip">
-              <strong id="resumen-total-porciones">0</strong> porciones totales
-            </span>
-          </div>
-        </div>
-        <button id="btn-toggle-panel" class="btn-toggle-panel" title="Contraer / Expandir panel">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" stroke-width="2.5"
-               stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="15 18 9 12 15 6"/>
-          </svg>
-        </button>
+      <div class="pie-tabla">
+        <span id="resumenClientes"></span>
+        <div id="paginacionClientes" class="paginacion"></div>
       </div>
+    </div>
+  </section>
+</main>
+
+<!-- PANEL DE LA DERECHA: Resumen del turno (lo de adentro lo arma construirResumen, en cocinero.js) -->
+<div id="fondoResumen" class="modal fondo-resumen" onclick="cerrarVentanaCocina('fondoResumen', event)">
+  <aside id="panel-resumen" class="panel-lateral panel-resumen" aria-label="Resumen del turno">
+    <div class="cabecera-resumen">
+      <div>
+        <h3 class="titulo-resumen">Resumen del turno</h3>
+        <p id="fechaResumen" class="fecha-resumen"></p>
+      </div>
+      <button id="btn-toggle-panel" type="button" class="boton-cerrar-redondo" onclick="cerrarVentanaCocina('fondoResumen')" aria-label="Cerrar">
+        <svg aria-hidden="true"><use href="#icono-cerrar"></use></svg>
+      </button>
+    </div>
+    <!-- Avance: "2 de 8 hechos" y la barra verde -->
+    <div class="avance-resumen">
+      <div class="fila-avance">
+        <span class="nombre-avance">Avance</span>
+        <span id="textoAvanceResumen" class="texto-avance"></span>
+      </div>
+      <div class="barra-avance"><div id="barraAvanceResumen" class="relleno-avance"></div></div>
+    </div>
+    <div class="cuerpo-resumen">
+      <p class="titulo-seccion-ventana">Platos a cocinar hoy</p>
       <div class="panel-body" id="panel-body">
         <p class="panel-vacio">Cargando...</p>
       </div>
-    </aside>
+    </div>
+  </aside>
+</div>
 
+<!-- VENTANA: Detalles de un pedido a cocina (la llena abrirPedidoCocina, en cocinero.js) -->
+<div id="modalPedidoCocina" class="modal" onclick="cerrarVentanaCocina('modalPedidoCocina', event)">
+  <div class="modal-content ventana-panel ventana-cocina ventana-pedido-cocina">
+    <div class="cabecera-detalles">
+      <h3 id="tituloPedidoCocina">Pedido a cocina</h3>
+      <button type="button" class="boton-cerrar-redondo" onclick="cerrarVentanaCocina('modalPedidoCocina')" aria-label="Cerrar">
+        <svg aria-hidden="true"><use href="#icono-cerrar"></use></svg>
+      </button>
+    </div>
+    <div id="cuerpoPedidoCocina" class="cuerpo-detalles">
+      <p class="panel-vacio">Cargando...</p>
+    </div>
+    <div class="pie-detalles">
+      <button type="button" class="boton-cerrar-detalles" onclick="cerrarVentanaCocina('modalPedidoCocina')">Cerrar</button>
+    </div>
   </div>
-</main>
+</div>
 
-<!-- MODAL CONFIRMAR "LISTO" (marca solo los platos del cocinero logueado) -->
+<!-- VENTANA: confirmar "Listo para entregar" (marca solo los platos del cocinero logueado) -->
 <div id="modalListo" class="modal" onclick="cerrarModalListo(event)">
-  <div class="modal-content modal-listo">
-    <h3>Marcar platos listos</h3>
-    <p id="modalListoTexto"></p>
-    <div class="modal-listo-acciones">
-      <button class="btn-cancelar-listo" onclick="cerrarModalListo()">Cancelar</button>
-      <button id="modalListoConfirmar" class="btn-listo" onclick="confirmarListo()">✓ Sí, están listos</button>
+  <div class="modal-content ventana-panel ventana-cocina modal-listo">
+    <div class="cabecera-detalles">
+      <h3>Marcar platos listos</h3>
+    </div>
+    <div class="cuerpo-detalles">
+      <p id="modalListoTexto" class="texto-confirmar"></p>
+    </div>
+    <div class="pie-detalles modal-listo-acciones">
+      <button type="button" class="boton-cerrar-detalles btn-cancelar-listo" onclick="cerrarModalListo()">Cancelar</button>
+      <button type="button" id="modalListoConfirmar" class="boton-listo-detalles btn-listo" onclick="confirmarListo()">✓ Sí, están listos</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL PLATOS DEL PEDIDO (lo abre el botón "Detalles"; lo llena abrirDetallesPedido en cocinero.js) -->
+<!-- VENTANA: Detalles de un pedido de cliente (lo abre "Detalles"; lo llena abrirDetallesPedido en cocinero.js) -->
 <div id="modalPlatos" class="modal" onclick="cerrarDetallesPedido(event)">
-  <div class="modal-content modal-platos">
-    <div class="modal-platos-cab">
-      <h3 id="modalPlatosTitulo">Platos del pedido</h3>
-      <button class="modal-platos-cerrar" onclick="cerrarDetallesPedido()" aria-label="Cerrar">✕</button>
+  <div class="modal-content ventana-panel ventana-cocina modal-platos">
+    <div class="cabecera-detalles">
+      <h3 id="modalPlatosTitulo">Pedido</h3>
+      <button type="button" class="boton-cerrar-redondo modal-platos-cerrar" onclick="cerrarDetallesPedido()" aria-label="Cerrar">
+        <svg aria-hidden="true"><use href="#icono-cerrar"></use></svg>
+      </button>
     </div>
-    <table class="tabla-platos">
-      <thead>
-        <tr>
-          <th>Código</th>
-          <th>Plato</th>
-          <th>Cantidad</th>
-        </tr>
-      </thead>
-      <tbody id="modalPlatosBody"></tbody>
-    </table>
-    <div class="modal-platos-pie">
-      <button class="btn-cancelar-listo" onclick="cerrarDetallesPedido()">Cerrar</button>
+    <div id="modalPlatosBody" class="cuerpo-detalles"></div>
+    <div class="pie-detalles">
+      <button type="button" class="boton-cerrar-detalles btn-cancelar-listo" onclick="cerrarDetallesPedido()">Cerrar</button>
+      <!-- Solo para el cocinero (cocinero.js lo muestra): pide la confirmación de siempre -->
+      <button type="button" id="botonListoDetalles" class="boton-listo-detalles" hidden>✓ Listo para entregar</button>
     </div>
   </div>
 </div>
 
-<script src="../src/js/cocinero.js"></script>
 <script src="../src/js/fechas.js"></script>
+<script src="../src/js/paginacion.js"></script>
 <script src="../src/js/pedidosCocina.js"></script>
+<script src="../src/js/cocinero.js"></script>
 <script>
-  // "Para stock": pedidos a cocina pendientes. "Hecho" solo para el cocinero
-  // (administración, como en el resto de esta pantalla, solo mira).
-  // Se refresca cada 60 segundos, salvo mientras se está marcando un plato.
-  (function () {
-    const esCocinero = parseInt(localStorage.getItem('usuario_rol') || '0', 10) === FG_ROLES.ROL.COCINERO;
-    const opciones = {
-      conBotonHecho: esCocinero,
-      recargar: () => cargarPendientes('listaParaStock')
-    };
+  // "Para stock": se carga al abrir la pantalla y se refresca cada 60 segundos,
+  // salvo mientras se está marcando un plato (marcandoHecho, de pedidosCocina.js)
+  document.addEventListener('DOMContentLoaded', () => cargarParaStock());
 
-    document.addEventListener('DOMContentLoaded', () => cargarPendientes('listaParaStock', opciones));
-
-    setInterval(() => {
-      if (!marcandoHecho) cargarPendientes('listaParaStock');
-    }, 60000);
-  })();
+  setInterval(() => {
+    if (!marcandoHecho) cargarParaStock();
+  }, 60000);
 </script>
 
 </div> <!-- /.admin-content -->

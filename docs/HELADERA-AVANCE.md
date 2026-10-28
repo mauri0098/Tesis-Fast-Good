@@ -314,9 +314,9 @@ el usuario). Recién ahí se pasa a la siguiente.
 | # | Pantalla | Pendientes ya anotados que se hacen ahí | Estado |
 |---|---|---|---|
 | 1 | Index (web nueva) | Paso 1: cambiar solo cómo se ve `index-combos.html` con el diseño de `docs/diseno-index/`. Paso 2: reemplazar el index viejo. Diseño final: `docs/diseno-final-index/` | ✍ **Paso 1, paso 2 y diseño final hechos (16/10)**: la web nueva es `index.html` (`/`), igual al diseño final v5, con animaciones y login en ventana (INFORME 13.9 a 13.11). Login y cerrar sesión llevan a donde corresponde. Pedido de prueba #27 desde la web (anulado, la heladera quedó igual) y test 40/40. **Limpieza hecha (17/10)**: se borró el index viejo y todo lo que no se usaba, y el index quedó con 1 HTML + 1 CSS (`index.css`); se ve igual (INFORME 14). **Index final hecho (17/10, `diseno-index-final2/`)**: CSS ordenado; compu con las tarjetas de categoría primero y la tarjeta nueva; celu con el flujo de la referencia (INFORME 15). Pedidos de prueba #34, #35 y #38 y test 40/40, todos anulados. Falta: tu recorrido a mano (el nuevo, más abajo) y reiniciar el servidor |
-| 2 | Login | `auth.js` muestra el nombre del usuario sin `escHtml` (en el botón de sesión del encabezado) y trae estilos fijos de letra blanca (para el encabezado verde viejo), que en la web nueva se pisan desde `index-combos.css`. Sus nombres están en inglés (`auth-btn-container`, `login-btn-header`, `auth-dropdown`): pasarlos a español en todos los archivos que los usan | ⏭ |
+| 2 | Login | `auth.js` muestra el nombre del usuario sin `escHtml` (en el botón de sesión del encabezado) y trae estilos fijos de letra blanca (para el encabezado verde viejo), que en la web nueva se pisan desde `index-combos.css`. Sus nombres están en inglés (`auth-btn-container`, `login-btn-header`, `auth-dropdown`): pasarlos a español en todos los archivos que los usan | ✍ **Ventana "Iniciar sesión" del index con el diseño nuevo (28/10, `diseno-login/`)**: logo, título, "Creá una ahora", casilleros con el texto adentro, ojito, "¿Olvidaste tu contraseña?" y el error en cajita roja con borde rojo (INFORME 22). `auth.js` sin tocar. Falta: tu recorrido a mano (más abajo). Lo de esta fila (escHtml y nombres en inglés de `auth.js`) sigue pendiente |
 | 3 | Consultar Pedidos | (con el menú nuevo del panel y `global.css` al estilo del index, para las 13 pantallas que lo cargan) | ✍ **Hecho (19/10, `diseno-panel-v2/`)**: menú lateral nuevo en las 12 pantallas del panel, `global.css` con el estilo del index (también el login), Consultar Pedidos como la referencia (filtros con una sola fecha, botones de estado, tabla y las 4 ventanas) y, a la tarde, títulos de tabla verdes y letra más grande en todas las tablas (INFORME 16). Pedido de prueba #039 y test 40/40 dos veces (#040 a #043), todos anulados. Falta: tu recorrido a mano (el del panel, más abajo) · ✍ **Diseño final (27/10, `diseno-panel-final/`)**: la barra de filtros en 3 partes (Buscar · Entrega · Estado con su lista) y la tabla en 9 columnas, como las capturas 05 y 06. Pedido de prueba #58, anulado (INFORME 19). Falta: tu recorrido a mano (Pantalla 5, más abajo) |
-| 4 | Tareas de Cocina | (el punto 8 ya está escrito: el plato primero y el plan entre paréntesis) | ⏭ |
+| 4 | Tareas de Cocina | (el punto 8 ya está escrito: el plato primero y el plan entre paréntesis) | ✍ **Diseño nuevo (28/10, `diseno-cocina/`)**: las vistas Para stock y Pedidos de clientes (días, buscador y páginas), las ventanas Detalles del pedido a cocina y del cliente, y el resumen del turno a la derecha. En el servidor, solo lectura: fecha del pedido y "Pidió" en `/pendientes` y la ruta nueva `GET /api/ordenes-produccion/:id` (INFORME 21). Probado con datos falsos (nada llegó a la base). Falta: reiniciar el servidor y tu recorrido a mano (más abajo) |
 | 5 | Pedir a cocina + Producción | Cancelar un pedido a cocina pendiente (y limpiar los 9 de prueba del 08/10) | ✍ **Paso 1 hecho (20/10, `diseno-produccion/`)**: menú lateral y barra de arriba nuevos para todo el panel (lista sin títulos, menú achicable, buscador solo visual, globito de Tareas de Cocina escondido) y letra Inter en el panel (el index sigue con Figtree). Test 40/40 (INFORME 17). Falta: tu prueba del Paso 1 y el Paso 2 (Producción) · ✍ **Diseño final (27/10, `diseno-panel-final/`)**: el molde en `global.css` para todo el panel, la barra "Panel / pantalla" con la fecha, y Producción y "Pedir a cocina" como las capturas 01 a 04 (INFORME 19). Falta: tu recorrido a mano (Pantalla 5, más abajo) |
 | 6 | Movimientos de Stock + Compras | Puntos 1 a 6 de "Ajustes después de probar a mano" (salidas, orden, repetidos, hora real, columnas, filtro de fecha) | ⏭ |
 | 7 | Combos | Punto 7 (filtros por plan y por nombre) | ⏭ |
@@ -701,6 +701,43 @@ Detalle en la sección 20 de `INFORME-CAMBIOS-HELADERA.md`. Capturas: `diseno-pa
 | 4 | Un pedido con personalizados | "⚠ N personalizados" debajo de las viandas (puede ir en 2 renglones) |
 | 5 | Producción en tu pantalla | Plan pegada a Plato; si la pantalla es grande, el espacio de más queda en Disponibles, Reservadas, Total y Mínimo |
 | 6 | Celu (390 px) | Consultar: Acciones queda fija a la derecha (ocupa más de la mitad: decime si en el celu la preferís suelta). Producción: la tabla se mueve adentro de su tarjeta |
+
+### Pantallas 4 y 2 (28/10): Tareas de Cocina y la ventana "Iniciar sesión"
+Detalle en las secciones 21 y 22 de `INFORME-CAMBIOS-HELADERA.md`. Capturas en `diseno-cocina/resultado/` y
+`diseno-login/resultado/`.
+- **Tareas de Cocina:**
+  - arriba, "Resumen del turno"; abajo, el selector Para stock / Pedidos de clientes, cada uno con su número;
+  - cada tabla con días (Todos · Hoy · Mañana · …, por fecha de entrega), buscador y páginas;
+  - Detalles del pedido a cocina (con lo ya hecho tachado y el avance) y del cliente (personalizados, viandas del stock y
+    observaciones);
+  - "✓ Hecho" y "✓ Listo para entregar" hacen lo mismo que antes; administración solo mira;
+  - en el celu la página ya no se mueve de costado.
+- **Servidor (solo lectura):** `/pendientes` manda también la fecha del pedido y quién lo pidió; ruta nueva
+  `GET /api/ordenes-produccion/:id` (requireAuth + requireRol; un cocinero ve solo lo suyo). **Hay que reiniciar el servidor.**
+- **Login del index:** como la captura, con el ojito y el borde rojo con error; mismo login de siempre.
+- **Comprobado:**
+  - Cocina con datos falsos "PRUEBA" (Hecho y Listo contestados en el navegador: nada llegó a la base; los 9 pedidos del 08/10,
+    sin tocar), a 1440, 1280 y 390, consola sin errores;
+  - login a 1440, 1024 y 390: mal (error), bien (entra), ✕, Escape, clic afuera y los dos links;
+  - test HELADERA 37/40, los mismos 3 por la fecha de la compu.
+
+**Recorrido a mano (28/10).** Reiniciá el servidor y Ctrl+F5.
+| # | Qué hacés | Qué tiene que pasar |
+|---|---|---|
+| 1 | Entrás como cocinero a Tareas de Cocina | "Para stock" elegido (blanco, letra verde) con su número; la tabla con N° pedido, Plato, Fecha pedido, Fecha entrega (roja hoy, naranja mañana, azul después), Cantidad, Estado y los botones |
+| 2 | Tocás "Hoy", "Mañana" y escribís en el buscador | Se filtra; "Todos" vuelve a mostrar todo |
+| 3 | "Detalles" de un plato | "Pedido a cocina #N" con Fecha de pedido, Fecha de entrega, Pidió y Total; sus platos (lo hecho, tachado) y el avance |
+| 4 | "✓ Hecho" de un plato que de verdad cocinaste | Pregunta; el cuadro verde "✓ … hecho." y el plato desaparece (la heladera suma, como siempre) |
+| 5 | "Pedidos de clientes" | Cada pedido con su personalizado y la etiqueta roja ("SIN SAL"), "N del stock" y los botones |
+| 6 | "Detalles" de un cliente | Fecha de entrega, Viandas y Estado; el personalizado, las viandas del stock y las observaciones; "✓ Listo para entregar" abajo |
+| 7 | "Resumen del turno" | El panel a la derecha: "Hoy, …", el avance y los platos de hoy (lo hecho hoy, tachado con ✓). Se cierra con la ✕, afuera o Escape |
+| 8 | Como administración | Lo mismo, sin "✓ Hecho" ni "✓ Listo" |
+| 9 | Celu (390 px) | Nada se sale de costado; la tabla se mueve adentro de su tarjeta; las ventanas a pantalla completa |
+| 10 | Index → "Iniciar sesión" | La ventana al medio, el index borroso atrás, el logo y "Creá una ahora" |
+| 11 | Contraseña mal | La cajita roja arriba de "Ingresar" y los dos casilleros con borde rojo |
+| 12 | El ojito | Muestra y esconde la contraseña |
+| 13 | Tu usuario bien | Entra a tu pantalla, como siempre |
+| 14 | "Creá una ahora" / "¿Olvidaste tu contraseña?" | Van a la pantalla de registro / de recuperar, como antes |
 
 ## Ajustes después de probar a mano (16/10) — de a uno, con freno
 (Desde el 16/10 se hacen cuando se llega a su pantalla: ver la tabla de arriba.)

@@ -57,6 +57,13 @@
     <symbol id="icono-cerrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
       <path d="M6 6l12 12M18 6L6 18"/>
     </symbol>
+    <!-- El ojito de la contraseña: abierto (mostrar) y tachado (ocultar) -->
+    <symbol id="icono-ojo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"></path><circle cx="12" cy="12" r="3"></circle>
+    </symbol>
+    <symbol id="icono-ojo-tachado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6.6 6.6C4 8.3 2.5 12 2.5 12s3.5 6.5 9.5 6.5c1.9 0 3.6-.6 5-1.5M10 5.7c.6-.1 1.3-.2 2-.2 6 0 9.5 6.5 9.5 6.5s-.8 1.5-2.2 3"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path><path d="M3 3l18 18"></path>
+    </symbol>
     <symbol id="icono-bolsa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M5 8h14l-1 12H6z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>
     </symbol>
@@ -579,33 +586,43 @@
   <!-- 10. Modal "Iniciar sesión": usa EL MISMO login de login.html (manejarLogin, de auth.js). Por eso los ids
        (username, password, loginError, loadingSpinner…) y la clase login-btn son los que esa función busca -->
   <dialog class="modal modal-login" id="modal-login" aria-labelledby="modal-login-titulo">
-    <div class="modal-encabezado">
-      <h2 id="modal-login-titulo">Iniciar sesión</h2>
-      <button class="boton-cerrar" type="button" data-accion="cerrar" aria-label="Cerrar">
-        <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-cerrar"></use></svg>
-      </button>
-    </div>
+    <!-- La ✕, arriba a la derecha -->
+    <button class="boton-cerrar boton-cerrar-login" type="button" data-accion="cerrar" aria-label="Cerrar">
+      <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-cerrar"></use></svg>
+    </button>
     <form class="modal-contenido formulario-login" id="formulario-login" novalidate>
-      <div class="campo">
-        <label for="username">Email</label>
-        <input class="casillero" id="username" type="text" inputmode="email" autocomplete="username" autofocus>
-        <p class="aviso-login" id="usernameError"></p>
+      <!-- Arriba, al medio: el logo, el título y "Creá una ahora" (lleva a la misma pantalla que antes el botón "Crear cuenta").
+           Las dos pantallas existen dentro de login.html: el #… le dice cuál abrir -->
+      <img class="logo-login" src="./src/assets/img/logo.webp" alt="Fast & Good" width="72" height="72">
+      <h2 id="modal-login-titulo">Iniciar sesión</h2>
+      <p class="frase-login">¿Todavía no tenés cuenta? <a class="link-crear-cuenta" href="login.html#registro">Creá una ahora</a></p>
+
+      <!-- Los dos casilleros: lo que piden va adentro (placeholder); la etiqueta queda solo para los lectores de pantalla -->
+      <div class="campos-login">
+        <div class="campo">
+          <label class="solo-lectores" for="username">Email o usuario</label>
+          <input class="casillero casillero-login" id="username" type="text" inputmode="email" autocomplete="username" placeholder="Email o usuario" autofocus>
+          <p class="aviso-login" id="usernameError"></p>
+        </div>
+        <div class="campo">
+          <label class="solo-lectores" for="password">Contraseña</label>
+          <!-- El casillero con el ojito a la derecha (muestra u oculta lo escrito: lo maneja el <script> del final) -->
+          <div class="caja-contrasena">
+            <input class="casillero casillero-login" id="password" type="password" autocomplete="current-password" placeholder="Contraseña">
+            <button class="boton-ojo" id="botonVerContrasena" type="button" aria-label="Mostrar contraseña" aria-pressed="false">
+              <svg class="icono icono-ojo-abierto" aria-hidden="true" focusable="false"><use href="#icono-ojo"></use></svg>
+              <svg class="icono icono-ojo-cerrado" aria-hidden="true" focusable="false"><use href="#icono-ojo-tachado"></use></svg>
+            </button>
+          </div>
+          <p class="aviso-login" id="passwordError"></p>
+        </div>
       </div>
-      <div class="campo">
-        <label for="password">Contraseña</label>
-        <input class="casillero" id="password" type="password" autocomplete="current-password">
-        <p class="aviso-login" id="passwordError"></p>
-      </div>
-      <!-- Acá aparece "Usuario o contraseña incorrectos" (el mensaje lo manda el servidor) -->
-      <p class="aviso-login" id="loginError" role="alert"></p>
+      <a class="boton-enlace link-olvide" href="login.html#recuperar">¿Olvidaste tu contraseña?</a>
+
+      <!-- Acá aparece "Usuario o contraseña incorrectos" (el mensaje lo manda el servidor), en una cajita roja -->
+      <p class="aviso-login caja-error-login" id="loginError" role="alert"></p>
       <p class="cargando-login" id="loadingSpinner">Iniciando sesión...</p>
-      <button class="boton boton-principal boton-ancho boton-grande login-btn" type="submit">Ingresar</button>
-      <!-- Las dos pantallas existen dentro de login.html: el #… le dice cuál abrir -->
-      <div class="login-otros">
-        <a class="boton-enlace" href="login.html#recuperar">Olvidé mi contraseña</a>
-        <span>¿Todavía no tenés cuenta?</span>
-        <a class="boton boton-secundario boton-ancho" href="login.html#registro">Crear cuenta</a>
-      </div>
+      <button class="boton boton-principal boton-grande login-btn boton-ingresar" type="submit">Ingresar</button>
     </form>
   </dialog>
 
@@ -661,6 +678,27 @@
       var tocoFondo = evento.target === modalLogin;
       if (tocoCerrar || tocoFondo) modalLogin.close();
     });
+
+    // Ojito de la contraseña: muestra u oculta lo escrito (el casillero pasa de "password" a "text" y vuelve).
+    // Solo cambia cómo se ve: lo que se manda al servidor es lo mismo
+    var casilleroContrasena = document.getElementById('password');
+    var botonVerContrasena = document.getElementById('botonVerContrasena');
+    botonVerContrasena.addEventListener('click', function () {
+      var seVe = casilleroContrasena.type === 'text';                       // ¿ahora se ve lo escrito?
+      casilleroContrasena.type = seVe ? 'password' : 'text';                // se da vuelta
+      botonVerContrasena.setAttribute('aria-pressed', String(!seVe));       // el CSS cambia el dibujito con esto
+      botonVerContrasena.setAttribute('aria-label', seVe ? 'Mostrar contraseña' : 'Ocultar contraseña');
+    });
+
+    // Borde rojo en los casilleros mientras se ve el error del login. auth.js (que no se toca) muestra el error
+    // poniéndole la clase "show" a loginError y lo esconde sacándosela: acá se mira ese cambio
+    // (MutationObserver = avisa cada vez que cambia algo de un elemento; acá, su atributo class)
+    var avisoLogin = document.getElementById('loginError');
+    var formularioLogin = document.getElementById('formulario-login');
+    new MutationObserver(function () {
+      var hayError = avisoLogin.classList.contains('show');                 // ¿se está viendo el error?
+      formularioLogin.classList.toggle('login-con-error', hayError);        // con error: el CSS pinta los bordes de rojo
+    }).observe(avisoLogin, { attributes: true, attributeFilter: ['class'] });
 
     // Muestra el body apenas están el HTML y el CSS; a los 2 s se muestra igual, como respaldo
     document.addEventListener('DOMContentLoaded', () => document.body.classList.add('cargada'));

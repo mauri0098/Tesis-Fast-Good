@@ -25,6 +25,10 @@
 > fallan son por la fecha de la compu, que no coincide con la de la base (sección 19).
 > **Cambio chico** (27/10): Consultar Pedidos vuelve a 11 columnas (con Acciones fija a la derecha) y Producción con Plato
 > fijo y Plan pegada (sección 20). Test HELADERA 37/40, por la misma fecha.
+> **Tareas de Cocina y la ventana "Iniciar sesión"** (28/10, `diseno-cocina/` y `diseno-login/`): Cocina con las dos vistas
+> (Para stock / Pedidos de clientes), las dos ventanas "Detalles" y el resumen del turno, más una ruta nueva de solo lectura
+> (sección 21); el login del index como la captura, con el ojito y el borde rojo (sección 22). Sin SQL. Probado con datos
+> falsos (nada llegó a la base). Test HELADERA 37/40, por la misma fecha.
 > **Este informe se actualiza con cada cambio nuevo** (código, SQL, pantallas), con el mismo formato (regla del 15/10).
 > Los ejemplos usan tus datos: **fideos con 71 viandas**, el combo de prueba "PRUEBA Mantenimiento x10" y la
 > receta de fideos que mostró la prueba de H3: **300 g de harina integral y 2 huevos por vianda**.
@@ -4579,3 +4583,282 @@ lo que sobra a las columnas en px (no a las de %). En Producción eso hacía cre
 
 **Capturas:** `diseno-panel-final/resultado/cambio-columnas/`: `1440-consultar-11-columnas`, `1440-consultar-11-columnas-movida`
 (con la tabla al final: Acciones sigue en su lugar), `1440-produccion-columnas`, y las dos a 1920.
+
+
+## 21. Tareas de Cocina con el diseño nuevo (28/10, `diseno-cocina/`)
+**Qué se pidió:**
+- La pantalla como las capturas:
+  - arriba, el título, la bajada y "Resumen del turno";
+  - un selector con dos vistas, **Para stock** (los pedidos a cocina) y **Pedidos de clientes** (los platos personalizados);
+  - cada vista, una tabla con días (Todos · Hoy · Mañana · …), buscador y páginas;
+  - dos ventanas "Detalles" y el resumen como panel a la derecha.
+
+**Decisiones tuyas (28/10):**
+- La fecha del pedido y "Pidió": sí, solo para mostrar.
+- La ventana del pedido a cocina usa una ruta nueva de solo lectura.
+- Lo hecho o listo desaparece como hoy: sin "Deshacer" y sin SQL.
+- Sin "Falta stock" ni "Hay / Falta".
+- El resumen muestra los platos a cocinar hoy, con lo hecho hoy tachado.
+- "Hoy" = la fecha de ENTREGA.
+- Administración solo mira.
+- `pedidosCocina.js` no se toca.
+
+### 21.1 Qué archivos cambiaron
+| Archivo | Tipo | Qué cambió |
+|---|---|---|
+| `.gitignore` | — | `diseno-cocina/` y `diseno-login/` (no se suben) |
+| `server.js` | Servidor (solo lectura) | `/api/ordenes-produccion/pendientes` manda también `fecha_pedido` y `pidio`; ruta nueva `GET /api/ordenes-produccion/:id` (21.2) |
+| `pages/cocinero.html` | HTML | Toda la pantalla nueva (21.3). El `<style>` y los `style=""` pasaron a `cocinero.css`. Se sacó la letra Poppins |
+| `src/js/cocinero.js` | JS | Las dos tablas, los filtros, las dos ventanas y el resumen (21.4) |
+| `src/css/cocinero.css` | CSS | Reescrito entero, con perillas comentadas (21.5) |
+
+**No cambió:**
+- `pedidosCocina.js` ni `pedidosCocina.css`, compartidos con Producción. El "✓ Hecho" de acá usa el mismo `marcarHecho`.
+- `sql/` y la base.
+- Lo que se manda al servidor: "Hecho" y "Listo" mandan exactamente lo mismo.
+- Ningún id que use el JS. Siguen:
+  - `contador-badge`, `listaParaStock`, `tablaPedidos`, `tablaTareas`;
+  - `panel-resumen`, `panel-body`, `btn-toggle-panel`;
+  - `modalListo`, `modalListoTexto`, `modalListoConfirmar`;
+  - `modalPlatos`, `modalPlatosTitulo`, `modalPlatosBody`.
+
+### 21.2 `server.js`: dos cambios, los dos solo leen
+**`GET /api/ordenes-produccion/pendientes` (cambiada)**
+- **Antes:** cada plato traía `{ id, id_cocinero, id_orden, fecha_para, plato, plan, cantidad, cocinero }`.
+- **Ahora:** trae además `fecha_pedido` (cuándo se pidió) y `pidio` (nombre y apellido de quien lo pidió).
+  Salen del pedido a cocina: `ordenes_produccion.fecha_pedido` e `id_usuario → usuarios`.
+- **Por qué:** para la columna "Fecha pedido" de Para stock. Producción no usa los dos datos nuevos: le llegan y no cambia nada.
+- **Seguridad:** igual que antes.
+  - `requireAuth` + `requireRol(6, 5, 1, 2)`.
+  - Un cocinero ve solo sus platos y los que no tienen a nadie (`platoVisibleParaCocinero`).
+
+**`GET /api/ordenes-produccion/:id` (nueva)**
+- **Qué hace:** devuelve un pedido a cocina con TODOS sus platos, hechos y sin hacer, para la ventana "Detalles". No cambia nada.
+- **ENTRADA:** el número en la dirección.
+- **SALIDA:** `{ id, fecha_pedido, fecha_para, pidio, platos: [{ id, plato, plan, cantidad, hecho }] }`.
+  - 400 si el número es inválido.
+  - 404 si no existe.
+  - 500 con un mensaje simple.
+- **Ej:** `/api/ordenes-produccion/1` → `{ id: 1, fecha_para: '2026-10-08', pidio: 'Mauricio Rodriguez', platos: [{ plato: 'berenjenas rellenas', cantidad: 2, hecho: true }] }`.
+- **Por qué así:** la tabla de "Para stock" solo tiene lo que falta. La ventana muestra también lo ya hecho (tachado) y el avance "1 de 2 platos hechos".
+- **Se conecta con:**
+  - la llama `abrirPedidoCocina` (cocinero.js);
+  - usa `platoVisibleParaCocinero`, la regla de siempre;
+  - va después de `/pendientes` y `/hechos-hoy`, así esas dos direcciones no se toman como un número.
+- **Qué protege:**
+  - `requireAuth` + `requireRol`: solo entra el personal de la heladera con su login, y nadie de afuera ve los pedidos.
+  - El número se controla (entero, mayor a 0, que entre en la base). La consulta usa `.eq`, así que con la dirección no se puede armar SQL.
+  - **Un cocinero no ve los platos de otro.** Si no tiene ninguno en ese pedido, recibe 404, como si no existiera, y no puede averiguar números ajenos.
+  - Los errores de la base van al log, no a la pantalla (`errorInterno`).
+
+### 21.3 `cocinero.html`
+- **Arriba:** "Tareas de Cocina", la bajada y el botón "Resumen del turno" (pieza del molde `boton-ventana`).
+- **Selector de vistas:** la caja gris con "Para stock" y "Pedidos de clientes", cada uno con su número.
+  El número de clientes es el `#contador-badge` de siempre (lo baja `quitarPedidoDeLaTabla`).
+- **Para stock (`#vistaStock`):** adentro de `#listaParaStock` van:
+  - el cuadro del resultado de "Hecho" (`.aviso-hecho`, el que busca `marcarHecho`);
+  - la tarjeta: la barra (días + buscador), la tabla de 7 columnas (`#cuerpoParaStock`) y el pie "Mostrando X de Y platos".
+- **Pedidos de clientes (`#vistaClientes`):** la misma tarjeta, con la tabla `#tablaPedidos` de 6 columnas y el `#tablaTareas` de siempre.
+- **Ventanas:**
+  - "Pedido a cocina #N" (`#modalPedidoCocina`, nueva);
+  - "Marcar platos listos" (`#modalListo`, con el estilo nuevo);
+  - "Pedido #N" (`#modalPlatos`, rearmada): `#modalPlatosBody` ahora es una caja, no un `<tbody>`, y abajo tiene "✓ Listo para entregar".
+- **Resumen del turno:** `#fondoResumen` con el panel `#panel-resumen` a la derecha. La ✕ es el `#btn-toggle-panel`.
+- **Scripts:**
+  - se suma `paginacion.js`;
+  - `cocinero.js` va después de `pedidosCocina.js`;
+  - el `<script>` de abajo llama a `cargarParaStock()` al abrir y cada 60 s, salvo mientras se marca un plato.
+- **Se sacaron** `#resumen-total-platos` y `#resumen-total-porciones`: el resumen nuevo no cuenta porciones (decisión tuya). En su lugar va el avance "X de Y hechos".
+
+### 21.4 `cocinero.js`, función por función
+Hay 10 funciones nuevas (dos tablas, dos ventanas, el panel y los filtros): por eso pasan de 6-8. Las de antes quedan con el mismo nombre.
+
+| Función | Nueva / cambiada | Qué hace | ENTRADA → SALIDA |
+|---|---|---|---|
+| `describirDia` | nueva | De una fecha saca "25/10", si es atrasada, hoy, mañana o más adelante, y el nombre de su pestaña | `'2026-10-29'` → `{ clave: 'manana', etiqueta: 'Mañana', tipo: 'manana', diaMes: '29/10' }` |
+| `cargarParaStock` | nueva (reemplaza la llamada a `cargarPendientes` del HTML) | Pide `/pendientes`, prepara cada plato y dibuja "Para stock". Deja `listasPendientes.listaParaStock` para que `marcarHecho` encuentre el plato y recargue | nada → la tabla, el número de "Para stock" y el resumen |
+| `dibujarTabla` | nueva | Arma las pestañas de días (una por cada día que aparece), filtra por día y por lo escrito y dibuja la página con "Mostrando X de Y" | `'stock'` o `'clientes'` → la tabla |
+| `crearFilaStock` | nueva | La fila de un plato de un pedido a cocina | un plato → `<tr>` "#112 · Canelones (KETO) · 27/10 · [28/10] · [12 viandas] · Por hacer · Detalles · ✓ Hecho" |
+| `crearFilaCliente` | nueva (era el `forEach` del DOMContentLoaded) | La fila de un pedido de cliente | un pedido → `<tr data-pedido-id>` "#57 · [28/10] · 1 Merluza [SIN LÁCTEOS] · 8 del stock · Por hacer · Detalles · ✓ Listo para entregar" |
+| `cambiarVista` | nueva | Muestra una vista y marca su botón | `'clientes'` → se ve "Pedidos de clientes" |
+| `construirResumen` | cambiada | Arma el resumen: primero lo de stock para hoy (lo hecho hoy, tachado y con ✓), después los personalizados que se entregan hoy, con el avance | los pedidos → "1 de 5 hechos", la barra y la lista |
+| `abrirResumen` | nueva | Abre el panel, escribe "Hoy, miércoles 28/10" y pide `/hechos-hoy` | nada → el panel abierto (si `/hechos-hoy` falla, sale sin los tachados) |
+| `abrirPedidoCocina` | nueva | La ventana del pedido a cocina, con `GET /api/ordenes-produccion/:id` | `112` → los 4 datos, la tabla (lo hecho, tachado) y el avance |
+| `cerrarVentanaCocina` | nueva | Cierra esa ventana o el resumen (con un clic, solo si fue afuera) | id (+ evento) → cerrada |
+| DOMContentLoaded | cambiada | Además de lo de antes: escucha los días, el buscador y el "✓ Hecho" de la tabla; guarda las viandas del stock de cada pedido y ordena por fecha de entrega | — |
+| `abrirDetallesPedido` | cambiada (solo el HTML que arma) | La ventana del cliente: 3 datos, los personalizados con su etiqueta y "Por hacer", las viandas del stock (sin pastilla) y las observaciones. Su "✓ Listo para entregar" (solo el cocinero) abre la confirmación de siempre | id → la ventana |
+| `quitarPedidoDeLaTabla` | cambiada | Además de lo de antes, vuelve a dibujar la tabla (así la página se completa). Sin pedidos, "No hay pedidos…" | id → la fila afuera, el número −1 |
+| Escape | cambiada | Cierra también la ventana nueva y el resumen | — |
+| `marcarListo`, `cerrarModalListo`, `cerrarDetallesPedido`, `confirmarListo`, `mostrarAviso` | iguales | — | — |
+
+- **Se sacaron `_normObs` y `_OBS_STD`:** solo los usaba el resumen viejo, que agrupaba por porciones.
+- **"Viandas listas · N del stock":** son los platos normales del pedido (`!personalizado && listo`). Nacen listos porque salen de la heladera al crear el pedido. Lo que se cocina se elige igual que antes (`es_mio && !listo`).
+- **Qué protege:**
+  - Todo lo que viene de la base pasa por `escHtml`: el nombre del plato, el texto personalizado y las observaciones (las escribe el cliente desde la web). Protege del XSS.
+  - Los números van con `Number(...)`.
+  - "Hecho" y "Listo" se dibujan solo para el cocinero. Esconderlos no es la protección: el servidor revisa igual el rol y quién es, con el token.
+
+### 21.5 `cocinero.css`: perillas nuevas (sección 0)
+- **Tablas:**
+  - `--cocina-tabla-ancho-minimo` (900 px): con menos lugar, la tabla se mueve adentro de su tarjeta;
+  - anchos: N° 92 · Fecha pedido 120 · Fecha entrega 130 · Cantidad 130 · Viandas listas 150 · Estado 118 · botones 170 (stock) y 240 (clientes).
+- **Selector:** `--cocina-fondo-selector`, `--cocina-alto-vista` (40), `--cocina-borde-vista-elegida`, `--cocina-fondo-cantidad`.
+- **Colores de fecha:** hoy y atrasado `#fdecea/#c62828` · mañana `#fff1db/#a35f00` · más adelante `#e7effc/#1d5fbf`.
+  Alto `--cocina-alto-pastilla-fecha` (26) y letra (13).
+- **Puntitos:** `--cocina-punto-hoy` · `-manana` · `-despues`.
+- **Estados:** Por hacer `#fff3df/#a35f00` · Hecho `#dcf5e3/#127f36`.
+- **Etiqueta "SIN SAL":** `--cocina-personalizado-fondo/-letra`.
+- **Botones de las filas:** `--cocina-alto-boton-fila` (26) y `--cocina-letra-boton-fila` (12); Detalles con `--cocina-detalles-fondo/-letra`.
+- **Ventanas:** `--cocina-radio-ventana` (18), anchos 680 / 560 / 440, `--cocina-fondo-dato`, la ✕ redonda y la barra del avance.
+- **Resumen:** `--cocina-ancho-resumen` (400) y `--cocina-borde-casilla`.
+- **Lo de atrás:** `--cocina-fondo-ventana` y `--cocina-fondo-resumen`.
+- **Sin `!important`:** los botones de la tabla le ganan al `.btn-hecho` compartido porque llevan `table.tabla-cocina` adelante (y `min-height: 0`). Además, `cocinero.css` se carga después de `pedidosCocina.css`.
+- **Celu (≤768):**
+  - el título arriba y "Resumen del turno" a lo ancho;
+  - los dos botones de la vista, mitad y mitad, sin el dibujito;
+  - los días arriba y el buscador abajo;
+  - la tabla se mueve adentro de su tarjeta;
+  - las ventanas a pantalla completa, con los datos de a dos;
+  - el resumen a todo el ancho.
+
+### 21.6 Cómo se comprobó
+- **Con datos falsos "PRUEBA" contestados en el navegador:** en la base no había pendientes ni pedidos en preparación.
+  - **"Hecho" y "Listo" también se contestaban en el navegador: nunca llegaron a la base.**
+  - No se tocaron los 9 pedidos a cocina del 08/10 ni ningún pedido real.
+- **Rutas (contra la base, solo leyendo):**
+  - `/api/ordenes-produccion/1` → 200, con "Pidió: Mauricio Rodriguez";
+  - `abc` y `0` → 400; `999999` → 404; sin login → 401;
+  - `/hechos-hoy` sigue andando: no lo agarra `/:id`.
+- **Como cocinero, a 1440:**
+  - filas de 48 px, botones de 26, los colores de la referencia;
+  - pestañas Todos · Hoy · Mañana · Martes; "Mañana" filtra; buscar "lasa" y "#113" encuentra;
+  - el pie dice "Mostrando 4 de 4 platos";
+  - Detalles #112: 27/10 · 28/10 · Mauri · 30 viandas, 1 tachado, "1 de 3 platos hechos" y la barra al 33 %;
+  - "✓ Hecho" pregunta, muestra "✓ 12 PRUEBA Canelones de verdura: hecho." y recarga;
+  - Resumen: "Hoy, miércoles 28/10 · 1 de 5 hechos", lo hecho tachado y con ✓;
+  - Pedidos de clientes: la ventana con 3 datos, el personalizado, las viandas del stock sin pastilla y las observaciones;
+  - "✓ Listo para entregar" desde la ventana: abre la confirmación, saca la fila y el número baja de 3 a 2;
+  - las ventanas se cierran con la ✕, con un clic afuera y con Escape.
+- **Como administración:** sin "✓ Hecho" ni "✓ Listo" (dice "Solo lectura"). Detalles anda.
+- **1280:** entra entera.
+- **390:**
+  - **la página ya no se mueve de costado (antes medía 592 px)**;
+  - la tabla se mueve adentro de su tarjeta;
+  - los dos botones de la vista entran (173 px cada uno).
+- **Consola:** sin errores.
+- **`node tests/test_e2e.js heladera`: 37/40.** Fallan los mismos 3 de antes, porque la fecha de la compu (28/10) no es la de la base (22/10).
+
+### 21.7 Lo que no quedó igual a la referencia
+- **El plan:** va entre paréntesis después del plato, "Canelones de verdura (KETO)". Sirve para distinguir el mismo plato en dos planes.
+- **Pestaña "Atrasados":** lo que tenía que estar antes de hoy va junto ahí, con el color de hoy.
+  A más de 6 días, la pestaña dice la fecha ("03/11") y no el nombre del día.
+- **Ventana del cliente:** dice "Por hacer" en vez de "Falta stock", y las viandas del stock van sin "Hay/Falta" (decisión tuya).
+- **Pedidos de clientes:** no tiene filas "Listo" ni "Deshacer". Lo listo desaparece, como hoy (decisión tuya).
+- **Administración:** sigue viendo "Solo lectura" en Pedidos de clientes, como antes.
+
+**Capturas:** `diseno-cocina/resultado/`.
+- A 1440:
+  - `cocina-1440-para-stock` y `cocina-1440-pedidos-de-clientes`;
+  - `cocina-1440-detalles-pedido-a-cocina` y `cocina-1440-detalles-cliente`;
+  - `cocina-1440-resumen` y `cocina-1440-confirmar-listo`.
+- A 390: las mismas, con el nombre `cocina-390-…`.
+
+## 22. Ventana "Iniciar sesión" del index con el diseño nuevo (28/10, `diseno-login/`)
+**Qué se pidió:**
+- La ventana como la captura:
+  - el fondo oscuro y borroso;
+  - el logo, "Iniciar sesión" y "¿Todavía no tenés cuenta? Creá una ahora";
+  - los casilleros con el texto adentro, y el ojito en la contraseña;
+  - "¿Olvidaste tu contraseña?" a la derecha y "Ingresar" al medio;
+  - el error en una cajita roja.
+- Se sacan la línea separadora, las etiquetas de arriba y el botón "Crear cuenta".
+- El login hace lo mismo que antes. El JS aprobado (el ojito y el borde rojo) va en el `<script>` del index, sin tocar `auth.js`.
+
+### 22.1 Qué archivos cambiaron
+| Archivo | Qué cambió |
+|---|---|
+| `index.html` | Los dibujos `icono-ojo` e `icono-ojo-tachado`, la ventana rearmada (22.2) y, en el `<script>` del final, el ojito y el borde rojo (22.3) |
+| `src/css/index.css` | Perillas "ventana Iniciar sesión" en el `:root` y la sección de la ventana reescrita (22.4) |
+
+**No cambió:**
+- `auth.js`.
+- Los ids (`username`, `password`, `usernameError`, `passwordError`, `loginError`, `loadingSpinner`) y la clase `login-btn`.
+- `manejarLogin`, la ruta `/api/login` y los mensajes.
+- Los links: `login.html#registro` y `login.html#recuperar`.
+
+### 22.2 `index.html`: la ventana
+- **Arriba:** la ✕ sola (`boton-cerrar boton-cerrar-login`, con su `data-accion="cerrar"` de siempre). Ya no está dentro de `modal-encabezado`.
+- **Al medio:**
+  - el logo (`logo-login`, el `logo.webp` de siempre);
+  - el título (`#modal-login-titulo`, el mismo que usa `aria-labelledby`);
+  - la frase, con "Creá una ahora" (`link-crear-cuenta`). Va a `login.html#registro`, como el botón "Crear cuenta" que se sacó.
+- **Casilleros:**
+  - con `placeholder` ("Email o usuario" / "Contraseña");
+  - las `<label>` siguen, escondidas a la vista con `solo-lectores`, para los lectores de pantalla;
+  - la contraseña va adentro de `caja-contrasena`, con el botón `#botonVerContrasena`.
+- **"¿Olvidaste tu contraseña?":** `link-olvide`, a `login.html#recuperar`, igual que antes.
+- **El error:** `#loginError` suma la clase `caja-error-login`.
+- **"Ingresar":** sin `boton-ancho`, con `boton-ingresar`.
+- **Se sacaron:** `modal-encabezado`, `login-otros` (la línea) y el botón "Crear cuenta".
+
+### 22.3 JS (aprobado), en el `<script>` de `index.html`
+**El ojito**
+- **Qué hace:** muestra u oculta la contraseña.
+- **ENTRADA:** el clic.
+- **SALIDA:** el casillero pasa de `password` a `text` (y vuelve). El botón cambia `aria-pressed` y su `aria-label` ("Mostrar" / "Ocultar contraseña"), y el CSS cambia el dibujito según `aria-pressed`.
+- **Por qué así:** cambia solo lo que se ve. Lo que se manda al servidor es lo mismo y no hace falta tocar `auth.js`.
+- **Seguridad:** la contraseña se ve solo si la persona toca el ojito.
+
+**El borde rojo**
+- **Qué hace:** pinta de rojo los dos casilleros mientras se ve el error.
+- **ENTRADA:** el cambio de clase de `#loginError` (lo mira un `MutationObserver`).
+- **SALIDA:** pone o saca la clase `login-con-error` en el formulario.
+- **Por qué así:** `auth.js` muestra el error poniéndole `show` a `#loginError` y lo esconde sacándosela. Mirando ese cambio no hace falta tocar `auth.js`.
+- **Se conecta con:** `manejarLogin` (auth.js) pone y saca el `show`; el CSS usa la clase.
+
+### 22.4 `index.css`
+**Perillas nuevas** (en el `:root`, grupo "ventana Iniciar sesión"):
+- **La ventana:**
+  - `--login-ancho` (400), `--login-aire` (44 48 40) y `--login-aire-celu` (32 22);
+  - `--login-radio` (24) y `--login-sombra`;
+  - `--login-fondo-atras` (rgba(8,30,15,.5)) y `--login-borroso` (5 px).
+- **Logo y título:** `--login-logo` (72) y `-celu` (60); `--login-titulo` (40) y `-celu` (32); `--login-titulo-color`.
+- **Textos y ✕:** `--login-frase-color`, `--login-link-color` y `--login-cerrar-fondo`.
+- **Casilleros:**
+  - `--login-casillero-alto` (56), `--login-casillero-borde` (#9aa49d) y `--login-casillero-ejemplo` (#6b766e);
+  - al escribir: `--login-foco-borde` (#12893a) y `--login-foco-aro` (#e3f3e7);
+  - con error: `--login-error-fondo` (#fdecea) y `--login-error-letra` (#b3261e).
+- **"Ingresar":** `--login-boton-alto` (54) y `--login-boton-sombra`.
+
+**Cómo quedó:**
+- **La ventana:** centrada también en el celu, con 16 px a los costados (antes, en el celu, subía desde abajo). En compu mide 496 px.
+- **Lo de atrás:** oscuro y borroso (`::backdrop` con `backdrop-filter`).
+- **La ✕:** de 36 px, a 18 de las esquinas, con la parte tocable más grande (`::after`).
+- **Los casilleros:** 56 px con borde de 1 px.
+  - Al escribir, el borde verde de 1,5 px: 1 px de borde y medio de sombra por adentro, así el texto no se corre. Alrededor, el aro de 4 px.
+  - Al autocompletar, sin el celeste: se tapa con un blanco por adentro.
+  - Llevan `.modal-login` adelante, para ganarle a `.casillero`, que está más abajo en el archivo.
+- **"¿Olvidaste…?":** sin los 44 px de alto mínimo de `.boton-enlace`, así quedan los 26 px del diseño hasta "Ingresar". La parte que se toca sigue grande (`::after`).
+- **Con error:** la cajita roja va arriba de "Ingresar" y los dos casilleros quedan con borde rojo (también al escribir).
+- **Celu (<768):** aire 32 22, título 32 y logo 60.
+
+### 22.5 Cómo se comprobó (servidor de prueba en el 3001)
+- **1440 y 1024:**
+  - ventana 496 px, contenido 400, ✕ de 36 a 18/18, logo 72, título 40/900, 24 px del logo al título;
+  - 34 px de la frase a los casilleros, 18 entre ellos y 26 de "¿Olvidaste…?" a "Ingresar";
+  - casilleros de 56 con borde de 1 px #9aa49d, "Ingresar" de 54 al medio;
+  - la página no se mueve de costado.
+- **390:** 358 px de ancho (16 a cada lado), logo 60, título 32. Con el error, entra sin moverse.
+- **Al escribir:** borde #12893a y aro #e3f3e7.
+- **Ojito:** password → text ("Ocultar contraseña") → password ("Mostrar contraseña").
+- **Login mal** (usuario `PRUEBA_no_existe`, contra `/api/login`, que solo lee):
+  - "Usuario o contraseña incorrectos" en la cajita roja;
+  - los casilleros con borde rojo;
+  - la ventana sigue abierta.
+- **Login bien** (el usuario de prueba del `.env`): va a `/admin.html` con la sesión guardada, igual que antes.
+- **Cerrar:** con la ✕, con Escape y con un clic afuera. Un clic adentro no la cierra.
+- **Links:** "Creá una ahora" → `/login.html#registro`; "¿Olvidaste tu contraseña?" → `/login.html#recuperar`.
+- **Consola:** el único mensaje aparece con el login mal: el `console.error('Error login:', …)` que `auth.js` ya escribía (no se tocó). Con el login bien, nada.
+- **Freno de intentos:** de tanto probar logins malos, el servidor frenó los intentos ("Demasiados intentos…"). Es el límite de siempre, anduvo bien. Se reinició el servidor de prueba.
+
+**Capturas:** `diseno-login/resultado/`: `login-1440-normal`, `login-1440-error`, `login-1440-escribiendo`, `login-390-normal` y `login-390-error`.

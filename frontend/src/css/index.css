@@ -96,6 +96,32 @@
 
   --fuente: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --curva: cubic-bezier(.16, 1, .3, 1);  /* arranca rápido y frena suave */
+
+  /* ── PERILLAS: ventana "Iniciar sesión" (sección 1) ──────────────────────────────── */
+  --login-ancho: 400px;                          /* lo ancho de lo de adentro (logo, casilleros y botón): la ventana mide esto + su aire */
+  --login-aire: 44px 48px 40px;                  /* el aire de adentro de la ventana: arriba, costados y abajo (en el celu, --login-aire-celu) */
+  --login-aire-celu: 32px 22px;                  /* lo mismo en el celu */
+  --login-radio: 24px;                           /* lo redondeado de las esquinas de la ventana */
+  --login-sombra: 0 40px 90px -30px rgba(0, 0, 0, .6);  /* la sombra de la ventana */
+  --login-fondo-atras: rgba(8, 30, 15, .5);      /* lo oscuro que tapa el index cuando se abre (.5 = a medias) */
+  --login-borroso: 5px;                          /* lo borroso del index de atrás: si lo subís, se ve más borroso */
+  --login-logo: 72px;                            /* el tamaño del logo (en el celu, --login-logo-celu) */
+  --login-logo-celu: 60px;
+  --login-titulo: 40px;                          /* "Iniciar sesión" (en el celu, --login-titulo-celu) */
+  --login-titulo-celu: 32px;
+  --login-titulo-color: #111a14;                 /* casi negro */
+  --login-frase-color: #3a4640;                  /* "¿Todavía no tenés cuenta?" y la ✕ */
+  --login-link-color: #127f36;                   /* "Creá una ahora" y "¿Olvidaste tu contraseña?" */
+  --login-cerrar-fondo: #f1f4f0;                 /* el circulito gris de la ✕ */
+  --login-casillero-alto: 56px;                  /* alto de los casilleros */
+  --login-casillero-borde: #9aa49d;              /* su borde gris */
+  --login-casillero-ejemplo: #6b766e;            /* lo que piden adentro ("Email o usuario"), en gris */
+  --login-foco-borde: #12893a;                   /* el borde verde al escribir… */
+  --login-foco-aro: #e3f3e7;                     /* …y el aro verde suave de alrededor */
+  --login-error-fondo: #fdecea;                  /* la cajita del error: fondo rojo suave… */
+  --login-error-letra: #b3261e;                  /* …y la letra (también el borde rojo de los casilleros) */
+  --login-boton-alto: 54px;                      /* alto de "Ingresar" */
+  --login-boton-sombra: 0 10px 22px -12px rgba(18, 137, 58, .8);  /* su sombra verde */
 }
 /* Las perillas que cambian en el celu (como la referencia): "Fast Good" de 44 px, la foto de la tarjeta más
    apaisada, las tarjetas más juntas y su nombre y su precio un poco más chicos */
@@ -345,15 +371,182 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
   .menu-principal { justify-content: center; margin: 0; padding: 0; }
 }
 
-/* Ventana "Iniciar sesión": usa el mismo login de login.html (manejarLogin, de auth.js), que muestra y esconde
-   sus avisos con la clase "show"; por eso los avisos arrancan escondidos */
-.formulario-login { display: grid; gap: 16px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+/* ── Ventana "Iniciar sesión" (diseño del 28/10). Usa el mismo login de login.html (manejarLogin, de auth.js), que
+   muestra y esconde sus avisos con la clase "show"; por eso los avisos arrancan escondidos.
+   Todo al medio: el logo, el título, la frase, los dos casilleros, "¿Olvidaste…?" a la derecha y "Ingresar".
+   Las medidas y colores están en las perillas "ventana Iniciar sesión" del :root. ── */
+
+/* La ventana: centrada también en el celu (con 16 px a los costados), blanca, con esquinas de 24 */
+.modal-login {
+  width: calc(100% - 32px);
+  max-width: calc(var(--login-ancho) + 96px);   /* 400 de adentro + 48 de aire de cada costado */
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  border-radius: var(--login-radio);
+  box-shadow: var(--login-sombra);
+}
+
+/* Lo de atrás: el index oscurecido y borroso */
+.modal-login::backdrop {
+  background: var(--login-fondo-atras);
+  backdrop-filter: blur(var(--login-borroso));
+}
+
+/* La ✕: un círculo gris de 36 px, a 18 px de las esquinas. ::after agranda la parte que se puede tocar con el dedo */
+.boton-cerrar-login {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 1;
+  width: 36px;
+  height: 36px;
+  background: var(--login-cerrar-fondo);
+  color: var(--login-frase-color);
+}
+.boton-cerrar-login::after { content: ""; position: absolute; inset: -4px; }
+.boton-cerrar-login .icono { width: 16px; height: 16px; }
+
+/* Lo de adentro: una columna, todo al medio ("modal-login" adelante: le gana al aire de .modal-contenido) */
+.modal-login .formulario-login {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--login-aire);
+  text-align: center;
+}
+
+/* El logo redondo, el título y la frase de abajo */
+.logo-login { width: var(--login-logo); height: var(--login-logo); border-radius: 50%; }
+.modal-login h2 {
+  margin-top: 24px;
+  color: var(--login-titulo-color);
+  font-size: var(--login-titulo);
+  font-weight: 900;
+  letter-spacing: -.025em;
+}
+.frase-login { margin-top: 8px; color: var(--login-frase-color); font-size: 16px; }
+.link-crear-cuenta { color: var(--login-link-color); font-weight: 700; text-decoration: none; }
+.link-crear-cuenta:hover { text-decoration: underline; }
+
+/* Los dos casilleros, uno abajo del otro, a lo ancho (separados 18 px) */
+.campos-login { width: 100%; display: grid; gap: 18px; margin-top: 34px; text-align: left; }
+
+/* Un texto que solo leen los lectores de pantalla (las etiquetas "Email o usuario" y "Contraseña") */
+.solo-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* El casillero: 56 px de alto, borde gris de 1 px y letra de 16 ("modal-login" adelante: le gana a .casillero, que está más abajo) */
+.modal-login .casillero-login {
+  min-height: var(--login-casillero-alto);
+  height: var(--login-casillero-alto);
+  padding: 0 18px;
+  border: 1px solid var(--login-casillero-borde);
+  font-size: 16px;
+}
+.modal-login .casillero-login::placeholder { color: var(--login-casillero-ejemplo); }
+.modal-login .casillero-login:hover { border-color: var(--login-casillero-borde); }
+/* Al escribir: el borde verde (el de 1 px y medio más por adentro, así queda de 1,5 px sin que se corra el texto)
+   y el aro verde suave de 4 px por afuera */
+.modal-login .casillero-login:focus {
+  border-color: var(--login-foco-borde);
+  box-shadow: inset 0 0 0 .5px var(--login-foco-borde), 0 0 0 4px var(--login-foco-aro);
+}
+/* Autocompletado del navegador: sin el fondo celeste (se tapa con un blanco por adentro) */
+.modal-login .casillero-login:-webkit-autofill {
+  -webkit-box-shadow: inset 0 0 0 100px var(--blanco);
+  -webkit-text-fill-color: var(--texto);
+}
+.modal-login .casillero-login:-webkit-autofill:focus {
+  -webkit-box-shadow: inset 0 0 0 .5px var(--login-foco-borde), inset 0 0 0 100px var(--blanco), 0 0 0 4px var(--login-foco-aro);
+}
+
+/* La contraseña: el casillero con lugar a la derecha para el ojito */
+.caja-contrasena { position: relative; }
+.caja-contrasena .casillero-login { padding-right: 52px; }
+.boton-ojo {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--login-frase-color);
+  cursor: pointer;
+  transform: translateY(-50%);   /* al medio del alto del casillero */
+}
+.boton-ojo:hover { background: var(--gris); }
+.boton-ojo .icono { width: 18px; height: 18px; }
+/* Se ve un solo dibujito: el ojo abierto (mostrar) o, con la contraseña a la vista, el tachado (ocultar) */
+.icono-ojo-cerrado { display: none; }
+.boton-ojo[aria-pressed="true"] .icono-ojo-abierto { display: none; }
+.boton-ojo[aria-pressed="true"] .icono-ojo-cerrado { display: block; }
+
+/* "¿Olvidaste tu contraseña?": a la derecha, verde ("modal-login" adelante: le gana a .boton-enlace) */
+.modal-login .link-olvide {
+  position: relative;
+  align-self: flex-end;
+  min-height: 0;                 /* sin los 44 px de .boton-enlace: así el aire hasta "Ingresar" es el del diseño… */
+  margin-top: 14px;
+  color: var(--login-link-color);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.modal-login .link-olvide:hover { text-decoration: underline; }
+.modal-login .link-olvide::after { content: ""; position: absolute; inset: -10px -6px; }   /* …y la parte que se toca con el dedo sigue grande */
+
+/* Los avisos: escondidos hasta que auth.js les pone "show" */
 .aviso-login, .cargando-login { display: none; font-size: .875rem; font-weight: 600; }
 .aviso-login { color: var(--error); }
-.cargando-login { color: var(--texto-suave); }
+.cargando-login { margin-top: 14px; color: var(--texto-suave); }
 .aviso-login.show, .cargando-login.show { display: block; }
-.login-otros { display: grid; gap: 10px; justify-items: center; padding-top: 16px; border-top: 1px solid var(--linea); color: var(--texto-suave); }
-@media (min-width: 768px) { .modal-login { max-width: 440px; } }
+
+/* El error de "Usuario o contraseña incorrectos": una cajita roja suave, arriba de "Ingresar" */
+.caja-error-login {
+  width: 100%;
+  margin-top: 20px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: var(--login-error-fondo);
+  color: var(--login-error-letra);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+
+/* Con el error a la vista (clase "login-con-error", la pone el <script> del index): los casilleros con borde rojo */
+.modal-login .login-con-error .casillero-login { border-color: var(--login-error-letra); }
+.modal-login .login-con-error .casillero-login:focus {
+  box-shadow: inset 0 0 0 .5px var(--login-error-letra), 0 0 0 4px var(--login-error-fondo);
+}
+
+/* "Ingresar": una pastilla verde al medio, 26 px abajo (al pasar el mouse, un verde más oscuro: lo pone .boton-principal) */
+.modal-login .boton-ingresar {
+  min-height: var(--login-boton-alto);
+  height: var(--login-boton-alto);
+  margin-top: 26px;
+  padding: 0 44px;
+  font-size: 16.5px;
+  box-shadow: var(--login-boton-sombra);
+}
+.modal-login .boton-ingresar:hover:not(:disabled) { box-shadow: var(--login-boton-sombra); }
+
+/* Celu (menos de 768 px): menos aire, el título de 32 y el logo de 60 */
+@media (max-width: 767px) {
+  .modal-login .formulario-login { padding: var(--login-aire-celu); padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
+  .logo-login { width: var(--login-logo-celu); height: var(--login-logo-celu); }
+  .modal-login h2 { font-size: var(--login-titulo-celu); }
+}
 
 /* ===================================================================================
    2. PORTADA. Celu: compacta (el lugar, "Fast & Good", la bajada y las insignias), sin foto.
