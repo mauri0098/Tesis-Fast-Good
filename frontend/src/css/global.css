@@ -116,6 +116,12 @@
     --sombra-menu: 0 0 0 1px rgba(17, 26, 20, .07), 0 16px 36px -10px rgba(17, 26, 20, .22);   /* la de los menús que se abren (Plan, Estado) */
     --fondo-ventana-panel: rgba(40, 44, 41, .72);       /* lo oscuro detrás de las ventanas nuevas */
     --ancho-panel-lateral: 460px; /* el ancho del panel que entra por la derecha ("Últimos movimientos") */
+    /* La pastillita del código del plato ("F3"), adelante del nombre en todas las pantallas (13j) */
+    --codigo-plato-fondo: #f1f4f1;  /* fondo gris muy clarito, como las pastillas de la grilla (29/10: antes oscuro) */
+    --codigo-plato-letra: var(--titulo);  /* letra gris oscuro */
+    --codigo-plato-alto: 20px;      /* alto */
+    --codigo-plato-tamano: 12px;    /* tamaño de la letra (semibold, 600) */
+    --codigo-plato-ancho-minimo: 28px;  /* lo más angosta: así "F1" y "SG12" quedan parejas una abajo de la otra */
 
     /* ── Las variables de antes (en inglés) ─────────────────────────────────────── */
     /* Las usan los CSS de cada pantalla y login.css: siguen con el mismo nombre y ahora toman el valor de las perillas nuevas */
@@ -1565,6 +1571,41 @@ p.frase-ventana {
 @media (prefers-reduced-motion: reduce) {
     .panel-lateral {
         animation: none;
+    }
+}
+
+
+/* --- 13j. El código del plato ("F3"): una pastillita gris clarito, sin sombra ni degradé ---
+   La arma pastillaCodigo (escape.js). Es la misma en todas las pantallas; el index tiene una copia igual en index.css.
+   En las grillas (Producción, Pedir a cocina, Tareas de Cocina, Generar Receta) va en su propia columna "Código" */
+.codigo-plato {
+    min-width: var(--codigo-plato-ancho-minimo);
+    height: var(--codigo-plato-alto);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    margin-right: 8px;
+    padding: 0 6px;
+    border-radius: 6px;
+    background: var(--codigo-plato-fondo);
+    color: var(--codigo-plato-letra);
+    font-size: var(--codigo-plato-tamano);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .02em;
+    line-height: 1;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+/* Al imprimir (la hoja de ruta de Envíos): el navegador no imprime los fondos, así que la letra blanca no se vería.
+   Se imprime negra con un borde negro */
+@media print {
+    .codigo-plato {
+        border: 1px solid #000;
+        background: none;
+        color: #000;
     }
 }
 

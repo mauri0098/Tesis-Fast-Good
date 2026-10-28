@@ -379,8 +379,9 @@ function buildCard(p) {
 
   const badgeEstadoClass = `badge-estado-${estadoId}`;
 
+  // Los platos, uno por renglón (28/10: con su código adelante: "2× F3 Pollito"; pastillaCodigo, de escape.js)
   const itemsHtml = (p.pedido_detalles || [])
-    .map(d => `<div class="card-item-linea">${d.cantidad}× ${escHtml(d.productos?.nombre || '—')}</div>`)
+    .map(d => `<div class="card-item-linea">${d.cantidad}× ${pastillaCodigo(d.productos?.codigo_plato, d.productos?.nombre)}${escHtml(d.productos?.nombre || '—')}</div>`)
     .join('');
 
   const obsHtml = p.observaciones
@@ -523,7 +524,8 @@ async function cambiarEstado(pedidoId, nuevoEstadoId, selectEl) {
 // ── Vista compacta para impresión ────────────────────────────
 function buildPrintRow(p) {
   const num     = String(p.id).padStart(3, '0');
-  const items   = (p.pedido_detalles || []).map(d => `${d.cantidad}× ${escHtml(d.productos?.nombre || '—')}`).join(' · ');
+  // 28/10: cada plato con su código adelante ("2× F3 Pollito"; pastillaCodigo, de escape.js)
+  const items   = (p.pedido_detalles || []).map(d => `${d.cantidad}× ${pastillaCodigo(d.productos?.codigo_plato, d.productos?.nombre)}${escHtml(d.productos?.nombre || '—')}`).join(' · ');
   const total   = Number(p.total).toLocaleString('es-AR', { minimumFractionDigits: 0 });
   const pago    = infoMetodoPago(p.metodo_pago).corto;
   const cobro   = infoCobro(p);

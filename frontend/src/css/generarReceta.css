@@ -603,3 +603,121 @@ body {
     gap: 0.75rem 0;
   }
 }
+
+
+/* =========================================
+   CÓDIGO DE PLATO (28/10)
+   La pastillita del código (.codigo-plato) está en global.css (13j): es la misma en todas las pantallas
+   ========================================= */
+:root {
+  --receta-aviso-codigo-fondo: #fff3df;    /* el aviso "El código va a cambiar de F3 a K5": naranja suave… */
+  --receta-aviso-codigo-letra: #8a4f00;    /* …con letra naranja oscura */
+  --receta-resultado-ok-fondo: #e8f5eb;    /* "✓ Listo: …" de las abreviaturas: verde suave… */
+  --receta-resultado-ok-letra: #127f36;    /* …con letra verde */
+  --receta-resultado-error-fondo: #fdecea; /* el error de las abreviaturas: rojo suave… */
+  --receta-resultado-error-letra: #b3261e; /* …con letra roja */
+  --receta-ancho-abreviatura: 72px;        /* el casillero de la abreviatura (entran 4 letras) */
+}
+
+/* La pastilla adentro de la columna Código: sin el aire de la derecha (no tiene un nombre al lado) y con la letra
+   del panel (la columna usaba una letra de máquina de escribir para el código suelto) */
+.td-codigo .codigo-plato {
+  margin-right: 0;
+  font-family: var(--fuente);
+}
+
+/* Los dos botones de arriba a la derecha: "Abreviaturas de los planes" y "+ Nueva Receta" */
+.botones-encabezado-recetas {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+/* "Abreviaturas de los planes": blanco con borde verde (el verde lleno queda para "+ Nueva Receta") */
+.btn-abreviaturas {
+  padding: 0.5rem 1.2rem;
+  border: 1.5px solid var(--primary-green);
+  border-radius: 50px;
+  background: var(--white);
+  color: var(--primary-green);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-abreviaturas:hover {
+  background: #eef8f0;
+}
+
+/* El aviso de "Editar" cuando cambia el plan: "El código va a cambiar de F3 a K5." */
+.aviso-codigo {
+  margin: 0.2rem 0 0.8rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: var(--radius);
+  background: var(--receta-aviso-codigo-fondo);
+  color: var(--receta-aviso-codigo-letra);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.aviso-codigo[hidden] {
+  display: none;
+}
+
+/* Ventana "Abreviaturas de los planes" */
+.nota-abreviaturas {
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* El casillero de cada abreviatura: chico y en mayúscula */
+.casillero-abreviatura {
+  width: var(--receta-ancho-abreviatura);
+  text-transform: uppercase;
+}
+
+/* El resultado de guardar: verde si salió bien, rojo si no */
+.resultado-abreviaturas {
+  margin: 0.8rem 0 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.resultado-abreviaturas[hidden] {
+  display: none;
+}
+
+.resultado-ok {
+  background: var(--receta-resultado-ok-fondo);
+  color: var(--receta-resultado-ok-letra);
+}
+
+.resultado-error {
+  background: var(--receta-resultado-error-fondo);
+  color: var(--receta-resultado-error-letra);
+}
+
+/* "Guardar" de cada plan en la ventana de abreviaturas: una pastilla verde chica */
+.btn-guardar-abreviatura {
+  padding: 0.35rem 0.9rem;
+  border: none;
+  border-radius: 50px;
+  background-color: var(--primary-green);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-guardar-abreviatura:hover {
+  background-color: #218838;
+}

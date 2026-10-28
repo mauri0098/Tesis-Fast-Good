@@ -22,6 +22,8 @@
 <script src="../src/js/roles.js"></script>
 <script src="../src/js/guard.js"></script>
 <script src="../src/js/api.js"></script>
+<!-- escHtml y pastillaCodigo (la pastillita del código del plato, 28/10) -->
+<script src="../src/js/escape.js"></script>
 <script src="../src/js/adminSidebar.js"></script>
 
 <div class="admin-content">
@@ -53,7 +55,11 @@
             <option value="sin_stock">Sin Stock</option>
           </select>
         </div>
-        <button class="btn-agregar" onclick="abrirModalNuevaReceta()">+ Nueva Receta</button>
+        <!-- Los botones de la derecha: las abreviaturas de los planes (F, K, SG…) y la receta nueva -->
+        <div class="botones-encabezado-recetas">
+          <button class="btn-abreviaturas" type="button" onclick="abrirAbreviaturas()">Abreviaturas de los planes</button>
+          <button class="btn-agregar" onclick="abrirModalNuevaReceta()">+ Nueva Receta</button>
+        </div>
       </div>
 
       <table class="standard-table grilla-fg">
@@ -126,6 +132,18 @@
           <label>Nombre*</label>
           <input type="text" id="edNombre" class="input-texto" placeholder="Nombre del plato..." autocomplete="off" />
         </div>
+      </div>
+
+      <!-- BLOQUE EDICIÓN: visible solo al editar receta existente -->
+      <div id="bloqueEditar" style="display:none;">
+        <div class="info-producto-editar">
+          Editando receta de: <strong id="edNombreProductoEditando"></strong>
+        </div>
+      </div>
+
+      <!-- CATEGORÍA, PLAN Y CÓDIGO: en los dos modos (28/10: al editar también se puede cambiar el plan).
+           El código no se escribe: lo arma el servidor (abreviatura del plan + el siguiente número) -->
+      <div id="bloquePlanCodigo">
         <div class="modal-grid">
           <label>Categoría*</label>
           <select id="edCategoria">
@@ -142,13 +160,8 @@
           <label>Código</label>
           <input type="text" id="edCodigo" class="input-readonly" readonly placeholder="Se asignará automáticamente" />
         </div>
-      </div>
-
-      <!-- BLOQUE EDICIÓN: visible solo al editar receta existente -->
-      <div id="bloqueEditar" style="display:none;">
-        <div class="info-producto-editar">
-          Editando receta de: <strong id="edNombreProductoEditando"></strong>
-        </div>
+        <!-- Al editar, si se elige otro plan: "El código va a cambiar de F3 a K5" (lo escribe generarReceta.js) -->
+        <p id="edAvisoCodigo" class="aviso-codigo" hidden></p>
       </div>
 
       <!-- PRECIO Y DESCUENTO: siempre visible, compartido entre ambos modos -->
@@ -210,6 +223,34 @@
       <div class="modal-actions">
         <button class="btn-cancelar" onclick="cerrarModalEditar()">Cancelar</button>
         <button class="btn-confirmar" onclick="guardarReceta()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ABREVIATURAS DE LOS PLANES: cada plan con su abreviatura (F, K, SG…) y el código que tendría su
+       próximo plato. Cambiarla cambia también los códigos de sus platos, con el mismo número (F3 → M3) -->
+  <div id="modalAbreviaturas" class="modal">
+    <div class="modal-content modal-receta">
+      <span class="close" onclick="cerrarAbreviaturas()">&times;</span>
+      <h3>Abreviaturas de los planes</h3>
+      <p class="nota-abreviaturas">De 1 a 4 letras. El código de cada plato es la abreviatura de su plan más un número (F1, F2…).</p>
+      <div class="table-insumos-wrapper">
+        <table class="table-insumos tabla-abreviaturas">
+          <thead>
+            <tr>
+              <th>Plan</th>
+              <th>Abreviatura</th>
+              <th>Próximo código</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="listaAbreviaturas"></tbody>
+        </table>
+      </div>
+      <!-- El resultado de guardar: "✓ Listo: 3 platos pasaron a M…" o el error (lo escribe generarReceta.js) -->
+      <p id="abResultado" class="resultado-abreviaturas" hidden></p>
+      <div class="modal-actions">
+        <button class="btn-cancelar" onclick="cerrarAbreviaturas()">Cerrar</button>
       </div>
     </div>
   </div>

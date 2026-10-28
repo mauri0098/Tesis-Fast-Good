@@ -79,17 +79,17 @@
           <table class="standard-table tabla-cocina tabla-stock">
             <thead>
               <tr>
-                <th class="col-numero-pedido">N° pedido</th>
+                <!-- 29/10: Código · Plato · Cantidad · Estado · Fecha de entrega (el N° y la fecha del pedido, solo en Detalles) -->
+                <th class="col-codigo">Código</th>
                 <th class="col-plato-stock">Plato</th>
-                <th class="col-fecha-pedido">Fecha pedido</th>
-                <th class="col-fecha-entrega">Fecha entrega</th>
                 <th class="col-cantidad">Cantidad</th>
                 <th class="col-estado">Estado</th>
+                <th class="col-fecha-entrega">Fecha entrega</th>
                 <th class="col-botones-stock"><span class="solo-lector">Acciones</span></th>
               </tr>
             </thead>
             <tbody id="cuerpoParaStock">
-              <tr><td colspan="7" class="loading-text">Cargando...</td></tr>
+              <tr><td colspan="6" class="loading-text">Cargando...</td></tr>
             </tbody>
           </table>
         </div>
@@ -118,11 +118,13 @@
         <table id="tablaPedidos" class="standard-table tabla-cocina tabla-clientes">
           <thead>
             <tr>
-              <th class="col-numero-pedido">N° pedido</th>
-              <th class="col-fecha-entrega">Fecha entrega</th>
-              <th class="col-plato-personalizado">Plato personalizado</th>
-              <th class="col-viandas-listas">Viandas listas</th>
+              <!-- 29/10: una fila por plato personalizado (las del mismo pedido, juntas): Código · Plato (+ ⚠) · Cantidad ·
+                   Estado · Fecha de entrega. El N° de pedido y las viandas del stock, solo en Detalles -->
+              <th class="col-codigo">Código</th>
+              <th class="col-plato-personalizado">Plato</th>
+              <th class="col-cantidad">Cantidad</th>
               <th class="col-estado">Estado</th>
+              <th class="col-fecha-entrega">Fecha entrega</th>
               <th class="col-botones-clientes"><span class="solo-lector">Acciones</span></th>
             </tr>
           </thead>

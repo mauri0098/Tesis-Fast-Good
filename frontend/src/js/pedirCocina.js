@@ -196,7 +196,7 @@ function renderizarListaPedido() {
 
   if (platos.length === 0) {                                                        // si no hay ninguno...
     contenedor.innerHTML = `
-      <tr class="fila-vacia"><td colspan="6">
+      <tr class="fila-vacia"><td colspan="7">
         <div class="pedido-vacio">
           <div class="tabla-vacia-titulo">No hay platos para mostrar</div>
           <div class="tabla-vacia-texto">Probá con otro filtro o buscá el plato por otro nombre.</div>
@@ -215,9 +215,11 @@ function renderizarListaPedido() {
     const clasePunto = 'punto-plan-' + (Number(plato.id_plan || 0) % CANTIDAD_COLORES_PLAN);  // el color fijo de su plan
 
     // b. La fila, pintada según su estado
+    //    (29/10: el código "F3" va en su propia columna, antes del plato: pastillaCodigo, de escape.js)
     const fila = document.createElement('tr');
     fila.className = 'plato-pedido fila-' + estado;
     fila.innerHTML = `
+      <td class="col-codigo">${pastillaCodigo(plato.codigo_plato, '')}</td>
       <td class="col-plato">
         <div class="pp-nombre">${escHtml(plato.nombre)}</div>
         <div class="pp-etiquetas"><span class="etiqueta-estado ${datosEstado.clase}"><span class="punto-estado"></span>${datosEstado.texto}</span>${etiquetaReceta}</div>
@@ -314,10 +316,11 @@ function actualizarTotalPedido() {
     if (cantidad === 0) return;                                // ...sin nada pedido: saltear (no va a "Tu pedido")
     platos += 1;                                               // ...cuenta como plato pedido
     // ...y su renglón: el nombre y abajo "10 viandas" (conPlural: un número y una palabra nuestra)
+    //    (28/10: con la pastillita del código adelante del nombre)
     htmlResumen += `
       <div class="item-resumen">
         <div class="item-resumen-textos">
-          <div class="item-resumen-nombre">${escHtml(plato.nombre)}</div>
+          <div class="item-resumen-nombre">${pastillaCodigo(plato.codigo_plato, plato.nombre)}${escHtml(plato.nombre)}</div>
           <div class="item-resumen-cantidad">${conPlural(cantidad, 'vianda', 'viandas')}</div>
         </div>
         <button type="button" class="quitar-del-pedido" data-id="${Number(plato.id)}" aria-label="Sacar ${escHtml(plato.nombre)} del pedido"><svg aria-hidden="true"><use href="#icono-cerrar"></use></svg></button>

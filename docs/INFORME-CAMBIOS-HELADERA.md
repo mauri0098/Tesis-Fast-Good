@@ -29,6 +29,9 @@
 > (Para stock / Pedidos de clientes), las dos ventanas "Detalles" y el resumen del turno, más una ruta nueva de solo lectura
 > (sección 21); el login del index como la captura, con el ojito y el borde rojo (sección 22). Sin SQL. Probado con datos
 > falsos (nada llegó a la base). Test HELADERA 37/40, por la misma fecha.
+> **Código de plato** (28/10): abreviatura del plan + número del plato (F1, K1, SG1…). SQL `sql/codigo_plato.sql` (lo
+> corriste vos), 2 rutas nuevas y la pastillita del código en Generar Receta, Producción, Tareas de Cocina, Envíos, Combos y
+> el index (sección 23). Probado sin escribir en la base. Test HELADERA 37/40, por la misma fecha.
 > **Este informe se actualiza con cada cambio nuevo** (código, SQL, pantallas), con el mismo formato (regla del 15/10).
 > Los ejemplos usan tus datos: **fideos con 71 viandas**, el combo de prueba "PRUEBA Mantenimiento x10" y la
 > receta de fideos que mostró la prueba de H3: **300 g de harina integral y 2 huevos por vianda**.
@@ -4862,3 +4865,111 @@ Hay 10 funciones nuevas (dos tablas, dos ventanas, el panel y los filtros): por 
 - **Freno de intentos:** de tanto probar logins malos, el servidor frenó los intentos ("Demasiados intentos…"). Es el límite de siempre, anduvo bien. Se reinició el servidor de prueba.
 
 **Capturas:** `diseno-login/resultado/`: `login-1440-normal`, `login-1440-error`, `login-1440-escribiendo`, `login-390-normal` y `login-390-error`.
+
+
+## 23. Código de plato (28/10): abreviatura del plan + número del plato
+**Qué se pidió:** la cocina se maneja por el código del plato.
+- El código es la abreviatura del plan más el número del plato dentro de ese plan: F1, F2 (Mantenimiento), K1 (Descenso de peso), SG1 (Sin TACC).
+- **Generar Receta:**
+  - en "Nuevo", el código se arma solo;
+  - en "Editar", se puede cambiar el plan, con el aviso "El código va a cambiar de F3 a K5";
+  - una ventana para las abreviaturas de los planes.
+- **La pastillita del código** adelante del nombre, en todas las pantallas.
+
+**Decisiones tuyas:**
+- **Abreviaturas:** F · K · SG · D · V · KI · A · P.
+- **La ventana de abreviaturas** va dentro de Generar Receta.
+- **Si cambia una abreviatura,** los códigos de sus platos conservan el número (F3 → M3).
+- **Hay un contador por plan:** un número nunca se vuelve a usar.
+
+### 23.1 El SQL (`sql/codigo_plato.sql`, lo corriste vos el 28/10, sin errores)
+- **A (solo lee):** el resumen y el detalle de planes y platos.
+- **B a E, todo junto:**
+  - las 8 abreviaturas, con un control de formato (1 a 4 letras mayúsculas) y que no se repitan;
+  - la columna nueva `planes.ultimo_numero_plato`;
+  - los códigos de los platos que ya existían: F1 fideos, F2 berenjenas rellenas, F3 Plato de prueba y P1 canelones;
+  - que un código no se repita dentro de un plan.
+  - Los nombres no se tocaron. Ningún plato tenía el código escrito en el nombre.
+- **F, tres funciones de la base** (solo las ejecuta el servidor; cada una todo o nada):
+  - `tomar_codigo_plato`: el código de un plato nuevo;
+  - `cambiar_plan_plato`: pasa un plato a otro plan y le da el código nuevo;
+  - `cambiar_abreviatura_plan`: cambia la abreviatura y los códigos de sus platos.
+
+### 23.2 `server.js`
+| Ruta | Antes | Ahora | Qué protege |
+|---|---|---|---|
+| `GET /api/planes` | id, nombre, abreviatura, categoría | + `ultimo_numero_plato` | `requireAuth` + `requireRol(6, 5)`, como antes |
+| `GET /api/planes/:id/siguiente-codigo` | Buscaba el número más alto leyendo los códigos (con `parseInt`, sin controlar bien el número) | Abreviatura + contador + 1, solo para mostrar. 400 número inválido · 404 no existe o está desactivado · 409 sin abreviatura | El número se controla (entero > 0). El código de verdad lo da la base al guardar |
+| **`PUT /api/planes/:id/abreviatura`** (nueva) | — | Controla el plan y la abreviatura (1 a 4 letras) y llama a `cambiar_abreviatura_plan`. 400 dato inválido · 409 ya la usa otro plan | Solo administración (6, 5); en el código no puede entrar cualquier texto; nada de SQL armado con texto (`.rpc`) |
+| `POST /api/productos/con-receta` | Calculaba el código en JS (copiado de la ruta de arriba); dos altas a la vez podían sacar el mismo | El código sale de `tomar_codigo_plato`; si la pantalla manda un código, no se usa. El plan se controla (entero > 0) | Nunca confiar en el navegador; los códigos no se repiten |
+| **`PUT /api/productos/:id/plan`** (nueva) | — | `{ id_plan }`: llama a `cambiar_plan_plato` y devuelve `{ codigo_anterior, codigo_nuevo }`. 400 dato inválido · 409 el plato no existe, el plan está desactivado o sin abreviatura, o es el mismo | Roles 6, 5; datos validados; el código lo decide la base |
+| `GET /api/recetas` | El plan: nombre, abreviatura, categoría | + `plan.id` y `plan.id_categoria` (para que "Editar" arranque con los suyos) | Igual |
+| `/api/viandas-stock`, `/api/ordenes-produccion/pendientes`, `/hechos-hoy`, `/:id`, `/api/envios`, `/api/v1/combos` | Sin el código | + `codigo_plato` de cada plato (solo lectura) | Igual |
+
+Una función chica nueva, `leerIdPlan(texto)`:
+- **ENTRADA:** el texto de la dirección. **SALIDA:** el número, o `null` si no es un entero entre 1 y el máximo de la base.
+- **Ej:** `'12'` → 12; `'12abc'` → null.
+- **La usan** las 4 rutas de arriba, para los planes y para los platos.
+
+### 23.3 La pastillita: `pastillaCodigo` (escape.js) y `.codigo-plato` (global.css 13j)
+- **`pastillaCodigo(codigo, nombre)`**
+  - **ENTRADA:** el código y el nombre del plato. **SALIDA:** el HTML de la pastilla (con `escHtml`), o `''` si no hay código o si el nombre ya empieza con ese código.
+  - **Ejemplos:** `('F3', 'Pollito')` → la pastilla; `('F1', 'F1 - Pollito')` → `''`; `('F1', 'F10 - Pollito')` → la pastilla (F10 no es F1).
+  - **Va en `escape.js`** porque lo cargan todas las pantallas y el index. Generar Receta no lo cargaba: se sumó.
+- **`.codigo-plato`:** oscura (#26312a) con letra blanca, de 20 px, letra de 11,5 px en negrita, con los números parejos.
+  - **Perillas** (`:root` de global.css): `--codigo-plato-fondo`, `-letra`, `-alto`, `-tamano`, `-ancho-minimo`.
+  - **Al imprimir:** negra con un borde, porque el navegador no imprime los fondos.
+  - **En el index** va una copia igual en `index.css`, con las mismas perillas, porque el index no carga global.css.
+
+### 23.4 Pantalla por pantalla
+| Pantalla | Archivo · función | Qué cambió |
+|---|---|---|
+| Generar Receta · lista | `generarReceta.js` · `crearFilaReceta` | La columna Código muestra la pastilla |
+| Generar Receta · Nuevo | `generarReceta.html` + `actualizarCodigoAutomatico` | Categoría, Plan y Código pasaron a un bloque que se ve en los dos modos (los ids no cambiaron). El código se ve armado ("F4") y es de solo lectura |
+| Generar Receta · Editar | `abrirModalEditar`, `actualizarCodigoAutomatico`, `actualizarRecetaExistente` y la nueva `cambiarPlanDelPlato` | Arranca con la categoría, el plan y el código del plato. Con otro plan: el código que tendría y el aviso naranja. Si se vuelve al plan de antes, el aviso se va. Al guardar pregunta "El código va a cambiar de F3 a K5. ¿Seguimos?" y cambia el plan **primero**: si falla, no guarda nada más. Si en el medio otro plato tomó ese número, avisa cuál quedó |
+| Generar Receta · Abreviaturas | Botón y ventana nuevos en el HTML · `abrirAbreviaturas`, `guardarAbreviatura`, `cerrarAbreviaturas` | Cada plan con su abreviatura, el próximo código y "Guardar". Controla 1 a 4 letras, pregunta "Los códigos de los platos de MANTENIMIENTO pasan de F… a M… (F3 → M3). ¿Seguimos?" y muestra el resultado |
+| Producción · tabla | `heladera.js` · `crearFilaPlato` | La pastilla adelante del nombre (de 18 px, para que entre en el renglón) |
+| Producción · Pedir a cocina | `pedirCocina.js` · `renderizarListaPedido`, `actualizarTotalPedido` | En la lista y en "Tu pedido" |
+| Tareas de Cocina | `cocinero.js` · `crearFilaStock`, `crearFilaCliente`, `abrirPedidoCocina`, `abrirDetallesPedido`, `construirResumen` | En las dos tablas, **más grande** (24 px, letra 13: perillas `--cocina-codigo-…`), porque es lo primero que mira el cocinero: "código + plato + lo que hay que hacer". También en las dos ventanas y en el resumen. El buscador encuentra por código ("sg12") |
+| Envíos del Día | `Envios.js` · `buildCard`, `buildPrintRow` | En la tarjeta ("2× F1 fideos") y en la hoja impresa |
+| Combos · menú | `gestionCombos.js` · `abrirMenuCombo` | La columna Código con la pastilla. En la lista para agregar, el código va primero ("F2 · berenjenas rellenas — MANTENIMIENTO"): una opción de lista no puede llevar la pastilla |
+| Index · Armá tu combo | `armarCombo.js` · `renderizarMenuCombo` | La pastilla adelante del nombre, salvo que el nombre ya traiga el código |
+
+### 23.5 Si a un plato le cambian el plan
+- **Lo guardado no se rompe:** pedidos, pedidos a cocina, heladera y menús de combos apuntan al número del plato, no al código.
+- **El stock de la heladera** queda igual.
+- **Los pedidos viejos** muestran el código nuevo, porque el código se lee siempre del plato.
+- **Cocinero:** si el plato no tiene cocinero propio, lo ve el cocinero del plan nuevo.
+- **Combos:** el plato sigue en los menús de los combos donde estaba (se puede sacar desde Combos).
+
+### 23.6 Cómo se comprobó (servidor de prueba en el 3001; nada se escribió en la base)
+- **Rutas:**
+  - `siguiente-codigo`: plan 2 → F4, plan 8 → P2, plan 1 → K1; `abc` / `0` → 400; `999` → 404.
+  - `/api/recetas`, `/api/viandas-stock`, `/api/v1/combos` y el menú de Combos mandan F1, F2, F3 y P1.
+  - Rechazos antes de la base:
+    - abreviatura "12", "ABCDE" o vacía → 400;
+    - plan o plato inválido → 400;
+    - sin login → 401.
+- **Pantallas a 1440, con las capturas:**
+  - Generar Receta: la lista; Nuevo → F4 (de solo lectura); Editar "Plato de prueba" arranca en Viandas Saludables / Mantenimiento / F3; con Descenso de peso → K1 y "El código va a cambiar de F3 a K1."; vuelve a su plan → F3 sin aviso.
+  - **Guardar con el plan cambiado:** pregunta, manda `PUT /api/productos/4/plan {"id_plan":1}` y después la receta (**las dos contestadas en el navegador, no llegaron a la base**).
+  - Abreviaturas: los 8 planes con su próximo código; "m1" → el error; "m" → pregunta, `PUT /api/planes/2/abreviatura {"abreviatura":"M"}` (contestado en el navegador) y "✓ Listo".
+  - Producción: tabla y Pedir a cocina con "Tu pedido".
+  - Tareas de Cocina, con datos falsos PRUEBA: las dos tablas (filas de 48 px), las dos ventanas y el resumen.
+  - Envíos, con un envío falso PRUEBA: tarjeta y hoja impresa.
+  - Combos: el menú, de la base.
+  - Index: Armá tu combo, de la base.
+- **Consola:** sin errores.
+- **`node tests/test_e2e.js heladera`: 37/40.** Fallan los mismos 3 de siempre, por la fecha de la compu (28/10) contra la de la base (22/10).
+
+### 23.7 Lo que hay que saber
+- **Planes desactivados:** la ventana de abreviaturas muestra solo los activos. A un plan desactivado no se le pueden crear ni pasar platos.
+- **Plan nuevo cargado en Supabase:** si no tiene abreviatura, "Nuevo producto" avisa "Este plan no tiene abreviatura: cargala en 'Abreviaturas de los planes'".
+- **Números que se saltean:** si un plato nuevo no se llega a guardar, su número queda sin usar. Pasa lo mismo si la receta falla después de tomar el código. Es a propósito: los números nunca se repiten.
+- **Producción, ya estaba antes:** algunas filas miden 49 px en vez de 48. Se midió sin la pastilla y da igual, así que no lo causó este cambio.
+
+**Capturas:** `diseno-codigo/resultado/` (no se sube):
+- **Generar Receta:** `1-generar-receta-lista`, `2-…-nuevo`, `3-…-editar-aviso`, `4-…-abreviaturas`, `5-…-abreviatura-guardada`;
+- **Producción:** `6-produccion-tabla`, `7-…-pedir-a-cocina`;
+- **Tareas de Cocina:** `8-cocina-para-stock`, `9-…-detalles-pedido-a-cocina`, `10-…-pedidos-de-clientes`, `11-…-detalles-cliente`, `12-…-resumen`;
+- **Envíos, Combos e index:** `13-envios-tarjeta`, `14-combos-menu`, `15-index-armar-combo`.

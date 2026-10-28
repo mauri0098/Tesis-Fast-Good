@@ -37,9 +37,11 @@
     /* La tabla de platos: Plato, Plan, Estado y ••• tienen un ancho fijo. Disponibles, Reservadas, Total y Mínimo no tienen
        ancho: miden lo que su título (nunca menos) y se reparten lo que sobra en una pantalla grande (así Plan queda pegada a
        Plato). Si la tabla no entra, se mueve de costado adentro de su tarjeta */
-    --prod-tabla-ancho-minimo: 1080px;  /* lo más angosta que queda la tabla (las fijas + los títulos de los números): más chica,
-                                           se mueve de costado adentro de su tarjeta y ninguna columna se achica */
-    --prod-ancho-plato: 260px;          /* Plato: fijo (lo que sobra no va acá); un nombre largo se corta con "…" */
+    --prod-tabla-ancho-minimo: 1090px;  /* lo más angosta que queda la tabla (las fijas + los títulos de los números): más chica,
+                                           se mueve de costado adentro de su tarjeta y ninguna columna se achica
+                                           (29/10: 1080 → 1090, por la columna Código; Plato pasó de 260 a 196) */
+    --prod-ancho-codigo: 70px;          /* Código ("F3", 29/10): fija, antes de Plato */
+    --prod-ancho-plato: 196px;          /* Plato: fijo (lo que sobra no va acá); un nombre largo se corta con "…" */
     --prod-ancho-plan: 160px;           /* Plan: fija, pegada a Plato */
     --prod-ancho-estado: 140px;         /* Estado (la pastilla, al medio): fija */
     --prod-ancho-menu: 60px;            /* la columna del •••: fija */
@@ -338,6 +340,7 @@ table.tabla-produccion thead th {
 }
 
 /* El ancho de las columnas fijas (las perillas de la sección 0). Las de números no tienen: se reparten lo que sobra */
+table.tabla-produccion thead .col-codigo      { width: var(--prod-ancho-codigo); }
 table.tabla-produccion thead .col-plato       { width: var(--prod-ancho-plato); }
 table.tabla-produccion thead .col-plan        { width: var(--prod-ancho-plan); }
 table.tabla-produccion thead .col-estado      { width: var(--prod-ancho-estado); }
@@ -517,6 +520,12 @@ table.tabla-produccion tbody tr:hover td {
 
 .plato-descripcion:empty {
     display: none;
+}
+
+/* El código del plato ("F3", la pastillita de global.css 13j). 29/10: en la tabla y en "Pedir a cocina" va en su propia
+   columna (Código); en "Tu pedido", que es una lista, sigue adelante del nombre, un poco más bajita (18 px) */
+.item-resumen-nombre .codigo-plato {
+    --codigo-plato-alto: 18px;
 }
 
 /* Plan: solo el nombre (el puntito no se ve), gris oscuro y sin mayúsculas: "MANTENIMIENTO" se ve "Mantenimiento".
@@ -765,8 +774,9 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
    Plato, Plan, Estado y ••• fijos (más angostos); los números miden lo que su título y se reparten lo que sobra */
 @media (max-width: 1400px) {
     :root {
-        --prod-tabla-ancho-minimo: 924px;
-        --prod-ancho-plato: 200px;
+        --prod-tabla-ancho-minimo: 930px;   /* 29/10: 924 → 930 por la columna Código (entra justo a 1280) */
+        --prod-ancho-codigo: 64px;
+        --prod-ancho-plato: 146px;
         --prod-ancho-plan: 140px;
         --prod-ancho-estado: 116px;
         --prod-ancho-menu: 56px;
@@ -1234,7 +1244,8 @@ table.tabla-produccion tbody tr.fila-vacia:hover td {
 }
 
 /* El ancho de cada columna (Plato se queda con lo que sobra) */
-.tabla-pedido th.col-plan       { width: 140px; }
+.tabla-pedido th.col-codigo     { width: 64px; }     /* 29/10: el código ("F3"), antes del plato */
+.tabla-pedido th.col-plan       { width: 128px; }    /* 29/10: 140 → 128, así Plato no pierde lugar por la columna Código */
 .tabla-pedido th.col-libres     { width: 104px; }
 .tabla-pedido th.col-reservadas { width: 104px; }
 .tabla-pedido th.col-minimo     { width: 78px; }
@@ -2374,8 +2385,13 @@ p.info-descarte {
         background: transparent;
     }
 
+    /* 29/10: el código, a la izquierda del nombre, de su tamaño */
+    .tabla-pedido td.col-codigo {
+        flex: none;
+    }
+
     .tabla-pedido td.col-plato {
-        flex: 1 1 calc(100% - 160px);   /* deja lugar para − cantidad + en el mismo renglón */
+        flex: 1 1 calc(100% - 220px);   /* deja lugar para el código y para − cantidad + en el mismo renglón */
         min-width: 0;
     }
 

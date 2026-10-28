@@ -510,11 +510,12 @@ function mostrarConfirmacion(respuesta, datos) {
   const conTransferencia = datos.metodoPago === 'Transferencia';
   const notaTransferencia = conTransferencia ? '<p class="nota">Alias: ' + escHtml(ALIAS_TRANSFERENCIA) + '</p>' : '';
 
+  // 29/10: el número se escribe "Pedido #015" (numeroPedido, de escape.js), como en todas las pantallas
   // confirmacion-datos: fecha, entrega y pago (en compu, en 3 columnas). El resumen, con el estilo del de "Finalizar pedido".
   document.getElementById('confirmacion-contenido').innerHTML = `
     <div class="confirmacion">
       <span class="confirmacion-tilde" aria-hidden="true"><svg class="icono"><use href="#icono-check"></use></svg></span>
-      <h3>¡Recibimos tu pedido #${escHtml(respuesta.id_pedido)}!</h3>
+      <h3>¡Recibimos tu ${escHtml(numeroPedido(respuesta.id_pedido, 'cliente'))}!</h3>
       <p>Para terminar, mandanos el resumen por WhatsApp y te confirmamos.</p>
       <dl class="confirmacion-datos">
         <div><dt>Fecha de entrega</dt><dd>${escHtml(fechaEntrega)}</dd></div>
@@ -588,7 +589,7 @@ function armarMensajeWhatsApp(respuesta, datos) {
   const mensaje =
 `¡Hola! Te paso el resumen de mi pedido
 
-Pedido: #${respuesta.id_pedido}
+${numeroPedido(respuesta.id_pedido, 'cliente')}
 Tienda: fastandgood
 Fecha: ${fechaFormateada}
 Nombre: ${datos.nombre} ${datos.apellido}

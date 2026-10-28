@@ -39,7 +39,8 @@ function conPlural(cantidad, singular, plural) {
 //          vez, opciones { conBotonHecho, recargar }. En las recargas no hace falta pasarlas.
 // SALIDA:  la lista de pendientes (o null si no se pudo cargar). En pantalla: "3 platos pendientes · 25 viandas"
 //          y una tarjeta por cocinero ("Sin cocinero asignado" al final), cada plato con su "Hecho" si se pidió.
-// Ej: "Marta Garcia · 1 plato · 20 viandas" / "20  berenjenas rellenas (MANTENIMIENTO)" / "para el 16/10 hoy · pedido #10" [Hecho]
+// Ej: "Marta Garcia · 1 plato · 20 viandas" / "20  berenjenas rellenas (MANTENIMIENTO)" / "para el 16/10 hoy · Cocina #010" [Hecho]
+// (29/10: el número del pedido a cocina se escribe "Cocina #010", con numeroPedido de escape.js)
 // El servidor manda todo ordenado por fecha y número de pedido: la primera tarjeta es la más urgente.
 // ─────────────────────────────────────────────────────────────────────────────
 async function cargarPendientes(idContenedor, opciones) {
@@ -118,7 +119,7 @@ async function cargarPendientes(idContenedor, opciones) {
           <div class="pend-plato">${escHtml(detalle.plato)}${plan}</div>
           <div class="pend-detalle">
             para el ${escHtml(diaMes)}${marca}
-            <span class="pend-numero">· pedido #${Number(detalle.id_orden)}</span>
+            <span class="pend-numero">· ${numeroPedido(detalle.id_orden, 'cocina')}</span>
           </div>
         </div>
         ${boton}

@@ -244,7 +244,7 @@ async function cargarPlatos(mantenerPagina) {
   } catch (error) {                                                          // si no se pudo...
     console.error('No se pudieron cargar los platos:', error);               // ...el detalle va a la consola
     document.getElementById('heladeraBody').innerHTML =                      // ...y en la tabla, un mensaje simple
-      '<tr><td colspan="8" class="loading-text texto-error">Error al conectar con el servidor</td></tr>';
+      '<tr><td colspan="9" class="loading-text texto-error">Error al conectar con el servidor</td></tr>';
   }
 }
 
@@ -334,7 +334,7 @@ function renderizarTabla(mantenerPagina) {
   // 7. La tabla, de a 15 por página. crearPaginacion (paginacion.js) llama a crearFilaPlato una vez por fila
   //    y escribe "Mostrando 15 de 40 platos" en resumenPlatos.
   const filaVacia = `
-    <tr class="fila-vacia"><td colspan="8">
+    <tr class="fila-vacia"><td colspan="9">
       <div class="tabla-vacia">
         <span class="icono-vacio"><svg aria-hidden="true"><use href="#icono-heladera"></use></svg></span>
         <div class="tabla-vacia-titulo">No hay platos para mostrar</div>
@@ -500,9 +500,11 @@ function crearFilaPlato(plato) {
 
   // 2. La fila, pintada según su estado (lo que viene de la base pasa por escHtml; los números, por Number).
   //    Columnas (27/10): Plato · Plan · Disponibles · Reservadas · Total (numero-total: en negrita) · Estado · Mínimo · •••
+  //    29/10: el código ("F3": pastillaCodigo, de escape.js) va en su propia columna, antes del plato
   const fila = document.createElement('tr');
   fila.className = 'fila-plato fila-' + estado;                              // ej: "fila-bajo" = amarillo clarito
   fila.innerHTML = `
+        <td class="col-codigo">${pastillaCodigo(plato.codigo_plato, '')}</td>
         <td class="col-plato">
           <div class="plato-nombre" title="${escHtml(plato.nombre)}">${escHtml(plato.nombre)}</div>
           <div class="plato-descripcion" title="${escHtml(descripcion)}">${escHtml(descripcion)}</div>
@@ -695,7 +697,10 @@ async function cargarMovimientos(agregar) {
       const cuando = fechaYHoraCortas(movimiento.fecha);                             // { dia: '15/10', hora: '18:40' } o null
       const fecha = cuando ? cuando.dia + ' ' + cuando.hora : '-';                   // "15/10 18:40" (sin fecha: "-")
       const detalle = fecha + ' · ' + movimiento.usuario_nombre;                     // "15/10 18:40 · Consumidor Final"
-      const htmlMotivo = movimiento.motivo ? '<div class="mov-motivo">' + escHtml(movimiento.motivo) + '</div>' : '';  // solo si tiene
+      // El motivo, con el número de pedido escrito como en todas las pantallas (29/10: solo al mostrarlo; en la base no
+      // cambia). Ej: "Pedido a cocina #9" → "Cocina #009" (motivoParaMostrar, de escape.js)
+      const motivo = motivoParaMostrar(movimiento.motivo);
+      const htmlMotivo = motivo ? '<div class="mov-motivo">' + escHtml(motivo) + '</div>' : '';  // solo si tiene
 
       const renglon = document.createElement('li');                                 // el renglón
       renglon.className = 'mov-item';
@@ -749,7 +754,7 @@ function abrirHechoHoy() {
 // SALIDA:  nada (un renglón por plato que la cocina marcó hecho hoy, del más nuevo al más viejo,
 //          y arriba "Entraron a la heladera: N viandas")
 // Ej: GET /api/ordenes-produccion/hechos-hoy →
-//     "+20  Plato de prueba (MANTENIMIENTO)" / "Marta Garcia · Pedido a cocina #6"  ·  "09:03"
+//     "+20  Plato de prueba (MANTENIMIENTO)" / "Marta Garcia · Cocina #006"  ·  "09:03"
 // ─────────────────────────────────────────────────────────────────────────────
 async function cargarHechosHoy() {
   const lista = document.getElementById('listaHechoHoy');                            // la lista
@@ -775,9 +780,9 @@ async function cargarHechosHoy() {
       const cuando = fechaYHoraCortas(hecho.fecha_hecho);                            // ...cuándo se marcó (o null)
       const hora = cuando ? cuando.hora : '-';                                       // ...la hora, como "14:32" (sin fecha: "-")
       const plan = hecho.plan ? ' <span class="hh-plan">(' + escHtml(hecho.plan) + ')</span>' : '';  // ...el plan entre paréntesis, si tiene
-      const partes = [];                                                             // ...el renglón gris: "Marta Garcia · Pedido a cocina #6"
+      const partes = [];                                                             // ...el renglón gris: "Marta Garcia · Cocina #006"
       if (hecho.marcado_por) partes.push(hecho.marcado_por);                         //    quién lo marcó, si se sabe
-      partes.push('Pedido a cocina #' + Number(hecho.id_orden));                     //    y de qué pedido a cocina
+      partes.push(numeroPedido(hecho.id_orden, 'cocina'));                          //    y de qué pedido a cocina (29/10: "Cocina #006")
       totalViandas += Number(hecho.cantidad);
       html += `
         <li class="hecho-item">

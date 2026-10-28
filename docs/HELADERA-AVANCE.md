@@ -739,6 +739,44 @@ Detalle en las secciones 21 y 22 de `INFORME-CAMBIOS-HELADERA.md`. Capturas en `
 | 13 | Tu usuario bien | Entra a tu pantalla, como siempre |
 | 14 | "Creá una ahora" / "¿Olvidaste tu contraseña?" | Van a la pantalla de registro / de recuperar, como antes |
 
+### Código de plato (28/10): abreviatura del plan + número (F1, K1, SG1…)
+Detalle en la sección 23 de `INFORME-CAMBIOS-HELADERA.md`. Capturas en `diseno-codigo/resultado/`.
+- **SQL** (`sql/codigo_plato.sql`, ✅ corrido por vos):
+  - las 8 abreviaturas: F · K · SG · D · V · KI · A · P;
+  - el contador de cada plan;
+  - los códigos de hoy: F1 fideos, F2 berenjenas rellenas, F3 Plato de prueba y P1 canelones;
+  - las 3 funciones de la base.
+- **Servidor:**
+  - `PUT /api/planes/:id/abreviatura` y `PUT /api/productos/:id/plan` (nuevas);
+  - "Nuevo producto" toma el código de la base;
+  - las lecturas mandan el código.
+  - **Hay que reiniciar el servidor.**
+- **Pantallas:**
+  - **Generar Receta:** Nuevo con el código armado, Editar con Plan y Categoría y el aviso "F3 → K5", y la ventana "Abreviaturas de los planes";
+  - **Producción** (tabla y Pedir a cocina);
+  - **Tareas de Cocina:** las 2 tablas, con el código más grande, las 2 ventanas y el resumen;
+  - **Envíos** (tarjeta y hoja impresa), **Combos** (menú) y el **index** (Armá tu combo).
+- **Comprobado:**
+  - rutas y pantallas a 1440 sin escribir en la base (cambiar plan y abreviatura se contestaron en el navegador);
+  - consola sin errores;
+  - test HELADERA 37/40, los mismos 3 por la fecha.
+- **Pendiente tuyo (punto e):** sacar el código del nombre. Hoy no hace falta: ningún plato lo tiene escrito.
+
+**Recorrido a mano (código de plato, 28/10).** Reiniciá el servidor y Ctrl+F5.
+| # | Qué hacés | Qué tiene que pasar |
+|---|---|---|
+| 1 | Generar Receta | La columna Código con la pastillita oscura: F1, F2, F3, P1 |
+| 2 | "+ Nueva Receta" → categoría y plan Mantenimiento | Código "F4" (no se puede escribir). Si cambiás de plan, cambia |
+| 3 | Guardás un plato de prueba de verdad (si querés) | Queda con F4; el próximo de F va a ser F5 |
+| 4 | "Editar" de un plato | Arranca con su categoría, su plan y su código. Elegís otro plan → "El código va a cambiar de F3 a K…"; volvés a su plan → el aviso se va |
+| 5 | Guardás con el plan cambiado (con un plato de prueba) | Pregunta; al aceptar, el plato queda en el plan nuevo con su código nuevo (la heladera y los pedidos, igual) |
+| 6 | "Abreviaturas de los planes" | Los 8 planes con su abreviatura y su próximo código. Si cambiás una, pregunta y los códigos de sus platos cambian con el mismo número |
+| 7 | Producción y "Pedir a cocina" | La pastillita adelante de cada plato |
+| 8 | Tareas de Cocina | El código grande adelante del plato en las dos tablas; también en Detalles y en el Resumen. El buscador encuentra "F3" |
+| 9 | Envíos del Día (e imprimir la hoja) | "2× F1 fideos" en la tarjeta y en la hoja |
+| 10 | Combos → Menú | La pastillita en el menú; en "Agregar", el código primero |
+| 11 | Index → un combo → Armá tu combo | La pastillita adelante de cada plato |
+
 ## Ajustes después de probar a mano (16/10) — de a uno, con freno
 (Desde el 16/10 se hacen cuando se llega a su pantalla: ver la tabla de arriba.)
 Detalle de cada uno en la sección 12 de `INFORME-CAMBIOS-HELADERA.md`. Decisiones del usuario (16/10): motivo de las salidas

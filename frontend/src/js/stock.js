@@ -51,7 +51,7 @@ function renderizarInsumos(insumos) {//funcion para hacer la tabla de insumos. r
 function crearFilaInsumo(insumo) {// SE ARMA LA FILA DE UN INSUMO, LA PAGINACION LLAMA A ESTA FUNCION POR CADA INSUMO DE LA PAGINA
   const tr = document.createElement('tr');// ESTE TR ES CADA FILA DE LA TABLA, SE CREA POR CADA INSUMO
 
-  const codigo = '#' + String(insumo.id).padStart(3, '0');
+  const codigo = String(insumo.id).padStart(3, '0');   // ej: "005" (29/10: sin el "#" adelante)
 
   const nombre = insumo.nombre;
 

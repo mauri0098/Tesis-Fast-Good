@@ -119,6 +119,8 @@
           <thead>
             <tr>
               <!-- Plato, Plan, Disponibles, Total y Estado se ordenan tocando el título (heladera.js) -->
+              <!-- 29/10: el código del plato ("F3") en su propia columna, antes del plato -->
+              <th class="col-codigo">Código</th>
               <th class="col-plato" aria-sort="none">
                 <button type="button" class="boton-ordenar" data-columna="nombre">Plato
                   <svg class="icono-orden" viewBox="0 0 24 24" aria-hidden="true"><path class="flecha-sube" d="M8 10l4-4 4 4"></path><path class="flecha-baja" d="M8 14l4 4 4-4"></path></svg>
@@ -162,7 +164,7 @@
           </thead>
           <tbody id="heladeraBody">
             <tr>
-              <td colspan="8" class="loading-text">Cargando datos...</td>
+              <td colspan="9" class="loading-text">Cargando datos...</td>
             </tr>
           </tbody>
         </table>
@@ -255,6 +257,7 @@
               <table class="tabla-pedido">
                 <thead>
                   <tr>
+                    <th class="col-codigo">Código</th>
                     <th class="col-plato">Plato</th>
                     <th class="col-plan">Plan</th>
                     <th class="col-numero col-libres">Disponibles</th>

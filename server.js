@@ -556,6 +556,7 @@ app.get('/api/v1/productos/:id', async (req, res) => {
 });
 
 // GET /api/v1/combos → combos activos con su plan, la categoría del plan y su menú (lo usa index-combos.html).
+// 28/10 (código de plato): cada plato del menú trae también su codigo_plato (ej: "F3").
 // Es pública, como el catálogo: solo manda lo que la web necesita mostrar.
 // De cada plato del menú manda "disponibles": las viandas que hay en la heladera, con un tope igual a
 // la cantidad del combo (así no se muestra el stock real completo). Lo personalizado no tiene tope:
@@ -577,7 +578,7 @@ app.get('/api/v1/combos', limiteCatalogo, async (req, res) => {
       ),
       combo_productos (
         activo,
-        productos ( id, nombre, descripcion, imagen, activo, stock_heladera )
+        productos ( id, nombre, codigo_plato, descripcion, imagen, activo, stock_heladera )
       )
     `)
     .eq('activo', true)
@@ -602,6 +603,7 @@ app.get('/api/v1/combos', limiteCatalogo, async (req, res) => {
       menu.push({
         id:          plato.id,
         nombre:      plato.nombre,
+        codigo_plato: plato.codigo_plato || null,   // su código (ej: "F3"; 28/10). La web lo muestra si no está ya en el nombre
         descripcion: plato.descripcion,
         imagen:      plato.imagen,
         disponibles: Math.min(enHeladera, combo.cantidad)
@@ -1981,8 +1983,10 @@ app.get('/api/recetas', requireAuth, requireRol(6, 5), async (req, res) => {
       id_cocinero,
       cocinero:usuarios!id_cocinero ( nombre, apellido ),
       plan:planes (
+        id,
         nombre,
         codigo_plan,
+        id_categoria,
         categoria:categorias ( nombre )
       ),
       insumos:producto_insumo (
@@ -2010,9 +2014,11 @@ app.get('/api/recetas', requireAuth, requireRol(6, 5), async (req, res) => {
     id_cocinero:     p.id_cocinero || null,
     cocinero_nombre: p.cocinero ? [p.cocinero.nombre, p.cocinero.apellido].filter(Boolean).join(' ') : null,
     plan: p.plan ? {
-      nombre:    p.plan.nombre,
-      codigo:    p.plan.codigo_plan || null,
-      categoria: p.plan.categoria ? p.plan.categoria.nombre : null
+      id:           p.plan.id,                                    // 28/10: para que "Editar" arranque con su plan elegido…
+      nombre:       p.plan.nombre,
+      codigo:       p.plan.codigo_plan || null,
+      id_categoria: p.plan.id_categoria,                          // …y con su categoría
+      categoria:    p.plan.categoria ? p.plan.categoria.nombre : null
     } : null,
     insumos: (p.insumos || []).map(ins => ({
       id_insumo:          ins.id_insumo,
@@ -2554,7 +2560,7 @@ app.get('/api/viandas-stock', requireAuth, requireRol(...ROLES_HELADERA), async 
     // 1. Los platos activos, con su plan y los insumos de su receta
     const { data: platos, error: errPlatos } = await supabase     // pide a la base...
       .from('productos')                                          // ...la tabla de platos
-      .select('id, nombre, descripcion, stock_heladera, stock_minimo, id_plan, planes ( nombre, activo ), producto_insumo ( id_insumo )')  // el plato (con su descripción), su plan y su receta
+      .select('id, nombre, codigo_plato, descripcion, stock_heladera, stock_minimo, id_plan, planes ( nombre, activo ), producto_insumo ( id_insumo )')  // el plato (con su código y su descripción), su plan y su receta
       .eq('activo', true)                                         // solo los activos
       .order('nombre', { ascending: true });                      // ordenados por nombre
     if (errPlatos) return errorInterno(res, errPlatos);           // si falló la base: 500 con un mensaje simple
@@ -2588,6 +2594,7 @@ app.get('/api/viandas-stock', requireAuth, requireRol(...ROLES_HELADERA), async 
       resultado.push({                                            // se agrega a la respuesta:
         id:             plato.id,                                 // número del plato
         nombre:         plato.nombre,                             // su nombre
+        codigo_plato:   plato.codigo_plato || null,               // su código (ej: "F3"; 28/10)
         descripcion:    plato.descripcion || '',                  // su descripción ('' si no tiene)
         stock_heladera: libres,                                  // las libres
         reservadas:     reservadas,                               // las reservadas
@@ -2761,6 +2768,7 @@ app.post('/api/ordenes-produccion', requireAuth, requireRol(...ROLES_PIDEN_COCIN
 //        plato: 'fideos', plan: 'Mantenimiento', cantidad: 2, cocinero: 'Ana López' }]
 // El id_cocinero del renglón es solo para mostrar (agrupar por cocinero).
 // 28/10 (Tareas de Cocina nueva): se suman fecha_pedido (cuándo se pidió) y pidio (quién lo pidió), solo para mostrar.
+// 28/10 (código de plato): también el codigo_plato de cada plato (ej: "F3").
 // ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/ordenes-produccion/pendientes', requireAuth, requireRol(...ROLES_HELADERA), async (req, res) => {
   try {
@@ -2770,7 +2778,7 @@ app.get('/api/ordenes-produccion/pendientes', requireAuth, requireRol(...ROLES_H
       .select(`
         id, cantidad, id_cocinero,
         ordenes_produccion ( id, fecha_para, fecha_pedido, pidio:usuarios!id_usuario ( nombre, apellido ) ),
-        productos ( nombre, id_cocinero, planes ( nombre, id_cocinero, id_cocinero_suplente ) ),
+        productos ( nombre, codigo_plato, id_cocinero, planes ( nombre, id_cocinero, id_cocinero_suplente ) ),
         cocinero:usuarios!id_cocinero ( nombre, apellido )
       `)                                                          // ...con su pedido, plato, plan y cocinero...
       .eq('hecho', false);                                        // ...los que no están hechos
@@ -2797,6 +2805,7 @@ app.get('/api/ordenes-produccion/pendientes', requireAuth, requireRol(...ROLES_H
         fecha_pedido: detalle.ordenes_produccion.fecha_pedido,    // cuándo se pidió (solo para mostrar)
         pidio:        pidio,                                      // quién lo pidió (solo para mostrar)
         plato:       plato,                                       // el plato
+        codigo_plato: detalle.productos ? detalle.productos.codigo_plato : null,  // su código (ej: "F3"; 28/10)
         plan:        plan,                                        // su plan
         cantidad:    detalle.cantidad,                            // cuántas viandas
         cocinero:    cocinero                                     // quién lo cocina
@@ -2874,6 +2883,7 @@ app.post('/api/ordenes-produccion/detalles/:id/hecho', requireAuth, requireRol(.
 // GET /api/ordenes-produccion/hechos-hoy → lo que la cocina marcó "Hecho" hoy (panel "Hecho hoy" de Producción)
 // ENTRADA: nada (el usuario logueado). Un cocinero (rol 2) ve solo sus platos y los que no tienen cocinero.
 // SALIDA:  [{ id, id_orden, plato, plan, cantidad, marcado_por, fecha_hecho }], del más nuevo al más viejo
+//          28/10 (código de plato): cada uno trae también su codigo_plato (ej: "F3").
 // Ej: [{ id: 21, id_orden: 9, plato: 'fideos', plan: 'Mantenimiento', cantidad: 2, marcado_por: 'Ana López', fecha_hecho: '2026-10-15T17:32:00+00:00' }]
 // "Hoy" es el día de Argentina (de 00:00 a 24:00 en -03:00; no hay horario de verano), sin importar la hora del servidor.
 // Quién lo marcó sale del renglón "produccion" del cuaderno que generó ese "Hecho".
@@ -2893,7 +2903,7 @@ app.get('/api/ordenes-produccion/hechos-hoy', requireAuth, requireRol(...ROLES_H
       .from('orden_produccion_detalles')                          // ...los platos de los pedidos a cocina
       .select(`
         id, cantidad, fecha_hecho, id_orden_produccion,
-        productos ( nombre, id_cocinero, planes ( nombre, id_cocinero, id_cocinero_suplente ) ),
+        productos ( nombre, codigo_plato, id_cocinero, planes ( nombre, id_cocinero, id_cocinero_suplente ) ),
         movimiento:movimientos_viandas!id_movimiento_vianda ( usuarios ( nombre, apellido ) )
       `)                                                          // el renglón, su plato y plan, y el usuario del renglón "produccion"
       .eq('hecho', true)                                          // solo los hechos
@@ -2917,6 +2927,7 @@ app.get('/api/ordenes-produccion/hechos-hoy', requireAuth, requireRol(...ROLES_H
         id:          detalle.id,                                  // número del renglón
         id_orden:    detalle.id_orden_produccion,                 // número del pedido a cocina
         plato:       plato,                                       // el plato
+        codigo_plato: detalle.productos ? detalle.productos.codigo_plato : null,  // su código (ej: "F3"; 28/10)
         plan:        plan,                                        // su plan
         cantidad:    detalle.cantidad,                            // cuántas viandas
         marcado_por: marcadoPor,                                  // quién tocó "Hecho"
@@ -2936,6 +2947,7 @@ app.get('/api/ordenes-produccion/hechos-hoy', requireAuth, requireRol(...ROLES_H
 // ENTRADA: el número del pedido a cocina en la dirección. El usuario sale del token.
 //          Un cocinero (rol 2) ve solo los platos que le tocan y los que no tienen a nadie (la regla de siempre).
 // SALIDA:  { id, fecha_pedido, fecha_para, pidio, platos: [{ id, plato, plan, cantidad, hecho }] }
+//          28/10 (código de plato): cada plato trae también su codigo_plato (ej: "F3").
 //          · 400 número inválido · 404 no existe (o el cocinero no tiene ningún plato ahí) · 500
 // Ej: /api/ordenes-produccion/112 → { id: 112, fecha_pedido: '2026-10-24T13:05:00+00:00', fecha_para: '2026-10-25',
 //        pidio: 'Mauri', platos: [{ id: 301, plato: 'Canelones de verdura', plan: 'Keto', cantidad: 12, hecho: false }, …] }
@@ -2956,7 +2968,7 @@ app.get('/api/ordenes-produccion/:id', requireAuth, requireRol(...ROLES_HELADERA
         pidio:usuarios!id_usuario ( nombre, apellido ),
         orden_produccion_detalles (
           id, cantidad, hecho,
-          productos ( nombre, id_cocinero, planes ( nombre, id_cocinero, id_cocinero_suplente ) )
+          productos ( nombre, codigo_plato, id_cocinero, planes ( nombre, id_cocinero, id_cocinero_suplente ) )
         )
       `)                                                          // ...con quién lo pidió y sus platos...
       .eq('id', idOrden)                                          // ...el de este número
@@ -2976,6 +2988,7 @@ app.get('/api/ordenes-produccion/:id', requireAuth, requireRol(...ROLES_HELADERA
       platos.push({                                               // se agrega:
         id:       detalle.id,                                     // número del renglón
         plato:    plato,                                          // el plato
+        codigo_plato: detalle.productos ? detalle.productos.codigo_plato : null,  // su código (ej: "F3"; 28/10)
         plan:     plan,                                           // su plan
         cantidad: detalle.cantidad,                               // cuántas viandas
         hecho:    detalle.hecho                                   // si ya está hecho
@@ -3450,7 +3463,7 @@ app.get('/api/envios', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => 
       pedido_detalles (
         cantidad,
         precio_unitario,
-        productos ( nombre )
+        productos ( nombre, codigo_plato )
       )
     `)
     .eq('tipo_entrega', 'Delivery')
@@ -3470,49 +3483,89 @@ app.get('/api/envios', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => 
    API PLANES (para modal de recetas)
    ====================================================== */
 
-// GET /api/planes → planes activos con su prefijo de código
+// GET /api/planes → planes activos con su abreviatura (codigo_plan) y su contador de platos
+// SALIDA: [{ id, nombre, codigo_plan, id_categoria, ultimo_numero_plato }]. Lo usan Combos (el select de planes)
+//         y la ventana "Abreviaturas de los planes" de Generar Receta.
+// 28/10 (código de plato): se suma ultimo_numero_plato (el último número que se dio en el plan).
 app.get('/api/planes', requireAuth, requireRol(6, 5), async (req, res) => {
   const { data, error } = await supabase
     .from('planes')
-    .select('id, nombre, codigo_plan, id_categoria')
+    .select('id, nombre, codigo_plan, id_categoria, ultimo_numero_plato')
     .eq('activo', true)
     .order('nombre', { ascending: true });
   if (error) return errorInterno(res, error);
   res.json(data || []);
 });
 
-// GET /api/planes/:id/siguiente-codigo → calcula el próximo código correlativo del plan
+// Lee el número de plan de la dirección: entero, mayor a 0 y que entre en la base (null si no sirve)
+function leerIdPlan(texto) {
+  const idPlan = Number(texto);                                   // Number: "12abc" no pasa
+  const idInvalido = !Number.isInteger(idPlan) || idPlan <= 0 || idPlan > ENTERO_MAXIMO_BASE;
+  return idInvalido ? null : idPlan;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/planes/:id/siguiente-codigo → el código que le TOCARÍA al próximo plato del plan (solo para mostrar)
+// ENTRADA: el número del plan en la dirección
+// SALIDA:  { codigo: 'F4' } · 400 número inválido · 404 no existe o está desactivado · 409 el plan no tiene abreviatura
+// Ej: Mantenimiento (F) con el contador en 3 → { codigo: 'F4' }
+// No toma el número: el código de verdad lo da la base al guardar (tomar_codigo_plato / cambiar_plan_plato).
+// Si en el medio alguien crea otro plato del mismo plan, al guardar sale el siguiente (y la pantalla lo muestra).
+// 28/10: antes buscaba el número más alto leyendo los códigos; ahora usa el contador del plan (no reutiliza números).
+// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/planes/:id/siguiente-codigo', requireAuth, requireRol(6, 5), async (req, res) => {
-  const idPlan = parseInt(req.params.id, 10);
-  if (isNaN(idPlan)) return res.status(400).json({ error: 'ID de plan inválido' });
+  const idPlan = leerIdPlan(req.params.id);                       // el plan, controlado
+  if (idPlan === null) return res.status(400).json({ error: 'ID de plan inválido' });
 
   try {
-    const { data: plan, error: errPlan } = await supabase
-      .from('planes')
-      .select('codigo_plan')
-      .eq('id', idPlan)
-      .single();
+    const { data: plan, error } = await supabase                  // pide a la base…
+      .from('planes')                                             // …el plan…
+      .select('codigo_plan, ultimo_numero_plato')                 // …su abreviatura y su contador…
+      .eq('id', idPlan)                                           // …de este número…
+      .eq('activo', true)                                         // …si está activo
+      .maybeSingle();                                             // (uno solo, o null)
+    if (error) return errorInterno(res, error);                   // si falló la base: 500
+    if (!plan) return res.status(404).json({ error: 'Plan no encontrado' });
+    if (!plan.codigo_plan) return res.status(409).json({ error: 'Este plan no tiene abreviatura: cargala en "Abreviaturas de los planes"' });
 
-    if (errPlan || !plan) return res.status(404).json({ error: 'Plan no encontrado' });
+    const siguiente = (Number(plan.ultimo_numero_plato) || 0) + 1; // el número que vendría
+    res.json({ codigo: plan.codigo_plan + siguiente });           // ej: "F" + 4 = "F4"
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
 
-    const prefix = plan.codigo_plan || '';
+// ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/planes/:id/abreviatura → cambia la abreviatura de un plan y el código de sus platos (F3 → M3)
+//                                   (ventana "Abreviaturas de los planes" de Generar Receta)
+// ENTRADA: el número del plan en la dirección y { abreviatura } en el body (de 1 a 4 letras; se pasa a mayúscula)
+// SALIDA:  { mensaje, abreviatura_anterior, abreviatura_nueva, platos_cambiados }
+//          · 400 dato inválido · 409 ya la usa otro plan o el plan no existe (la base no cambia nada) · 500
+// Ej: plan 2, { abreviatura: 'M' } → { abreviatura_anterior: 'F', abreviatura_nueva: 'M', platos_cambiados: 3 }
+// Lo hace la base (cambiar_abreviatura_plan, sql/codigo_plato.sql), todo junto o nada.
+// ─────────────────────────────────────────────────────────────────────────────
+app.put('/api/planes/:id/abreviatura', requireAuth, requireRol(6, 5), async (req, res) => {
+  // 1. Los datos: el plan (número válido) y la abreviatura (texto de 1 a 4 letras, sin números)
+  const idPlan = leerIdPlan(req.params.id);
+  if (idPlan === null) return res.status(400).json({ error: 'ID de plan inválido' });
+  const abreviatura = typeof req.body?.abreviatura === 'string' ? req.body.abreviatura.trim().toUpperCase() : '';  // ?. = "si vino body, su abreviatura"
+  if (!/^[A-Z]{1,4}$/.test(abreviatura)) return res.status(400).json({ error: 'La abreviatura tiene que tener de 1 a 4 letras, sin números' });
 
-    const { data: productos, error: errProd } = await supabase
-      .from('productos')
-      .select('codigo_plato')
-      .eq('id_plan', idPlan);
-
-    if (errProd) return errorInterno(res, errProd);
-
-    let maxNum = 0;
-    (productos || []).forEach(p => {
-      if (p.codigo_plato && p.codigo_plato.startsWith(prefix)) {
-        const num = parseInt(p.codigo_plato.slice(prefix.length), 10);
-        if (!isNaN(num) && num > maxNum) maxNum = num;
-      }
+  try {
+    // 2. La base cambia la abreviatura y los códigos de sus platos, todo junto
+    const { data, error } = await supabase.rpc('cambiar_abreviatura_plan', {
+      p_id_plan:     idPlan,                                      // qué plan
+      p_abreviatura: abreviatura                                  // la abreviatura nueva
     });
+    if (error) return errorInterno(res, error);                   // si falló la base: 500
+    if (!data || !data.ok) return res.status(409).json({ error: data?.error || 'No se pudo cambiar la abreviatura' });
 
-    res.json({ codigo: prefix + (maxNum + 1) });
+    res.json({                                                    // listo:
+      mensaje:              'Abreviatura cambiada',
+      abreviatura_anterior: data.abreviatura_anterior,            // la de antes
+      abreviatura_nueva:    data.abreviatura_nueva,               // la de ahora
+      platos_cambiados:     data.platos_cambiados                 // cuántos platos cambiaron de código
+    });
   } catch (e) {
     errorInterno(res, e);
   }
@@ -3534,41 +3587,25 @@ app.post('/api/productos/con-receta', requireAuth, requireRol(6, 5), async (req,
     if (invalido) return res.status(invalido.status).json({ error: invalido.error });
   }
 
+  // El plan: un número entero mayor a 0 (que exista, esté activo y tenga abreviatura lo controla la base)
+  const idPlan = leerIdPlan(id_plan);
+  if (idPlan === null) return res.status(400).json({ error: 'El plan es inválido' });
+
   try {
-    // Calcular el próximo código de plato para el plan
-    const { data: plan, error: errPlan } = await supabase
-      .from('planes')
-      .select('codigo_plan')
-      .eq('id', id_plan)
-      .single();
-
-    if (errPlan || !plan) return res.status(404).json({ error: 'Plan no encontrado' });
-
-    const prefix = plan.codigo_plan || '';
-
-    const { data: existentes, error: errExist } = await supabase
-      .from('productos')
-      .select('codigo_plato')
-      .eq('id_plan', id_plan);
-
-    if (errExist) return errorInterno(res, errExist);
-
-    let maxNum = 0;
-    (existentes || []).forEach(p => {
-      if (p.codigo_plato && p.codigo_plato.startsWith(prefix)) {
-        const num = parseInt(p.codigo_plato.slice(prefix.length), 10);
-        if (!isNaN(num) && num > maxNum) maxNum = num;
-      }
-    });
-
-    const codigo_plato = prefix + (maxNum + 1);
+    // El código del plato lo da la base (tomar_codigo_plato, sql/codigo_plato.sql): abreviatura del plan + el
+    // siguiente número de su contador, en una sola instrucción (dos altas a la vez nunca reciben el mismo).
+    // Si la pantalla mandara un código, no se usa. 28/10: antes se calculaba acá, leyendo los códigos.
+    const { data: codigo, error: errCodigo } = await supabase.rpc('tomar_codigo_plato', { p_id_plan: idPlan });
+    if (errCodigo) return errorInterno(res, errCodigo);           // si falló la base: 500
+    if (!codigo || !codigo.ok) return res.status(400).json({ error: codigo?.error || 'No se pudo armar el código del plato' });
+    const codigo_plato = codigo.codigo;                           // ej: "F4"
 
     // Paso 1: insertar el nuevo producto
     const { data: producto, error: errProducto } = await supabase
       .from('productos')
       .insert({
         nombre:       nombre.trim(),
-        id_plan:      parseInt(id_plan),
+        id_plan:      idPlan,
         codigo_plato,
         precio:       precio    != null ? Number(precio)    : null,
         descuento:    descuento != null ? Number(descuento) : null,
@@ -3599,6 +3636,41 @@ app.post('/api/productos/con-receta', requireAuth, requireRol(6, 5), async (req,
     }
 
     res.json({ mensaje: 'Producto y receta creados correctamente', producto });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/productos/:id/plan → pasa un plato a otro plan, con su código nuevo (Generar Receta → Editar)
+// ENTRADA: el número del plato en la dirección y { id_plan } en el body
+// SALIDA:  { mensaje, codigo_anterior, codigo_nuevo } · 400 dato inválido
+//          · 409 el plato no existe, el plan nuevo no existe / está desactivado / no tiene abreviatura, o es el mismo · 500
+// Ej: plato 4 (F3), { id_plan: 1 } con el contador de K en 4 → { codigo_anterior: 'F3', codigo_nuevo: 'K5' }
+// El código lo da la base (cambiar_plan_plato, sql/codigo_plato.sql), todo junto: la pantalla solo muestra el aviso.
+// Lo guardado (pedidos, pedidos a cocina, heladera, menús de combos) apunta al número del plato: no se rompe nada.
+// ─────────────────────────────────────────────────────────────────────────────
+app.put('/api/productos/:id/plan', requireAuth, requireRol(6, 5), async (req, res) => {
+  // 1. Los datos: el plato y el plan nuevo, números enteros mayores a 0
+  const idProducto = leerIdPlan(req.params.id);                   // (la misma regla de número que un plan)
+  if (idProducto === null) return res.status(400).json({ error: 'ID de plato inválido' });
+  const idPlan = leerIdPlan(req.body?.id_plan);                   // ?. = "si vino body, su id_plan"
+  if (idPlan === null) return res.status(400).json({ error: 'Elegí un plan' });
+
+  try {
+    // 2. La base pasa el plato al plan nuevo y le da el código nuevo, todo junto
+    const { data, error } = await supabase.rpc('cambiar_plan_plato', {
+      p_id_producto: idProducto,                                  // qué plato
+      p_id_plan:     idPlan                                       // a qué plan
+    });
+    if (error) return errorInterno(res, error);                   // si falló la base: 500
+    if (!data || !data.ok) return res.status(409).json({ error: data?.error || 'No se pudo cambiar el plan' });
+
+    res.json({                                                    // listo:
+      mensaje:         'Plan cambiado',
+      codigo_anterior: data.codigo_anterior,                      // ej: F3
+      codigo_nuevo:    data.codigo_nuevo                          // ej: K5
+    });
   } catch (e) {
     errorInterno(res, e);
   }

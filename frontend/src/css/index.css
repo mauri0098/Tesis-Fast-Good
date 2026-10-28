@@ -122,6 +122,14 @@
   --login-error-letra: #b3261e;                  /* …y la letra (también el borde rojo de los casilleros) */
   --login-boton-alto: 54px;                      /* alto de "Ingresar" */
   --login-boton-sombra: 0 10px 22px -12px rgba(18, 137, 58, .8);  /* su sombra verde */
+
+  /* ── PERILLAS: el código del plato ("F3") en "Armá tu combo" (sección 6) ─────────────
+     Los MISMOS valores que en el panel (global.css, sección 13j): el index no carga global.css */
+  --codigo-plato-fondo: #f1f4f1;                 /* fondo gris muy clarito (29/10: antes oscuro) */
+  --codigo-plato-letra: #3a4640;                 /* letra gris oscuro (el --titulo del panel) */
+  --codigo-plato-alto: 20px;                     /* alto */
+  --codigo-plato-tamano: 12px;                   /* tamaño de la letra (semibold, 600) */
+  --codigo-plato-ancho-minimo: 28px;             /* lo más angosta */
 }
 /* Las perillas que cambian en el celu (como la referencia): "Fast Good" de 44 px, la foto de la tarjeta más
    apaisada, las tarjetas más juntas y su nombre y su precio un poco más chicos */
@@ -1002,6 +1010,28 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 .plato .foto { aspect-ratio: 1; font-size: .6875rem; padding: 4px; }
 .plato-datos { display: grid; gap: 4px; align-self: center; min-width: 0; }
 .plato h3 { font-size: 1rem; font-weight: 700; letter-spacing: -.01em; line-height: 1.3; }
+/* El código del plato ("F3") adelante del nombre: la misma pastillita del panel (global.css 13j). La arma pastillaCodigo
+   (escape.js), que no la pone si el nombre ya trae el código ("F3 - Pollito") */
+.codigo-plato {
+  min-width: var(--codigo-plato-ancho-minimo);
+  height: var(--codigo-plato-alto);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  margin-right: 8px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--codigo-plato-fondo);
+  color: var(--codigo-plato-letra);
+  font-size: var(--codigo-plato-tamano);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+}
 .plato p { color: var(--texto-suave); font-size: .875rem; line-height: 1.4; overflow-wrap: anywhere; }
 .plato .selector-cantidad { margin-top: 6px; }
 @media (min-width: 520px) {

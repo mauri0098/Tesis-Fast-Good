@@ -333,14 +333,14 @@ async function abrirMenuCombo(idCombo) {
     if (!plato.plato_activo) {
       nombre = nombre + ' <span class="plato-desactivado">(desactivado)</span>';
     }
-    let codigo = '—';
-    if (plato.codigo) codigo = plato.codigo;
+    // 28/10: el código, en la pastillita de siempre ("F3"; pastillaCodigo, de escape.js, ya pasa por escHtml)
+    const codigo = pastillaCodigo(plato.codigo, '') || '—';
     let plan = '—';
     if (plato.plan) plan = plato.plan;
 
     filas += `
       <tr>
-        <td>${escHtml(codigo)}</td>
+        <td>${codigo}</td>
         <td>${nombre}</td>
         <td>${escHtml(plan)}</td>
         <td><button class="btn-borrar" onclick="quitarPlatoDelMenu(${Number(plato.id_producto)})">Sacar</button></td>
@@ -364,10 +364,10 @@ async function abrirMenuCombo(idCombo) {
   } else {
     let opciones = '<option value="">Elegí un plato...</option>';
     datos.disponibles.forEach(plato => {
-      // Ej: "arroz — MANTENIMIENTO (M8)"
+      // Ej: "F3 · arroz — MANTENIMIENTO" (28/10: el código primero; una opción de lista no puede llevar la pastillita)
       let texto = plato.nombre;
+      if (plato.codigo) texto = plato.codigo + ' · ' + texto;
       if (plato.plan) texto = texto + ' — ' + plato.plan;
-      if (plato.codigo) texto = texto + ' (' + plato.codigo + ')';
       opciones += `<option value="${Number(plato.id)}">${escHtml(texto)}</option>`;
     });
     lista.innerHTML = opciones;

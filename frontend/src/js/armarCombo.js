@@ -196,13 +196,15 @@ function renderizarMenuCombo() {
                   data-id-plato="${escHtml(plato.id)}" ${apagadoSiCompleto}>✎ Personalizar</button>`;
     const estaPersonalizando = platoPersonalizando === plato.id;
     const personalizar = estaPersonalizando ? campoPersonalizar : botonPersonalizar;
+    // 28/10: el código del plato ("F3") adelante del nombre, salvo que el nombre ya lo traiga ("F3 - …"): pastillaCodigo
+    const codigoPlato = pastillaCodigo(plato.codigo_plato, plato.nombre);
 
     html += `
       <li class="plato${claseElegido}">
         <img class="foto${claseLogo}" src="${escHtml(imagen)}" alt="" loading="lazy"
              onerror="this.onerror = null; this.src = '${IMAGEN_POR_DEFECTO}'; this.classList.add('foto-logo');">
         <div class="plato-datos">
-          <h3>${escHtml(plato.nombre)}</h3>
+          <h3>${codigoPlato}${escHtml(plato.nombre)}</h3>
           ${descripcion}
           ${avisoSinStock}${avisoQuedan}
         </div>

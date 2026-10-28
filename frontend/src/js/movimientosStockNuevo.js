@@ -462,7 +462,7 @@ function renderizarMovimientos(movimientos) {
 // SALIDA:  un DocumentFragment con los dos renglones (crearPaginacion lo pega en la tabla).
 //          Un DocumentFragment es como un tbody vacío en memoria: así el movimiento entra entero en su página.
 // Columnas: Fecha y hora · Origen · Referencia · Tipo · Resumen · Usuario · Proveedor · Motivo · Detalle
-// Ej: el "Hecho" de 2 fideos → "15/10/2026 14:32 · Producción · Pedido a cocina #9 · ▲ Entrada ·
+// Ej: el "Hecho" de 2 fideos → "15/10/2026 14:32 · Producción · Cocina #009 · ▲ Entrada ·
 //     2 viandas · 2 insumos · Ana López · — · Producción de viandas · [Ver]"
 // ─────────────────────────────────────────────────────────────────────────────
 function crearRenglon(mov) {
@@ -478,7 +478,7 @@ function crearRenglon(mov) {
       referencia = "Compra #" + mov.numero;
       break;
     case "produccion":                                             // según sea un "Hecho": su pedido a cocina
-      referencia = mov.numero ? "Pedido a cocina #" + mov.numero : "Tanda vieja";  // las tandas de antes no tienen
+      referencia = mov.numero ? "Cocina #" + String(mov.numero).padStart(3, "0") : "Tanda vieja";  // ej: "Cocina #009" (29/10); las tandas de antes no tienen
       break;
     case "venta":                                                  // según sea una venta: el pedido
       referencia = "Pedido " + numeroPedido;
@@ -509,7 +509,7 @@ function crearRenglon(mov) {
   const resumen = partesResumen.join(" · ");                       // join las une con " · "
 
   const proveedor = mov.proveedor || "—";                          // solo las compras tienen
-  const motivo = MOTIVO_FIJO[mov.origen] || mov.motivo || "—";     // el fijo, el escrito o "—"
+  const motivo = MOTIVO_FIJO[mov.origen] || motivoParaMostrar(mov.motivo) || "—";  // el fijo, el escrito o "—" (29/10: con el número como en todas las pantallas: "Pedido #068")
 
   // 2. El renglón (lo que viene de la base pasa por escHtml)
   const tr = document.createElement("tr");
@@ -572,10 +572,10 @@ function htmlDetalle(mov) {
       datos = '<p class="detalle-linea"><strong>Cliente:</strong> ' + escHtml(mov.cliente || "—") + "</p>";
       break;
     case "descarte":                                               // según sea un descarte: por qué
-      datos = '<p class="detalle-linea"><strong>Motivo:</strong> ' + escHtml(mov.motivo || "—") + "</p>";
+      datos = '<p class="detalle-linea"><strong>Motivo:</strong> ' + escHtml(motivoParaMostrar(mov.motivo) || "—") + "</p>";
       break;
     case "ajuste":                                                 // según sea un ajuste: por qué
-      datos = '<p class="detalle-linea"><strong>Motivo:</strong> ' + escHtml(mov.motivo || "—") + "</p>";
+      datos = '<p class="detalle-linea"><strong>Motivo:</strong> ' + escHtml(motivoParaMostrar(mov.motivo) || "—") + "</p>";
       break;
   }
 

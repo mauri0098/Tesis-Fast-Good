@@ -1,3 +1,19 @@
+// ============================================================================
+// generarReceta.js — Generar Receta (pages/generarReceta.html): la lista de platos con su receta,
+// "Nuevo producto", "Editar receta" y (28/10) las abreviaturas de los planes.
+//
+// Funciones nuevas o cambiadas por el código de plato (28/10):
+//   crearFilaReceta            → la columna Código muestra la pastillita ("F3")
+//   abrirModalEditar           → arranca con la categoría y el plan del plato, y su código
+//   actualizarCodigoAutomatico → muestra el código que tendría con el plan elegido; al editar, el aviso "F3 → K5"
+//   actualizarRecetaExistente  → si cambió el plan, pregunta y lo cambia primero (con cambiarPlanDelPlato)
+//   cambiarPlanDelPlato        → PUT /api/productos/:id/plan: el servidor da el código nuevo
+//   abrirAbreviaturas          → la ventana "Abreviaturas de los planes" (GET /api/planes)
+//   guardarAbreviatura         → guarda la abreviatura de un plan (PUT /api/planes/:id/abreviatura)
+//   cerrarAbreviaturas         → cierra esa ventana
+// Lo que viene de la base pasa por escHtml (o se pone con textContent).
+// ============================================================================
+
 // Variables globales
 let todasRecetas    = [];
 let todosInsumos    = [];
@@ -6,6 +22,9 @@ let todasCategorias = [];
 let idProductoEditando = null;
 let modoCreacion       = false;
 let cocineroOriginal   = '';   // cocinero del plato al abrir "Editar", para saber si cambió
+let planOriginal       = '';   // plan del plato al abrir "Editar" (su número, como texto), para saber si cambió (28/10)
+let codigoOriginal     = '';   // código del plato al abrir "Editar" (ej: "F3")
+let codigoPrevisto     = '';   // el código que mostró la pantalla con el plan nuevo (ej: "K5")
 
 // Imagen pendiente de subir (se sube recién después de guardar la receta,
 // porque para un producto nuevo todavía no existe id_producto)
@@ -24,6 +43,7 @@ document.addEventListener('DOMContentLoaded', function () {
   window.addEventListener('click', function (e) {
     if (e.target === document.getElementById('modalDetalles')) cerrarModalDetalles();
     if (e.target === document.getElementById('modalEditar'))   cerrarModalEditar();
+    if (e.target === document.getElementById('modalAbreviaturas')) cerrarAbreviaturas();
   });
 
   document.getElementById('btnEditarDesdeDetalles').addEventListener('click', function () {
@@ -39,6 +59,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const codigoInput = document.getElementById('edCodigo');
 
     codigoInput.value = '';
+    document.getElementById('edAvisoCodigo').hidden = true;   // sin plan elegido, no hay aviso del código
 
     if (!idCat) {
       planSelect.innerHTML = '<option value="">Seleccioná una categoría primero</option>';
@@ -56,6 +77,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (!idPlan) {
       codigoInput.value = '';
+      document.getElementById('edAvisoCodigo').hidden = true;
       return;
     }
 
@@ -104,10 +126,12 @@ function renderizarRecetas(recetas) {
 function crearFilaReceta(receta) {
   const tr = document.createElement('tr');
 
-  // — Código de Plato —
+  // — Código de Plato: la pastillita ("F3"), la misma de todas las pantallas (pastillaCodigo, escape.js).
+  //   El servidor manda '-' cuando el plato no tiene código: ahí va "—"
   const tdCodigo = document.createElement('td');
-  tdCodigo.className   = 'td-codigo';
-  tdCodigo.textContent = receta.codigo_plato || '—';
+  tdCodigo.className = 'td-codigo';
+  const codigo = receta.codigo_plato !== '-' ? receta.codigo_plato : null;
+  tdCodigo.innerHTML = pastillaCodigo(codigo, '') || '—';     // pastillaCodigo ya pasa el código por escHtml
 
   // — Categoría —
   const tdCategoria = document.createElement('td');
@@ -440,6 +464,7 @@ function abrirModalNuevaReceta() {
   document.getElementById('edCodigo').value    = '';
   document.getElementById('edPrecio').value    = '';
   document.getElementById('edDescuento').value = '';
+  document.getElementById('edAvisoCodigo').hidden = true;     // el aviso del código es solo para "Editar"
   limpiarImagen();
 
   const planSelect = document.getElementById('edPlan');
@@ -483,9 +508,24 @@ async function abrirModalEditar(idProducto) {
 
   await Promise.all([
     cargarInsumosDisponibles(),
-    cargarCocinerosEnSelect(receta ? receta.id_cocinero : null, receta ? receta.cocinero_nombre : null)
+    cargarCocinerosEnSelect(receta ? receta.id_cocinero : null, receta ? receta.cocinero_nombre : null),
+    cargarCategoriasEnSelect()
   ]);
   cocineroOriginal = (receta && receta.id_cocinero) || '';
+
+  // Categoría, plan y código del plato (28/10): arrancan con los suyos. Si se elige otro plan, el código se
+  // recalcula y aparece el aviso (actualizarCodigoAutomatico). || = el valor de la derecha si no hay plan
+  const planDelPlato = (receta && receta.plan) || {};
+  planOriginal   = planDelPlato.id ? String(planDelPlato.id) : '';
+  codigoOriginal = receta && receta.codigo_plato !== '-' ? receta.codigo_plato : '';
+  codigoPrevisto = '';
+  document.getElementById('edCodigo').value        = codigoOriginal;
+  document.getElementById('edAvisoCodigo').hidden  = true;
+  if (planDelPlato.id_categoria) {
+    document.getElementById('edCategoria').value = String(planDelPlato.id_categoria);
+    await cargarPlanesParaCategoria(planDelPlato.id_categoria);  // los planes de su categoría…
+    document.getElementById('edPlan').value = planOriginal;      // …con el suyo elegido
+  }
 
   if (receta && receta.insumos) {
     receta.insumos.forEach(function (ins) { agregarFilaInsumo(ins); });
@@ -507,6 +547,10 @@ function cerrarModalEditar() {
   idProductoEditando = null;
   modoCreacion       = false;
   cocineroOriginal   = '';
+  planOriginal       = '';
+  codigoOriginal     = '';
+  codigoPrevisto     = '';
+  document.getElementById('edAvisoCodigo').hidden = true;
 }
 
 // ==========================================
@@ -609,8 +653,25 @@ async function cargarPlanesParaCategoria(idCategoria) {
 // ==========================================
 // CÓDIGO AUTOMÁTICO (según plan seleccionado)
 // ==========================================
+// actualizarCodigoAutomatico → muestra el código que tendría el plato con el plan elegido
+// ENTRADA: idPlan, el plan elegido en el formulario
+// SALIDA:  nada. Escribe el código en el casillero (de solo lectura) y, al EDITAR con otro plan, el aviso
+//          "El código va a cambiar de F3 a K5". Si el plan no tiene abreviatura, el aviso lo dice.
+// Ej: Nuevo, plan Mantenimiento con el contador en 3 → "F4" · Editar F3 y elegir Descenso de peso → "K5" + aviso
+// Es solo para mostrar: el código de verdad lo da el servidor al guardar.
 async function actualizarCodigoAutomatico(idPlan) {
   const codigoInput     = document.getElementById('edCodigo');
+  const aviso           = document.getElementById('edAvisoCodigo');
+  aviso.hidden          = true;
+  codigoPrevisto        = '';
+
+  // Al editar y volver a su mismo plan: el código de siempre, sin aviso
+  const esSuPlan = !modoCreacion && String(idPlan) === planOriginal;
+  if (esSuPlan) {
+    codigoInput.value = codigoOriginal;
+    return;
+  }
+
   codigoInput.value     = 'Calculando...';
   codigoInput.classList.add('calculando');
 
@@ -619,6 +680,15 @@ async function actualizarCodigoAutomatico(idPlan) {
     const data     = await response.json();
 
     codigoInput.value = response.ok ? data.codigo : '';
+    if (!response.ok) {                                         // ej: el plan no tiene abreviatura
+      aviso.textContent = data.error || 'No se pudo calcular el código.';
+      aviso.hidden      = false;
+      return;
+    }
+    codigoPrevisto = data.codigo;
+    if (modoCreacion) return;                                   // en "Nuevo" no hay aviso: el código es nuevo
+    aviso.textContent = 'El código va a cambiar de ' + (codigoOriginal || 'sin código') + ' a ' + data.codigo + '.';
+    aviso.hidden      = false;
   } catch (error) {
     console.error('Error al calcular código:', error);
     codigoInput.value = '';
@@ -827,6 +897,21 @@ async function actualizarRecetaExistente(insumos) {
   const precio    = document.getElementById('edPrecio').value    !== '' ? parseFloat(document.getElementById('edPrecio').value)    : null;
   const descuento = document.getElementById('edDescuento').value !== '' ? parseFloat(document.getElementById('edDescuento').value) : null;
 
+  // El plan (28/10): si se eligió otro, se pregunta y se cambia PRIMERO. Si eso falla, no se guarda nada más.
+  const idPlanElegido = document.getElementById('edPlan').value;
+  if (!idPlanElegido) { mostrarError('Seleccioná un plan.'); return; }
+  const cambioElPlan = idPlanElegido !== planOriginal;
+  if (cambioElPlan) {
+    const pregunta = 'El código va a cambiar de ' + (codigoOriginal || 'sin código') + ' a ' + (codigoPrevisto || 'uno nuevo') + '. ¿Seguimos?';
+    if (!confirm(pregunta)) return;                             // si dice que no, no se guarda nada
+    const resultadoPlan = await cambiarPlanDelPlato(idProductoEditando, parseInt(idPlanElegido, 10));
+    if (resultadoPlan.error) { mostrarError(resultadoPlan.error); return; }
+    // Si en el medio otro plato tomó ese número, el servidor dio el siguiente: se avisa cuál quedó
+    if (codigoPrevisto && resultadoPlan.codigo_nuevo !== codigoPrevisto) {
+      alert('El código quedó ' + resultadoPlan.codigo_nuevo + ' (el ' + codigoPrevisto + ' lo tomó otro plato mientras editabas).');
+    }
+  }
+
   try {
     const response = await apiFetch('/api/recetas', {
       method:  'POST',
@@ -859,6 +944,26 @@ async function actualizarRecetaExistente(insumos) {
 
   cerrarModalEditar();
   await fetchRecetas();
+}
+
+// cambiarPlanDelPlato → pasa el plato a otro plan (PUT /api/productos/:id/plan): el servidor le da el código nuevo
+// ENTRADA: idProducto y idPlan (el plan nuevo)
+// SALIDA:  { codigo_anterior, codigo_nuevo } si salió bien, o { error: 'mensaje' }
+// Ej: (4, 1) → { codigo_anterior: 'F3', codigo_nuevo: 'K5' }
+async function cambiarPlanDelPlato(idProducto, idPlan) {
+  try {
+    const response = await apiFetch('/api/productos/' + idProducto + '/plan', {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ id_plan: idPlan })
+    });
+    const data = await response.json().catch(function () { return {}; });   // si no es JSON, un objeto vacío
+    if (response.ok) return data;
+    return { error: data.error || 'No se pudo cambiar el plan.' };
+  } catch (error) {
+    console.error('Error al cambiar el plan:', error);
+    return { error: 'No se pudo conectar con el servidor.' };
+  }
 }
 
 // PUT /api/productos/:id/cocinero → devuelve null si salió bien, o el mensaje de error
@@ -907,4 +1012,109 @@ async function borrarReceta(idProducto) {
     console.error('Error al borrar receta:', error);
     alert('Error al eliminar. Intentá de nuevo.');
   }
+}
+
+// ==========================================
+// ABREVIATURAS DE LOS PLANES (28/10)
+// ==========================================
+
+// planesAbreviaturas: los planes que muestra la ventana, por número (para guardar sin volver a pedirlos)
+let planesAbreviaturas = {};
+
+// abrirAbreviaturas → abre la ventana con cada plan, su abreviatura y el código que tendría su próximo plato
+// ENTRADA: nada
+// SALIDA:  nada. Pide GET /api/planes y dibuja una fila por plan: "MANTENIMIENTO · [F] · F4 · Guardar"
+async function abrirAbreviaturas() {
+  const tbody = document.getElementById('listaAbreviaturas');
+  tbody.innerHTML = '<tr><td colspan="4" class="loading-text">Cargando planes...</td></tr>';
+  document.getElementById('abResultado').hidden = true;
+  document.getElementById('modalAbreviaturas').style.display = 'block';
+
+  let planes = [];
+  try {
+    const response = await apiFetch('/api/planes');
+    if (!response.ok) throw new Error('HTTP ' + response.status);   // si el servidor dio error, va al catch
+    planes = await response.json();
+  } catch (error) {
+    console.error('Error al cargar los planes:', error);
+    tbody.innerHTML = '<tr><td colspan="4" class="loading-text">No se pudieron cargar los planes.</td></tr>';
+    return;
+  }
+
+  // Una fila por plan. El nombre y la abreviatura vienen de la base: escHtml
+  planesAbreviaturas = {};
+  let html = '';
+  planes.forEach(function (plan) {
+    planesAbreviaturas[plan.id] = plan;
+    const abreviatura = plan.codigo_plan || '';
+    const proximo = abreviatura + ((Number(plan.ultimo_numero_plato) || 0) + 1);      // ej: "F4"
+    const celdaProximo = abreviatura ? pastillaCodigo(proximo, '') : '—';              // sin abreviatura: "—"
+    html += '<tr>'
+      + '<td>' + escHtml(plan.nombre) + '</td>'
+      + '<td><input type="text" class="input-texto casillero-abreviatura" id="abPlan' + Number(plan.id) + '" maxlength="4"'
+      + ' value="' + escHtml(abreviatura) + '" aria-label="Abreviatura de ' + escHtml(plan.nombre) + '"></td>'
+      + '<td>' + celdaProximo + '</td>'
+      + '<td><button type="button" class="btn-guardar-abreviatura" onclick="guardarAbreviatura(' + Number(plan.id) + ')">Guardar</button></td>'
+      + '</tr>';
+  });
+  tbody.innerHTML = html || '<tr><td colspan="4" class="loading-text">No hay planes activos.</td></tr>';
+}
+
+// guardarAbreviatura → guarda la abreviatura de un plan; los códigos de sus platos cambian con el mismo número
+// ENTRADA: idPlan
+// SALIDA:  nada. Pregunta "Los códigos de MANTENIMIENTO pasan de F… a M… (F3 → M3). ¿Seguimos?", manda
+//          PUT /api/planes/:id/abreviatura y muestra el resultado ("✓ Listo: 3 platos pasaron a M…") o el error.
+// Ej: plan 2, de "F" a "m" → se manda "M"; F1, F2, F3 pasan a M1, M2, M3.
+// El servidor vuelve a controlar el formato y que no la use otro plan.
+async function guardarAbreviatura(idPlan) {
+  const plan      = planesAbreviaturas[idPlan];
+  const resultado = document.getElementById('abResultado');
+  if (!plan) return;
+
+  // 1. La abreviatura escrita: de 1 a 4 letras, en mayúscula
+  const nueva    = document.getElementById('abPlan' + idPlan).value.trim().toUpperCase();
+  const anterior = plan.codigo_plan || '';
+  const formatoMal = !/^[A-Z]{1,4}$/.test(nueva);
+  if (formatoMal) {
+    resultado.className   = 'resultado-abreviaturas resultado-error';
+    resultado.textContent = 'La abreviatura de ' + plan.nombre + ' tiene que tener de 1 a 4 letras, sin números.';
+    resultado.hidden      = false;
+    return;
+  }
+  if (nueva === anterior) return;                               // no cambió: nada
+
+  // 2. Se pregunta (con un ejemplo: el último número que se dio en el plan)
+  const ejemplo  = Number(plan.ultimo_numero_plato) || 1;
+  const pregunta = anterior
+    ? 'Los códigos de los platos de ' + plan.nombre + ' pasan de ' + anterior + '… a ' + nueva + '… (' + anterior + ejemplo + ' → ' + nueva + ejemplo + '). ¿Seguimos?'
+    : 'La abreviatura de ' + plan.nombre + ' va a ser ' + nueva + '. ¿Seguimos?';
+  if (!confirm(pregunta)) return;
+
+  // 3. Se guarda
+  try {
+    const response = await apiFetch('/api/planes/' + idPlan + '/abreviatura', {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ abreviatura: nueva })
+    });
+    const data = await response.json().catch(function () { return {}; });   // si no es JSON, un objeto vacío
+    if (!response.ok) throw new Error(data.error || 'No se pudo guardar la abreviatura.');
+
+    const palabraPlatos = data.platos_cambiados === 1 ? 'plato pasó' : 'platos pasaron';
+    resultado.className   = 'resultado-abreviaturas resultado-ok';
+    resultado.textContent = '✓ Listo: ' + plan.nombre + ' ahora es ' + data.abreviatura_nueva + ' (' + data.platos_cambiados + ' ' + palabraPlatos + ' a ' + data.abreviatura_nueva + '…).';
+    await abrirAbreviaturas();                                   // la ventana, con lo nuevo…
+    resultado.hidden = false;                                    // …y el resultado a la vista
+    await fetchRecetas();                                        // y la lista con los códigos nuevos
+  } catch (error) {
+    console.error('Error al guardar la abreviatura:', error);
+    resultado.className   = 'resultado-abreviaturas resultado-error';
+    resultado.textContent = error.message;
+    resultado.hidden      = false;
+  }
+}
+
+// cerrarAbreviaturas → cierra la ventana (la ✕, "Cerrar" o un clic afuera)
+function cerrarAbreviaturas() {
+  document.getElementById('modalAbreviaturas').style.display = 'none';
 }

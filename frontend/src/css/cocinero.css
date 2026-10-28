@@ -26,15 +26,14 @@
 /* ===== 0. PERILLAS DE ESTA PANTALLA ===== */
 :root {
     /* Las tablas: lo más angostas que quedan (más chica la pantalla, se mueven de costado adentro de su tarjeta) */
-    --cocina-tabla-ancho-minimo: 900px;
+    --cocina-tabla-ancho-minimo: 840px;    /* 29/10: 900 → 840 (menos columnas) */
 
-    /* Los anchos de las columnas (con "table-layout: fixed": Plato y Plato personalizado se llevan lo que sobra) */
-    --cocina-ancho-numero: 92px;           /* N° pedido */
-    --cocina-ancho-fecha-pedido: 120px;    /* Fecha pedido */
-    --cocina-ancho-fecha-entrega: 130px;   /* Fecha entrega */
-    --cocina-ancho-cantidad: 130px;        /* Cantidad ("12 viandas") */
-    --cocina-ancho-viandas-listas: 150px;  /* Viandas listas ("9 del stock") */
-    --cocina-ancho-estado: 118px;          /* Estado (la pastilla, al medio) */
+    /* Los anchos de las columnas (con "table-layout: fixed": Plato se lleva lo que sobra). 29/10: el ancho justo de cada
+       una; las grillas quedan Código · Plato · Cantidad · Estado · Fecha entrega · botones */
+    --cocina-ancho-codigo: 72px;           /* Código ("SG12" entra) */
+    --cocina-ancho-cantidad: 110px;        /* Cantidad ("12 viandas") */
+    --cocina-ancho-estado: 112px;          /* Estado (la pastilla, al medio) */
+    --cocina-ancho-fecha-entrega: 126px;   /* Fecha entrega (el título entra en un renglón; la pastilla "28/10") */
     --cocina-ancho-botones-stock: 170px;   /* Detalles y ✓ Hecho */
     --cocina-ancho-botones-clientes: 240px;  /* Detalles y ✓ Listo para entregar (miden 213 px + el aire de la celda) */
 
@@ -308,13 +307,11 @@ table.tabla-cocina {
     table-layout: fixed;
 }
 
-/* Los anchos de cada columna (Plato y Plato personalizado no tienen: se llevan lo que sobra) */
-.tabla-cocina .col-numero-pedido       { width: var(--cocina-ancho-numero); }
-.tabla-cocina .col-fecha-pedido        { width: var(--cocina-ancho-fecha-pedido); }
-.tabla-cocina .col-fecha-entrega       { width: var(--cocina-ancho-fecha-entrega); }
+/* Los anchos de cada columna (Plato no tiene: se lleva lo que sobra) */
+.tabla-cocina .col-codigo              { width: var(--cocina-ancho-codigo); }
 .tabla-cocina .col-cantidad            { width: var(--cocina-ancho-cantidad); }
-.tabla-cocina .col-viandas-listas      { width: var(--cocina-ancho-viandas-listas); }
 .tabla-cocina .col-estado              { width: var(--cocina-ancho-estado); }
+.tabla-cocina .col-fecha-entrega       { width: var(--cocina-ancho-fecha-entrega); }
 .tabla-cocina .col-botones-stock       { width: var(--cocina-ancho-botones-stock); }
 .tabla-cocina .col-botones-clientes    { width: var(--cocina-ancho-botones-clientes); }
 
@@ -324,10 +321,9 @@ table.tabla-cocina td.col-estado {
     text-align: center;
 }
 
-/* El N° de pedido: verde, en negrita ("#112") */
-.numero-pedido {
-    color: var(--verde-texto);
-    font-weight: 700;
+/* Pedidos de clientes (29/10): las filas del mismo pedido van juntas; entre ellas, la línea de abajo es punteada */
+table.tabla-cocina tbody tr.sigue-mismo-pedido td {
+    border-bottom-style: dashed;
 }
 
 /* El plato: en negrita; si es muy largo, se corta con "…" (y el plan, en gris al lado) */
@@ -341,15 +337,25 @@ table.tabla-cocina td.celda-plato {
     font-weight: 600;
 }
 
+/* El código (29/10): en su propia columna, con la pastillita de siempre (global.css 13j), sin el aire de la derecha */
+.tabla-cocina td.col-codigo .codigo-plato {
+    margin-right: 0;
+}
+
+/* En la ventana del cliente el renglón ya separa con su espacio (gap): sin el aire de la derecha de la pastilla */
+.plato-detalles .codigo-plato {
+    margin-right: 0;
+}
+
 .plan-plato {
     color: var(--texto-apagado);
     font-size: 13px;
 }
 
-/* La fecha del pedido: gris */
-table.tabla-cocina td.fecha-pedido {
-    color: var(--texto-apagado);
-    font-weight: 500;
+/* "⚠ SIN SAL" al lado del plato personalizado */
+.celda-plato .etiqueta-personalizado {
+    margin-left: 6px;
+    vertical-align: middle;
 }
 
 /* La pastilla de la fecha de entrega ("25/10"): el color lo pone su día (sección 0) */
@@ -382,19 +388,6 @@ table.tabla-cocina td.fecha-pedido {
     font-weight: 700;
 }
 
-/* "Plato personalizado": un renglón por plato, con su etiqueta roja al lado */
-.linea-personalizado {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 4px 8px;
-    margin: 2px 0;
-}
-
-.texto-personalizado {
-    font-weight: 500;
-}
-
 /* La etiqueta roja ("SIN SAL"): en MAYÚSCULA; si es muy larga, se corta con "…" */
 .etiqueta-personalizado {
     max-width: 100%;
@@ -412,16 +405,6 @@ table.tabla-cocina td.fecha-pedido {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-/* "9 del stock" */
-.numero-stock {
-    font-weight: 600;
-}
-
-.texto-stock {
-    color: var(--texto-apagado);
-    font-size: 12px;
 }
 
 /* Los botones de la fila, a la derecha */
