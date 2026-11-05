@@ -40,10 +40,19 @@ function renderizarPlatos(platos) {
   if (platos.length === 0) {
     const hayBusqueda = document.getElementById('BuscarPlato').value.trim() !== '';
     tbody.innerHTML = `<tr><td colspan="5" class="loading-text">${hayBusqueda ? 'No se encontraron platos' : 'No hay platos cargados'}</td></tr>`;
+    document.getElementById('paginacionPlatos').innerHTML = '';   // (05/11) sin platos, sin botones de página
     return;
   }
 
-  platos.forEach(plato => tbody.appendChild(crearFilaPlato(plato)));
+  // (05/11) De a 20 por página (crearPaginacion, de paginacion.js): siempre arranca en la 1.
+  // La llaman la carga de la pantalla y el buscador; guardar un cocinero no vuelve a dibujar, así que no cambia de página
+  crearPaginacion({
+    datos: platos,
+    porPagina: 20,
+    contenedorTabla: tbody,
+    contenedorPaginacion: document.getElementById('paginacionPlatos'),
+    funcionRenderFila: crearFilaPlato,                            // la misma de antes: arma la fila de un plato
+  });
 }
 
 function crearFilaPlato(plato) {

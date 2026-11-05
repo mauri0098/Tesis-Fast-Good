@@ -36,7 +36,7 @@ let todosPedidos = [];                 // todos los pedidos que mandó el servid
 let estadoOptions = [];                // los estados posibles: [{ id, nombre }] (para el select de cada fila)
 let paginacionPedidos = null;          // lo que devuelve crearPaginacion: sirve para saber en qué página está la tabla
 let filtroFechas = { modo: 'todos', desde: '', hasta: '' };  // 'hoy' (al abrir), 'entrega' ("Aplicar") o 'todos'
-let filtroEstado = 'todos';            // el botón de estado elegido arriba de la tabla: 'todos' o el número del estado ('1' a '5')
+let filtroEstado = 'todos';            // el botón de estado elegido arriba de la tabla: 'todos' o el número del estado ('1' a '6')
 let pedidoAnularId = null;             // el pedido que se está anulando (mientras la ventana está abierta)
 let cambioConFaltantes = null;         // { pedido, select, nuevoId, anteriorId } mientras "Faltan insumos" está abierta (24/10)
 
@@ -46,9 +46,11 @@ const ESTADO_CANCELADO = 5;            // "Cancelado" (anulado): no cambia más 
 const METODOS_PAGO_PREVIO = ['Transferencia', 'Tarjeta Débito', 'Tarjeta Crédito', 'Mixto'];
 
 // La clase del color del select de cada estado (los colores están en ConsultarPedidos.css)
+// (05/11) El orden del recorrido es 1 → 2 → 6 → 3 → 4 (el 6 "Por armar" es nuevo: va entre En Preparación y Listo)
 const COLORES_ESTADO = {
   1: 'estado-registrado',       // Registrado: azul
   2: 'estado-en-preparacion',   // En Preparación: naranja
+  6: 'estado-por-armar',        // (05/11) Por armar: celeste
   3: 'estado-listo',            // Listo para Entregar: verde claro
   4: 'estado-entregado',        // Entregado: verde fuerte
   5: 'estado-cancelado'         // Cancelado: rojo claro
@@ -110,7 +112,7 @@ async function iniciarConsultarPedidos() {
 
   // 2c. La lista de "Estado" de la barra: su botón la abre (o la cierra, si ya estaba abierta).
   //     Un clic afuera de la lista y de su botón la cierra (closest = el elemento tocado o el de afuera que tenga esa clase)
-  const listaEstados = document.getElementById('filtros-estado');  // la lista con los 6 botones de estado
+  const listaEstados = document.getElementById('filtros-estado');  // la lista con los 7 botones de estado (05/11: con "Por armar")
   document.getElementById('btnFiltroEstado').addEventListener('click', () => mostrarListaEstados(listaEstados.hidden));  // escondida → se abre
   document.addEventListener('click', evento => {
     const tocoAdentro = Boolean(evento.target.closest('.parte-estado'));  // ¿se tocó la lista o su botón?
@@ -144,7 +146,7 @@ async function iniciarConsultarPedidos() {
   } catch (error) {                                                // si no se pudo...
     console.error('No se pudieron cargar los pedidos:', error);    // ...el detalle va a la consola
     document.getElementById('pedidosBody').innerHTML =             // ...y en la tabla, un mensaje simple (en rojo: texto-error)
-      '<tr><td colspan="11" class="loading-text texto-error">Error al conectar con el servidor</td></tr>';
+      '<tr><td colspan="10" class="loading-text texto-error">Error al conectar con el servidor</td></tr>';
   }
 }
 
@@ -195,7 +197,7 @@ function renderizarPedidos(pagina) {
     contenedorTabla: document.getElementById('pedidosBody'),       // donde van las filas
     contenedorPaginacion: document.getElementById('paginacion'),   // donde van los números de página
     funcionRenderFila: crearFilaPedido,                            // cómo se arma cada fila
-    filaVacia: '<tr><td colspan="11" class="loading-text">' + escHtml(mensajeVacio) + '</td></tr>',  // si no hay ninguno
+    filaVacia: '<tr><td colspan="10" class="loading-text">' + escHtml(mensajeVacio) + '</td></tr>',  // si no hay ninguno
     paginaInicial: pagina,                                         // en qué página arranca
     contenedorResumen: document.getElementById('resumenPaginacion'),  // donde va "Mostrando X de Y pedidos"
     nombreDatos: 'pedidos'                                         // cómo se llaman en ese texto
@@ -344,17 +346,29 @@ function crearFilaPedido(pedido) {
   let textoEntrega = pedido.tipo_entrega || '';
   if (conBarrio) textoEntrega = 'Delivery · ' + barrio;
 
-  // 2. La fila: 11 celdas, cada una con la clase de su columna (col-…: el ancho y el color están en ConsultarPedidos.css).
+  // e. (05/11) ¿Tiene algún plato personalizado? Entonces la fila va en ámbar (si no está anulado: el anulado queda gris).
+  //    filter = los platos que cumplen. Ej: [3 fideos, 2 fideos "sin sal"] → 1 personalizado → la fila en ámbar
+  const platosPersonalizados = pedido.pedido_detalles.filter(detalle => detalle.personalizado === true);
+  const filaPersonalizada = platosPersonalizados.length > 0 && !anulado;
+
+  // f. (05/11) La dirección y abajo el teléfono (la columna Teléfono se sacó). Ej: "Av. Colón 1250" / "351 555-0101"
+  //    En el celu esto mismo va también abajo del número de pedido (lo único que se ve al lado de Acciones, que queda fija)
+  let direccionConTelefono = direccion + ' · ' + telefono;
+  // ¿retira o no tiene dirección? SÍ: solo el teléfono · NO: "Av. Colón 1250 · 351 555-0101"
+  if (sinDireccion) {
+    direccionConTelefono = telefono;
+  }
+
+  // 2. La fila: 10 celdas, cada una con la clase de su columna (col-…: el ancho y el color están en ConsultarPedidos.css).
   //    Pago tiene el método arriba (dato-principal) y abajo el renglón chico (dato-chico, global.css).
   //    Cliente y Dirección, hasta 2 renglones (dos-renglones, global.css).
   //    Las celdas con lo que escribió el cliente quedan vacías y se llenan abajo con textContent.
   const fila = document.createElement('tr');
   fila.innerHTML = `
-    <td class="col-numero">${escHtml(numero)}</td>
+    <td class="col-numero">${escHtml(numero)}<span class="dato-chico direccion-celu"></span></td>
     <td class="col-entrega" title="Entrega: ${escHtml(entregaCompleta)}">${escHtml(entrega)}</td>
     <td class="col-cliente"><span class="dos-renglones"></span></td>
-    <td class="col-direccion"><span class="dos-renglones${claseSinDireccion}"></span></td>
-    <td class="col-contacto"></td>
+    <td class="col-direccion"><span class="dos-renglones direccion-pedido${claseSinDireccion}"></span><span class="dato-chico telefono-pedido"></span></td>
     <td class="col-viandas">${escHtml(totalViandas)}</td>
     <td class="col-costo">${escHtml(formatearPrecio(pedido.total))}</td>
     <td class="col-estado"><span class="caja-estado"><svg class="flecha-estado" aria-hidden="true"><use href="#icono-flecha-abajo"></use></svg></span></td>
@@ -376,11 +390,15 @@ function crearFilaPedido(pedido) {
   fila.cells[2].firstElementChild.textContent = cliente;           // columna 3: nombre del cliente
   fila.cells[2].title = cliente;                                   // …entero al pasar el mouse
   fila.cells[3].firstElementChild.textContent = direccion;         // columna 4: dirección (o "—" si retira)
-  fila.cells[3].title = direccion;                                 // …entera al pasar el mouse
-  fila.cells[4].textContent = telefono;                            // columna 5: teléfono
-  fila.cells[4].title = telefono;                                  // …entero al pasar el mouse
-  fila.cells[9].title = textoEntrega;                              // columna 10: Envío; al pasar el mouse, con el barrio
+  fila.querySelector('.telefono-pedido').textContent = telefono;   // …y abajo el teléfono (05/11: antes tenía su columna)
+  fila.cells[3].title = direccionConTelefono;                      // …las dos enteras al pasar el mouse
+  fila.querySelector('.direccion-celu').textContent = direccionConTelefono;  // (05/11) en el celu, abajo del número
+  fila.cells[8].title = textoEntrega;                              // columna 9: Envío; al pasar el mouse, con el barrio
   fila.classList.toggle('fila-cancelada', anulado);                // anulado: la fila en gris y el costo tachado (CSS)
+  // (05/11) ¿tiene un personalizado y no está anulado? SÍ: #11 con 2 "sin sal" · NO: #12 todo de heladera, o un anulado
+  if (filaPersonalizada) {
+    fila.classList.add('fila-personalizada');                      // la fila en ámbar (ConsultarPedidos.css)
+  }
 
   // 4. El select de estado
   const estadoActual = pedido.id_estado || 1;                      // el estado del pedido (1 si no tiene)
@@ -400,7 +418,7 @@ function crearFilaPedido(pedido) {
   pintarEstado(select, estadoActual);                              // su color
   select.disabled = anulado;                                       // un anulado no cambia más (el servidor también lo frena)
   select.addEventListener('change', () => alCambiarEstado(pedido, select));  // al elegir otro estado
-  fila.cells[7].firstElementChild.prepend(select);                 // columna 8: estado (prepend = adentro y primero: antes de su ▾). 24/10: sin Mail, es la 8
+  fila.cells[6].firstElementChild.prepend(select);                 // columna 7: estado (prepend = adentro y primero: antes de su ▾). 05/11: sin Teléfono, es la 7
 
   // 5. Los botones de la fila (?. = "si existe el botón": un anulado no tiene "Anular")
   fila.querySelector('.btn-detalles').addEventListener('click', () => abrirDetalles(pedido.id));  // "Detalles"
@@ -558,9 +576,11 @@ function responderFaltanInsumos(seguir) {
 // ENTRADA: pedido, select (el de su fila), nuevoId (el estado elegido), anteriorId (el que tenía) y
 //          aunqueFaltenInsumos (24/10: true = la persona dijo "Sí, pasarlo igual" en "Faltan insumos")
 // SALIDA:  true si se guardó; false si no (avisa el motivo y el select vuelve al estado anterior)
-// Ej: 10 fideos (todo de heladera) de 1 a 2 → el servidor lo deja en 3: el select muestra "Listo para Entregar"
-//     y avisa "Pedido #250: todo sale de la heladera, pasó directo a Listo para Entregar."
-//     Un "sin sal" sin hacer de 2 a 3 → el servidor no deja: "La vianda personalizada todavía no está hecha…"
+// Ej: 10 fideos (todo de heladera) de 1 a 2 → (05/11) el servidor lo deja en 6: el select muestra "Por armar"
+//     y avisa "Pedido #250: todo sale de la heladera, pasa directo a Por armar."
+//     Un "sin sal" sin hacer de 2 a 6 → el servidor no deja: "La vianda personalizada todavía no está hecha…"
+//     A 3 sin venir de Entregado → el servidor no deja: "Listo para entregar lo pone el Armado…"
+//     Un pedido armado a 1, 2 o 6 → el servidor no deja: "Un pedido ya armado no vuelve atrás…"
 // La usan seguirCambioEstado y responderConfirmarPago (pagoPedido.js).
 // ─────────────────────────────────────────────────────────────────────────────
 async function guardarEstado(pedido, select, nuevoId, anteriorId, aunqueFaltenInsumos) {
@@ -586,15 +606,17 @@ async function guardarEstado(pedido, select, nuevoId, anteriorId, aunqueFaltenIn
       return false;
     }
 
-    // 3. El estado que quedó guardado. Casi siempre es el elegido, pero de 1 a 2, si el pedido no tiene nada
-    //    para cocinar (todo sale de la heladera), el servidor lo deja directo en 3. (?. = "si vino el pedido")
+    // 3. El estado que quedó guardado (?. = "si vino el pedido"). Casi siempre es el elegido, pero (05/11) de 1 a 2,
+    //    un pedido que sale todo de la heladera queda directo en 6 "Por armar" y el servidor lo avisa con todo_de_heladera
     const estadoGuardado = datos.pedido?.id_estado || nuevoId;
     select.value = estadoGuardado;                                 // el select muestra el guardado
     select.dataset.estadoActual = estadoGuardado;                  // es el nuevo "anterior"
     pedido.id_estado = estadoGuardado;                             // así la fila sale bien si se vuelve a dibujar
     pintarEstado(select, estadoGuardado);
-    const salto = estadoGuardado !== nuevoId;                      // ¿el servidor lo dejó en otro estado (3)?
-    if (salto) mostrarCartel('exito', 'Pedido #' + String(pedido.id).padStart(3, '0') + ': todo sale de la heladera, pasó directo a Listo para Entregar.');
+    // ¿todo sale de la heladera? SÍ: 10 fideos de heladera de 1 a 2 · NO: tiene un "sin sal", o pasó a otro estado
+    if (datos.todo_de_heladera === true) {
+      mostrarCartel('exito', 'Pedido #' + String(pedido.id).padStart(3, '0') + ': todo sale de la heladera, pasa directo a Por armar.');
+    }
     return true;
   } catch (error) {                                                // si no hubo respuesta...
     console.error('No se pudo cambiar el estado:', error);
@@ -608,9 +630,10 @@ async function guardarEstado(pedido, select, nuevoId, anteriorId, aunqueFaltenIn
 
 // ─────────────────────────────────────────────────────────────────────────────
 // pintarEstado → pinta el select con el color de su estado
-// ENTRADA: select y estadoId (1 a 5)
+// ENTRADA: select y estadoId (1 a 6)
 // SALIDA:  nada (le pone al select la clase de su color; los colores están en ConsultarPedidos.css).
-//          Ej: 2 → "select-estado estado-en-preparacion" (naranja) · 5 → "select-estado estado-cancelado" (rojo claro)
+//          Ej: 2 → "select-estado estado-en-preparacion" (naranja) · 6 → "select-estado estado-por-armar" (celeste)
+//          · 5 → "select-estado estado-cancelado" (rojo claro)
 // La usan crearFilaPedido, alCambiarEstado, guardarEstado y responderConfirmarPago (pagoPedido.js).
 // ─────────────────────────────────────────────────────────────────────────────
 function pintarEstado(select, estadoId) {

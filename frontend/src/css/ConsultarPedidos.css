@@ -33,6 +33,9 @@
     --estado-preparacion-fondo: #fff3df;   /* En preparación: naranja */
     --estado-preparacion-letra: #a35f00;
     --estado-preparacion-punto: #e09a1a;
+    --estado-por-armar-fondo: #e0f4f6;     /* (05/11) Por armar: celeste (va entre En preparación y Listo; no se confunde) */
+    --estado-por-armar-letra: #0b6b78;
+    --estado-por-armar-punto: #1a9bab;
     --estado-listo-fondo: #e3f6e8;         /* Listo para entregar: verde claro */
     --estado-listo-letra: #127f36;
     --estado-listo-punto: #4cbf6b;
@@ -76,8 +79,8 @@
     --ancho-pedido: 5%;                    /* N° ("#081"): 55 px a 1440 */
     --ancho-entrega: 7%;                   /* Entrega (la fecha "28/10"; el título "ENTREGA" necesita 73 px) */
     --ancho-cliente: 9%;                   /* Cliente (hasta 2 renglones) */
-    --ancho-direccion: 8%;                 /* Dirección (hasta 2 renglones; si retira, "—") */
-    --ancho-telefono: 7.5%;                /* Teléfono (si no entra, "…") */
+    --ancho-direccion: 15.5%;              /* Dirección (hasta 2 renglones; si retira, "—") y abajo el teléfono.
+                                              05/11: se lleva el 7,5% de la columna Teléfono, que se sacó (antes 8%) */
     --ancho-viandas: 6.5%;                 /* Viandas (solo el número; el título "VIANDAS" necesita 71 px) */
     --ancho-costo: 7.5%;                   /* Costo ("$ 100.000" necesita 80 px) */
     --ancho-estado: 14.5%;                 /* Estado ("Listo para entregar ▾" necesita 158 px: a 1440 hay 159) */
@@ -91,6 +94,12 @@
     --envio-delivery: #1d5fbf;             /* "Delivery": azul */
     --envio-retira: #6b3fbf;               /* "Retira": violeta */
     --pago-a-cobrar: #a35f00;              /* "A cobrar": naranja (el "✓ Cobrado" usa el verde de los textos chicos) */
+
+    /* (05/11) Un pedido con algún plato personalizado: la fila entera en ámbar suave, con una línea naranja a la izquierda
+       (el mismo naranja de "⚠ sin sal" en Detalles) */
+    --fila-personalizada-fondo: #fff8eb;
+    --fila-personalizada-encima: #fff1d6;  /* …y un poco más fuerte al pasar el mouse */
+    --fila-personalizada-linea: #e09a1a;
 
     /* Las variables de las ventanas de Detalle están en global.css */
 }
@@ -392,6 +401,7 @@ body.cargada {
 .punto-todos          { background: transparent; }
 .punto-registrado     { background: var(--estado-registrado-punto); }
 .punto-en-preparacion { background: var(--estado-preparacion-punto); }
+.punto-por-armar      { background: var(--estado-por-armar-punto); }    /* (05/11) */
 .punto-listo          { background: var(--estado-listo-punto); }
 .punto-entregado      { background: var(--estado-entregado-punto); }
 .punto-cancelado      { background: var(--estado-cancelado-punto); }
@@ -463,7 +473,6 @@ table.tabla-pedidos thead .col-numero    { width: var(--ancho-pedido); }
 table.tabla-pedidos thead .col-entrega   { width: var(--ancho-entrega); }
 table.tabla-pedidos thead .col-cliente   { width: var(--ancho-cliente); }
 table.tabla-pedidos thead .col-direccion { width: var(--ancho-direccion); }
-table.tabla-pedidos thead .col-contacto  { width: var(--ancho-telefono); }
 table.tabla-pedidos thead .col-viandas   { width: var(--ancho-viandas); }
 table.tabla-pedidos thead .col-costo     { width: var(--ancho-costo); }
 table.tabla-pedidos thead .col-estado    { width: var(--ancho-estado); }
@@ -506,12 +515,36 @@ table.tabla-pedidos .col-costo {
     font-weight: 600;
 }
 
-/* Teléfono: en un renglón y en gris, con "…" si no entra (el texto entero aparece al pasar el mouse) */
-.tabla-pedidos tbody .col-contacto {
-    overflow: hidden;
-    color: var(--texto-apagado);
-    white-space: nowrap;
-    text-overflow: ellipsis;
+/* (05/11) La dirección, más grande y oscura (hasta 2 renglones), y abajo el teléfono en el renglón chico gris.
+   Antes el teléfono tenía su columna y la dirección era de 13 px en 88 px de ancho (a 1440 se cortaba con "…") */
+.tabla-pedidos tbody .col-direccion .direccion-pedido {
+    color: var(--texto);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.tabla-pedidos tbody .col-direccion .direccion-pedido.dato-vacio {
+    color: var(--texto-suave);
+}
+
+/* La dirección y el teléfono abajo del número de pedido: solo en el celu (sección 9) */
+.tabla-pedidos .direccion-celu {
+    display: none;
+}
+
+/* (05/11) Un pedido con algún plato personalizado: toda la fila en ámbar, con la línea naranja a la izquierda.
+   La clase la pone crearFilaPedido (ListarPedidos.js). Un pedido anulado no la lleva: queda gris */
+.tabla-pedidos tbody tr.fila-personalizada > td {
+    background: var(--fila-personalizada-fondo);
+}
+
+.tabla-pedidos tbody tr.fila-personalizada:hover > td {
+    background: var(--fila-personalizada-encima);
+}
+
+.tabla-pedidos tbody tr.fila-personalizada > td:first-child {
+    box-shadow: inset 4px 0 0 var(--fila-personalizada-linea);
 }
 
 /* Una celda sin dato (24/10: la Dirección de un pedido que retira, o el Envío de un pedido viejo): la rayita "—" en gris */
@@ -599,6 +632,7 @@ table.tabla-pedidos .col-costo {
 .estado-listo          { background: var(--estado-listo-fondo);       color: var(--estado-listo-letra); }
 .estado-entregado      { background: var(--estado-entregado-fondo);   color: var(--estado-entregado-letra); }
 .estado-cancelado      { background: var(--estado-cancelado-fondo);   color: var(--estado-cancelado-letra); }
+.estado-por-armar      { background: var(--estado-por-armar-fondo);   color: var(--estado-por-armar-letra); }   /* (05/11) */
 
 /* La ▾ de la pastilla: va justo después del select, del color de su estado ("+" = el que está justo después) */
 .flecha-estado {
@@ -615,6 +649,7 @@ table.tabla-pedidos .col-costo {
 .estado-listo + .flecha-estado          { color: var(--estado-listo-letra); }
 .estado-entregado + .flecha-estado      { color: var(--estado-entregado-letra); }
 .estado-cancelado + .flecha-estado      { color: var(--estado-cancelado-letra); }
+.estado-por-armar + .flecha-estado      { color: var(--estado-por-armar-letra); }
 
 /* --- Acciones: Detalles, Pago y Anular, siempre a la vista, en fila (en el celu, además, fija a la derecha: sección 9) --- */
 .acciones-pedido {
@@ -1122,6 +1157,40 @@ table.tabla-pedidos .col-costo {
 
     table.tabla-pedidos tbody tr:hover .col-acciones {
         background: var(--fila-encima);
+    }
+
+    /* (05/11) En el celu, al lado de Acciones (que queda fija) se ven ~150 px: el número y la fecha. Por eso la dirección
+       y el teléfono van abajo del número (la columna N° se ensancha) y la columna Dirección no se muestra */
+    /* Los anchos en el celu, sin la Dirección: tienen que sumar 100% (si no, el navegador reparte lo que sobra y la
+       columna N° crece hasta quedar tapada por Acciones). N°: 14% de 1.096 px = 153 px, justo lo que entra a su izquierda */
+    table.tabla-pedidos {
+        --ancho-pedido: 14%;
+        --ancho-entrega: 7%;
+        --ancho-cliente: 10.5%;
+        --ancho-viandas: 6.5%;
+        --ancho-costo: 7.5%;
+        --ancho-estado: 14.5%;
+        --ancho-pago: 11%;
+        --ancho-envio: 10.5%;
+        --ancho-acciones: 18.5%;
+    }
+
+    .tabla-pedidos .direccion-celu {
+        display: block;
+        color: var(--texto);
+        font-size: 12.5px;
+        font-weight: 600;
+        line-height: 1.3;
+        white-space: normal;
+    }
+
+    table.tabla-pedidos .col-direccion {
+        display: none;
+    }
+
+    /* La fila personalizada: Acciones (fija) también en ámbar */
+    table.tabla-pedidos tbody tr.fila-personalizada .col-acciones {
+        background: var(--fila-personalizada-fondo);
     }
 
     /* Asignar Cocineros (que también carga este archivo): en el celu su tabla no se aprieta, mantiene

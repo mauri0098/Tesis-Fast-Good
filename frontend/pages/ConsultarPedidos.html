@@ -82,6 +82,8 @@
             <button type="button" class="boton-estado boton-estado-elegido" data-estado="todos" data-nombre="Todos" aria-pressed="true"><span class="punto-estado punto-todos" aria-hidden="true"></span>Todos <span class="cantidad-estado">0</span></button>
             <button type="button" class="boton-estado" data-estado="1" data-nombre="Registrado" aria-pressed="false"><span class="punto-estado punto-registrado" aria-hidden="true"></span>Registrado <span class="cantidad-estado">0</span></button>
             <button type="button" class="boton-estado" data-estado="2" data-nombre="En preparación" aria-pressed="false"><span class="punto-estado punto-en-preparacion" aria-hidden="true"></span>En preparación <span class="cantidad-estado">0</span></button>
+            <!-- (05/11) El estado 6 "Por armar": va entre En preparación y Listo (el orden del recorrido) -->
+            <button type="button" class="boton-estado" data-estado="6" data-nombre="Por armar" aria-pressed="false"><span class="punto-estado punto-por-armar" aria-hidden="true"></span>Por armar <span class="cantidad-estado">0</span></button>
             <button type="button" class="boton-estado" data-estado="3" data-nombre="Listo para entregar" aria-pressed="false"><span class="punto-estado punto-listo" aria-hidden="true"></span>Listo para entregar <span class="cantidad-estado">0</span></button>
             <button type="button" class="boton-estado" data-estado="4" data-nombre="Entregado" aria-pressed="false"><span class="punto-estado punto-entregado" aria-hidden="true"></span>Entregado <span class="cantidad-estado">0</span></button>
             <button type="button" class="boton-estado" data-estado="5" data-nombre="Cancelado" aria-pressed="false"><span class="punto-estado punto-cancelado" aria-hidden="true"></span>Cancelado <span class="cantidad-estado">0</span></button>
@@ -101,13 +103,13 @@
       <table class="standard-table tabla-pedidos grilla-fg">
         <thead>
           <!-- Cada columna con su clase (col-…): la misma que lleva cada celda de la fila (crearFilaPedido).
-               24/10: sin Mail (va en Detalles) y con Envío (Delivery / Retira) -->
+               24/10: sin Mail (va en Detalles) y con Envío (Delivery / Retira).
+               05/11: sin Teléfono (va abajo de la Dirección) -->
           <tr>
             <th class="col-numero" title="N° de pedido">N°</th>
             <th class="col-entrega" title="Fecha de entrega">Entrega</th>
             <th class="col-cliente">Cliente</th>
-            <th class="col-direccion" title="Dirección del envío">Dirección</th>
-            <th class="col-contacto">Teléfono</th>
+            <th class="col-direccion" title="Dirección del envío y, abajo, el teléfono">Dirección</th>
             <th class="col-viandas">Viandas</th>
             <th class="col-costo">Costo</th>
             <th class="col-estado">Estado</th>
@@ -119,7 +121,7 @@
         <tbody id="pedidosBody">
           <!-- JS Render -->
           <tr>
-            <td colspan="11" class="loading-text">Cargando datos...</td>
+            <td colspan="10" class="loading-text">Cargando datos...</td>
           </tr>
         </tbody>
       </table>

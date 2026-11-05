@@ -94,6 +94,8 @@ async function traerMovimientos() {
     // 3. Las partes de cada movimiento, para los filtros: { que, tipo, nombres }.
     //    En una producción las viandas ENTRAN a la heladera y los insumos SALEN (se usaron);
     //    en todo lo demás, las dos partes van para el mismo lado que el movimiento.
+    //    (05/11) Ese lado de cada parte lo usa la columna Resumen ("+20 viandas · −2 insumos"); el filtro "Entradas / Salidas"
+    //    mira el lado del movimiento entero (un Hecho es una entrada).
     //    nombres = los platos (o los insumos) en minúsculas, separados por un salto de línea (para el buscador).
     //    map arma una lista con el nombre de cada uno y join los une. Ej: [{ plato: 'Fideos' }, { plato: 'Tarta' }] → 'fideos\ntarta'
     movimientos.forEach((mov) => {
@@ -116,10 +118,11 @@ async function traerMovimientos() {
 // ─────────────────────────────────────────────────────────────────────────────
 // filtrarMovimientos → aplica los filtros de arriba a listaMovimientos y dibuja la tabla
 // ENTRADA: nada (lee el buscador, "Todo / Insumos / Viandas / Mixtos" y "Entradas / Salidas")
-// SALIDA:  nada (dibuja los que pasan). Un movimiento se ve si ALGUNA de sus partes coincide con las tres cosas.
+// SALIDA:  nada (dibuja los que pasan). Un movimiento se ve si ALGUNA de sus partes coincide con lo elegido en
+//          "Todo / Insumos / Viandas" y con el buscador, y si el MOVIMIENTO va para el lado de "Entradas / Salidas".
 //          Con "Mixtos", además, tiene que mover viandas E insumos juntos.
-// Ej: el "Hecho" de 2 fideos (viandas que entran, insumos que salen) aparece con "Viandas + Entradas",
-//     con "Insumos + Salidas" y con "Mixtos", pero no con "Insumos + Entradas". Buscar "harina" lo muestra por su insumo.
+// Ej: (05/11) el "Hecho" de 2 fideos es una ENTRADA: aparece con "Entradas", "Viandas + Entradas", "Insumos + Entradas"
+//     y "Mixtos", pero no con "Salidas" (antes aparecía por los insumos que gastó). Buscar "harina" lo muestra por su insumo.
 //     Una venta (solo viandas) no aparece con "Mixtos".
 // ─────────────────────────────────────────────────────────────────────────────
 function filtrarMovimientos() {
@@ -139,7 +142,7 @@ function filtrarMovimientos() {
     // Las partes de este movimiento que cumplen las tres cosas (con "Mixtos" vale cualquiera de las dos)
     const partesQueCumplen = mov.partes.filter((parte) => {
       const coincideQue = que === "todo" || que === "mixtos" || parte.que === que;  // la parte es de lo elegido
-      const coincideTipo = tipo === "" || parte.tipo === tipo;          // y va para el lado elegido
+      const coincideTipo = tipo === "" || mov.tipo === tipo;            // y el movimiento va para el lado elegido (05/11: un Hecho, entrada)
       const coincideTexto = texto === "" || parte.nombres.includes(texto);  // y tiene lo buscado
       return coincideQue && coincideTipo && coincideTexto;
     });
@@ -184,7 +187,7 @@ function renderizarMovimientos(movimientos) {
 // ENTRADA: mov (uno de listaMovimientos)
 // SALIDA:  el <tr> del movimiento (crearPaginacion lo pega en la tabla)
 // Columnas: Fecha y hora · Tipo · Referencia · Resumen · Detalle (motivo, y abajo usuario · proveedor) · Acción
-// Ej: el "Hecho" de 2 fideos → "15/10/2026 14:32 · Producción · Pedido a Cocina #009 ·
+// Ej: el "Hecho" de 2 fideos → "15/10/2026 14:32 · (↙) Entrada · Pedido a Cocina #009 ·
 //     +2 viandas · −2 insumos · Producción de viandas / Ana López · [Detalle ›]"
 // ─────────────────────────────────────────────────────────────────────────────
 function crearRenglon(mov) {

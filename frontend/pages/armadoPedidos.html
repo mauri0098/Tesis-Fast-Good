@@ -66,11 +66,15 @@
     <div class="grilla-pedidos" id="pedidosBody">
       <p class="loading-text">Cargando pedidos...</p>
     </div>
+    <!-- (05/11) Los botones de página ‹ 1 2 3 › (los pone crearPaginacion, de paginacion.js; sin filas no se ven, con una sola página queda "‹ 1 ›") -->
+    <div id="paginacionPedidos" class="paginacion"></div>
   </main>
 </div>
 
 <!-- Lógica propia de la pantalla -->
 <script src="../src/js/fechas.js"></script>
+<!-- (05/11) La paginación que usan todas las tablas del panel (crearPaginacion) -->
+<script src="../src/js/paginacion.js"></script>
 <script src="../src/js/armadoPedidos.js"></script>
 
 <script>

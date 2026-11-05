@@ -14,8 +14,14 @@
 //     paginaInicial,        // por defecto 1 (opcional)
 //     contenedorResumen,    // (opcional) donde escribir "Mostrando 15 de 40 pedidos". Hoy lo usa solo
 //                           //   Consultar Pedidos: las pantallas que no lo pasan quedan exactamente igual
-//     nombreDatos           // (opcional) cómo se llaman los datos en ese texto. Ej: 'pedidos'
+//     nombreDatos,          // (opcional) cómo se llaman los datos en ese texto. Ej: 'pedidos'
+//     funcionRenderPagina   // (opcional, 05/11) (itemsDeLaPagina) => el HTML de la página ENTERA, como texto. Para la
+//                           //   pantalla que no dibuja de a una fila (Armado de pedidos: tarjetas, o una tabla con varias
+//                           //   filas por pedido). Si se pasa, no se usa funcionRenderFila. Lo que viene de la base tiene
+//                           //   que llegar ya pasado por escHtml. Las pantallas que no lo pasan quedan exactamente igual
 //   });
+//
+// Si paginaInicial no existe (ej: pide la 4 y ahora hay 3 páginas), se queda en la última; si es menor a 1, en la primera.
 // ============================================================
 
 function crearPaginacion({
@@ -27,7 +33,8 @@ function crearPaginacion({
   filaVacia = '',
   paginaInicial = 1,
   contenedorResumen = null,
-  nombreDatos = 'registros'
+  nombreDatos = 'registros',
+  funcionRenderPagina = null
 }) {
   const totalPaginas = Math.max(1, Math.ceil(datos.length / porPagina));
   let paginaActual   = Math.min(Math.max(1, paginaInicial), totalPaginas);
@@ -101,9 +108,14 @@ function crearPaginacion({
 
     const inicio = (paginaActual - 1) * porPagina;
     const filasDeEstaPagina = datos.slice(inicio, inicio + porPagina);  // slice = los de esta página
-    filasDeEstaPagina.forEach(item => {
-      contenedorTabla.appendChild(funcionRenderFila(item));
-    });
+    // (05/11) ¿la pantalla dibuja la página entera de una vez? SÍ: Armado de pedidos · NO: las demás, de a una fila
+    if (funcionRenderPagina) {
+      contenedorTabla.innerHTML = funcionRenderPagina(filasDeEstaPagina);
+    } else {
+      filasDeEstaPagina.forEach(item => {
+        contenedorTabla.appendChild(funcionRenderFila(item));
+      });
+    }
 
     // "Mostrando X de Y …": cuántos hay en esta página y cuántos en total. Ej: página 3 de 40 → "Mostrando 10 de 40 pedidos".
     // Los dos números van en <strong> (negrita, 27/10). Se arman con createElement + textContent: nada se interpreta como HTML.

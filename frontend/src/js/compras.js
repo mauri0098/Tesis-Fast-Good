@@ -5,7 +5,7 @@
 //   elegirPeriodo           → guarda la semana o el mes de un día y escribe el período en la pantalla
 //   cargarCompras           → pide al servidor las filas de la tabla y las compras del panel (GET /api/compras/resumen y /api/compras)
 //   filtrarResumen          → aplica el buscador y la categoría, sin volver a pedir nada al servidor
-//   renderizarResumen       → dibuja la tabla y el pie
+//   renderizarResumen       → dibuja la tabla (de a 20 por página, con crearPaginacion) y el pie
 //   renderizarComprasHechas → dibuja el panel "Compras hechas", con el botón Detalle de cada compra
 //   abrirGastosInsumo       → abre el panel "En qué se gastó" de un insumo y lo llena (GET /api/compras/gastos/:idInsumo)
 //   imprimirListaCompras    → arma la hoja con lo que hay que comprar y abre la impresión
@@ -31,6 +31,7 @@ const buscadorInsumo = document.getElementById("buscadorInsumo");               
 const filtroCategoria = document.getElementById("filtroCategoria");             // "Todas las categorías"
 const cuerpoResumen = document.getElementById("cuerpoResumen");                     // las filas de la tabla
 const contadorResumen = document.getElementById("contadorResumen");             // "8 insumos con compras o gastos en la semana"
+const paginacionCompras = document.getElementById("paginacionCompras");         // (05/11) los botones ‹ 1 2 3 › de la tabla
 const botonComprasHechas = document.getElementById("botonComprasHechas");       // "Compras hechas", arriba
 const botonImprimirLista = document.getElementById("botonImprimirLista");       // "Imprimir lista de compras", abajo
 const hojaListaCompras = document.getElementById("hojaListaCompras");           // la hoja que sale al imprimir
@@ -88,6 +89,8 @@ let numeroDeCarga = 0;        // cuántas veces se pidieron: sirve para ignorar 
 let filasParaComprar = [];    // las filas que se ven y hay que comprar (activas, sin "Te alcanza"): las imprime imprimirListaCompras
 let errorComprasHechas = "";  // el problema de la última vez que se pidieron las compras del panel ("" = ninguno)
 let numeroDeGastos = 0;       // cuántas veces se abrió "En qué se gastó": sirve para ignorar una respuesta que llega tarde
+let paginacionResumen = null; // (05/11) lo que devuelve crearPaginacion: sirve para saber en qué página está la tabla
+const FILAS_POR_PAGINA = 20;  // (05/11) cuántos insumos se ven por página
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -153,13 +156,16 @@ function elegirPeriodo(modo, dia) {
 //     y a la vez GET /api/compras?desde=2026-11-02&hasta=2026-11-08 → [{ origen: 'compra', numero: 15, … }, …]
 // Si una de las dos falla, la otra se muestra igual. Si tocan "‹" dos veces rápido, se usa solo la última respuesta.
 // La llaman la carga de la página, los botones del período y volver a esta pestaña.
+// (05/11) mantenerPagina: true = vuelve a dibujar en la página donde estaba (volver a la pestaña, guardar una compra);
+//         sin nada = arranca en la página 1 (al abrir la pantalla, Semana / Mes, "‹ ›")
 // ─────────────────────────────────────────────────────────────────────────────
-async function cargarCompras() {
+async function cargarCompras(mantenerPagina) {
   // 1. Este pedido es el último. Mientras se espera: "Cargando..." en la tabla y en el panel, e "Imprimir" apagado
   numeroDeCarga = numeroDeCarga + 1;
   const estaCarga = numeroDeCarga;
   cuerpoResumen.innerHTML = '<tr class="fila-sin-datos"><td colspan="6">Cargando...</td></tr>';
   contadorResumen.textContent = "";
+  paginacionCompras.innerHTML = "";                                // los botones de página, mientras carga, no se ven
   botonImprimirLista.disabled = true;
   listaComprasHechas.innerHTML = '<li class="panel-sin-datos">Cargando...</li>';
   cantidadComprasHechas.textContent = "";
@@ -214,7 +220,7 @@ async function cargarCompras() {
   filasResumen = filas;
   errorResumen = problema;
   errorComprasHechas = problemaCompras;
-  filtrarResumen();
+  filtrarResumen(mantenerPagina);
   renderizarComprasHechas(compras);
 }
 
@@ -225,8 +231,10 @@ async function cargarCompras() {
 // SALIDA:  nada (dibuja las filas que pasan y guarda en filasParaComprar las que se imprimen). No le pide nada al servidor.
 // Ej: buscar "CARN" → Carne picada · categoría Almacén → Harina, Huevo y Aceite · las dos juntas → las que cumplen las dos
 //     Si todas las que se ven dicen "Te alcanza" (o están desactivadas), "Imprimir lista de compras" queda apagado.
+// (05/11) mantenerPagina: true = se queda en la página donde estaba (lo pide cargarCompras al recargar);
+//         sin nada = página 1 (el buscador y la categoría)
 // ─────────────────────────────────────────────────────────────────────────────
-function filtrarResumen() {
+function filtrarResumen(mantenerPagina) {
   const texto = buscadorInsumo.value.trim().toLowerCase();         // lo escrito, sin espacios en los bordes y en minúsculas
   const categoria = filtroCategoria.value;                         // el id elegido ("" = todas)
 
@@ -244,7 +252,7 @@ function filtrarResumen() {
   });
   botonImprimirLista.disabled = filasParaComprar.length === 0;     // sin nada para comprar, apagado
 
-  renderizarResumen(visibles);
+  renderizarResumen(visibles, mantenerPagina);
 }
 
 
@@ -257,9 +265,11 @@ function filtrarResumen() {
 //     { …, compre: 4000, gaste: 4500, gasto_de_mas: 500 } → abajo del nombre, en naranja: "Gastaste 500 g más de lo que compraste"
 //     { …, te_alcanza: true } → "Te alcanza" · { …, activo: false } → "Desactivado" abajo del nombre y "—" en vez de la cantidad a comprar
 // "En qué se gastó ›" abre el panel de ese insumo (abrirGastosInsumo).
+// (05/11) De a 20 por página (crearPaginacion, de paginacion.js). mantenerPagina: true = en la página donde estaba;
+//         si esa página ya no existe (estaba en la 4 y ahora hay 3), crearPaginacion la deja en la última
 // La llama filtrarResumen. Lo que viene de la base pasa por escHtml.
 // ─────────────────────────────────────────────────────────────────────────────
-function renderizarResumen(filas) {
+function renderizarResumen(filas, mantenerPagina) {
   const nombrePeriodo = NOMBRE_PERIODO[modoPeriodo];               // "la semana" o "el mes"
 
   // 1. Sin filas: un renglón que dice por qué. Arranca en "no pasó nada en el período"
@@ -278,6 +288,7 @@ function renderizarResumen(filas) {
   if (filas.length === 0) {
     cuerpoResumen.innerHTML = '<tr class="' + claseVacio + '"><td colspan="6">' + escHtml(textoVacio) + "</td></tr>";
     contadorResumen.textContent = "";
+    paginacionCompras.innerHTML = "";                              // sin filas, sin botones de página
     return;
   }
 
@@ -289,75 +300,89 @@ function renderizarResumen(filas) {
   }
   contadorResumen.textContent = textoPie;
 
-  // 3. Las filas
-  cuerpoResumen.innerHTML = "";
-  filas.forEach((fila) => {
-    // Cada cantidad, en número y unidad (la unidad va más chica). split corta en el espacio. Ej: "16,6 lts" → ["16,6", "lts"]
-    const partesCompre = escHtml(mostrarCantidad(fila.compre, fila.unidad)).split(" ");
-    const partesGaste = escHtml(mostrarCantidad(fila.gaste, fila.unidad)).split(" ");
-    const partesHoy = escHtml(mostrarCantidad(fila.hoy_tenes, fila.unidad)).split(" ");
+  // 3. La página donde arranca: la 1, o la que se estaba viendo
+  let pagina = 1;
+  const sigueEnLaPagina = mantenerPagina === true && paginacionResumen !== null;
+  // ¿se queda en la página donde estaba? SÍ: volvió a la pestaña o guardó una compra · NO: buscó, cambió la categoría o el período
+  if (sigueEnLaPagina) {
+    pagina = paginacionResumen.paginaActual();
+  }
 
-    // Compré y Gasté. Sin compras o sin gastos, una rayita en vez de "+ 0 g"
-    let htmlCompre = '<span class="sin-cantidad">—</span>';
-    // ¿compró algo en el período? SÍ: 20 kg · NO: 0
-    if (fila.compre > 0) {
-      htmlCompre = "+ " + partesCompre[0] + ' <small class="unidad-cantidad">' + partesCompre[1] + "</small>";
-    }
-    let htmlGaste = '<span class="sin-cantidad">—</span>';
-    // ¿gastó algo en el período? SÍ: 15 kg · NO: 0
-    if (fila.gaste > 0) {
-      htmlGaste = "− " + partesGaste[0] + ' <small class="unidad-cantidad">' + partesGaste[1] + "</small>";
-    }
-    const htmlHoy = partesHoy[0] + ' <small class="unidad-cantidad">' + partesHoy[1] + "</small>";
+  // 4. Las filas de esa página. crearPaginacion llama a la función de abajo con cada fila de la página que se ve
+  paginacionResumen = crearPaginacion({
+    datos: filas,
+    porPagina: FILAS_POR_PAGINA,
+    contenedorTabla: cuerpoResumen,
+    contenedorPaginacion: paginacionCompras,
+    paginaInicial: pagina,
+    funcionRenderFila: (fila) => {
+      // Cada cantidad, en número y unidad (la unidad va más chica). split corta en el espacio. Ej: "16,6 lts" → ["16,6", "lts"]
+      const partesCompre = escHtml(mostrarCantidad(fila.compre, fila.unidad)).split(" ");
+      const partesGaste = escHtml(mostrarCantidad(fila.gaste, fila.unidad)).split(" ");
+      const partesHoy = escHtml(mostrarCantidad(fila.hoy_tenes, fila.unidad)).split(" ");
 
-    // Para repetir: la pastilla con lo que hay que comprar, o "Te alcanza"
-    let htmlComprar = '<span class="pastilla-comprar">' + escHtml(mostrarCantidad(fila.comprar, fila.unidad)) + "</span>";
-    // ¿ya alcanza con lo que hay? SÍ: gasté 5 kg y tengo 8 kg · NO: gasté 15 kg y tengo 8 kg
-    if (fila.te_alcanza) {
-      htmlComprar = '<span class="texto-te-alcanza">Te alcanza</span>';
-    }
+      // Compré y Gasté. Sin compras o sin gastos, una rayita en vez de "+ 0 g"
+      let htmlCompre = '<span class="sin-cantidad">—</span>';
+      // ¿compró algo en el período? SÍ: 20 kg · NO: 0
+      if (fila.compre > 0) {
+        htmlCompre = "+ " + partesCompre[0] + ' <small class="unidad-cantidad">' + partesCompre[1] + "</small>";
+      }
+      let htmlGaste = '<span class="sin-cantidad">—</span>';
+      // ¿gastó algo en el período? SÍ: 15 kg · NO: 0
+      if (fila.gaste > 0) {
+        htmlGaste = "− " + partesGaste[0] + ' <small class="unidad-cantidad">' + partesGaste[1] + "</small>";
+      }
+      const htmlHoy = partesHoy[0] + ' <small class="unidad-cantidad">' + partesHoy[1] + "</small>";
 
-    // Un insumo desactivado se ve, pero no se puede comprar: no se sugiere comprarlo
-    let textoDesactivado = "";
-    const desactivado = fila.activo !== true;
-    // ¿está desactivado? SÍ: activo false · NO: activo true
-    if (desactivado) {
-      textoDesactivado = "Desactivado";
-      htmlComprar = '<span class="sin-cantidad">—</span>';
-    }
+      // Para repetir: la pastilla con lo que hay que comprar, o "Te alcanza"
+      let htmlComprar = '<span class="pastilla-comprar">' + escHtml(mostrarCantidad(fila.comprar, fila.unidad)) + "</span>";
+      // ¿ya alcanza con lo que hay? SÍ: gasté 5 kg y tengo 8 kg · NO: gasté 15 kg y tengo 8 kg
+      if (fila.te_alcanza) {
+        htmlComprar = '<span class="texto-te-alcanza">Te alcanza</span>';
+      }
 
-    // Abajo del nombre: la categoría y si está desactivado. filter se queda con los que tienen algo y join los une.
-    // Ej: ["Almacén", "Desactivado"] → "Almacén · Desactivado" · [null, ""] → ""
-    const textoAbajo = [fila.categoria, textoDesactivado].filter((dato) => dato).join(" · ");
+      // Un insumo desactivado se ve, pero no se puede comprar: no se sugiere comprarlo
+      let textoDesactivado = "";
+      const desactivado = fila.activo !== true;
+      // ¿está desactivado? SÍ: activo false · NO: activo true
+      if (desactivado) {
+        textoDesactivado = "Desactivado";
+        htmlComprar = '<span class="sin-cantidad">—</span>';
+      }
 
-    // El aviso naranja. El número ya viene calculado del servidor
-    let htmlAviso = "";
-    // ¿gastó más de lo que compró? SÍ: compré 4 kg y gasté 4,5 kg · NO: compré 20 kg y gasté 15 kg
-    if (fila.gasto_de_mas > 0) {
-      htmlAviso = '<span class="aviso-gasto-de-mas">Gastaste ' + escHtml(mostrarCantidad(fila.gasto_de_mas, fila.unidad)) + " más de lo que compraste</span>";
-    }
+      // Abajo del nombre: la categoría y si está desactivado. filter se queda con los que tienen algo y join los une.
+      // Ej: ["Almacén", "Desactivado"] → "Almacén · Desactivado" · [null, ""] → ""
+      const textoAbajo = [fila.categoria, textoDesactivado].filter((dato) => dato).join(" · ");
 
-    // Lo que viene de la base, seguro para el HTML
-    const nombre = escHtml(fila.nombre);
-    const abajo = escHtml(textoAbajo);
+      // El aviso naranja. El número ya viene calculado del servidor
+      let htmlAviso = "";
+      // ¿gastó más de lo que compró? SÍ: compré 4 kg y gasté 4,5 kg · NO: compré 20 kg y gasté 15 kg
+      if (fila.gasto_de_mas > 0) {
+        htmlAviso = '<span class="aviso-gasto-de-mas">Gastaste ' + escHtml(mostrarCantidad(fila.gasto_de_mas, fila.unidad)) + " más de lo que compraste</span>";
+      }
 
-    // La fila
-    const tr = document.createElement("tr");
-    tr.className = "fila-resumen";
-    tr.innerHTML = `
-      <td><span class="dato-principal nombre-insumo">${nombre}</span><span class="dato-chico">${abajo}</span>${htmlAviso}</td>
-      <td class="celda-numero cantidad-comprada">${htmlCompre}</td>
-      <td class="celda-numero cantidad-gastada">${htmlGaste}</td>
-      <td class="celda-numero">${htmlHoy}</td>
-      <td class="celda-numero">${htmlComprar}</td>
-      <td class="celda-accion"><button type="button" class="boton-gastos">En qué se gastó ›</button></td>
-    `;
+      // Lo que viene de la base, seguro para el HTML
+      const nombre = escHtml(fila.nombre);
+      const abajo = escHtml(textoAbajo);
 
-    // "En qué se gastó ›" abre el panel de este insumo
-    tr.querySelector(".boton-gastos").addEventListener("click", () => {
-      abrirGastosInsumo(fila.id_insumo, fila.nombre);
-    });
-    cuerpoResumen.appendChild(tr);
+      // La fila
+      const tr = document.createElement("tr");
+      tr.className = "fila-resumen";
+      tr.innerHTML = `
+        <td><span class="dato-principal nombre-insumo">${nombre}</span><span class="dato-chico">${abajo}</span>${htmlAviso}</td>
+        <td class="celda-numero cantidad-comprada">${htmlCompre}</td>
+        <td class="celda-numero cantidad-gastada">${htmlGaste}</td>
+        <td class="celda-numero">${htmlHoy}</td>
+        <td class="celda-numero">${htmlComprar}</td>
+        <td class="celda-accion"><button type="button" class="boton-gastos">En qué se gastó ›</button></td>
+      `;
+
+      // "En qué se gastó ›" abre el panel de este insumo
+      tr.querySelector(".boton-gastos").addEventListener("click", () => {
+        abrirGastosInsumo(fila.id_insumo, fila.nombre);
+      });
+      return tr;                                                     // crearPaginacion la pega en la tabla
+    },
   });
 }
 
@@ -684,8 +709,13 @@ function imprimirListaCompras() {
 });
 
 // El buscador y la categoría vuelven a dibujar la tabla sin pedir nada al servidor
-buscadorInsumo.addEventListener("input", filtrarResumen);
-filtroCategoria.addEventListener("change", filtrarResumen);
+// (05/11) Los dos arrancan en la página 1. Van con () => para no pasarle el evento como si fuera mantenerPagina
+buscadorInsumo.addEventListener("input", () => {
+  filtrarResumen();
+});
+filtroCategoria.addEventListener("change", () => {
+  filtrarResumen();
+});
 
 // "Imprimir lista de compras"
 botonImprimirLista.addEventListener("click", imprimirListaCompras);
@@ -758,6 +788,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 document.addEventListener("visibilitychange", () => {
   // ¿volvió a la pestaña? SÍ: estaba en otra y volvió · NO: se fue a otra
   if (document.visibilityState === "visible") {
-    cargarCompras();
+    cargarCompras(true);                                           // (05/11) se queda en la página donde estaba
   }
 });

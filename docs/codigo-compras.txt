@@ -1,0 +1,1372 @@
+Código de la pantalla Compras, copiado tal cual (solo para leer: cambiarlo acá no cambia nada).
+Armado el 05/11/2026. Si el código cambia, este archivo no se actualiza solo.
+
+==== server.js, línea 3608 (empieza en su comentario; el código, en la línea 3617) ====
+// ─────────────────────────────────────────────────────────────────────────────
+// leerPeriodo → revisa las fechas de la dirección y las pasa a horas de Argentina
+// ENTRADA: consulta (req.query): { desde: 'AAAA-MM-DD', hasta: 'AAAA-MM-DD' }, las dos obligatorias
+// SALIDA:  { desdeISO, hastaISO } · { error: 'mensaje' } si algo está mal (la ruta responde 400)
+// Ej: { desde: '2026-11-02', hasta: '2026-11-08' } → { desdeISO: '2026-11-02T00:00:00-03:00', hastaISO: '2026-11-09T00:00:00-03:00' }
+//     { desde: '2026-02-30', hasta: '2026-03-01' } → { error: 'Las fechas son inválidas' } (el 30 de febrero no existe)
+//     { desde: '2026-09-01', hasta: '2026-11-30' } → { error: 'El período puede tener hasta 62 días' } (son 91)
+// La usan las tres rutas de la pantalla Compras. Lee y frena: así un pedido de años no hace trabajar a la base.
+// ─────────────────────────────────────────────────────────────────────────────
+function leerPeriodo(consulta) {
+  const desde = leerFechaPara(consulta.desde);                    // 'AAAA-MM-DD' que exista de verdad, o null
+  const hasta = leerFechaPara(consulta.hasta);
+
+  // 1. Las dos fechas tienen que servir. Fuera de 2000 a 2099 no hay nada guardado (y el año 0000 la base ni lo acepta)
+  //    En AAAA-MM-DD, el texto menor es el día más viejo: se comparan directo. Ej: '2026-11-02' < '2026-11-08'
+  const fechaMala = desde === null || hasta === null || desde < '2000-01-01' || hasta > '2099-12-31';
+  // ¿alguna no sirve? SÍ: vacía o '2026-02-30' · NO: '2026-11-02'
+  if (fechaMala) {
+    return { error: 'Las fechas son inválidas' };
+  }
+  // ¿están al revés? SÍ: desde 08/11 y hasta 02/11 · NO: desde 02/11 y hasta 08/11
+  if (desde > hasta) {
+    return { error: 'La fecha "desde" no puede ser mayor que "hasta"' };
+  }
+
+  // 2. Cuántos días son, contando los dos extremos. Ej: del 02/11 al 08/11 → 6 de diferencia + 1 = 7
+  const horaDesde = new Date(desde + 'T00:00:00Z').getTime();     // el día como número (milisegundos)
+  const horaHasta = new Date(hasta + 'T00:00:00Z').getTime();
+  const dias = (horaHasta - horaDesde) / MILISEGUNDOS_POR_DIA + 1;
+  // ¿son demasiados? SÍ: 63 días · NO: un mes de 31
+  if (dias > MAXIMO_DIAS_PERIODO) {
+    return { error: 'El período puede tener hasta ' + MAXIMO_DIAS_PERIODO + ' días' };
+  }
+
+  // 3. Desde las 00:00 de "desde" hasta antes de las 00:00 del día después de "hasta" (en Argentina)
+  const diaSiguiente = new Date(horaHasta + MILISEGUNDOS_POR_DIA).toISOString().slice(0, 10);  // ej: '2026-11-09'
+  return {
+    desdeISO: desde + 'T00:00:00' + OFFSET_ARGENTINA,             // ej: '2026-11-02T00:00:00-03:00'
+    hastaISO: diaSiguiente + 'T00:00:00' + OFFSET_ARGENTINA       // ej: '2026-11-09T00:00:00-03:00'
+  };
+}
+
+
+==== server.js, línea 3650 (empieza en su comentario; el código, en la línea 3658) ====
+// ─────────────────────────────────────────────────────────────────────────────
+// cantidadEnUnidadDelInsumo → la cantidad de un renglón de movimientos_stock, en la unidad del insumo
+// ENTRADA: fila ({ cantidad, unidad }; unidad puede venir vacía) y unidadDelInsumo (ej: 'g')
+// SALIDA:  el número. Si las unidades son de distinta familia, queda como está (igual que la carga de lotes)
+// Ej: { cantidad: 2, unidad: 'kg' }, 'g' → 2000 · { cantidad: 2000, unidad: 'g' }, 'g' → 2000 · { cantidad: 5, unidad: null }, 'u' → 5
+// Por qué hace falta: el servidor de Render guarda la salida como se escribió (2 y kg), no en la unidad del insumo.
+// La usan GET /api/compras/resumen (Gasté) y GET /api/compras/gastos/:idInsumo: con la misma cuenta, el total da igual que Gasté.
+// ─────────────────────────────────────────────────────────────────────────────
+function cantidadEnUnidadDelInsumo(fila, unidadDelInsumo) {
+  const conversion = convertirACantidadBase(fila.cantidad, fila.unidad, unidadDelInsumo);
+  // ¿no se puede convertir? SÍ: kg en un insumo en ml · NO: kg en un insumo en g
+  if (conversion.error) {
+    return Number(fila.cantidad);
+  }
+  return conversion.cantidadBase;
+}
+
+
+==== server.js, línea 3387 (empieza en su comentario; el código, en la línea 3397) ====
+// ─────────────────────────────────────────────────────────────────────────────
+// origenDeRenglonStock → dice de qué movimiento es un renglón de insumos (movimientos_stock)
+// ENTRADA: fila, con motivo, tipo, id, id_compra, id_movimiento_vianda, id_pedido e id_salida_manual
+// SALIDA:  { clave, origen, tipo, numero }. origen = 'compra' · 'produccion' · 'cocina' · 'salida_manual' · 'ajuste'
+//          Se elige el primero que corresponde, en ese orden.
+// Ej: { id_movimiento_vianda: 40 } → { clave: 'produccion-40', origen: 'produccion', tipo: 'entrada', numero: null }
+//     { motivo: 'Consumo por producción pedido #005' } → { clave: 'cocina-5-…', origen: 'cocina', tipo: 'salida', numero: 5 }
+//     { id: 9, tipo: 'salida' } (sin ningún id) → { clave: 'ajuste-insumo-9', origen: 'ajuste', tipo: 'salida', numero: null }
+// La usan armarMovimientos y GET /api/compras/gastos/:idInsumo: así las dos pantallas dicen lo mismo.
+// ─────────────────────────────────────────────────────────────────────────────
+function origenDeRenglonStock(fila) {
+  // a. ¿Es lo que gastó la cocina en un pedido? Los nuevos tienen id_pedido; los viejos, el motivo EXACTO.
+  //    exec busca el texto: ^ y $ = tiene que ser el motivo entero; (\d+) = el número. Ej: '…pedido #005' → ['…', '005']
+  const motivoDePedido = /^Consumo por producción pedido #(\d+)$/.exec(fila.motivo || '');
+  const pedidoDelMotivo = motivoDePedido ? Number(motivoDePedido[1]) : null;  // '005' → 5 (null si no es de un pedido)
+  const idPedido = fila.id_pedido || pedidoDelMotivo;             // primero id_pedido; si no, el del motivo
+
+  // b. A qué movimiento pertenece: se elige el primero que corresponde, en este orden
+  //    (compra, después "Hecho", después pedido; si no es ninguno, lo cargado a mano es un ajuste)
+  let datos = null;
+  if (fila.id_compra) datos = { clave: 'compra-' + fila.id_compra, origen: 'compra', tipo: 'entrada', numero: fila.id_compra };
+  if (!datos && fila.id_movimiento_vianda) datos = { clave: 'produccion-' + fila.id_movimiento_vianda, origen: 'produccion', tipo: 'entrada', numero: null };
+  if (!datos && idPedido) datos = { clave: 'cocina-' + idPedido + '-' + fila.fecha, origen: 'cocina', tipo: 'salida', numero: idPedido };
+  // ¿es de la ventana "Registrar salida"? SÍ: tiene id_salida_manual · NO: una salida de la pantalla vieja (esas siguen como ajuste)
+  if (!datos && fila.id_salida_manual) {
+    datos = { clave: 'salida-manual-' + fila.id_salida_manual, origen: 'salida_manual', tipo: 'salida', numero: null };
+  }
+  if (!datos) datos = { clave: 'ajuste-insumo-' + fila.id, origen: 'ajuste', tipo: fila.tipo === 'entrada' ? 'entrada' : 'salida', numero: null };
+
+  return datos;
+}
+
+
+==== server.js, línea 3667 (empieza en su comentario; el código, en la línea 3680) ====
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/compras/resumen → las filas de la tabla de la pantalla Compras: una por insumo con compras o gastos
+// ENTRADA: ?desde=AAAA-MM-DD&hasta=AAAA-MM-DD (obligatorias, días de Argentina, hasta 62)
+// SALIDA:  [{ id_insumo, nombre, unidad, id_categoria, categoria, activo, compre, gaste, hoy_tenes, comprar, te_alcanza, gasto_de_mas }],
+//          por nombre · 400 si las fechas están mal o hay demasiados renglones · 500
+//            compre       = lotes que entraron por una compra (cantidad_inicial)
+//            gaste        = salidas de movimientos_stock, cada una en la unidad del insumo
+//            comprar      = gaste − hoy_tenes (0 y te_alcanza: true si da 0 o menos)
+//            gasto_de_mas = gaste − compre (0 si gastó menos o lo mismo)
+// Ej: carne en g, compré 20 kg, gasté 15 kg y tengo 8 kg →
+//     { nombre: 'Carne', unidad: 'g', compre: 20000, gaste: 15000, hoy_tenes: 8000, comprar: 7000, te_alcanza: false, gasto_de_mas: 0 }
+// Sin forEach anidado: tres objetos { id del insumo: valor } y cada lista se recorre una sola vez.
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/compras/resumen', requireAuth, requireRol(...ROLES_COMPRAS), async (req, res) => {
+  // 1. El período
+  const periodo = leerPeriodo(req.query);
+  // ¿las fechas están mal? SÍ: '2026-02-30' · NO: '2026-11-02'
+  if (periodo.error) {
+    return res.status(400).json({ error: periodo.error });
+  }
+
+  try {
+    // 2. Lo que hace falta: los lotes de compra, las salidas y los insumos (por nombre)
+    const lotes = await traerTodasLasFilas('lotes_insumo', 'id, id_insumo, cantidad_inicial',
+      periodo.desdeISO, periodo.hastaISO, { origen: 'compra' });
+    const salidas = await traerTodasLasFilas('movimientos_stock', 'id, id_insumo, cantidad, unidad',
+      periodo.desdeISO, periodo.hastaISO, { tipo: 'salida' });
+    const consultaInsumos = await supabase
+      .from('insumos')
+      .select('id, nombre, stock_actual, unidad_medida, activo, id_categoria_insumo, categorias_insumos ( nombre )')
+      .order('nombre', { ascending: true });
+
+    const errorDeBase = [lotes.error, salidas.error, consultaInsumos.error].find(error => error);  // find = el primero que haya
+    // ¿falló alguna consulta? SÍ: se cortó la base · NO: vinieron las tres
+    if (errorDeBase) {
+      return errorInterno(res, errorDeBase);
+    }
+    const hayDemasiados = lotes.demasiadas || salidas.demasiadas;
+    // ¿pasó el tope de renglones? SÍ: más de 20.000 · NO: lo normal
+    if (hayDemasiados) {
+      return res.status(400).json({ error: MENSAJE_DEMASIADOS_RENGLONES });
+    }
+    const insumos = consultaInsumos.data;
+
+    // 3. Tres objetos { id del insumo: valor }. Ej: compradoPorInsumo = { 7: 0 } · unidadPorInsumo = { 7: 'g' }
+    const compradoPorInsumo = {};
+    const gastadoPorInsumo = {};
+    const unidadPorInsumo = {};
+    insumos.forEach(insumo => {
+      compradoPorInsumo[insumo.id] = 0;
+      gastadoPorInsumo[insumo.id] = 0;
+      unidadPorInsumo[insumo.id] = insumo.unidad_medida;
+    });
+
+    // 4. Cada lote se suma a su insumo (ya está en la unidad del insumo). Ej: 12000 + 8000 → { 7: 20000 }
+    lotes.filas.forEach(lote => {
+      compradoPorInsumo[lote.id_insumo] = compradoPorInsumo[lote.id_insumo] + Number(lote.cantidad_inicial);
+    });
+
+    // 5. Cada salida se pasa a la unidad del insumo y se suma. Ej: 2 kg + 2000 g → { 7: 4000 }
+    salidas.filas.forEach(fila => {
+      gastadoPorInsumo[fila.id_insumo] = gastadoPorInsumo[fila.id_insumo] + cantidadEnUnidadDelInsumo(fila, unidadPorInsumo[fila.id_insumo]);
+    });
+
+    // 6. Solo los insumos con compras o gastos en el período
+    const conMovimientos = insumos.filter(insumo => {
+      return compradoPorInsumo[insumo.id] > 0 || gastadoPorInsumo[insumo.id] > 0;
+    });
+
+    // 7. La fila de cada uno. Se redondea a 3 decimales: en JavaScript, 0.1 + 0.2 da 0.30000000000000004
+    const filas = conMovimientos.map(insumo => {
+      const compre = Math.round(compradoPorInsumo[insumo.id] * 1000) / 1000;
+      const gaste = Math.round(gastadoPorInsumo[insumo.id] * 1000) / 1000;
+      const hoyTenes = Number(insumo.stock_actual);               // vacío cuenta como 0. Puede ser negativo (ej: "cociné igual")
+
+      let comprar = Math.round((gaste - hoyTenes) * 1000) / 1000;
+      let teAlcanza = false;
+      // ¿ya alcanza? SÍ: gasté 5 kg y tengo 8 kg · NO: gasté 15 kg y tengo 8 kg
+      if (comprar <= 0) {
+        comprar = 0;
+        teAlcanza = true;
+      }
+
+      let gastoDeMas = 0;
+      // ¿gastó más de lo que compró? SÍ: compré 4 kg y gasté 4,5 kg · NO: compré 20 kg y gasté 15 kg
+      if (gaste > compre) {
+        gastoDeMas = Math.round((gaste - compre) * 1000) / 1000;
+      }
+
+      let categoria = null;
+      // ¿tiene categoría? SÍ: Carnicería · NO: un insumo sin categoría
+      if (insumo.categorias_insumos) {
+        categoria = insumo.categorias_insumos.nombre;
+      }
+
+      return {
+        id_insumo:    insumo.id,
+        nombre:       insumo.nombre,
+        unidad:       insumo.unidad_medida,
+        id_categoria: insumo.id_categoria_insumo,
+        categoria:    categoria,
+        activo:       insumo.activo,                              // un desactivado se ve, pero no se puede comprar
+        compre:       compre,
+        gaste:        gaste,
+        hoy_tenes:    hoyTenes,
+        comprar:      comprar,
+        te_alcanza:   teAlcanza,
+        gasto_de_mas: gastoDeMas
+      };
+    });
+
+    res.json(filas);
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+
+==== server.js, línea 3784 (empieza en su comentario; el código, en la línea 3793) ====
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/compras → las compras del período, para el panel "Compras hechas"
+// ENTRADA: ?desde=AAAA-MM-DD&hasta=AAAA-MM-DD (obligatorias, días de Argentina, hasta 62)
+// SALIDA:  la lista de armarMovimientos, de la más nueva a la más vieja: el MISMO objeto que trae GET /api/movimientos,
+//          así el modal de Detalle lo muestra sin cambios · 400 si las fechas están mal o hay demasiados renglones · 500
+// Ej: [{ clave: 'compra-15', origen: 'compra', tipo: 'entrada', fecha: '…', numero: 15, usuario: 'Ana López', proveedor: 'Molino Juan',
+//        insumos: [{ nombre: 'Harina', cantidad: 2000, unidad: 'g', vence: '2026-12-31' }], viandas: [], … }]
+// La fecha y la hora salen de movimientos_stock: compras.fecha guarda solo el día.
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/compras', requireAuth, requireRol(...ROLES_COMPRAS), async (req, res) => {
+  // 1. El período
+  const periodo = leerPeriodo(req.query);
+  // ¿las fechas están mal? SÍ: '2026-02-30' · NO: '2026-11-02'
+  if (periodo.error) {
+    return res.status(400).json({ error: periodo.error });
+  }
+
+  try {
+    // 2. Las entradas del período, con su insumo, quién y el proveedor
+    const entradas = await traerTodasLasFilas('movimientos_stock',
+      'id, tipo, cantidad, unidad, motivo, fecha, fecha_vencimiento, id_compra, ' +
+      'insumos ( nombre, unidad_medida ), usuarios ( nombre, apellido ), compras ( proveedor )',
+      periodo.desdeISO, periodo.hastaISO, { tipo: 'entrada' });
+    // ¿falló la base? SÍ: se cortó · NO: vinieron los renglones
+    if (entradas.error) {
+      return errorInterno(res, entradas.error);
+    }
+    // ¿pasó el tope de renglones? SÍ: más de 20.000 · NO: lo normal
+    if (entradas.demasiadas) {
+      return res.status(400).json({ error: MENSAJE_DEMASIADOS_RENGLONES });
+    }
+
+    // 3. Solo las de una compra (una entrada suelta no tiene id_compra). armarMovimientos junta los renglones de cada compra
+    const deCompras = entradas.filas.filter(fila => fila.id_compra);
+    res.json(armarMovimientos([], deCompras));
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+
+==== server.js, línea 3824 (empieza en su comentario; el código, en la línea 3839) ====
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/compras/gastos/:idInsumo → en qué se gastó un insumo en el período, para su panel
+// ENTRADA: el id en la dirección (entero, mayor a 0) y ?desde=AAAA-MM-DD&hasta=AAAA-MM-DD (obligatorias, hasta 62 días)
+// SALIDA:  { insumo: { id, nombre, unidad }, total, totales: { produccion, cocina, salida_manual, ajuste }, salidas }
+//          · 400 si el id o las fechas están mal, o si hay demasiados renglones · 404 si el insumo no existe · 500
+//            total = el mismo número que "gaste" en GET /api/compras/resumen
+//            salidas = una por renglón, de la más nueva a la más vieja:
+//              { origen, numero, fecha, usuario, motivo, viandas, plato, cliente, personalizado, cantidad }
+//            OJO con los nombres: 'produccion' es un Hecho de un pedido a cocina; 'cocina' es un pedido de cliente personalizado
+// Ej: carne → { insumo: { id: 7, nombre: 'Carne', unidad: 'g' }, total: 15000,
+//               totales: { produccion: 9000, cocina: 2000, salida_manual: 4000, ajuste: 0 },
+//               salidas: [{ origen: 'salida_manual', motivo: 'Vencido', usuario: 'Ana López', cantidad: 4000, … },
+//                         { origen: 'cocina', numero: 119, cliente: 'Laura R.', personalizado: 'sin sal', cantidad: 1500, … },
+//                         { origen: 'produccion', numero: 9, usuario: 'Marta', viandas: 20, plato: 'Albóndigas', cantidad: 6000, … }, …] }
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/compras/gastos/:idInsumo', requireAuth, requireRol(...ROLES_COMPRAS), async (req, res) => {
+  // 1. El insumo de la dirección: entero, mayor a 0 y que entre en la base
+  const idInsumo = Number(req.params.idInsumo);                   // Number: "12abc" no pasa
+  const idInvalido = !Number.isInteger(idInsumo) || idInsumo <= 0 || idInsumo > ENTERO_MAXIMO_BASE;
+  // ¿no es un id? SÍ: 'abc' o 0 · NO: 7
+  if (idInvalido) {
+    return res.status(400).json({ error: 'Insumo inválido' });
+  }
+
+  // 2. El período
+  const periodo = leerPeriodo(req.query);
+  // ¿las fechas están mal? SÍ: '2026-02-30' · NO: '2026-11-02'
+  if (periodo.error) {
+    return res.status(400).json({ error: periodo.error });
+  }
+
+  try {
+    // 3. El insumo y sus salidas del período. De un Hecho vienen también sus viandas, su plato y su pedido a cocina
+    const consultaInsumo = await supabase
+      .from('insumos')
+      .select('id, nombre, unidad_medida')
+      .eq('id', idInsumo)
+      .maybeSingle();                                             // maybeSingle = uno o ninguno
+    const renglones = await traerTodasLasFilas('movimientos_stock',
+      'id, tipo, cantidad, unidad, motivo, fecha, id_compra, id_movimiento_vianda, id_pedido, id_salida_manual, ' +
+      'usuarios ( nombre, apellido ), ' +
+      'movimientos_viandas ( cantidad, productos ( nombre ), orden_produccion_detalles ( id_orden_produccion ) )',
+      periodo.desdeISO, periodo.hastaISO, { tipo: 'salida', id_insumo: idInsumo });
+
+    const errorDeBase = [consultaInsumo.error, renglones.error].find(error => error);  // find = el primero que haya
+    // ¿falló alguna consulta? SÍ: se cortó la base · NO: vinieron las dos
+    if (errorDeBase) {
+      return errorInterno(res, errorDeBase);
+    }
+    const insumo = consultaInsumo.data;
+    // ¿el insumo no existe? SÍ: id 999 · NO: id 7
+    if (!insumo) {
+      return res.status(404).json({ error: 'El insumo no existe' });
+    }
+    // ¿pasó el tope de renglones? SÍ: más de 20.000 · NO: lo normal
+    if (renglones.demasiadas) {
+      return res.status(400).json({ error: MENSAJE_DEMASIADOS_RENGLONES });
+    }
+
+    // 4. Una salida por renglón, y de paso se va sumando el total y el total por origen
+    let total = 0;
+    const totales = { produccion: 0, cocina: 0, salida_manual: 0, ajuste: 0 };
+    const salidas = renglones.filas.map(fila => {
+      const datos = origenDeRenglonStock(fila);                   // el mismo criterio que Movimientos de Stock
+      const cantidad = cantidadEnUnidadDelInsumo(fila, insumo.unidad_medida);
+      total = total + cantidad;
+      totales[datos.origen] = totales[datos.origen] + cantidad;
+
+      // Lo del Hecho: el pedido a cocina, las viandas y el plato. Una tanda vieja no tiene pedido a cocina: queda sin número
+      let viandas = null;
+      let plato = null;
+      let detallesDelHecho = [];
+      const hecho = fila.movimientos_viandas;
+      // ¿salió de un Hecho? SÍ: tiene id_movimiento_vianda · NO: una salida manual
+      if (hecho) {
+        viandas = Number(hecho.cantidad);
+        plato = hecho.productos.nombre;
+        detallesDelHecho = hecho.orden_produccion_detalles;
+      }
+      let numero = datos.numero;
+      // ¿tiene pedido a cocina? SÍ: el #9 · NO: una tanda vieja, o no salió de un Hecho
+      if (detallesDelHecho.length > 0) {
+        numero = detallesDelHecho[0].id_orden_produccion;
+      }
+
+      return {
+        origen:        datos.origen,
+        numero:        numero,
+        fecha:         fila.fecha,
+        usuario:       nombreDeUsuario(fila.usuarios),            // quién marcó Hecho, o quién registró la salida
+        motivo:        fila.motivo,
+        viandas:       viandas,
+        plato:         plato,
+        cliente:       null,                                      // solo los pedidos de cliente (paso 7)
+        personalizado: '',                                        // solo los pedidos de cliente (paso 7)
+        cantidad:      Math.round(cantidad * 1000) / 1000         // en JavaScript, 1.1 × 1000 da 1100.0000000000002
+      };
+    });
+
+    // 5. Los pedidos de cliente de estas salidas: su cliente, sus textos ("sin sal") y qué platos usan este insumo.
+    //    Un motivo viejo puede traer un número que no entra en la base: ese no se busca.
+    const deClientes = salidas.filter(salida => salida.origen === 'cocina');
+    const idsPedidos = deClientes.map(salida => salida.numero).filter(id => id <= ENTERO_MAXIMO_BASE);
+    const consultaClientes = await supabase.from('pedidos').select('id, cliente_nombre').in('id', idsPedidos);
+    const consultaPlatos = await supabase.from('pedido_detalles')
+      .select('id_pedido, id_producto, cantidad, cantidad_de_heladera, observaciones_plato')
+      .in('id_pedido', idsPedidos);
+    const consultaReceta = await supabase.from('producto_insumo').select('id_producto').eq('id_insumo', idInsumo);
+
+    const errorDePedidos = [consultaClientes.error, consultaPlatos.error, consultaReceta.error].find(error => error);
+    // ¿falló alguna consulta? SÍ: se cortó la base · NO: vinieron las tres
+    if (errorDePedidos) {
+      return errorInterno(res, errorDePedidos);
+    }
+
+    // 6. Tres objetos, para no recorrer una lista adentro de otra.
+    //    Ej: clientePorPedido = { 119: 'Laura R.' } · platoUsaElInsumo = { 5: true } · textosPorPedido = { 119: ['sin sal'] }
+    const clientePorPedido = {};
+    const textosPorPedido = {};
+    deClientes.forEach(salida => {
+      clientePorPedido[salida.numero] = null;                     // si el pedido no aparece, queda sin cliente
+      textosPorPedido[salida.numero] = [];
+    });
+    consultaClientes.data.forEach(pedido => {
+      clientePorPedido[pedido.id] = pedido.cliente_nombre;
+    });
+    const platoUsaElInsumo = {};
+    consultaReceta.data.forEach(renglonReceta => {
+      platoUsaElInsumo[renglonReceta.id_producto] = true;
+    });
+    consultaPlatos.data.forEach(detalle => {
+      const lista = textosPorPedido[detalle.id_pedido];
+      const aCocinar = Number(detalle.cantidad) - Number(detalle.cantidad_de_heladera);  // vacío cuenta como 0
+      const tieneTextoNuevo = aCocinar > 0 && platoUsaElInsumo[detalle.id_producto] === true
+        && Boolean(detalle.observaciones_plato) && !lista.includes(detalle.observaciones_plato);
+      // ¿es un texto para agregar? SÍ: "sin sal" en un plato con esta carne · NO: un plato de heladera o que no la usa
+      if (tieneTextoNuevo) {
+        lista.push(detalle.observaciones_plato);
+      }
+    });
+
+    // 7. Se completan las salidas de clientes. Ej: pedido 119 → cliente 'Laura R.' y personalizado 'sin sal'
+    deClientes.forEach(salida => {
+      salida.cliente = clientePorPedido[salida.numero];
+      salida.personalizado = textosPorPedido[salida.numero].join(', ');  // join une los textos. Ej: ['sin sal', 'sin ajo'] → 'sin sal, sin ajo'
+    });
+
+    // 8. Se manda, con los totales redondeados a 3 decimales
+    res.json({
+      insumo: { id: insumo.id, nombre: insumo.nombre, unidad: insumo.unidad_medida },
+      total: Math.round(total * 1000) / 1000,
+      totales: {
+        produccion:    Math.round(totales.produccion * 1000) / 1000,
+        cocina:        Math.round(totales.cocina * 1000) / 1000,
+        salida_manual: Math.round(totales.salida_manual * 1000) / 1000,
+        ajuste:        Math.round(totales.ajuste * 1000) / 1000
+      },
+      salidas: salidas
+    });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+
+==== server.js, línea 2386 (empieza en su comentario; el código, en la línea 2389) ====
+// POST /api/compras → registra una compra con varios insumos (registrar_compra).
+// Body: { fecha?, proveedor?, items: [{ id_insumo, cantidad, unidad, fecha_vencimiento }] }.
+// El usuario sale del token.
+app.post('/api/compras', requireAuth, requireRol(...ROLES_COMPRAS), async (req, res) => {
+  const { fecha, proveedor, items } = req.body;
+
+  // La fecha es opcional, pero si viene tiene que existir de verdad y no ser de un día que todavía no llegó.
+  // Se compara como texto: en AAAA-MM-DD, el texto mayor es el día más nuevo. Ej: '2026-11-05' > '2026-11-04'
+  const fechaInvalida = fecha && leerFechaPara(fecha) === null;
+  // ¿vino una fecha que no existe? SÍ: '2026-02-30' · NO: '2026-11-04'
+  if (fechaInvalida) {
+    return res.status(400).json({ error: 'La fecha es inválida' });
+  }
+  const hoyEnArgentina = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date());  // "en-CA" escribe AAAA-MM-DD
+  const fechaFutura = fecha && fecha > hoyEnArgentina;
+  // ¿la fecha todavía no llegó? SÍ: mañana · NO: hoy o un día anterior
+  if (fechaFutura) {
+    return res.status(400).json({ error: 'La fecha de la compra no puede ser posterior a hoy' });
+  }
+
+  // 1. Tiene que venir una lista con al menos un insumo
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Cargá al menos un insumo' });
+  }
+
+  // Cada renglón tiene que ser un objeto (ej: { id_insumo: 4, ... }), no null ni un texto
+  if (!items.every(item => item && typeof item === 'object' && !Array.isArray(item))) {
+    return res.status(400).json({ error: 'Hay un renglón inválido' });
+  }
+
+  // Cada id_insumo tiene que ser un número entero (ej: 4, no "abc" ni 4.5)
+  if (!items.every(item => Number.isInteger(Number(item.id_insumo)))) {
+    return res.status(400).json({ error: 'Hay un insumo inválido' });
+  }
+
+  try {
+    // 2. Traer la unidad de medida de todos los insumos de la lista, en una sola consulta
+    const ids = items.map(item => Number(item.id_insumo));
+    const { data: insumos, error: errInsumos } = await supabase
+      .from('insumos')
+      .select('id, nombre, unidad_medida')
+      .in('id', ids);
+
+    if (errInsumos) return errorInterno(res, errInsumos);
+
+    // Armar un "diccionario" por id para encontrar cada insumo rápido
+    const unidadesPorInsumo = {};
+    for (const insumo of insumos) {
+      unidadesPorInsumo[insumo.id] = insumo;
+    }
+
+    // 3. Convertir las cantidades a la unidad base de cada insumo
+    const conversion = convertirItemsCompra(items, unidadesPorInsumo);
+    if (conversion.error) return res.status(400).json({ error: conversion.error });
+
+    // 4. Guardar todo en la base (valida, crea la compra, los movimientos y suma el stock)
+    const { data, error } = await supabase.rpc('registrar_compra', {
+      p_id_usuario: req.usuario.id,
+      p_fecha:      fecha || null,
+      p_proveedor:  proveedor || null,
+      p_items:      conversion.items
+    });
+
+    if (error) return errorInterno(res, error);
+
+    // ok: false = no se guardó nada (cantidad en 0, insumo inactivo, etc.)
+    if (!data || !data.ok) {
+      let mensaje = 'No se pudo registrar la compra';
+      if (data && data.error) mensaje = data.error;
+      return res.status(400).json({ error: mensaje });
+    }
+
+    res.status(201).json({ ok: true, id_compra: data.id_compra });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+
+==== frontend/src/js/compras.js, línea 1 (el archivo entero) ====
+// ============================================================================
+// compras.js — Pantalla Compras (pages/compras.html): qué compré, qué gasté y qué tengo que reponer
+//
+// Funciones:
+//   elegirPeriodo           → guarda la semana o el mes de un día y escribe el período en la pantalla
+//   cargarCompras           → pide al servidor las filas de la tabla y las compras del panel (GET /api/compras/resumen y /api/compras)
+//   filtrarResumen          → aplica el buscador y la categoría, sin volver a pedir nada al servidor
+//   renderizarResumen       → dibuja la tabla y el pie
+//   renderizarComprasHechas → dibuja el panel "Compras hechas", con el botón Detalle de cada compra
+//   abrirGastosInsumo       → abre el panel "En qué se gastó" de un insumo y lo llena (GET /api/compras/gastos/:idInsumo)
+//   imprimirListaCompras    → arma la hoja con lo que hay que comprar y abre la impresión
+//
+// La ventana "Registrar compra" está en registrarCompra.js: acá solo se le traen los insumos al cargar la página
+// y se abre sola si la dirección termina en ?compra=1 (el botón de Movimientos de Stock y "Ir a Compras" de Pedir a cocina).
+//
+// Las cuentas (Compré, Gasté, Para repetir, los totales) las hace SIEMPRE el servidor: acá solo se muestran.
+// Necesita antes: api.js (apiFetch), escape.js (escHtml y motivoParaMostrar), fechas.js, stockCompartido.js
+// (mostrarCantidad, ASPECTO_ORIGEN, ORIGENES, los íconos y el modal de Detalle con abrirDetalleMovimiento)
+// y registrarCompra.js (llenarCategorias y el botón btnRegistrarCompra).
+// Todo texto que viene de la base pasa por escHtml antes de ir al innerHTML.
+// ============================================================================
+
+// Los elementos de la página
+const botonSemana = document.getElementById("botonSemana");                     // "Semana"
+const botonMes = document.getElementById("botonMes");                           // "Mes"
+const botonPeriodoAnterior = document.getElementById("botonPeriodoAnterior");   // "‹"
+const botonPeriodoSiguiente = document.getElementById("botonPeriodoSiguiente"); // "›"
+const textoPeriodo = document.getElementById("textoPeriodo");                   // "02/11 al 08/11"
+const ayudaPeriodo = document.getElementById("ayudaPeriodo");                   // "la semana", en la franja verde
+const buscadorInsumo = document.getElementById("buscadorInsumo");               // "Buscar insumo"
+const filtroCategoria = document.getElementById("filtroCategoria");             // "Todas las categorías"
+const cuerpoResumen = document.getElementById("cuerpoResumen");                     // las filas de la tabla
+const contadorResumen = document.getElementById("contadorResumen");             // "8 insumos con compras o gastos en la semana"
+const botonComprasHechas = document.getElementById("botonComprasHechas");       // "Compras hechas", arriba
+const botonImprimirLista = document.getElementById("botonImprimirLista");       // "Imprimir lista de compras", abajo
+const hojaListaCompras = document.getElementById("hojaListaCompras");           // la hoja que sale al imprimir
+
+// El panel "Compras hechas"
+const panelComprasHechas = document.getElementById("panelComprasHechas");               // lo oscuro con el panel adentro
+const botonCerrarComprasHechas = document.getElementById("botonCerrarComprasHechas");   // la X
+const subtituloComprasHechas = document.getElementById("subtituloComprasHechas");       // "Del 02/11 al 08/11 · también figuran…"
+const listaComprasHechas = document.getElementById("listaComprasHechas");               // una compra por renglón
+const cantidadComprasHechas = document.getElementById("cantidadComprasHechas");         // "4 compras"
+const cantidadInsumosComprados = document.getElementById("cantidadInsumosComprados");   // "11 insumos"
+
+// El panel "En qué se gastó"
+const panelGastos = document.getElementById("panelGastos");                 // lo oscuro con el panel adentro
+const botonCerrarGastos = document.getElementById("botonCerrarGastos");     // la X
+const tituloGastos = document.getElementById("tituloGastos");               // "Carne picada especial magra"
+const subtituloGastos = document.getElementById("subtituloGastos");         // "En qué se gastó · del 02/11 al 08/11"
+const totalesGastos = document.getElementById("totalesGastos");             // las pastillas "Cocina: 9 kg"…
+const listaGastos = document.getElementById("listaGastos");                 // una salida por renglón
+const cantidadSalidas = document.getElementById("cantidadSalidas");         // "5 salidas"
+const totalGastos = document.getElementById("totalGastos");                 // "Total − 15 kg"
+
+// Cómo se nombra cada período en los textos. Ej: "lo que gastaste en la semana"
+const NOMBRE_PERIODO = { semana: "la semana", mes: "el mes" };
+// Qué botón corresponde a cada período
+const BOTON_DE_PERIODO = { semana: botonSemana, mes: botonMes };
+
+// Las pastillas de arriba del panel "En qué se gastó": el total de cada origen, en este orden.
+// OJO con los nombres (vienen del servidor): 'produccion' = los Hechos de pedidos a cocina · 'cocina' = pedidos de cliente personalizados
+const PASTILLAS_GASTO = [
+  { origen: "produccion",    texto: "Cocina" },
+  { origen: "cocina",        texto: "Pedidos personalizados" },
+  { origen: "salida_manual", texto: "Salidas a mano" },
+  { origen: "ajuste",        texto: "Ajuste" },                    // salidas viejas: solo se muestra si es mayor a 0
+];
+
+// Qué va en el renglón chico de cada salida, según su origen (los valores los arma abrirGastosInsumo)
+// Ej: produccion → "02/11 10:30 · Marta · 20 viandas de Albóndigas" · salida_manual → "05/11 11:00 · Vencido · Ana López"
+const DATOS_DE_SALIDA = {
+  produccion:    ["fecha", "usuario", "viandas"],
+  cocina:        ["fecha", "personalizado", "cliente"],
+  salida_manual: ["fecha", "motivo", "usuario"],
+  ajuste:        ["fecha", "motivo", "usuario"],
+};
+
+// El período que se está viendo
+let modoPeriodo = "semana";   // "semana" o "mes"
+let periodoDesde = "";        // el primer día, 'AAAA-MM-DD'. Ej: '2026-11-02'
+let periodoHasta = "";        // el último día, 'AAAA-MM-DD'. Ej: '2026-11-08'
+
+// Lo que mandó el servidor: los filtros trabajan sobre esto, sin volver a pedirlo
+let filasResumen = [];
+let errorResumen = "";        // el problema de la última vez que se pidieron ("" = ninguno)
+let numeroDeCarga = 0;        // cuántas veces se pidieron: sirve para ignorar una respuesta que llega tarde
+let filasParaComprar = [];    // las filas que se ven y hay que comprar (activas, sin "Te alcanza"): las imprime imprimirListaCompras
+let errorComprasHechas = "";  // el problema de la última vez que se pidieron las compras del panel ("" = ninguno)
+let numeroDeGastos = 0;       // cuántas veces se abrió "En qué se gastó": sirve para ignorar una respuesta que llega tarde
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// elegirPeriodo → guarda la semana (lunes a domingo) o el mes (del 1 al último día) de un día y lo escribe en la pantalla
+// ENTRADA: modo ("semana" o "mes") y dia (un Date, cualquier día de ese período)
+// SALIDA:  nada. Cambia periodoDesde y periodoHasta, escribe el período (también en el panel Compras hechas),
+//          marca el botón elegido y apaga "›" si el período ya llega a hoy (más adelante no pasó nada)
+// Ej: "semana", miércoles 04/11/2026 → '2026-11-02' a '2026-11-08' → "02/11 al 08/11"
+//     "semana", domingo 08/11/2026   → '2026-11-02' a '2026-11-08' (el domingo es el último día, no el primero)
+//     "mes", 04/11/2026              → '2026-11-01' a '2026-11-30' → "01/11 al 30/11"
+// No pide nada al servidor: después hay que llamar a cargarCompras.
+// ─────────────────────────────────────────────────────────────────────────────
+function elegirPeriodo(modo, dia) {
+  const anio = dia.getFullYear();
+  const mes = dia.getMonth();
+  const numeroDia = dia.getDate();
+
+  // 1. Cuántos días pasaron desde el lunes. getDay da 0 el domingo, 1 el lunes… 6 el sábado
+  let diasDesdeElLunes = dia.getDay() - 1;
+  // ¿es domingo? SÍ: 08/11 → pasaron 6 días · NO: miércoles 04/11 → pasaron 2
+  if (dia.getDay() === 0) {
+    diasDesdeElLunes = 6;
+  }
+
+  // 2. El primer y el último día. Arranca con el mes: el día 0 del mes que viene es el último de este. Ej: noviembre → 30/11
+  let primerDia = new Date(anio, mes, 1);
+  let ultimoDia = new Date(anio, mes + 1, 0);
+  // ¿es por semana? SÍ: del lunes al domingo · NO: queda el mes
+  if (modo === "semana") {
+    primerDia = new Date(anio, mes, numeroDia - diasDesdeElLunes);
+    ultimoDia = new Date(anio, mes, numeroDia - diasDesdeElLunes + 6);
+  }
+
+  // 3. Se guarda
+  modoPeriodo = modo;
+  periodoDesde = fechaLocalISO(primerDia);                         // fechaLocalISO está en fechas.js
+  periodoHasta = fechaLocalISO(ultimoDia);
+
+  // 4. Se escribe en la pantalla. slice(0, 5) deja el día y el mes. Ej: "02/11/2026" → "02/11"
+  textoPeriodo.textContent = fechaDDMMAAAA(primerDia).slice(0, 5) + " al " + fechaDDMMAAAA(ultimoDia).slice(0, 5);
+  ayudaPeriodo.textContent = NOMBRE_PERIODO[modo];
+  subtituloComprasHechas.textContent = "Del " + textoPeriodo.textContent + " · también figuran en Movimientos de Stock";
+
+  // 5. Se marca el botón elegido: primero se desmarcan los dos y después se marca uno
+  botonSemana.classList.remove("selector-periodo-activo");
+  botonMes.classList.remove("selector-periodo-activo");
+  botonSemana.setAttribute("aria-pressed", "false");               // para los lectores de pantalla
+  botonMes.setAttribute("aria-pressed", "false");
+  BOTON_DE_PERIODO[modo].classList.add("selector-periodo-activo");
+  BOTON_DE_PERIODO[modo].setAttribute("aria-pressed", "true");
+
+  // 6. "›" apagado si el período ya llega a hoy. En AAAA-MM-DD, el texto mayor es el día más nuevo
+  botonPeriodoSiguiente.disabled = periodoHasta >= fechaLocalISO(new Date());
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// cargarCompras → pide al servidor las filas de la tabla y las compras del período elegido, y dibuja las dos cosas
+// ENTRADA: nada (lee periodoDesde y periodoHasta)
+// SALIDA:  nada (llena filasResumen, errorResumen y errorComprasHechas; dibuja la tabla y el panel Compras hechas)
+// Ej: del 02/11 al 08/11 → GET /api/compras/resumen?desde=2026-11-02&hasta=2026-11-08
+//     → [{ nombre: 'Carne', unidad: 'g', compre: 20000, gaste: 15000, hoy_tenes: 8000, comprar: 7000, … }, …]
+//     y a la vez GET /api/compras?desde=2026-11-02&hasta=2026-11-08 → [{ origen: 'compra', numero: 15, … }, …]
+// Si una de las dos falla, la otra se muestra igual. Si tocan "‹" dos veces rápido, se usa solo la última respuesta.
+// La llaman la carga de la página, los botones del período y volver a esta pestaña.
+// ─────────────────────────────────────────────────────────────────────────────
+async function cargarCompras() {
+  // 1. Este pedido es el último. Mientras se espera: "Cargando..." en la tabla y en el panel, e "Imprimir" apagado
+  numeroDeCarga = numeroDeCarga + 1;
+  const estaCarga = numeroDeCarga;
+  cuerpoResumen.innerHTML = '<tr class="fila-sin-datos"><td colspan="6">Cargando...</td></tr>';
+  contadorResumen.textContent = "";
+  botonImprimirLista.disabled = true;
+  listaComprasHechas.innerHTML = '<li class="panel-sin-datos">Cargando...</li>';
+  cantidadComprasHechas.textContent = "";
+  cantidadInsumosComprados.textContent = "";
+
+  // 2. Se piden las dos cosas a la vez. URLSearchParams arma los datos de la dirección. Ej: "desde=2026-11-02&hasta=2026-11-08"
+  const parametros = new URLSearchParams({ desde: periodoDesde, hasta: periodoHasta });
+  let filas = [];
+  let compras = [];
+  let problema = "No se pudieron cargar las compras";
+  let problemaCompras = "No se pudieron cargar las compras hechas";
+  try {
+    // Promise.all espera las dos respuestas y las devuelve en el mismo orden: [la de la tabla, la del panel]
+    const respuestas = await Promise.all([
+      apiFetch("/api/compras/resumen?" + parametros.toString()),
+      apiFetch("/api/compras?" + parametros.toString()),
+    ]);
+    const res = respuestas[0];                                     // la de la tabla
+    const resCompras = respuestas[1];                              // la del panel
+    const datos = await res.json().catch(() => ({}));              // si no es JSON, un objeto vacío
+    const datosCompras = await resCompras.json().catch(() => ({}));
+    // ¿salió bien la tabla? SÍ: 200 · NO: 400 o 500
+    if (res.ok) {
+      filas = datos;
+      problema = "";
+    }
+    // ¿salió bien el panel? SÍ: 200 · NO: 400 o 500
+    if (resCompras.ok) {
+      compras = datosCompras;
+      problemaCompras = "";
+    }
+    // ¿el servidor dijo qué pasó con la tabla? SÍ: "Las fechas son inválidas" · NO: salió bien, o no mandó mensaje
+    if (datos.error) {
+      problema = datos.error;
+    }
+    // ¿y con el panel? SÍ: "Hay demasiados renglones…" · NO: salió bien, o no mandó mensaje
+    if (datosCompras.error) {
+      problemaCompras = datosCompras.error;
+    }
+  } catch (error) {
+    console.error("Error al traer las compras:", error);           // el detalle, a la consola
+    problema = "No se pudo conectar con el servidor";              // y un mensaje simple en la tabla
+    problemaCompras = "No se pudo conectar con el servidor";       // y en el panel
+  }
+
+  // ¿ya se pidió otro período mientras se esperaba? SÍ: tocó "‹" otra vez (esta respuesta llegó tarde) · NO: es la última
+  if (estaCarga !== numeroDeCarga) {
+    return;
+  }
+
+  // 3. Se guarda y se dibuja: la tabla con los filtros que estén elegidos, y el panel (aunque esté cerrado)
+  filasResumen = filas;
+  errorResumen = problema;
+  errorComprasHechas = problemaCompras;
+  filtrarResumen();
+  renderizarComprasHechas(compras);
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// filtrarResumen → aplica el buscador y la categoría a filasResumen y dibuja la tabla
+// ENTRADA: nada (lee el buscador y la categoría)
+// SALIDA:  nada (dibuja las filas que pasan y guarda en filasParaComprar las que se imprimen). No le pide nada al servidor.
+// Ej: buscar "CARN" → Carne picada · categoría Almacén → Harina, Huevo y Aceite · las dos juntas → las que cumplen las dos
+//     Si todas las que se ven dicen "Te alcanza" (o están desactivadas), "Imprimir lista de compras" queda apagado.
+// ─────────────────────────────────────────────────────────────────────────────
+function filtrarResumen() {
+  const texto = buscadorInsumo.value.trim().toLowerCase();         // lo escrito, sin espacios en los bordes y en minúsculas
+  const categoria = filtroCategoria.value;                         // el id elegido ("" = todas)
+
+  // filter arma una lista nueva con las que cumplen
+  const visibles = filasResumen.filter((fila) => {
+    const coincideTexto = String(fila.nombre).toLowerCase().includes(texto);
+    const coincideCategoria = categoria === "" || String(fila.id_categoria) === categoria;
+    return coincideTexto && coincideCategoria;
+  });
+
+  // Las que se imprimen: de las que se ven, las activas con algo para comprar. Ej: Carne (7 kg) sí · Harina ("Te alcanza") no
+  filasParaComprar = visibles.filter((fila) => {
+    const hayQueComprar = fila.activo === true && fila.comprar > 0;
+    return hayQueComprar;
+  });
+  botonImprimirLista.disabled = filasParaComprar.length === 0;     // sin nada para comprar, apagado
+
+  renderizarResumen(visibles);
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// renderizarResumen → dibuja las filas de la tabla y el pie
+// ENTRADA: filas (las que pasaron los filtros, ya calculadas por el servidor, en g, ml o u)
+// SALIDA:  nada. Sin filas, un renglón que dice por qué.
+// Ej: { nombre: 'Carne', categoria: 'Carnicería', unidad: 'g', compre: 20000, gaste: 15000, hoy_tenes: 8000, comprar: 7000 }
+//     → "Carne / Carnicería · + 20 kg · − 15 kg · 8 kg · [7 kg] · En qué se gastó ›"
+//     { …, compre: 4000, gaste: 4500, gasto_de_mas: 500 } → abajo del nombre, en naranja: "Gastaste 500 g más de lo que compraste"
+//     { …, te_alcanza: true } → "Te alcanza" · { …, activo: false } → "Desactivado" abajo del nombre y "—" en vez de la cantidad a comprar
+// "En qué se gastó ›" abre el panel de ese insumo (abrirGastosInsumo).
+// La llama filtrarResumen. Lo que viene de la base pasa por escHtml.
+// ─────────────────────────────────────────────────────────────────────────────
+function renderizarResumen(filas) {
+  const nombrePeriodo = NOMBRE_PERIODO[modoPeriodo];               // "la semana" o "el mes"
+
+  // 1. Sin filas: un renglón que dice por qué. Arranca en "no pasó nada en el período"
+  let textoVacio = "No hay compras ni gastos en " + nombrePeriodo;
+  let claseVacio = "fila-sin-datos";
+  // ¿hay filas, pero los filtros las esconden? SÍ: buscó "xyz" · NO: el período vino vacío
+  if (filasResumen.length > 0) {
+    textoVacio = "Ningún insumo coincide con la búsqueda";
+  }
+  // ¿falló la última carga? SÍ: "No se pudo conectar con el servidor" · NO: no hubo ningún problema
+  if (errorResumen !== "") {
+    textoVacio = errorResumen;
+    claseVacio = "fila-sin-datos fila-sin-datos--error";
+  }
+  // ¿no hay nada para mostrar? SÍ: ninguna fila · NO: hay al menos una
+  if (filas.length === 0) {
+    cuerpoResumen.innerHTML = '<tr class="' + claseVacio + '"><td colspan="6">' + escHtml(textoVacio) + "</td></tr>";
+    contadorResumen.textContent = "";
+    return;
+  }
+
+  // 2. El pie
+  let textoPie = filas.length + " insumos con compras o gastos en " + nombrePeriodo;
+  // ¿es uno solo? SÍ: "1 insumo con…" · NO: "8 insumos con…"
+  if (filas.length === 1) {
+    textoPie = "1 insumo con compras o gastos en " + nombrePeriodo;
+  }
+  contadorResumen.textContent = textoPie;
+
+  // 3. Las filas
+  cuerpoResumen.innerHTML = "";
+  filas.forEach((fila) => {
+    // Cada cantidad, en número y unidad (la unidad va más chica). split corta en el espacio. Ej: "16,6 lts" → ["16,6", "lts"]
+    const partesCompre = escHtml(mostrarCantidad(fila.compre, fila.unidad)).split(" ");
+    const partesGaste = escHtml(mostrarCantidad(fila.gaste, fila.unidad)).split(" ");
+    const partesHoy = escHtml(mostrarCantidad(fila.hoy_tenes, fila.unidad)).split(" ");
+
+    // Compré y Gasté. Sin compras o sin gastos, una rayita en vez de "+ 0 g"
+    let htmlCompre = '<span class="sin-cantidad">—</span>';
+    // ¿compró algo en el período? SÍ: 20 kg · NO: 0
+    if (fila.compre > 0) {
+      htmlCompre = "+ " + partesCompre[0] + ' <small class="unidad-cantidad">' + partesCompre[1] + "</small>";
+    }
+    let htmlGaste = '<span class="sin-cantidad">—</span>';
+    // ¿gastó algo en el período? SÍ: 15 kg · NO: 0
+    if (fila.gaste > 0) {
+      htmlGaste = "− " + partesGaste[0] + ' <small class="unidad-cantidad">' + partesGaste[1] + "</small>";
+    }
+    const htmlHoy = partesHoy[0] + ' <small class="unidad-cantidad">' + partesHoy[1] + "</small>";
+
+    // Para repetir: la pastilla con lo que hay que comprar, o "Te alcanza"
+    let htmlComprar = '<span class="pastilla-comprar">' + escHtml(mostrarCantidad(fila.comprar, fila.unidad)) + "</span>";
+    // ¿ya alcanza con lo que hay? SÍ: gasté 5 kg y tengo 8 kg · NO: gasté 15 kg y tengo 8 kg
+    if (fila.te_alcanza) {
+      htmlComprar = '<span class="texto-te-alcanza">Te alcanza</span>';
+    }
+
+    // Un insumo desactivado se ve, pero no se puede comprar: no se sugiere comprarlo
+    let textoDesactivado = "";
+    const desactivado = fila.activo !== true;
+    // ¿está desactivado? SÍ: activo false · NO: activo true
+    if (desactivado) {
+      textoDesactivado = "Desactivado";
+      htmlComprar = '<span class="sin-cantidad">—</span>';
+    }
+
+    // Abajo del nombre: la categoría y si está desactivado. filter se queda con los que tienen algo y join los une.
+    // Ej: ["Almacén", "Desactivado"] → "Almacén · Desactivado" · [null, ""] → ""
+    const textoAbajo = [fila.categoria, textoDesactivado].filter((dato) => dato).join(" · ");
+
+    // El aviso naranja. El número ya viene calculado del servidor
+    let htmlAviso = "";
+    // ¿gastó más de lo que compró? SÍ: compré 4 kg y gasté 4,5 kg · NO: compré 20 kg y gasté 15 kg
+    if (fila.gasto_de_mas > 0) {
+      htmlAviso = '<span class="aviso-gasto-de-mas">Gastaste ' + escHtml(mostrarCantidad(fila.gasto_de_mas, fila.unidad)) + " más de lo que compraste</span>";
+    }
+
+    // Lo que viene de la base, seguro para el HTML
+    const nombre = escHtml(fila.nombre);
+    const abajo = escHtml(textoAbajo);
+
+    // La fila
+    const tr = document.createElement("tr");
+    tr.className = "fila-resumen";
+    tr.innerHTML = `
+      <td><span class="dato-principal nombre-insumo">${nombre}</span><span class="dato-chico">${abajo}</span>${htmlAviso}</td>
+      <td class="celda-numero cantidad-comprada">${htmlCompre}</td>
+      <td class="celda-numero cantidad-gastada">${htmlGaste}</td>
+      <td class="celda-numero">${htmlHoy}</td>
+      <td class="celda-numero">${htmlComprar}</td>
+      <td class="celda-accion"><button type="button" class="boton-gastos">En qué se gastó ›</button></td>
+    `;
+
+    // "En qué se gastó ›" abre el panel de este insumo
+    tr.querySelector(".boton-gastos").addEventListener("click", () => {
+      abrirGastosInsumo(fila.id_insumo, fila.nombre);
+    });
+    cuerpoResumen.appendChild(tr);
+  });
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// renderizarComprasHechas → dibuja el panel "Compras hechas": una compra por renglón, con su botón Detalle
+// ENTRADA: compras (las de GET /api/compras, de la más nueva a la más vieja: el mismo objeto que usa Movimientos de Stock)
+// SALIDA:  nada (la lista y el pie del panel, aunque esté cerrado). Sin compras, un renglón que dice por qué.
+// Ej: { numero: 15, proveedor: 'Molino Juan', fecha: '2026-11-03T19:20:00+00:00', usuario: 'Mauricio', insumos: [3 insumos] }
+//     → [Compra #15] "Molino Juan" / "03/11 16:20 · Mauricio · +3 insumos" · [Detalle ›]
+//     sin proveedor → "Sin proveedor" · abajo: "4 compras" y "11 insumos" (los insumos de todas, sumados)
+// "Detalle ›" abre el MISMO modal de Detalle de Movimientos de Stock (abrirDetalleMovimiento, de stockCompartido.js).
+// La llama cargarCompras. Lo que viene de la base pasa por escHtml.
+// ─────────────────────────────────────────────────────────────────────────────
+function renderizarComprasHechas(compras) {
+  // 1. Sin compras: un renglón que dice por qué. Arranca en "no hubo compras en el período"
+  let textoVacio = "No hay compras en " + NOMBRE_PERIODO[modoPeriodo];
+  let claseVacio = "panel-sin-datos";
+  // ¿falló la última carga? SÍ: "No se pudo conectar con el servidor" · NO: no hubo ningún problema
+  if (errorComprasHechas !== "") {
+    textoVacio = errorComprasHechas;
+    claseVacio = "panel-sin-datos panel-sin-datos--error";
+  }
+  // ¿no hay compras? SÍ: una semana sin compras, o falló · NO: hay al menos una
+  if (compras.length === 0) {
+    listaComprasHechas.innerHTML = '<li class="' + claseVacio + '">' + escHtml(textoVacio) + "</li>";
+    cantidadComprasHechas.textContent = "";
+    cantidadInsumosComprados.textContent = "";
+    return;
+  }
+
+  // 2. Un renglón por compra, y de paso se van sumando sus insumos
+  let totalInsumos = 0;
+  listaComprasHechas.innerHTML = "";
+  compras.forEach((compra) => {
+    totalInsumos = totalInsumos + compra.insumos.length;
+
+    // La fecha: la entera para el Detalle y la corta para el renglón. Ej: "03/11/2026 16:20" → "03/11 16:20"
+    const fecha = fechaHoraDDMMAAAA(fechaDeTimestamp(compra.fecha));  // de la base (UTC) a la hora de la computadora
+    const partesFecha = fecha.split(" ");                            // split corta en el espacio: ["03/11/2026", "16:20"]
+    const fechaCorta = partesFecha[0].slice(0, 5) + " " + partesFecha[1];
+
+    let proveedor = "Sin proveedor";
+    const tieneProveedor = Boolean(compra.proveedor) && compra.proveedor !== "-";
+    // ¿tiene proveedor? SÍ: "Molino Juan" · NO: vacío, o "-" (como lo toma también el Detalle)
+    if (tieneProveedor) {
+      proveedor = compra.proveedor;
+    }
+
+    let textoInsumos = "+" + compra.insumos.length + " insumos";
+    // ¿es uno solo? SÍ: "+1 insumo" · NO: "+3 insumos"
+    if (compra.insumos.length === 1) {
+      textoInsumos = "+1 insumo";
+    }
+
+    // La fecha y quién. filter se queda con los que tienen algo (ni vacío ni "-") y join los une.
+    // Ej: ["03/11 16:20", "Mauricio"] → "03/11 16:20 · Mauricio" · ["03/11 16:20", "-"] → "03/11 16:20"
+    const fechaYQuien = [fechaCorta, compra.usuario].filter((dato) => dato && dato !== "-").join(" · ");
+
+    // Lo que viene de la base, seguro para el HTML
+    const numero = escHtml("#" + compra.numero);
+    const textoProveedor = escHtml(proveedor);
+    const textoFechaYQuien = escHtml(fechaYQuien);
+
+    // El renglón. El recuadro verde es el mismo de Movimientos de Stock (global.css, 13k)
+    const li = document.createElement("li");
+    li.className = "renglon-panel-compras";
+    li.innerHTML = `
+      <div class="datos-renglon-panel">
+        <span class="recuadro-referencia recuadro-compra">${ICONO_BOLSA}<span>Compra</span><span class="recuadro-numero">${numero}</span></span>
+        <p class="proveedor-compra">${textoProveedor}</p>
+        <p class="detalle-renglon-panel">${textoFechaYQuien} · <b class="insumos-de-la-compra">${textoInsumos}</b></p>
+      </div>
+      <button type="button" class="boton-detalle-compra">Detalle ›</button>
+    `;
+
+    // "Detalle ›" abre el modal de Detalle con esta compra
+    li.querySelector(".boton-detalle-compra").addEventListener("click", () => {
+      abrirDetalleMovimiento(compra, fecha);
+    });
+    listaComprasHechas.appendChild(li);
+  });
+
+  // 3. El pie
+  let textoCompras = compras.length + " compras";
+  // ¿es una sola? SÍ: "1 compra" · NO: "4 compras"
+  if (compras.length === 1) {
+    textoCompras = "1 compra";
+  }
+  let textoTotalInsumos = totalInsumos + " insumos";
+  // ¿es uno solo? SÍ: "1 insumo" · NO: "11 insumos"
+  if (totalInsumos === 1) {
+    textoTotalInsumos = "1 insumo";
+  }
+  cantidadComprasHechas.textContent = textoCompras;
+  cantidadInsumosComprados.textContent = textoTotalInsumos;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// abrirGastosInsumo → abre el panel "En qué se gastó" de un insumo y lo llena con sus salidas del período
+// ENTRADA: idInsumo (ej: 7) y nombre (ej: 'Carne picada', el título mientras carga)
+// SALIDA:  nada (el panel abierto). Pide GET /api/compras/gastos/7?desde=…&hasta=… y dibuja las pastillas, los renglones y el pie
+// Ej: carne, del 02/11 al 08/11 → pastillas "Cocina: 9 kg" · "Pedidos personalizados: 2 kg" · "Salidas a mano: 4 kg", y abajo:
+//     [Salida manual]        "05/11 11:00 · Vencido · Ana López"                      − 4 kg
+//     [Pedido cliente #119]  '04/11 14:49 · Personalizado "sin sal" · Laura R.'      − 1,5 kg
+//     [Pedido a Cocina #009] "02/11 10:30 · Marta · 20 viandas de Albóndigas"         − 6 kg
+//     pie: "5 salidas" y "Total − 15 kg" (el mismo número que la columna Gasté)
+// La pastilla "Ajuste" (salidas viejas, sin pedido ni salida manual) sale solo si es mayor a 0.
+// Si se cierra y se abre otro insumo antes de que llegue la respuesta, la vieja se ignora.
+// La llama el botón "En qué se gastó ›" de cada fila (renderizarResumen). Lo que viene de la base pasa por escHtml.
+// ─────────────────────────────────────────────────────────────────────────────
+async function abrirGastosInsumo(idInsumo, nombre) {
+  // 1. Se abre enseguida: el nombre, el período y "Cargando..."
+  numeroDeGastos = numeroDeGastos + 1;
+  const estaVez = numeroDeGastos;
+  tituloGastos.textContent = nombre;                               // textContent: se muestra como texto, nunca como HTML
+  subtituloGastos.textContent = "En qué se gastó · del " + textoPeriodo.textContent;
+  totalesGastos.innerHTML = "";
+  listaGastos.innerHTML = '<li class="panel-sin-datos">Cargando...</li>';
+  cantidadSalidas.textContent = "";
+  totalGastos.textContent = "";
+  panelGastos.hidden = false;
+  botonCerrarGastos.focus();                                       // el cursor en la X: con Enter se cierra
+
+  // 2. Se piden sus salidas del período. Ej: "/api/compras/gastos/7?desde=2026-11-02&hasta=2026-11-08"
+  const parametros = new URLSearchParams({ desde: periodoDesde, hasta: periodoHasta });
+  let datos = {};
+  let problema = "No se pudieron cargar los gastos";
+  try {
+    const res = await apiFetch("/api/compras/gastos/" + encodeURIComponent(idInsumo) + "?" + parametros.toString());
+    datos = await res.json().catch(() => ({}));                    // si no es JSON, un objeto vacío
+    // ¿salió bien? SÍ: 200 · NO: 400, 404 o 500
+    if (res.ok) {
+      problema = "";
+    }
+    // ¿el servidor dijo qué pasó? SÍ: "El insumo no existe" · NO: salió bien, o no mandó mensaje
+    if (datos.error) {
+      problema = datos.error;
+    }
+  } catch (error) {
+    console.error("Error al traer los gastos:", error);            // el detalle, a la consola
+    problema = "No se pudo conectar con el servidor";              // y un mensaje simple en el panel
+  }
+
+  // ¿se abrió otro insumo mientras se esperaba? SÍ: cerró y tocó otro (esta respuesta llegó tarde) · NO: es la última
+  if (estaVez !== numeroDeGastos) {
+    return;
+  }
+  // ¿hubo un problema? SÍ: "No se pudo conectar con el servidor" · NO: vinieron los gastos
+  if (problema !== "") {
+    listaGastos.innerHTML = '<li class="panel-sin-datos panel-sin-datos--error">' + escHtml(problema) + "</li>";
+    return;
+  }
+  // ¿no gastó nada? SÍ: un insumo que en el período solo se compró · NO: tiene al menos una salida
+  if (datos.salidas.length === 0) {
+    listaGastos.innerHTML = '<li class="panel-sin-datos">No se gastó nada de este insumo en ' + NOMBRE_PERIODO[modoPeriodo] + "</li>";
+    return;
+  }
+
+  const unidad = datos.insumo.unidad;                              // la del insumo: 'g', 'ml' o 'u'
+
+  // 3. Las pastillas con el total de cada origen. filter saca "Ajuste" cuando es 0; map arma cada una y join las une
+  const htmlTotales = PASTILLAS_GASTO.filter((pastilla) => {
+    const esAjusteEnCero = pastilla.origen === "ajuste" && datos.totales.ajuste <= 0;
+    return !esAjusteEnCero;
+  }).map((pastilla) => {
+    const cantidad = escHtml(mostrarCantidad(datos.totales[pastilla.origen], unidad));
+    return '<span class="pastilla-total-gasto">' + pastilla.texto + ": <b>" + cantidad + "</b></span>";
+  }).join("");
+
+  // 4. Un renglón por salida (ya vienen de la más nueva a la más vieja)
+  const htmlSalidas = datos.salidas.map((salida) => {
+    // El recuadro, como en Movimientos de Stock: lo que no tiene número va en gris con su origen. Ej: "Salida manual"
+    const aspecto = ASPECTO_ORIGEN[salida.origen];
+    let claseRecuadro = "recuadro-neutro";
+    let iconoRecuadro = ICONO_CAJA;
+    let etiqueta = ORIGENES[salida.origen];
+    let textoNumero = "";
+    // ¿tiene número? SÍ: el pedido a cocina 9 o el pedido 119 · NO: una salida manual, o una tanda vieja sin pedido a cocina
+    if (salida.numero) {
+      claseRecuadro = aspecto.recuadro;
+      iconoRecuadro = aspecto.icono;
+      etiqueta = aspecto.etiqueta;                                 // ej: "Pedido a Cocina"
+      textoNumero = "#" + String(salida.numero).padStart(aspecto.ceros, "0");  // ej: 9 → "#009"
+    }
+
+    // Lo de un Hecho: cuántas viandas de qué plato. Ej: "20 viandas de Albóndigas"
+    let textoViandas = "";
+    // ¿salió de un Hecho? SÍ: tiene plato · NO: una salida manual o un pedido de cliente
+    if (salida.plato) {
+      textoViandas = salida.viandas + " viandas de " + salida.plato;
+    }
+    // ¿es una sola? SÍ: "1 vianda de Albóndigas" · NO: "20 viandas de Albóndigas"
+    if (salida.viandas === 1) {
+      textoViandas = "1 vianda de " + salida.plato;
+    }
+
+    // Lo de un pedido de cliente: su personalizado. Ej: 'Personalizado "sin sal"'
+    let textoPersonalizado = "";
+    // ¿tiene personalizado? SÍ: "sin sal" · NO: vacío (un pedido viejo, de antes de la heladera)
+    if (salida.personalizado) {
+      textoPersonalizado = 'Personalizado "' + salida.personalizado + '"';
+    }
+
+    // El renglón chico: DATOS_DE_SALIDA dice qué lleva cada origen. Ej: produccion → fecha, usuario y viandas
+    // map toma esos valores, filter saca los que no tienen nada (ni vacío ni "-") y join los une con " · "
+    const partesFecha = fechaHoraDDMMAAAA(fechaDeTimestamp(salida.fecha)).split(" ");  // ["02/11/2026", "10:30"]
+    const fechaCorta = partesFecha[0].slice(0, 5) + " " + partesFecha[1];             // "02/11 10:30"
+    const valores = {
+      fecha: fechaCorta,
+      usuario: salida.usuario,
+      viandas: textoViandas,
+      personalizado: textoPersonalizado,
+      cliente: salida.cliente,
+      motivo: motivoParaMostrar(salida.motivo),
+    };
+    const textoAbajo = DATOS_DE_SALIDA[salida.origen].map((campo) => valores[campo]).filter((dato) => dato && dato !== "-").join(" · ");
+
+    // Lo que viene de la base, seguro para el HTML
+    const textoEtiqueta = escHtml(etiqueta);
+    const numero = escHtml(textoNumero);
+    const abajo = escHtml(textoAbajo);
+    const cantidad = escHtml(mostrarCantidad(salida.cantidad, unidad));
+
+    return `
+      <li class="renglon-panel-compras">
+        <div class="datos-renglon-panel">
+          <span class="recuadro-referencia ${claseRecuadro}">${iconoRecuadro}<span>${textoEtiqueta}</span><span class="recuadro-numero">${numero}</span></span>
+          <p class="detalle-renglon-panel">${abajo}</p>
+        </div>
+        <b class="cantidad-salida">− ${cantidad}</b>
+      </li>`;
+  }).join("");
+
+  // 5. El pie
+  let textoSalidas = datos.salidas.length + " salidas";
+  // ¿es una sola? SÍ: "1 salida" · NO: "5 salidas"
+  if (datos.salidas.length === 1) {
+    textoSalidas = "1 salida";
+  }
+
+  totalesGastos.innerHTML = htmlTotales;
+  listaGastos.innerHTML = htmlSalidas;
+  cantidadSalidas.textContent = textoSalidas;
+  totalGastos.textContent = "Total − " + mostrarCantidad(datos.total, unidad);
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// imprimirListaCompras → arma la hoja con lo que hay que comprar y abre la impresión del navegador
+// ENTRADA: nada (usa filasParaComprar: las filas que se ven con los filtros, activas y sin "Te alcanza")
+// SALIDA:  nada. Llena #hojaListaCompras (en la pantalla no se ve) y abre la impresión: el CSS de impresión
+//          (compras.css, parte 6) deja en la hoja solo la lista
+// Ej: semana del 02/11 al 08/11, categoría Carnicería → "Lista de compras"
+//     / "Del 02/11 al 08/11 · lo que gastaste en la semana menos lo que tenés hoy"
+//     / Carne picada · 7 kg / Pechuga de pollo · 11 kg / "2 insumos"
+// La llama el botón "Imprimir lista de compras" (apagado si no hay nada para comprar).
+// ─────────────────────────────────────────────────────────────────────────────
+function imprimirListaCompras() {
+  // ¿no hay nada para comprar? SÍ: todo dice "Te alcanza" (el botón ya está apagado: esto es por las dudas) · NO: hay al menos uno
+  if (filasParaComprar.length === 0) {
+    return;
+  }
+
+  // 1. Un renglón por insumo: su nombre y cuánto comprar
+  const htmlRenglones = filasParaComprar.map((fila) => {
+    const nombre = escHtml(fila.nombre);
+    const comprar = escHtml(mostrarCantidad(fila.comprar, fila.unidad));
+    return '<tr><td>' + nombre + '</td><td class="celda-comprar">' + comprar + "</td></tr>";
+  }).join("");
+
+  // 2. Arriba, el período, y abajo, cuántos son (el período es texto de esta pantalla, pero pasa igual por escHtml)
+  const periodo = escHtml("Del " + textoPeriodo.textContent + " · lo que gastaste en " + NOMBRE_PERIODO[modoPeriodo] + " menos lo que tenés hoy");
+  let textoPie = filasParaComprar.length + " insumos";
+  // ¿es uno solo? SÍ: "1 insumo" · NO: "2 insumos"
+  if (filasParaComprar.length === 1) {
+    textoPie = "1 insumo";
+  }
+
+  // 3. Se llena la hoja y se abre la impresión (con su vista previa)
+  hojaListaCompras.innerHTML = `
+    <h1 class="titulo-lista-compras">Lista de compras</h1>
+    <p class="periodo-lista-compras">${periodo}</p>
+    <table class="tabla-lista-compras">
+      <thead><tr><th>Insumo</th><th class="celda-comprar">Comprá</th></tr></thead>
+      <tbody>${htmlRenglones}</tbody>
+    </table>
+    <p class="pie-lista-compras">${textoPie}</p>
+  `;
+  window.print();
+}
+
+
+// ---------- LOS BOTONES Y LOS FILTROS ----------
+
+// "Semana" y "Mes": si lo que se ve incluye hoy, se queda en hoy; si no, en el primer día de lo que se ve
+[{ boton: botonSemana, modo: "semana" }, { boton: botonMes, modo: "mes" }].forEach((opcion) => {
+  opcion.boton.addEventListener("click", () => {
+    const hoy = fechaLocalISO(new Date());
+    const hoyEstaAdentro = periodoDesde <= hoy && hoy <= periodoHasta;
+    let dia = parseFechaLocal(periodoDesde);                       // parseFechaLocal está en fechas.js
+    // ¿lo que se ve incluye hoy? SÍ: la semana actual · NO: octubre, si hoy es noviembre
+    if (hoyEstaAdentro) {
+      dia = new Date();
+    }
+    elegirPeriodo(opcion.modo, dia);
+    cargarCompras();
+  });
+});
+
+// "‹" y "›": lo único distinto es para qué lado van (lado: −1 para atrás, +1 para adelante)
+[{ boton: botonPeriodoAnterior, lado: -1 }, { boton: botonPeriodoSiguiente, lado: 1 }].forEach((flecha) => {
+  flecha.boton.addEventListener("click", () => {
+    const base = parseFechaLocal(periodoDesde);                    // el primer día de lo que se ve
+    let dia = new Date(base.getFullYear(), base.getMonth(), base.getDate() + 7 * flecha.lado);  // 7 días para ese lado
+    // ¿es por mes? SÍ: el 1 del mes de al lado · NO: quedan los 7 días
+    if (modoPeriodo === "mes") {
+      dia = new Date(base.getFullYear(), base.getMonth() + flecha.lado, 1);
+    }
+    elegirPeriodo(modoPeriodo, dia);
+    cargarCompras();
+  });
+});
+
+// El buscador y la categoría vuelven a dibujar la tabla sin pedir nada al servidor
+buscadorInsumo.addEventListener("input", filtrarResumen);
+filtroCategoria.addEventListener("change", filtrarResumen);
+
+// "Imprimir lista de compras"
+botonImprimirLista.addEventListener("click", imprimirListaCompras);
+
+// "Compras hechas" abre su panel: ya está dibujado (lo llena cargarCompras)
+botonComprasHechas.addEventListener("click", () => {
+  panelComprasHechas.hidden = false;
+  botonCerrarComprasHechas.focus();                                // el cursor en la X: con Enter se cierra
+});
+
+// Los dos paneles se cierran con su X o tocando lo oscuro de afuera
+[{ panel: panelComprasHechas, botonCerrar: botonCerrarComprasHechas }, { panel: panelGastos, botonCerrar: botonCerrarGastos }].forEach((opcion) => {
+  opcion.botonCerrar.addEventListener("click", () => {
+    opcion.panel.hidden = true;
+  });
+  opcion.panel.addEventListener("click", (evento) => {
+    const tocoAfuera = evento.target === opcion.panel;
+    // ¿tocó lo oscuro? SÍ: afuera del panel · NO: adentro del panel
+    if (tocoAfuera) {
+      opcion.panel.hidden = true;
+    }
+  });
+});
+
+// …y con Escape. Si el Detalle de una compra está abierto encima, Escape cierra solo el Detalle (eso lo hace stockCompartido.js).
+// capture: true = este se fija ANTES que el Escape de stockCompartido.js. Si fuera después, el Detalle ya estaría
+// cerrado cuando se pregunta, y un solo Escape cerraría el Detalle y el panel juntos.
+document.addEventListener("keydown", (evento) => {
+  const cierraLosPaneles = evento.key === "Escape" && modalDetalleMovimiento.hidden;
+  // ¿apretó Escape sin el Detalle abierto? SÍ: Escape con el panel solo · NO: otra tecla, o Escape con el Detalle encima
+  if (cierraLosPaneles) {
+    panelComprasHechas.hidden = true;
+    panelGastos.hidden = true;
+  }
+}, { capture: true });
+
+// Al cargar la página: la semana de hoy, sus filas, los insumos de la ventana Registrar compra y las categorías del filtro
+document.addEventListener("DOMContentLoaded", async () => {
+  elegirPeriodo("semana", new Date());
+  cargarCompras();
+
+  // Los insumos de la ventana Registrar compra y sus categorías (registrarCompra.js). traerInsumos está en stockCompartido.js
+  listaInsumos = await traerInsumos();
+  llenarCategorias(listaInsumos);
+
+  // Si se llegó con la dirección terminada en ?compra=1 ("+ Registrar compra" de Movimientos de Stock, o "Ir a Compras"
+  // de Pedir a cocina), la ventana se abre sola, como si se tocara "+ Registrar compra"
+  const vieneAComprar = new URLSearchParams(window.location.search).get("compra") === "1";
+  // ¿la dirección dice ?compra=1? SÍ: compras.html?compra=1 · NO: compras.html
+  if (vieneAComprar) {
+    btnRegistrarCompra.click();
+  }
+
+  // Las categorías. Si fallan, queda solo "Todas las categorías" y la tabla anda igual
+  try {
+    const res = await apiFetch("/api/categorias-insumos");
+    const categorias = await res.json();
+    categorias.forEach((categoria) => {
+      const opcion = document.createElement("option");
+      opcion.value = categoria.id;                                 // el valor que lee el JS
+      opcion.textContent = categoria.nombre;                       // textContent: se muestra como texto, nunca como HTML
+      filtroCategoria.appendChild(opcion);
+    });
+  } catch (error) {
+    console.error("Error al traer las categorías:", error);
+  }
+});
+
+// Al volver a esta pestaña se piden de nuevo: así aparece lo que se hizo en otra pantalla (un Hecho, una salida…)
+document.addEventListener("visibilitychange", () => {
+  // ¿volvió a la pestaña? SÍ: estaba en otra y volvió · NO: se fue a otra
+  if (document.visibilityState === "visible") {
+    cargarCompras();
+  }
+});
+
+
+==== frontend/src/js/registrarCompra.js, línea 228 (empieza en su comentario; el código, en la línea 229) ====
+// Arma la compra, la manda al server y cierra el modal si salió bien
+async function guardarCompra() {                    // ← NUEVO: async
+  compraError.textContent = "";                     // ← NUEVO: borro errores viejos
+
+  const items = juntarItemsCompra();                // ← NUEVO: junto antes, para revisar
+  if (items.length === 0) {                         // ¿no cargó ninguna cantidad?
+    compraError.textContent = "Cargá al menos un insumo";
+    return;                                         // corto acá, no mando nada
+  }
+
+  btnGuardarCompra.disabled = true;                 // apago el botón: que no la guarde dos veces
+
+  try {
+    const res = await apiFetch("/api/compras", {    // ← ruta corregida
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: items,
+        fecha: compraFecha.value,
+        proveedor: compraProveedor.value || null,   // si está vacío, enviar null
+      }),
+    });
+
+    // La respuesta del server. Si no es JSON (ej: un error 500 en HTML), queda un objeto vacío
+    const datos = await res.json().catch(() => ({}));
+
+    if (!res.ok) {                                  // ¿salió mal? (ej: kg en la leche)
+      compraError.textContent = datos.error || "No se pudo guardar la compra"; // el error del server, o uno genérico
+      return;                                       // el modal queda abierto para corregir
+    }
+
+    modalCompra.hidden = true;                      // salió bien: cierro el modal
+    listaInsumos = await traerInsumos();            // traigo los insumos de nuevo (stock nuevo)
+    await cargarCompras();                          // (05/11) recargo la tabla y las compras hechas: aparece la compra nueva (compras.js)
+  } catch (error) {
+    compraError.textContent = "No se pudo conectar con el servidor";
+  } finally {
+    btnGuardarCompra.disabled = false;              // prendo el botón de nuevo, pase lo que pase
+  }
+}
+
+
+==== frontend/src/js/registrarCompra.js, línea 270 (empieza en su comentario; el código, en la línea 281) ====
+// ─────────────────────────────────────────────────────────────────────────────
+// contarCargadosCompra → cuenta los renglones con cantidad, los marca y avisa si hay una cantidad negativa
+// ENTRADA: nada (lee las cantidades de todos los renglones)
+// SALIDA:  nada. Escribe el contador, pone verdes el circulito y los renglones con cantidad, y si hay una cantidad
+//          negativa muestra el aviso en su renglón y apaga "Guardar compra" (como Registrar salida)
+// Ej: Harina 2, Ajo vacío, Leche 0 → "1 insumo cargado", el circulito verde y Harina en verde clarito
+//     Harina 2, Ajo 3            → "2 insumos cargados"
+//     Ajo −2                     → "0 insumos cargados"; abajo de Ajo, en rojo, "Tiene que ser mayor a 0", y "Guardar compra" apagado
+// Cuenta también los renglones que esconde un filtro: "Guardar compra" también los manda.
+// El servidor lo vuelve a revisar: esto es para avisar antes. La llaman escribir una cantidad y abrir la ventana.
+// ─────────────────────────────────────────────────────────────────────────────
+function contarCargadosCompra() {
+  let cargados = 0;
+  let hayNegativa = false;
+
+  compraRenglones.querySelectorAll(".renglon-compra").forEach((renglon) => {
+    const cantidad = Number(renglon.querySelector(".compra-cantidad").value);   // vacío → 0
+    const aviso = renglon.querySelector(".aviso-renglon-compra");
+
+    // ¿tiene cantidad? SÍ: 2 o 0.5 · NO: vacío, 0 o −2
+    if (cantidad > 0) {
+      cargados = cargados + 1;
+      renglon.classList.add("renglon-compra--cargada");
+    } else {
+      renglon.classList.remove("renglon-compra--cargada");
+    }
+
+    // ¿es negativa? SÍ: −2 · NO: 2, 0 o vacío
+    if (cantidad < 0) {
+      aviso.hidden = false;
+      renglon.classList.add("renglon-compra--negativa");
+      hayNegativa = true;
+    } else {
+      aviso.hidden = true;
+      renglon.classList.remove("renglon-compra--negativa");
+    }
+  });
+
+  let texto = "insumos cargados";
+  // ¿es uno solo? SÍ: 1 → "1 insumo cargado" · NO: 0 → "0 insumos cargados", 3 → "3 insumos cargados"
+  if (cargados === 1) {
+    texto = "insumo cargado";
+  }
+  numeroCargados.textContent = cargados;
+  textoCargados.textContent = texto;
+
+  // ¿hay al menos uno? SÍ: el circulito verde · NO: gris
+  if (cargados > 0) {
+    numeroCargados.classList.add("numero-cargados--con-insumos");
+  } else {
+    numeroCargados.classList.remove("numero-cargados--con-insumos");
+  }
+
+  btnGuardarCompra.disabled = hayNegativa;          // con una cantidad negativa, apagado; si no, prendido
+}

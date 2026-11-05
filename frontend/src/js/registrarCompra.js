@@ -258,7 +258,7 @@ async function guardarCompra() {                    // ← NUEVO: async
 
     modalCompra.hidden = true;                      // salió bien: cierro el modal
     listaInsumos = await traerInsumos();            // traigo los insumos de nuevo (stock nuevo)
-    await cargarCompras();                          // (05/11) recargo la tabla y las compras hechas: aparece la compra nueva (compras.js)
+    await cargarCompras(true);                      // (05/11) recargo la tabla (en la misma página) y las compras hechas: aparece la compra nueva (compras.js)
   } catch (error) {
     compraError.textContent = "No se pudo conectar con el servidor";
   } finally {

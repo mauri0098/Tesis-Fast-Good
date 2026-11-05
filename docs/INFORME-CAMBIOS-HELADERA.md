@@ -5954,3 +5954,198 @@ Harina 2, Ajo vacío, Leche 0 → "1 insumo cargado", el circulito verde y Harin
 - Registrar compra con base falsa y Chrome: 79 de 79. Incluye escribir con el teclado, 0, −2, 0.5, singular y plural, el filtro y volver a abrir. Lo que se manda sigue igual que antes, letra por letra.
 - La pantalla (130/130) y los paneles (84/84) siguen bien.
 - `node tests/test_e2e.js heladera`: igual que antes, 2 bien y 1 mal, porque falta el combo de 3 o más viandas. No creó nada en la base.
+
+
+---
+
+## 5/11 — Paginación en Compras, Armado de pedidos y Asignar cocineros · Movimientos: un Hecho es una Entrada
+
+### Paginación: la misma función en las tres
+Se reusa `crearPaginacion` (`paginacion.js`), la que ya usaban 7 pantallas. **20 por página**, en el navegador (los datos ya llegaron):
+- **Compras:** las sumas las hace el servidor con todas las filas; la página solo corta lo que se ve. Imprimir y el pie cuentan todas.
+- **Armado de pedidos:** llega un solo día. Los contadores, la barra de avance, "Exportar planilla" y la recarga de 60 s necesitan todos los pedidos. Pagina por pedidos: tarjetas y lista muestran los mismos 20.
+- **Asignar cocineros:** el buscador y el aviso "N platos sin cocinero" trabajan sobre todos los platos.
+
+| Archivo y qué | ANTES | AHORA |
+|---|---|---|
+| `crearPaginacion` | Dibujaba de a una fila (`funcionRenderFila`) | Además acepta `funcionRenderPagina` (opcional): la página entera como texto. La usa Armado. Las demás pantallas no cambian |
+| `renderizarResumen` (Compras) | Dibujaba todas las filas | De a 20. `mantenerPagina` llega desde `cargarCompras` → `filtrarResumen` |
+| `renderizarPedidos` (Armado) | Todas las tarjetas o la lista entera | De a 20 pedidos, con `mantenerPagina` |
+| `renderizarPlatos` (Asignar) | Todos los platos | De a 20, con `crearFilaPlato` como antes |
+
+**Cuándo vuelve a la página 1:**
+| Pantalla | Vuelve a la 1 | Se queda en la página |
+|---|---|---|
+| Compras | Buscador, categoría, Semana / Mes, "‹ ›" | Volver a la pestaña, guardar una compra |
+| Armado | Otro filtro, otro día | Tildar, cambiar de vista, la recarga de 60 s, girar el celu |
+| Asignar | El buscador | Guardar un cocinero (no redibuja) |
+
+Si la página donde estaba ya no existe (estaba en la 4 y ahora hay 3), `crearPaginacion` la deja en la última: ya lo hacía (`Math.min(..., totalPaginas)`).
+
+### Movimientos: un Hecho es una ENTRADA (solo en la pantalla)
+| Qué | ANTES | AHORA |
+|---|---|---|
+| Pastilla Tipo de un Hecho | "Producción", azul, con la olla | "▲ Entrada", verde |
+| Línea de la fila | Azul | Verde |
+| Filtro "Entradas / Salidas" | Miraba cada parte (los insumos de un Hecho "salían") | Mira el movimiento entero (`mov.tipo`): un Hecho es entrada |
+
+- **Lo que no cambió:** el recuadro azul "Pedido a Cocina #009", el Resumen ("+20 viandas · −2 insumos"), el Detalle (con los insumos que se usaron) y `origenDeRenglonStock` en el servidor, que sigue distinguiendo 'produccion' de 'cocina' para "En qué se gastó".
+- **Ejemplo:** Pedido a Cocina #9, 20 fideos → sale con "Solo entradas", "Solo insumos + Solo entradas" y "Mixtos"; ya no sale con "Solo salidas" ni con "Solo insumos + Solo salidas".
+- **Archivos:** `stockCompartido.js` (`ASPECTO_ORIGEN.produccion`), `movimientosStockNuevo.js` (`filtrarMovimientos`), `movimientosStockNuevo.css` (salen `.badge-produccion` y `.fila-produccion`, sin uso).
+
+### Pruebas
+- Paginación y Movimientos con server.js real y Chrome: 43 de 43.
+- Compras (130, 84 y 79) y Movimientos (36 y 55) siguen bien. Movimientos antes y después: solo cambian las filas de los Hechos.
+- `heladera`: igual que antes, 2 bien y 1 mal por el combo que falta.
+
+
+---
+
+## 5/11 — Fase 0: el estado "Por armar", el día de cocina y Consultar pedidos
+
+### El recorrido de un pedido
+**El orden es siempre:** 1 Registrado → 2 En Preparación → **6 Por armar** → 3 Listo para entregar → 4 Entregado (5 Cancelado).
+
+| Caso | ANTES | AHORA |
+|---|---|---|
+| 8 fideos normales, de 1 a 2 | Saltaba directo a 3 y aparecía en Envíos sin armar | Pasa directo a **6 Por armar** y espera el Armado |
+| 3 fideos + 2 "sin sal", "✓ Listo" de la cocina | Pasaba a 3 | **"✓ Cocinado"** → pasa a **6 Por armar** (si no quedan platos de nadie) |
+| El OK de Armado | Solo ponía la marca: el estado no cambiaba | Marca y pasa de **6 a 3**, en una sola actualización |
+| Envíos del Día | Mostraba pedidos sin armar | Sigue con 3 y 4, pero a 3 ya solo se llega armando |
+| Tareas de Cocina | Mostraba todos los personalizados | Solo los del día de cocina y los atrasados |
+
+### SQL (los corrió Mauri)
+- **`sql/estado_por_armar.sql`:** agrega la fila `6, 'Por armar'` a `estados`. Es el 6 porque del 1 al 5 ya los usan los pedidos guardados, y correrlos sería renombrar. Se puede correr dos veces: si ya está, no agrega nada.
+- **`sql/anular_por_armar.sql`:** reemplaza `anular_pedido_con_devolucion`. Se armó con la función como estaba en la base, con **un solo cambio**:
+
+```sql
+-- ANTES
+if v_pedido.id_estado in (1, 2, 3) then
+-- AHORA
+if v_pedido.id_estado in (1, 2, 3, 6) then
+```
+
+Sin eso, anular un pedido en "Por armar" lo pasaba a Cancelado pero sus viandas no volvían a la heladera. Ejemplo: 3 fideos en 6 → anular → antes volvían 0, ahora vuelven 3. Los permisos siguen iguales: `postgres` y `service_role`.
+
+### `server.js`
+
+**`PUT /api/pedidos/:pedidoId/estado`** (Consultar pedidos y Envíos)
+- **ENTRADA:** el número de pedido y `{ estado_id }` (1, 2, 6, 3 o 4).
+- **SALIDA:** `{ mensaje, pedido, todo_de_heladera }`, o el error de esta tabla.
+
+| Pide | ANTES | AHORA |
+|---|---|---|
+| De 1 a 2, todo de heladera | Guardaba 3 | Guarda 6, en una sola escritura de 1 a 6 |
+| A 6 a mano | No existía | Solo desde 2 y sin personalizado sin hacer; si no, 409 o 400 |
+| A 3 | Desde cualquier estado | 400 "Listo para entregar lo pone el Armado…". Única excepción: de 4 a 3, para deshacer un Entregado |
+| A 4 | Desde cualquier estado | Solo desde 3; si no, 409 "Primero hay que armarlo…" |
+| Pedido armado a 1, 2 o 6 | Se podía, y quedaba trabado | 409 "Un pedido ya armado no vuelve atrás…" |
+
+```js
+// ¿todo sale de la heladera? SÍ: 8 fideos (había 63) de 1 a 2 → 6 · NO: tiene 2 "sin sal" → queda en 2
+let estadoAGuardar = nuevoEstado;
+if (todoDeHeladera) {
+  estadoAGuardar = ESTADO_POR_ARMAR;
+}
+```
+
+La base no guarda un historial de estados: pasar por el 2 no deja rastro. Por eso es una sola escritura, y el pedido no puede quedar a mitad de camino.
+
+**No se vuelve a mirar `stock_heladera` al confirmar.** Las viandas se apartan al CREAR el pedido (`crear_pedido_combos`): si no alcanzan, el pedido no se crea. Ejemplo: 8 fideos con 63 en la heladera → al crear quedan 55 y el renglón guarda `cantidad_de_heladera = 8`. Mirar de nuevo las contaría dos veces.
+
+**`cambiarEstadoPedido`:** también descuenta los insumos al pasar a 6 (antes, solo a 3 o 4). Lo hace una sola vez por pedido, porque lo controla `descontar_insumos_pedido`. La llama `PUT /estado`.
+
+**`PUT /api/pedidos/:id/listo-cocinero`** ("✓ Cocinado"): cuando no quedan platos de nadie, descuenta los insumos y pasa a 6, solo si el pedido sigue en 2. Así, si justo lo anularon, no "revive".
+```js
+.update({ id_estado: ESTADO_POR_ARMAR }).eq('id', id).eq('id_estado', 2)
+```
+Si faltan insumos: los platos quedan listos, el pedido sigue en 2 y se avisa. El administrador compra lo que falta y lo pasa a mano a "Por armar".
+
+**`POST /api/pedidos/:id/armado`:** solo arma en 6. En 2 responde 409 "Todavía está En preparación: falta cocinar". Guarda la marca y el 3 juntos, solo si sigue en 6 y sin marca.
+
+| Otras rutas | ANTES | AHORA |
+|---|---|---|
+| `GET /api/armado` | Estados 2 y 3 | 2, 6 y 3 |
+| `GET /api/viandas-stock` (reservadas) | 1, 2 y 3 | 1, 2, 6 y 3 |
+| `GET /api/estados` | Por número | En el orden del recorrido (`ORDEN_ESTADOS`): 1, 2, 6, 3, 4, 5 |
+| `GET /api/pedidos` | — | Además manda `armado_en`, `cantidad_de_heladera` y `listo` (hoy la pantalla no los usa) |
+
+`leerComprometido` no cambió (estados 1 y 2). Al pasar a 6 los insumos ya se gastaron, y el pedido deja de contarse como comprometido.
+
+### Pantallas
+- **`cocinero.js` y `cocinero.html`:** un personalizado aparece el **día de cocina**, que es el día hábil anterior a la entrega, y sigue en rojo si quedó sin hacer. Ejemplo: entrega lunes 09/11 → jueves no aparece, viernes "Hoy", lunes atrasado. El botón dice "✓ Cocinado".
+- **`ListarPedidos.js`, `ConsultarPedidos.html` y `.css`:**
+  - "Por armar" sale del estado guardado, en celeste, con su lugar en la lista y en el filtro.
+  - Fila ámbar con línea naranja si tiene un personalizado (no si está anulado).
+  - La dirección, más grande, con el teléfono abajo. Se sacó la columna Teléfono.
+  - En el celu, la dirección va abajo del número de pedido, porque al lado de Acciones (fija) se ven unos 150 px.
+- **`armadoPedidos.js`:**
+  - Cada pedido va al filtro según su estado guardado: 2 → Falta cocinar, 6 → Por armar, armado o en 3 → Armados.
+  - El aviso dice "Pedido #081 armado: Listo para entregar".
+  - Si sigue en 2 sin nada por cocinar, dice que lo pase a "Por armar" el administrador.
+
+### Qué protege cada control
+| Control | De qué protege |
+|---|---|
+| El orden se controla en el servidor, no en la pantalla | De saltearse el Armado llamando a la ruta directo |
+| `requireRol` en cada ruta | De que un cocinero ponga Listo o arme (403) |
+| Armar y pasar a 6 solo si sigue en el estado esperado (`.eq('id_estado', …)`) | De dos personas al mismo tiempo, o de que lo anulen justo en el medio |
+| La función de anular solo la ejecuta `service_role` | De que la llamen con la clave pública de la web, sin el PIN |
+| El total lo calcula el servidor | De que el navegador mande otro precio |
+
+### Pruebas (5/11)
+| Prueba | Resultado |
+|---|---|
+| Prueba final por el 3000, con la base y Chrome de verdad | 82 controles bien |
+| `node tests/test_e2e.js heladera` (copia en el 3001) | 61 de 61 |
+| Rutas 74 · Consultar 23 · Armado 16 · Cocina 12 · Paginación 43 | Todo bien |
+| Movimientos 36, 55 y 89 · Compras 130, 84, 79 y 125 | Todo bien |
+| `anular_por_armar.sql` en un Postgres de mentira | 9 de 9 |
+
+Stock al terminar, igual a lo calculado: 3 "PRUEBA fideos" libres y 6 reservadas, 5800 g de harina integral y 29 huevos.
+
+### Datos de prueba que quedaron en la base (se borran al final)
+Plan "PRUEBA" (#9), plato "PRUEBA fideos" (#9, PRB2), combos "PRUEBA fideos x3" (#9) y "x5" (#10), usuario "PRUEBA Cocinero", pedido a cocina #34 y pedidos #124 a #129.
+
+### Pendientes
+1. Borrar los datos de prueba.
+2. La prueba `heladera` necesita al menos 4 viandas libres de "PRUEBA fideos" (un combo de 3: 3 + 1), y quedaron 3. Hay que hacer más antes de volver a correrla.
+3. **`POST /api/productos/con-receta`, los insumos:** falta decidir si se validan (ver la sección de abajo).
+
+
+---
+
+## 5/11 — `POST /api/productos/con-receta`: el precio se controla antes de pedir el código del plato
+
+- **Archivo:** `server.js`, la ruta `POST /api/productos/con-receta` (la pantalla Generar Receta, "Nuevo plato").
+- **ENTRADA:** `{ nombre, id_plan, precio, descuento, id_cocinero, insumos }`.
+- **SALIDA:** `{ mensaje, producto }` · **nuevo:** 400 "Ingresá un precio válido" si el precio está mal.
+
+| Pedido | ANTES | AHORA |
+|---|---|---|
+| Sin precio, `null`, `"abc"`, `"1000"` o `-5` | Iba a la base. Sin precio o con `null`: 500 "Error interno" y el código de plato ya gastado | 400 "Ingresá un precio válido", sin ir a la base |
+| `1000`, `0` o `1500.50` | 200 | 200, igual que antes |
+
+```js
+// ANTES: no se miraba el precio. Se pedía el código y recién la base lo rechazaba.
+
+// AHORA, antes de pedir el código:
+const precioInvalido = typeof precio !== 'number' || !Number.isFinite(precio) || precio < 0;
+// ¿el precio está mal? SÍ: sin precio, null, "abc", -5 · NO: 1000, 0
+if (precioInvalido) {
+  return res.status(400).json({ error: 'Ingresá un precio válido' });
+}
+```
+
+- **`typeof precio !== 'number'`:** de qué tipo es el dato. Ej: `"1000"` es texto → está mal.
+- **`Number.isFinite(precio)`:** ¿es un número de verdad? Ej: `1000` → sí; `NaN` e `Infinity` → no.
+- **Por qué:** los pasos de abajo gastan un número del contador del plan. Con el `if` antes, un dato mal no gasta nada. En la prueba final, el plato sin precio gastó PRB1 y el plato PRUEBA quedó como PRB2.
+- **Qué protege:** el servidor no confía en lo que manda el navegador. Protege de un pedido armado a mano, sin pasar por la pantalla, que ya controlaba el precio.
+- **Con qué se conecta:** la llaman `guardarNuevoProductoConReceta` (`generarReceta.js`) y `tests/test_e2e.js`. Las dos ya mandan un número, así que no cambian. Después del `if` llama a `tomar_codigo_plato` y guarda en `productos` y `producto_insumo`.
+
+**Pruebas:**
+- Esta ruta con la base de mentira: 20 de 20. Con 9 precios malos no se pidió ningún código.
+- Rutas del recorrido: 74 de 74. Rutas de Compras: 125 de 125.
+- Con la base de verdad (copia en el 3001), un plato sin precio: 400, el siguiente código sigue en PRB3 y no se creó nada. Un plato con precio bien no se creó a propósito: ese caso se probó con la base de mentira.
+
+**Lo que no se cambió (leído en el código, no probado):** esta ruta tampoco revisa los insumos. Si uno viene mal, responde 500 y gasta el código. Si `insumos` no es una lista, el plato queda creado sin receta, porque el error salta después de guardarlo. Se llega solo con un pedido armado a mano, porque la pantalla arma bien la lista.

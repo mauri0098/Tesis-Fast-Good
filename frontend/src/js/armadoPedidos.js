@@ -10,7 +10,7 @@
 //   cargarPedidos      → trae los pedidos del día (GET /api/armado) y los dibuja
 //   prepararPedido     → separa los renglones de un pedido: lo de la heladera y lo de la cocina, y sus totales
 //   cambiarDia         → hoy, día hábil anterior o siguiente: cambia "Entrega: …" y vuelve a cargar
-//   renderizarPedidos  → el filtro, los contadores, la barra de avance y las tarjetas
+//   renderizarPedidos  → el filtro, los contadores, la barra de avance y las tarjetas (05/11: de a 20 pedidos por página)
 //   armarTarjeta       → el HTML de la tarjeta de un pedido (por armar, falta cocinar o armado)
 //   estadoDelPie       → (26/10) "4 de 5 viandas en la bandeja" y si se puede tocar "✓ Pedido armado" (tarjeta y lista)
 //   renglonesDeLista   → (26/10) los renglones de varios pedidos en una sola lista (para la lista y la planilla)
@@ -21,7 +21,7 @@
 //   abrirVentana       → abre la ventana de la pantalla con lo que se le pase (cerrarVentana la cierra)
 //   abrirDatosCliente  → la ventana "Datos del cliente"
 //   pedirConfirmacion  → la ventana "¿Armaste el pedido #081?" (Confirmar / Cancelar)
-//   marcarArmado       → guarda la marca en el servidor
+//   marcarArmado       → guarda la marca en el servidor (05/11: y el pedido pasa de 6 "Por armar" a 3 "Listo para Entregar")
 //   imprimirEtiqueta   → arma la etiqueta de la bandeja y abre la impresión
 //   mostrarAviso       → el cartelito flotante ("✓ Pedido #081 armado" o un error)
 // Son 17 (más cerrarVentana) porque cada una es una acción distinta de la pantalla; prepararPedido, estadoDelPie y
@@ -38,6 +38,8 @@ let ultimaRespuesta = '';          // lo último que mandó el servidor, como te
 let elementoAntesDeLaVentana = null;  // lo que tenía el foco antes de abrir una ventana (vuelve ahí al cerrarla)
 // Lo tildado: { clave del renglón: true }. Ej: { '512-heladera': true }. Solo en memoria: no va a la base.
 const tildadas = {};
+let paginacionPedidos = null;      // (05/11) lo que devuelve crearPaginacion: sirve para saber en qué página está
+const PEDIDOS_POR_PAGINA = 20;     // (05/11) cuántos pedidos se ven por página (en tarjetas y en lista: los mismos)
 
 const RECARGA_SEGUNDOS = 60;       // cada cuánto se vuelve a pedir el día (para ver cuando la cocina marca "✓ Listo")
 
@@ -97,6 +99,7 @@ async function cargarPedidos(esRecarga) {
   // 1. Si cambió el día: "Cargando…" y se olvida la respuesta anterior
   if (!esRecarga) {
     grilla.innerHTML = '<p class="loading-text">Cargando pedidos...</p>';
+    document.getElementById('paginacionPedidos').innerHTML = '';   // (05/11) los botones de página del día anterior se van
     ultimaRespuesta = '';
   }
 
@@ -115,7 +118,7 @@ async function cargarPedidos(esRecarga) {
     // 4. Cada pedido preparado; primero los que faltan armar y al final los armados, por número.
     //    sort con dos reglas: Number(true) = 1 y Number(false) = 0 (los armados van después); si empatan, por número
     pedidosDelDia = datos.map(prepararPedido).sort((a, b) => Number(a.armado) - Number(b.armado) || a.id - b.id);
-    renderizarPedidos();
+    renderizarPedidos(esRecarga);                                 // (05/11) la recarga se queda en la página; otro día, a la 1
   } catch (error) {
     console.error('[Armado] No se pudieron traer los pedidos:', error);   // el detalle, solo en la consola
     if (esRecarga) return;                                        // la recarga sola falló: queda lo que se ve
@@ -127,10 +130,11 @@ async function cargarPedidos(esRecarga) {
 // prepararPedido → un pedido del servidor, con sus renglones separados por de dónde salen
 // ENTRADA: pedido (como lo manda GET /api/armado)
 // SALIDA:  { id, numero, cliente, esDelivery, entrega, heladera: [renglón], cocina: [renglón], sinCocinar: [renglón],
-//            totalViandas, viandasDeHeladera, armado, estado, horaArmado, armadoPor, datos }
+//            totalViandas, viandasDeHeladera, armado, estado, horaArmado, textoArmado, armadoPor, datos }
 //          renglón = { clave, cantidad, codigo, nombre, texto (el personalizado o ''), listo, sePuedeTildar }
-//          estado = 'por_armar' | 'falta_cocinar' | 'armados' (el de los filtros)
-// Ej: #81 con 4 berenjenas de heladera + 1 canelones "sin sal" listo →
+//          estado = 'por_armar' | 'falta_cocinar' | 'armados' (el de los filtros). (05/11) Sale del ESTADO guardado:
+//          2 En Preparación → 'falta_cocinar' · 6 Por armar → 'por_armar' · con la marca de armado, o en 3 → 'armados'
+// Ej: #81 en 6 con 4 berenjenas de heladera + 1 canelones "sin sal" listo →
 //     { numero: '#081', heladera: [4 berenjenas], cocina: [1 canelones · sin sal ✓], totalViandas: 5, estado: 'por_armar', … }
 // Cuenta: de la heladera salen cantidad_de_heladera; lo demás (cantidad − cantidad_de_heladera) lo hizo la cocina.
 // Es la misma cuenta que usa el servidor para decir "falta cocinar".
@@ -156,11 +160,22 @@ function prepararPedido(pedido) {
     if (deCocina > 0) cocina.push({ ...comun, clave: detalle.id + '-cocina', cantidad: deCocina, listo: Boolean(detalle.listo), sePuedeTildar: Boolean(detalle.listo) });
   });
 
-  // 2. Lo que todavía no cocinó la cocina, y en qué filtro va el pedido
+  // 2. Lo que todavía no cocinó la cocina, y en qué filtro va el pedido.
+  //    (05/11) El filtro sale del ESTADO guardado (antes se calculaba mirando los platos):
+  //    2 En Preparación → "Falta cocinar" · 6 Por armar → "Por armar" · armado → "Armados"
   const sinCocinar = cocina.filter(renglon => !renglon.listo);
-  const armado = Boolean(pedido.armado_en);
-  const estadoSinArmar = sinCocinar.length > 0 ? 'falta_cocinar' : 'por_armar';
-  const estado = armado ? 'armados' : estadoSinArmar;
+  // (05/11) Armado = tiene la marca, o ya está en 3 "Listo para Entregar" sin la marca (es de antes de este cambio,
+  // cuando lo pasaba la cocina). Esos ya no se pueden armar (el servidor solo arma en 6): se ven listos
+  const armado = Boolean(pedido.armado_en) || pedido.id_estado === 3;
+  let estado = 'por_armar';
+  // ¿está En Preparación (2)? SÍ: #82 con los "sin sal" en la cocina · NO: #81 en 6 "Por armar", o ya armado
+  if (pedido.id_estado === 2) {
+    estado = 'falta_cocinar';
+  }
+  // ¿ya está armado? SÍ: tiene la marca, o está en 3 · NO: en 2 o en 6, sin armar
+  if (armado) {
+    estado = 'armados';
+  }
 
   // 3. Cómo se entrega. Ej: "Delivery · Av. Colón 1250" o "Retira en el local"
   const esDelivery = pedido.tipo_entrega === 'Delivery';
@@ -169,7 +184,14 @@ function prepararPedido(pedido) {
 
   // 4. A qué hora se armó, en hora de Argentina (o '' si no se armó). Ej: "08:42"
   const formatoHora = new Intl.DateTimeFormat('es-AR', { timeZone: ZONA_ARGENTINA, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-  const horaArmado = armado ? formatoHora.format(fechaDeTimestamp(pedido.armado_en)) : '';
+  const horaArmado = pedido.armado_en ? formatoHora.format(fechaDeTimestamp(pedido.armado_en)) : '';
+  // (05/11) Lo que dice su marca: "✓ Armado 08:42" o, en 3 sin la marca, "✓ Listo para entregar"
+  let textoArmado = '✓ Armado ' + horaArmado;
+  const listoSinMarca = armado && !pedido.armado_en;
+  // ¿está en 3 sin la marca de armado? SÍ: lo pasó el administrador · NO: lo armaron acá (o todavía no está armado)
+  if (listoSinMarca) {
+    textoArmado = '✓ Listo para entregar';
+  }
 
   return {
     id:                pedido.id,
@@ -185,6 +207,7 @@ function prepararPedido(pedido) {
     armado:            armado,
     estado:            estado,
     horaArmado:        horaArmado,
+    textoArmado:       textoArmado,
     armadoPor:         pedido.armado_por_nombre || '',
     datos:             pedido                                       // todo lo demás (teléfono, notas, pago…)
   };
@@ -216,8 +239,11 @@ function cambiarDia(direccion) {
 // SALIDA:  nada. Cambia los contadores, la barra, los textos de avance y #pedidosBody
 // Ej: 4 pedidos (2 por armar, 1 falta cocinar, 1 armado) → "Por armar · 2", "1 de 4 pedidos armados", barra al 25%
 // Si el foco estaba en una casilla, vuelve a esa casilla (así la recarga de 60 s no lo saca de donde estaba).
+// (05/11) De a 20 pedidos por página (crearPaginacion, de paginacion.js). mantenerPagina: true = en la página donde
+//         estaba (tildar, cambiar de vista, la recarga de 60 s, girar el celu); sin nada = página 1 (otro filtro u otro día).
+//         Si esa página ya no existe (ej: se armó el último de la página 2), crearPaginacion la deja en la última.
 // ─────────────────────────────────────────────────────────────────────────────
-function renderizarPedidos() {
+function renderizarPedidos(mantenerPagina) {
   const grilla = document.getElementById('pedidosBody');
 
   // 1. Cuántos pedidos hay en cada filtro, y las viandas del día
@@ -254,9 +280,30 @@ function renderizarPedidos() {
   const mensaje = pedidosDelDia.length === 0 ? sinPedidosElDia : MENSAJE_VACIO[filtroElegido];
   const vacioHTML = `<p class="loading-text">${escHtml(mensaje)}</p>`;
   const verLista = vistaElegida === 'lista' && !pantallaChica.matches;     // la lista, solo en pantallas de 900 px o más
-  const contenido = verLista ? armarLista(delFiltro) : delFiltro.map(armarTarjeta).join('');
-  grilla.innerHTML = delFiltro.length > 0 ? contenido : vacioHTML;
   grilla.classList.toggle('grilla-pedidos--lista', verLista);              // la lista no va en columnas
+
+  // (05/11) La página donde arranca: la 1, o la que se estaba viendo
+  let pagina = 1;
+  const sigueEnLaPagina = mantenerPagina === true && paginacionPedidos !== null;
+  // ¿se queda en la página donde estaba? SÍ: tildó una vianda en la página 2 · NO: eligió otro filtro u otro día
+  if (sigueEnLaPagina) {
+    pagina = paginacionPedidos.paginaActual();
+  }
+
+  // (05/11) Los pedidos de esa página: crearPaginacion le pasa a funcionRenderPagina los de la página que se ve y pega
+  // el HTML que devuelve (las tarjetas, o la lista con una fila por renglón). Sin pedidos, el mensaje de siempre
+  paginacionPedidos = crearPaginacion({
+    datos: delFiltro,
+    porPagina: PEDIDOS_POR_PAGINA,
+    contenedorTabla: grilla,
+    contenedorPaginacion: document.getElementById('paginacionPedidos'),
+    filaVacia: vacioHTML,
+    paginaInicial: pagina,
+    funcionRenderPagina: (pedidosDeLaPagina) => {
+      const contenido = verLista ? armarLista(pedidosDeLaPagina) : pedidosDeLaPagina.map(armarTarjeta).join('');  // igual que antes
+      return contenido;
+    },
+  });
 
   // 5. El foco, de vuelta en su casilla (si sigue estando)
   const casillaConFoco = claveConFoco ? grilla.querySelector(`[data-clave="${claveConFoco}"]`) : null;
@@ -290,7 +337,7 @@ function armarTarjeta(pedido) {
             <span class="cliente-direccion">${tipo} · ${pedido.totalViandas} ${palabraViandas}</span>
           </div>
         </div>
-        <span class="marca-armado">✓ Armado ${pedido.horaArmado}${quien}</span>
+        <span class="marca-armado">${pedido.textoArmado}${quien}</span>
       </article>`;
   }
 
@@ -333,7 +380,14 @@ function armarTarjeta(pedido) {
     return escHtml(renglon.cantidad + ' ' + renglon.nombre + texto);
   }).join(', ');
   const queHacer = pedido.viandasDeHeladera > 0 ? `Separá las ${pedido.viandasDeHeladera} de la heladera y esperá a la cocina.` : 'Esperá a la cocina.';
-  const alertaHTML = faltaCocinar ? `<div class="alerta-cocina" role="status"><strong>Todavía falta cocinar ${listaSinCocinar}.</strong> ${queHacer}</div>` : '';
+  let textoAlerta = `<strong>Todavía falta cocinar ${listaSinCocinar}.</strong> ${queHacer}`;
+  // (05/11) ¿sigue En Preparación pero ya no queda nada por cocinar? SÍ: al tocar "✓ Cocinado" faltaron insumos para
+  //         descontarlos, o lo volvieron atrás de "Por armar" · NO: falta cocinar algo (el caso de siempre)
+  const nadaPorCocinar = pedido.sinCocinar.length === 0;
+  if (nadaPorCocinar) {
+    textoAlerta = '<strong>No queda nada por cocinar, pero el pedido sigue En preparación.</strong> Para armarlo, el administrador lo tiene que pasar a Por armar en Consultar pedidos.';
+  }
+  const alertaHTML = faltaCocinar ? `<div class="alerta-cocina" role="status">${textoAlerta}</div>` : '';
 
   // 5. El pie: el texto de abajo y el botón (estadoDelPie: lo usa también la lista)
   const pie = estadoDelPie(pedido);
@@ -454,7 +508,7 @@ function armarLista(pedidos) {
 
     // 3. El estado del renglón: ✓ Armado · ✓ cocinado · ⏳ falta cocinar · Por armar
     const quien = pedido.armadoPor ? ' · ' + escHtml(pedido.armadoPor) : '';
-    const marcaArmado = `<span class="tag-exito">✓ Armado ${pedido.horaArmado}${quien}</span>`;
+    const marcaArmado = `<span class="tag-exito">${pedido.textoArmado}${quien}</span>`;
     const estadoSinArmar = deCocina ? TAG_COCINA[renglon.listo] : '<span class="estado-por-armar">Por armar</span>';
     const estado = pedido.armado ? marcaArmado : estadoSinArmar;
 
@@ -514,7 +568,7 @@ function armarLista(pedidos) {
 function tildarVianda(casilla) {
   const clave = casilla.dataset.clave;                            // ej: '512-heladera'
   tildadas[clave] = casilla.checked;                              // true = tildada
-  renderizarPedidos();
+  renderizarPedidos(true);                                        // (05/11) en la misma página
   document.querySelector(`[data-clave="${clave}"]`)?.focus();     // el foco, en la misma casilla (?. = si sigue estando)
 }
 
@@ -532,7 +586,7 @@ function elegirVista(vista) {
     // Si el navegador no deja guardar (por ejemplo, en modo privado), la vista cambia igual
   }
   document.getElementById('botonVista').textContent = TEXTO_BOTON_VISTA[vista];
-  renderizarPedidos();
+  renderizarPedidos(true);                                        // (05/11) en la misma página
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -698,9 +752,10 @@ function pedirConfirmacion(idPedido) {
 // ─────────────────────────────────────────────────────────────────────────────
 // marcarArmado → guarda en el servidor que el pedido está armado (POST /api/pedidos/:id/armado)
 // ENTRADA: idPedido y boton (el "Confirmar" de la ventana, para apagarlo mientras se guarda)
-// SALIDA:  nada. Bien → cierra la ventana, avisa "✓ Pedido #081 armado" y vuelve a cargar (la tarjeta queda chiquita
-//          y verde). Si el servidor dice que no (ej: 409 "Todavía falta cocinar…"), cierra y muestra su mensaje.
-// Ej: #081 → { mensaje: 'Pedido #81 armado' } → aviso verde
+// SALIDA:  nada. Bien → cierra la ventana, avisa "✓ Pedido #081 armado: Listo para entregar" (05/11: el servidor lo pasa
+//          de 6 "Por armar" a 3 y ahí aparece en Envíos del Día) y vuelve a cargar (la tarjeta queda chiquita y verde).
+//          Si el servidor dice que no (ej: 409 "Todavía está En preparación: falta cocinar"), cierra y muestra su mensaje.
+// Ej: #081 → { mensaje: 'Pedido #081 armado: Listo para entregar' } → aviso verde
 // Manda el día que se está mirando: el servidor controla que el pedido sea de ese día. El usuario sale del token.
 // ─────────────────────────────────────────────────────────────────────────────
 async function marcarArmado(idPedido, boton) {
@@ -718,7 +773,7 @@ async function marcarArmado(idPedido, boton) {
     cerrarVentana();
     const mensajeError = datos?.error || 'No se pudo marcar el pedido como armado';
     if (!respuesta.ok) mostrarAviso('error', mensajeError);       // el mensaje del servidor (ej: "Todavía falta cocinar…")
-    if (respuesta.ok) mostrarAviso('exito', `Pedido ${numero} armado`);
+    if (respuesta.ok) mostrarAviso('exito', `Pedido ${numero} armado: Listo para entregar`);   // (05/11) armar lo pasa a 3
     await cargarPedidos(true);                                    // en los dos casos: lo que dice la base ahora
   } catch (error) {
     console.error('[Armado] No se pudo marcar el pedido:', error);
@@ -876,7 +931,7 @@ document.getElementById('botonVista').addEventListener('click', () => {
 });
 document.getElementById('botonExportar').addEventListener('click', exportarPlanilla);
 pantallaChica.addEventListener('change', () => {
-  if (ultimaRespuesta) renderizarPedidos();                       // solo si ya hay pedidos cargados
+  if (ultimaRespuesta) renderizarPedidos(true);                   // solo si ya hay pedidos cargados (05/11: en la misma página)
 });
 
 // 7. Arranca en hoy, y se vuelve a pedir el día cada 60 s (lo tildado y la ventana abierta no se tocan)

@@ -85,14 +85,19 @@ const ICONO_BOLSA = '<svg class="icono-movimiento" viewBox="0 0 24 24" aria-hidd
 const ICONO_PERSONA = '<svg class="icono-movimiento" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>';
 const ICONO_CAJA = '<svg class="icono-movimiento" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="14" rx="2"></rect><path d="M3 12h18M8 7V4h8v3"></path></svg>';
 
-// El texto de la pastilla de Tipo
-const TEXTOS_TIPO = { entrada: "▲ Entrada", salida: "▼ Salida" };
+// El texto de la pastilla de Tipo. (05/11, opción B) Adelante, un circulito lleno con una flecha diagonal blanca:
+// ↙ entra, ↗ sale. El color del circulito lo pone el CSS según la pastilla (verde, rojo o gris). Texto fijo: no viene de la base
+const ICONO_ENTRADA = '<span class="circulo-tipo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M17 7 7 17M7 8.5V17h8.5"></path></svg></span>';
+const ICONO_SALIDA = '<span class="circulo-tipo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 17 17 7M8.5 7H17v8.5"></path></svg></span>';
+const TEXTOS_TIPO = { entrada: ICONO_ENTRADA + "Entrada", salida: ICONO_SALIDA + "Salida" };
 
 // Cómo se ve cada origen: la línea de la fila, la pastilla y, si tiene número, su recuadro de Referencia
 // (ceros = cuántas cifras lleva el número. Ej: 15 con 3 ceros → "015"). Sin número, el recuadro es gris (crearRenglon)
 const ASPECTO_ORIGEN = {
   compra:     { fila: "fila-entrada",    pastilla: "badge-entrada",    textos: TEXTOS_TIPO, recuadro: "recuadro-compra",  icono: ICONO_BOLSA,   etiqueta: "Compra",          ceros: 0, sufijo: "" },
-  produccion: { fila: "fila-produccion", pastilla: "badge-produccion", textos: { entrada: ICONO_OLLA + " Producción" }, recuadro: "recuadro-cocina", icono: ICONO_OLLA, etiqueta: "Pedido a Cocina", ceros: 3, sufijo: "" },
+  // (05/11) Un Hecho se ve como ENTRADA (línea y pastilla verdes, "Entrada"): los insumos que gastó se convierten en viandas.
+  // Su recuadro sigue azul ("Pedido a Cocina #009") y el Detalle sigue mostrando los insumos que se usaron
+  produccion: { fila: "fila-entrada",    pastilla: "badge-entrada",    textos: TEXTOS_TIPO, recuadro: "recuadro-cocina", icono: ICONO_OLLA, etiqueta: "Pedido a Cocina", ceros: 3, sufijo: "" },
   venta:      { fila: "fila-salida",     pastilla: "badge-salida",     textos: TEXTOS_TIPO, recuadro: "recuadro-cliente", icono: ICONO_PERSONA, etiqueta: "Pedido cliente",  ceros: 3, sufijo: "" },
   cocina:     { fila: "fila-salida",     pastilla: "badge-salida",     textos: TEXTOS_TIPO, recuadro: "recuadro-cliente", icono: ICONO_PERSONA, etiqueta: "Pedido cliente",  ceros: 3, sufijo: "" },
   devolucion: { fila: "fila-entrada",    pastilla: "badge-entrada",    textos: TEXTOS_TIPO, recuadro: "recuadro-cliente", icono: ICONO_PERSONA, etiqueta: "Pedido cliente",  ceros: 3, sufijo: " anulado" },

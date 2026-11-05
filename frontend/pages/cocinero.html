@@ -192,7 +192,7 @@
   </div>
 </div>
 
-<!-- VENTANA: confirmar "Listo para entregar" (marca solo los platos del cocinero logueado) -->
+<!-- VENTANA: confirmar "✓ Cocinado" (marca solo los platos del cocinero logueado; 05/11: después el pedido pasa al Armado) -->
 <div id="modalListo" class="modal" onclick="cerrarModalListo(event)">
   <div class="modal-content ventana-panel ventana-cocina modal-listo">
     <div class="cabecera-detalles">
@@ -221,7 +221,7 @@
     <div class="pie-detalles">
       <button type="button" class="boton-cerrar-detalles btn-cancelar-listo" onclick="cerrarDetallesPedido()">Cerrar</button>
       <!-- Solo para el cocinero (cocinero.js lo muestra): pide la confirmación de siempre -->
-      <button type="button" id="botonListoDetalles" class="boton-listo-detalles" hidden>✓ Listo para entregar</button>
+      <button type="button" id="botonListoDetalles" class="boton-listo-detalles" hidden>✓ Cocinado</button>
     </div>
   </div>
 </div>

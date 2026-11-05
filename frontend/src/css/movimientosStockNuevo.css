@@ -615,16 +615,12 @@ tbody tr.fila-salida td:first-child {
   box-shadow: inset 4px 0 0 var(--rojo);
 }
 
-tbody tr.fila-produccion td:first-child {
-  box-shadow: inset 4px 0 0 var(--azul);
-}
-
 tbody tr.fila-neutra td:first-child {
   box-shadow: inset 4px 0 0 var(--texto-suave);
 }
 
 
-/* ── PASTILLA DEL TIPO: Entrada, Salida o Producción ── */
+/* ── PASTILLA DEL TIPO: Entrada o Salida (05/11: un Hecho ya no es "Producción": es una Entrada) ── */
 /* 24/10: el alto y la letra son los de las pastillas de todas las tablas (global.css: --alto-pastilla-estado) */
 .badge {
   height: var(--alto-pastilla-estado);
@@ -648,14 +644,48 @@ tbody tr.fila-neutra td:first-child {
   color: var(--rojo-texto);
 }
 
-.badge-produccion {
-  background: var(--azul-suave);
-  color: var(--azul);
-}
-
 .badge-neutra {
   background: var(--gris-boton);
   color: var(--texto-gris);
+}
+
+/* (05/11, opción B) El circulito de adelante: lleno, con una flecha diagonal blanca (↙ entra, ↗ sale).
+   Verde en las entradas, rojo en las salidas y gris en las salidas a mano, descartes y ajustes */
+.badge:has(.circulo-tipo) {
+  padding-left: 5px;
+}
+
+.circulo-tipo {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge-entrada .circulo-tipo {
+  background: var(--verde-principal);
+}
+
+.badge-salida .circulo-tipo {
+  background: var(--rojo);
+}
+
+.badge-neutra .circulo-tipo {
+  background: var(--texto-suave);
+}
+
+.circulo-tipo svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: var(--blanco);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 

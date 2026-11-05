@@ -92,6 +92,8 @@
 
         <div class="pie-tabla">
           <span id="contadorResumen"></span>
+          <!-- (05/11) Los botones de página ‹ 1 2 3 › (los pone crearPaginacion, de paginacion.js; sin filas no se ven, con una sola página queda "‹ 1 ›") -->
+          <div id="paginacionCompras" class="paginacion"></div>
           <button type="button" id="botonImprimirLista" class="boton-imprimir-lista">Imprimir lista de compras</button>
         </div>
       </div>
@@ -248,6 +250,8 @@
 
     <!-- Abajo: buscan elementos de la página, así que van cuando ya está todo armado -->
     <script src="../src/js/fechas.js"></script>
+    <!-- (05/11) La paginación que usan todas las tablas del panel (crearPaginacion) -->
+    <script src="../src/js/paginacion.js"></script>
     <!-- Lo que comparte con Movimientos de Stock. Pone también el modal de Detalle en la página -->
     <script src="../src/js/stockCompartido.js"></script>
     <!-- La ventana Registrar compra (antes que compras.js: compras.js la abre sola si la dirección dice ?compra=1) -->

@@ -353,14 +353,12 @@ async function testPedidoCompleto(productoId) {
     fail('PUT estado → 2', `status=${r3.status} err=${JSON.stringify(r3.data)}`);
   }
 
-  // 6d. Cambiar estado a "Listo" (3) — esto debería descontar stock
+  // 6d. (05/11) "Listo" (3) ya NO se pone por acá: lo pone solo el Armado → 400
   const r4 = await put(`/api/pedidos/${pedidoId}/estado`, { estado_id: 3 });
-  if (r4.status === 200) {
-    ok('PUT estado → Listo (3) — descuenta stock', `id_estado=${r4.data?.pedido?.id_estado}`);
-  } else if (r4.status === 409) {
-    warn('PUT estado → 3', `Stock insuficiente (esperado si insumos están en 0): ${r4.data?.error}`);
+  if (r4.status === 400 && String(r4.data?.error).startsWith('Listo para entregar lo pone el Armado')) {
+    ok('PUT estado → Listo (3) rechazado: lo pone el Armado', `status=${r4.status}`);
   } else {
-    fail('PUT estado → 3', `status=${r4.status} err=${JSON.stringify(r4.data)}`);
+    fail('PUT estado → 3', `esperaba 400 "lo pone el Armado": status=${r4.status} err=${JSON.stringify(r4.data)}`);
   }
 
   // 6e. Marcar como pagado
@@ -657,10 +655,12 @@ function revisarHeladera(paso, antes, ahora, cambios) {
 // testArmado → la sección ARMADO (26/10): la pantalla "Armado de pedidos", por sus rutas (GET /api/armado y
 //              POST /api/pedidos/:id/armado). Corre ADENTRO de testHeladera, con sus pedidos de prueba, antes de anularlos:
 //              así no crea pedidos nuevos (no choca con el límite de 5 pedidos cada 10 minutos).
-// ENTRADA: idA (todo de heladera, ya en 3), idD (con 2 "sin sal" sin cocinar), fechaEntrega (la de los dos),
-//          comoCocinero (el header del cocinero de mentira, para el 403) e idUsuario (el del .env, para ver quién armó)
-// SALIDA:  nada (escribe ✅ / ❌ por cada prueba). A queda ARMADO (es una marca: sigue en 3); al final se anula igual.
-// Ej: D → 409 "Todavía falta cocinar…" · A → 200 y sigue en 3 · A otra vez → 409 · fecha 2026-02-30 → 400 · cocinero → 403
+// ENTRADA: idA (todo de heladera, en 6 "Por armar": 05/11), idD (con 2 "sin sal" sin cocinar, en 2), fechaEntrega
+//          (la de los dos), comoCocinero (el header del cocinero de mentira, para el 403) e idUsuario (el del .env)
+// SALIDA:  nada (escribe ✅ / ❌ por cada prueba). A queda ARMADO y (05/11) pasa de 6 a 3; al final se anula igual.
+// Ej: D en 2 → 409 "Todavía está En preparación: falta cocinar" · A → 200 y pasa a 3 · A otra vez → 409
+//     · fecha 2026-02-30 → 400 · cocinero → 403
+//     (05/11) si A es Delivery: antes de armarlo NO está en Envíos del Día; después, sí
 // REGLAS: no cocina nada ni marca "Listo" (eso pasaría D a 3 y gastaría insumos). Si D quedó en 1 (faltan insumos),
 //         lo pasa a 2 "aunque falten insumos": en 2 no se descuenta nada.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -680,30 +680,36 @@ async function testArmado(idA, idD, fechaEntrega, comoCocinero, idUsuario) {
   const enDiaD = delDia.find(p => p.id === idD);
   comprobar('Armado: GET /api/armado del día → 200 con A y D', dia.status === 200 && Boolean(enDiaA) && Boolean(enDiaD), `status=${dia.status} · ${delDia.length} pedidos ese día ${dia.data?.error || ''}`);
   const renglonesA = enDiaA?.pedido_detalles || [];
-  const aTodoDeHeladera = renglonesA.length > 0 && renglonesA.every(d => d.cantidad_de_heladera === d.cantidad && d.listo === true) && enDiaA.armado_en === null;
-  comprobar('Armado: A viene todo de la heladera y sin armar', aTodoDeHeladera, JSON.stringify(renglonesA.map(d => ({ cantidad: d.cantidad, de_heladera: d.cantidad_de_heladera, listo: d.listo }))));
+  const aTodoDeHeladera = renglonesA.length > 0 && renglonesA.every(d => d.cantidad_de_heladera === d.cantidad && d.listo === true) && enDiaA.armado_en === null && enDiaA.id_estado === 6;
+  comprobar('Armado: A viene todo de la heladera, en 6 "Por armar" y sin armar', aTodoDeHeladera, `estado ${enDiaA?.id_estado} · ` + JSON.stringify(renglonesA.map(d => ({ cantidad: d.cantidad, de_heladera: d.cantidad_de_heladera, listo: d.listo }))));
   const sinSalD = (enDiaD?.pedido_detalles || []).find(d => d.personalizado === true);
   const dSinCocinar = Boolean(sinSalD) && sinSalD.cantidad === 2 && sinSalD.cantidad_de_heladera === 0 && sinSalD.listo === false;
   comprobar('Armado: D trae los 2 "sin sal" sin cocinar', dSinCocinar, sinSalD ? `${sinSalD.cantidad} · de heladera ${sinSalD.cantidad_de_heladera} · listo ${sinSalD.listo}` : 'no apareció');
 
-  // 3. Lo que el servidor NO deja (409): D con algo sin cocinar, y A con otra fecha
+  // 3. Lo que el servidor NO deja (409): D todavía en 2 (falta cocinar), y A con otra fecha
   const armarD = await post(`/api/pedidos/${idD}/armado`, { fecha: fechaEntrega });
-  comprobar('Armado: D con un personalizado sin cocinar → 409', armarD.status === 409 && String(armarD.data?.error).startsWith('Todavía falta cocinar'), `status=${armarD.status} "${armarD.data?.error}"`);
+  comprobar('Armado: D en 2 con un personalizado sin cocinar → 409', armarD.status === 409 && armarD.data?.error === 'Todavía está En preparación: falta cocinar', `status=${armarD.status} "${armarD.data?.error}"`);
   const otraFecha = fechas.fechaLocalISO(fechas.proximoDiaHabil(fechas.parseFechaLocal(fechaEntrega)));
   const armarAOtroDia = await post(`/api/pedidos/${idA}/armado`, { fecha: otraFecha });
   comprobar('Armado: A con otra fecha → 409', armarAOtroDia.status === 409 && String(armarAOtroDia.data?.error).startsWith('El pedido no se entrega ese día'), `status=${armarAOtroDia.status} "${armarAOtroDia.data?.error}"`);
 
-  // 4. A (sin nada para cocinar) SÍ se arma: guarda quién (el del token) y no cambia el estado
+  // 4. A (en 6 "Por armar") SÍ se arma: guarda quién (el del token) y (05/11) pasa a 3 "Listo para Entregar".
+  //    Si A es Delivery, antes de armarlo NO tiene que estar en Envíos del Día (está en 6) y después SÍ.
+  const esDelivery = enDiaA?.tipo_entrega === 'Delivery';
+  const enviosAntes = esDelivery ? await get(`/api/envios?fecha=${fechaEntrega}`) : null;
+  if (esDelivery) comprobar('Envíos: A (en 6 "Por armar", sin armar) NO aparece', enviosAntes.status === 200 && !(enviosAntes.data || []).some(p => p.id === idA), `status=${enviosAntes.status}`);
   const armarA = await post(`/api/pedidos/${idA}/armado`, { fecha: fechaEntrega });
-  const armadoBien = armarA.status === 200 && Boolean(armarA.data?.pedido?.armado_en) && armarA.data?.pedido?.armado_por === idUsuario;
-  comprobar('Armado: A → 200, con la hora y el usuario del token', armadoBien, `status=${armarA.status} ${armarA.data?.mensaje || armarA.data?.error}`);
+  const armadoBien = armarA.status === 200 && Boolean(armarA.data?.pedido?.armado_en) && armarA.data?.pedido?.armado_por === idUsuario && armarA.data?.pedido?.id_estado === 3;
+  comprobar('Armado: A → 200, con la hora y el usuario del token, y pasa a 3', armadoBien, `status=${armarA.status} ${armarA.data?.mensaje || armarA.data?.error}`);
   const despues = await get(`/api/armado?fecha=${fechaEntrega}`);
   const aDespues = (Array.isArray(despues.data) ? despues.data : []).find(p => p.id === idA);
-  comprobar('Armado: A sigue en 3 y figura armado (con nombre)', aDespues?.id_estado === 3 && Boolean(aDespues?.armado_en) && Boolean(aDespues?.armado_por_nombre), aDespues ? `estado ${aDespues.id_estado} · armado ${Boolean(aDespues.armado_en)} · nombre ${aDespues.armado_por_nombre ? 'sí' : 'no'}` : 'no apareció');
+  comprobar('Armado: A quedó en 3 y figura armado (con nombre)', aDespues?.id_estado === 3 && Boolean(aDespues?.armado_en) && Boolean(aDespues?.armado_por_nombre), aDespues ? `estado ${aDespues.id_estado} · armado ${Boolean(aDespues.armado_en)} · nombre ${aDespues.armado_por_nombre ? 'sí' : 'no'}` : 'no apareció');
+  const enviosDespues = esDelivery ? await get(`/api/envios?fecha=${fechaEntrega}`) : null;
+  if (esDelivery) comprobar('Envíos: A (armado, en 3) SÍ aparece', enviosDespues.status === 200 && (enviosDespues.data || []).some(p => p.id === idA), `status=${enviosDespues.status}`);
 
-  // 5. Dos veces no
+  // 5. Dos veces no: ya está Listo para entregar
   const armarAOtraVez = await post(`/api/pedidos/${idA}/armado`, { fecha: fechaEntrega });
-  comprobar('Armado: A otra vez → 409', armarAOtraVez.status === 409 && armarAOtraVez.data?.error === 'El pedido ya estaba armado', `status=${armarAOtraVez.status} "${armarAOtraVez.data?.error}"`);
+  comprobar('Armado: A otra vez → 409', armarAOtraVez.status === 409 && armarAOtraVez.data?.error === 'El pedido ya está Listo para entregar', `status=${armarAOtraVez.status} "${armarAOtraVez.data?.error}"`);
 
   // 6. Datos malos → 400 (el servidor corta antes de ir a la base)
   const fechasMalas = await Promise.all([get('/api/armado?fecha=2026-02-30'), get('/api/armado?fecha=hola'), get('/api/armado')]);
@@ -902,11 +908,12 @@ async function testHeladera() {
     comprobar('Con personalizado (D) → 200', ventaDCreada, `status=${pedidoD.status} ${pedidoD.data?.error || 'pedido #' + idD}`);
     revisarHeladera('Con personalizado: solo baja lo que sale de la heladera', antesDeD, await leerHeladera(idsUsados), { [plato.id]: { libres: -(N - 2), reservadas: N - 2 } });
 
-    // 7. TODO DE HELADERA SALTA A 3: A (sin personalizados) de 1 a 2 → el servidor lo deja en 3.
-    //    Al llegar a 3 corre descontar_insumos_pedido: A no tiene personalizados, así que no descuenta nada.
+    // 7. TODO DE HELADERA VA AL ARMADO: A (sin personalizados) de 1 a 2 → (05/11) pasa directo a 6 "Por armar" y el
+    //    servidor avisa todo_de_heladera: true. "Listo para Entregar" lo pone el Armado (testArmado).
+    //    A no tiene personalizados, así que nunca descuenta insumos.
     const estadoA = await put(`/api/pedidos/${idA}/estado`, { estado_id: 2 });
-    const saltoA3 = estadoA.status === 200 && estadoA.data?.pedido?.id_estado === 3;
-    comprobar('Todo de heladera: de 1 a 2 salta a 3', saltoA3, `status=${estadoA.status} estado=${estadoA.data?.pedido?.id_estado} ${estadoA.data?.error || ''}`);
+    const quedaPorArmar = estadoA.status === 200 && estadoA.data?.pedido?.id_estado === 6 && estadoA.data?.todo_de_heladera === true;
+    comprobar('Todo de heladera: de 1 a 2 pasa directo a 6 "Por armar"', quedaPorArmar, `status=${estadoA.status} estado=${estadoA.data?.pedido?.id_estado} todo_de_heladera=${estadoA.data?.todo_de_heladera} ${estadoA.data?.error || ''}`);
     const lecturaInsumosA = await supabase.from('movimientos_stock').select('id', { count: 'exact', head: true }).eq('id_pedido', idA);  // solo cuenta (head: sin traer filas)
     const sinInsumosA = !lecturaInsumosA.error && lecturaInsumosA.count === 0;
     comprobar('descontar_insumos_pedido en A (sin personalizados): 0 insumos', sinInsumosA,

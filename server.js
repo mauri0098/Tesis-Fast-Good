@@ -235,7 +235,8 @@ function calcularFaltantes(viandasPorPlato, datos, comprometidoPorPlato) {
 // ENTRADA: nada
 // SALIDA:  { porPlato: { id_producto: viandas } } o { error }
 //          Suma: los pedidos a cocina sin "Hecho" + lo que cocina la cocina en los pedidos de clientes en 1 o 2
-//          (cantidad − cantidad_de_heladera: sus insumos se descuentan recién al pasar a 3)
+//          (cantidad − cantidad_de_heladera: sus insumos se descuentan recién al pasar a 6 "Por armar", cuando la
+//          cocina terminó; (05/11) por eso el 6 no está en la lista: ya no está comprometido, ya se gastó)
 // Ej: pedido a cocina de 10 fideos sin hacer + un pedido en 2 con 2 fideos "sin sal" → { 7: 12 }
 // ─────────────────────────────────────────────────────────────────────────────
 async function leerComprometido() {
@@ -1212,6 +1213,9 @@ app.post('/api/pedidos-combos', limitePedidos, async (req, res) => {
 // no cambia más de estado ni se cobra.
 // =============================================================================
 const ESTADO_ANULADO = 5;                                         // el estado "Cancelado": es final
+// (05/11) "Por armar" (sql/estado_por_armar.sql): todo cocinado (o todo de heladera), esperando el Armado.
+// El recorrido: 1 Registrado → 2 En Preparación → 6 Por armar → 3 Listo para entregar → 4 Entregado (5 Cancelado)
+const ESTADO_POR_ARMAR = 6;
 const OFFSET_ARGENTINA = '-03:00';                                // la hora de Argentina (no tiene horario de verano)
 const FORMATO_FECHA = /^\d{4}-\d{2}-\d{2}$/;                      // una fecha AAAA-MM-DD (ej: 2026-10-16)
 
@@ -1256,10 +1260,13 @@ app.get('/api/pedidos', requireAuth, requireRol(6, 5, 1), async (req, res) => {
         tipo_entrega,
         barrio_id,
         id_estado,
+        armado_en,
         estados ( nombre ),
         barrios ( id, nombre ),
         pedido_detalles (
           cantidad,
+          cantidad_de_heladera,
+          listo,
           precio_unitario,
           id_pedido_combo,
           personalizado,
@@ -1499,25 +1506,28 @@ app.put('/api/pedidos/:id/pago', requireAuth, requireRol(6, 5, 1), async (req, r
 
 // ─────────────────────────────────────────────────────────────────────────────
 // cambiarEstadoPedido → cambia el estado de un pedido, con lo que pide cada estado
-// ENTRADA: pedidoId, nuevoEstado (1 a 4), idUsuario (quién lo cambia: sale del token) y, opcional,
+// ENTRADA: pedidoId, nuevoEstado (1, 2, 6, 3 o 4), idUsuario (quién lo cambia: sale del token) y, opcional,
 //          aunqueFaltenInsumos (24/10): true = al pasar a 2 no se revisan los insumos (la persona ya lo confirmó)
 // SALIDA:  { status: 200, pedido } (el pedido como quedó) · { status: 409, error } si falta un insumo o el
 //          pedido está anulado · { status: 500, error } si falló la base
 // Ej: pedido #251 (8 fideos de heladera + 2 "sin sal") a 2 → se revisan 600 g de harina y 4 huevos (no se descuentan);
-//     a 3 → se descuentan (descontar_insumos_pedido) y todos sus platos quedan listos.
-// La usan PUT /api/pedidos/:pedidoId/estado (admin) y PUT /api/pedidos/:id/listo-cocinero (cocina).
+//     (05/11) a 6 "Por armar" → se descuentan (descontar_insumos_pedido), una sola vez.
+//     pedido #250 todo de heladera de 1 a 6 → no hay nada que descontar (la base responde "0 insumos").
+// La usan PUT /api/pedidos/:pedidoId/estado (admin) y (05/11) PUT /api/pedidos/:id/listo-cocinero.
+// (05/11) El 3 lo pone el Armado (POST /api/pedidos/:id/armado): por acá solo llega al deshacer un Entregado (de 4 a 3).
 // ─────────────────────────────────────────────────────────────────────────────
 async function cambiarEstadoPedido(pedidoId, nuevoEstado, idUsuario, aunqueFaltenInsumos) {
   // 1. A 2 (En Preparación): ¿alcanzan los insumos de lo que cocina la cocina? Solo lee.
-  //    Con aunqueFaltenInsumos no se revisa: se pueden comprar después. Al pasar a 3 la base los vuelve a controlar
+  //    Con aunqueFaltenInsumos no se revisa: se pueden comprar después. Al pasar a 6 la base los vuelve a controlar
   //    al descontarlos. "condición ? await … : null" = solo se consulta si hace falta.
   const revisarInsumos = nuevoEstado === 2 && aunqueFaltenInsumos !== true;
   const errorInsumos = revisarInsumos ? await verificarStockPedido(pedidoId) : null;
   if (errorInsumos) return errorInsumos;                          // ya viene armado: { status: 409 o 500, error }
 
-  // 2. A 3 o 4: se descuentan los insumos, una sola vez por pedido (lo controla la base)
-  const pasaA3o4 = nuevoEstado === 3 || nuevoEstado === 4;
-  const errorDescuento = pasaA3o4 ? await descontarStockPedido(pedidoId, idUsuario) : null;
+  // 2. A 6 (Por armar: la cocina terminó), 3 o 4: se descuentan los insumos, una sola vez por pedido (lo controla
+  //    la base: si ya se descontaron, no hace nada). (05/11) Antes era solo a 3 o 4.
+  const descuentaInsumos = nuevoEstado === ESTADO_POR_ARMAR || nuevoEstado === 3 || nuevoEstado === 4;
+  const errorDescuento = descuentaInsumos ? await descontarStockPedido(pedidoId, idUsuario) : null;
   if (errorDescuento) return errorDescuento;                      // ya viene armado: { status: 409 o 500, error }
 
   // 3. Cambia el estado SOLO si el pedido no está anulado (.neq = "distinto de"). Las rutas ya lo
@@ -1580,18 +1590,37 @@ app.get('/api/pedidos/:id/verificar-stock', requireAuth, requireRol(6, 5, 1), as
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PUT /api/pedidos/:pedidoId/estado → cambia el estado de un pedido (grilla de Consultar Pedidos y Envíos)
-// ENTRADA: el número de pedido en la dirección y { estado_id } en el body: 1, 2, 3 o 4 (el 5 va por "Anular").
+// ENTRADA: el número de pedido en la dirección y { estado_id } en el body: 1, 2, 6, 3 o 4 (el 5 va por "Anular";
+//          (05/11) el 3 lo pone el Armado: acá solo vale para deshacer un Entregado, de 4 a 3).
 //          Opcional (24/10): aunque_falten_insumos: true → al pasar a 2 no se frena si faltan insumos (la persona
 //          ya vio el aviso y lo confirmó en Consultar Pedidos). Solo vale el true y solo para el 2.
-// SALIDA:  { mensaje: 'Estado actualizado', pedido } (con el estado que quedó guardado) · 400 datos inválidos o
-//          (24/10) un plato personalizado sin hacer al pasar a 3 o 4 · 403 cancelar sin PIN o repartidor que no
-//          marca Entregado · 404 no existe · 409 anulado o falta un insumo · 500
-// Ej: pedido #250 con 10 fideos (todo de heladera) de 1 a 2 → queda en 3: { pedido: { id: 250, id_estado: 3, … } }
+// SALIDA:  { mensaje: 'Estado actualizado', pedido, todo_de_heladera } (con el estado que quedó guardado)
+//          · 400 datos inválidos, el 3 sin venir de Entregado, o (24/10) un plato personalizado sin hacer al pasar a 6 o 4
+//          · 403 cancelar sin PIN o repartidor que no marca Entregado · 404 no existe
+//          · 409 anulado, armado que vuelve atrás, fuera de orden (6 solo desde 2, 4 solo desde 3) o falta un insumo · 500
+// (05/11) El orden es siempre 1 → 2 → 6 Por armar → 3 Listo para entregar → 4. Para atrás: un pedido SIN armar, como
+// siempre (ej: 2 → 1); uno ya armado, solo de Entregado a Listo.
+// Ej: pedido #250 con 10 fideos (todo de heladera) de 1 a 2 → pasa directo a 6 "Por armar" (en una sola escritura):
+//     { pedido: { id: 250, id_estado: 6, … }, todo_de_heladera: true }
 //     pedido #251 con 8 fideos + 2 "sin sal" de 1 a 2 → queda en 2 (si alcanzan los insumos, o con aunque_falten_insumos)
-//     pedido #251 de 2 a 3 con el "sin sal" sin hacer → 400 "La vianda personalizada todavía no está hecha…"
+//     pedido #251 en 2 a 6 a mano con el "sin sal" sin hacer → 400 "La vianda personalizada todavía no está hecha…"
+//     pedido #251 en 2 a 6 a mano con el "sin sal" ya hecho → 200, descuenta sus insumos y queda "Por armar"
+//     pedido #81 en 6 a 4 → 409 "Primero hay que armarlo…" · #81 en 6 a 3 → 400 "Listo para entregar lo pone el Armado…"
+//     pedido #81 armado, de 4 a 3 → 200 (deshace el Entregado) · #81 armado, de 3 a 2 → 409 "Un pedido ya armado no vuelve atrás…"
 // Un pedido anulado no cambia más de estado: sus viandas ya volvieron a la heladera.
 // ─────────────────────────────────────────────────────────────────────────────
 const MENSAJE_PERSONALIZADO_SIN_HACER = 'La vianda personalizada todavía no está hecha. La tiene que marcar la cocina como lista.';
+
+// (05/11) Los estados que piden venir de uno en especial (para que se respete el orden) y qué se dice si no.
+// Ej: a 6 "Por armar" solo desde 2 · a 4 "Entregado" solo desde 3 (ya armado). Los demás no piden nada.
+const ESTADO_ANTERIOR_OBLIGATORIO = {
+  6: 2,     // Por armar ← En Preparación
+  4: 3      // Entregado ← Listo para entregar
+};
+const MENSAJE_FUERA_DE_ORDEN = {
+  6: 'Solo un pedido En preparación puede pasar a Por armar',
+  4: 'Primero hay que armarlo: Entregado va después de Listo para entregar'
+};
 
 app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => {
   const pedidoId = Number(req.params.pedidoId);                   // el pedido, de la dirección
@@ -1608,8 +1637,8 @@ app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), as
     return res.status(403).json({ error: 'Para cancelar un pedido usá "Anular", que pide el PIN de autorización' });
   }
 
-  // 3. El estado nuevo tiene que ser 1, 2, 3 o 4 (includes = "está en la lista". Ej: [1, 2, 3, 4].includes(7) → false)
-  if (![1, 2, 3, 4].includes(nuevoEstado)) return res.status(400).json({ error: 'Estado inválido' });
+  // 3. El estado nuevo tiene que ser 1, 2, 6, 3 o 4 (includes = "está en la lista". Ej: [1, 2, 6, 3, 4].includes(7) → false)
+  if (![1, 2, ESTADO_POR_ARMAR, 3, 4].includes(nuevoEstado)) return res.status(400).json({ error: 'Estado inválido' });
 
   // 4. El repartidor (rol 3) solo puede marcar un pedido como Entregado (4)
   const repartidorNoEntrega = req.usuario.rol === 3 && nuevoEstado !== 4;
@@ -1619,7 +1648,7 @@ app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), as
     // 5. El pedido tiene que existir (maybeSingle: si no existe, data viene vacío; con .single() sería un 500)
     const { data: pedidoActual, error: errLectura } = await supabase
       .from('pedidos')
-      .select('id, id_estado')
+      .select('id, id_estado, armado_en')
       .eq('id', pedidoId)
       .maybeSingle();
     if (errLectura) return errorInterno(res, errLectura);
@@ -1628,21 +1657,47 @@ app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), as
     // 6. Un pedido anulado no cambia más de estado. Se corta ANTES de revisar o descontar insumos.
     if (pedidoActual.id_estado === ESTADO_ANULADO) return res.status(409).json({ error: 'Un pedido anulado no cambia de estado' });
 
-    // 6b. (24/10) A 3 o 4 NO, si tiene un plato personalizado sin hacer (listo = false). El único camino a 3 de un
-    //     pedido con personalizados es el "✓ Listo para entregar" del cocinero (PUT /listo-cocinero), que pasa a 3
-    //     recién cuando están todos sus platos listos y descuenta los insumos. Solo lee, ANTES de cambiar nada.
-    //     limit(1): con encontrar uno alcanza. "condición ? await … : …" = solo se consulta si pasa a 3 o 4.
-    const pasaA3o4 = nuevoEstado === 3 || nuevoEstado === 4;
-    const consultaSinHacer = pasaA3o4
+    // 6-1. (05/11) "Listo para entregar" (3) lo pone el Armado: así el pedido siempre pasa por la bandeja.
+    //      La única excepción: deshacer un Entregado puesto por error (de 4 a 3).
+    const a3SinVenirDeEntregado = nuevoEstado === 3 && pedidoActual.id_estado !== 4;
+    // ¿pidió el 3 sin venir de Entregado? SÍ: de 6 a 3, o de 2 a 3 · NO: de 4 a 3 (deshacer), o pidió otro estado
+    if (a3SinVenirDeEntregado) {
+      return res.status(400).json({ error: 'Listo para entregar lo pone el Armado: armá el pedido en "Armado de pedidos"' });
+    }
+
+    // 6-2. (05/11) Un pedido ya armado no vuelve a 1, 2 ni 6: la marca de armado quedaría puesta, el Armado respondería
+    //      "ya estaba armado" y el pedido quedaría trabado. Lo único para atrás es de Entregado a Listo (el paso 6-1).
+    const armadoVuelveAtras = Boolean(pedidoActual.armado_en) && nuevoEstado !== 3 && nuevoEstado !== 4;
+    // ¿está armado y lo quieren pasar a 1, 2 o 6? SÍ: #81 armado, de 3 a 2 · NO: #81 armado, de 3 a 4 o de 4 a 3
+    if (armadoVuelveAtras) {
+      return res.status(409).json({ error: 'Un pedido ya armado no vuelve atrás. Solo se puede deshacer un Entregado: de Entregado a Listo para entregar' });
+    }
+
+    // 6a. (05/11) El orden: a 6 solo desde 2, y a 4 solo desde 3 (ESTADO_ANTERIOR_OBLIGATORIO). Para atrás no pide nada.
+    //     Ej: #81 en 6 a 4 → no (primero se arma) · #81 en 3 a 4 → sí · #81 sin armar, en 6 a 2 → sí (vuelve atrás)
+    const estadoAnteriorObligatorio = ESTADO_ANTERIOR_OBLIGATORIO[nuevoEstado];      // 2, 3 o undefined (no pide nada)
+    const fueraDeOrden = estadoAnteriorObligatorio !== undefined && pedidoActual.id_estado !== estadoAnteriorObligatorio;
+    // ¿se saltea un paso? SÍ: de 1 a 6, o de 6 a 4 · NO: de 2 a 6, de 3 a 4, o volver atrás
+    if (fueraDeOrden) {
+      return res.status(409).json({ error: MENSAJE_FUERA_DE_ORDEN[nuevoEstado] });
+    }
+
+    // 6b. (24/10) A 6 o 4 NO, si tiene un plato personalizado sin hacer (listo = false). (05/11) El camino normal a 6
+    //     es el "✓ Cocinado" de la cocina; el administrador también puede ponerlo acá (para destrabar un pedido),
+    //     pero no con un personalizado sin hacer. Solo lee, ANTES de cambiar nada.
+    //     limit(1): con encontrar uno alcanza. "condición ? await … : …" = solo se consulta si pasa a 6 o 4.
+    const pasaA6o4 = nuevoEstado === ESTADO_POR_ARMAR || nuevoEstado === 4;
+    const consultaSinHacer = pasaA6o4
       ? await supabase.from('pedido_detalles').select('id').eq('id_pedido', pedidoId).eq('personalizado', true).eq('listo', false).limit(1)
       : { data: [], error: null };
     if (consultaSinHacer.error) return errorInterno(res, consultaSinHacer.error);
     const hayPersonalizadoSinHacer = (consultaSinHacer.data || []).length > 0;
     if (hayPersonalizadoSinHacer) return res.status(400).json({ error: MENSAJE_PERSONALIZADO_SIN_HACER });
 
-    // 7. Nada para cocinar → 3 (paso H5): al pasar de 1 a 2, si TODOS sus platos salen de la heladera
-    //    (ninguno va a la cocina), el pedido pasa directo a 3 "Listo para Entregar".
-    //    Si quedara en 2, la cocina no lo vería nunca (nace con todo listo) y Envíos solo muestra 3 y 4.
+    // 7. Nada para cocinar (paso H5): al pasar de 1 a 2, ¿TODOS sus platos salen de la heladera?
+    //    (05/11) Entonces pasa directo a 6 "Por armar" (la cocina no tiene nada que hacer) y la respuesta lo avisa con
+    //    todo_de_heladera: true. Las viandas ya se apartaron al CREAR el pedido (cantidad_de_heladera): acá no se vuelve
+    //    a mirar la heladera, porque se contarían dos veces.
     //    Los platos se piden solo si pasa de 1 a 2 ("condición ? await … : …" = solo se consulta si hace falta).
     const de1a2 = pedidoActual.id_estado === 1 && nuevoEstado === 2;
     const consultaPlatos = de1a2
@@ -1659,25 +1714,37 @@ app.put('/api/pedidos/:pedidoId/estado', requireAuth, requireRol(6, 5, 1, 3), as
       if (aCocinar > 0) viandasACocinar = viandasACocinar + aCocinar;                           // ...se suma
     });
 
-    // Salta solo si tiene platos y la cocina no tiene nada que hacer (un pedido sin platos no salta)
+    // Todo de heladera: tiene platos y la cocina no tiene nada que hacer (un pedido sin platos no cuenta)
     const todoDeHeladera = de1a2 && detalles.length > 0 && viandasACocinar === 0;
-    const estadoFinal = todoDeHeladera ? 3 : nuevoEstado;         // el estado que se va a guardar
 
-    // 8. Se cambia (con los insumos que correspondan). El usuario sale del token.
+    // 8. El estado que se guarda: el elegido o, (05/11) si es todo de heladera, directo el 6 "Por armar".
+    //    Es UNA sola escritura (de 1 a 6): la base no guarda un historial de estados, así que pasar por el 2 no deja
+    //    rastro, y así el pedido no puede quedar a mitad de camino.
+    let estadoAGuardar = nuevoEstado;
+    // ¿todo sale de la heladera? SÍ: 8 fideos (había 63) de 1 a 2 → 6 · NO: tiene 2 "sin sal" → queda en 2
+    if (todoDeHeladera) {
+      estadoAGuardar = ESTADO_POR_ARMAR;
+    }
+
+    // 9. Se cambia el estado (con los insumos que correspondan). El usuario sale del token.
     //    aunqueFaltenInsumos (24/10): si la persona lo confirmó, al pasar a 2 no se frena por los insumos.
-    const resultado = await cambiarEstadoPedido(pedidoId, estadoFinal, req.usuario.id, aunqueFaltenInsumos);
+    const resultado = await cambiarEstadoPedido(pedidoId, estadoAGuardar, req.usuario.id, aunqueFaltenInsumos);
     if (resultado.error) return res.status(resultado.status).json({ error: resultado.error });
 
-    res.json({ mensaje: 'Estado actualizado', pedido: resultado.pedido });  // con el estado que quedó guardado
+    // (05/11) todo_de_heladera: true = pasó directo a "Por armar" (Consultar Pedidos lo avisa)
+    res.json({ mensaje: 'Estado actualizado', pedido: resultado.pedido, todo_de_heladera: todoDeHeladera });
   } catch (e) {
     errorInterno(res, e);
   }
 });
 
-// PUT /api/pedidos/:id/listo-cocinero → el cocinero logueado marca SUS platos del pedido como listos.
-// El cocinero sale del JWT, no del body. Cuando todos los platos del pedido quedan listos, el pedido
-// pasa a 3 (Listo para Entregar) con la misma lógica que usa el admin, incluido el descuento de stock.
-// Si falta stock, los platos quedan listos, el pedido sigue en 2 y se avisa (lo resuelve el admin).
+// PUT /api/pedidos/:id/listo-cocinero → el cocinero logueado marca SUS platos del pedido como listos ("✓ Cocinado").
+// El cocinero sale del JWT, no del body.
+// (05/11) Cuando ya no queda ningún plato sin hacer (de nadie), se descuentan los insumos y el pedido pasa a
+// 6 "Por armar". "Listo para Entregar" lo pone el Armado (POST /api/pedidos/:id/armado). El Armado no los descuenta
+// dos veces (lo controla la base).
+// Si falta stock, los platos quedan listos, el pedido sigue en 2 y se avisa: el administrador compra lo que falta
+// y lo pasa a mano a "Por armar" en Consultar pedidos (ahí se descuentan).
 // 25/10: "sus platos" son los que le tocan y los que no tienen a nadie (platoVisibleParaCocinero, la regla de "Para stock").
 app.put('/api/pedidos/:id/listo-cocinero', requireAuth, requireRol(2, 6, 5, 1), async (req, res) => {
   const id = Number(req.params.id);                               // el pedido, de la dirección (Number: "12abc" no pasa)
@@ -1733,22 +1800,42 @@ app.put('/api/pedidos/:id/listo-cocinero', requireAuth, requireRol(2, 6, 5, 1), 
       });
     }
 
-    const resultado = await cambiarEstadoPedido(id, 3, cocineroId);  // pasa a 3 y descuenta los insumos (queda anotado quién)
-
-    if (resultado.status === 409) {
+    // (05/11) Están todos los platos: se descuentan los insumos (queda anotado quién) y después pasa a 6 "Por armar".
+    // Ya no se llama a cambiarEstadoPedido(id, 3): eso pasaba el pedido a "Listo para Entregar".
+    const errorDescuento = await descontarStockPedido(id, cocineroId);
+    const faltaStock = errorDescuento !== null && errorDescuento.status === 409;
+    // ¿faltan insumos para descontar? SÍ: Huevo en −35 · NO: alcanzó (o ya estaba descontado)
+    if (faltaStock) {
       return res.status(409).json({
         completo: false,
         platos_listos: true,
-        error: resultado.error,
-        mensaje: 'Tus platos quedaron listos, pero el pedido no pudo pasar a Listo para Entregar por falta de stock. Avisale al administrador.'
+        error: errorDescuento.error,
+        mensaje: 'Tus platos quedaron listos, pero faltan insumos para descontarlos. Avisale al administrador.'
       });
     }
-    if (resultado.error) return res.status(resultado.status).json({ error: resultado.error, platos_listos: true });
+    // ¿falló la base? SÍ: se cortó la conexión · NO: salió bien
+    if (errorDescuento !== null) {
+      return res.status(errorDescuento.status).json({ error: errorDescuento.error, platos_listos: true });
+    }
+
+    // (05/11) Pasa a 6 "Por armar", SOLO si sigue en 2: si justo lo anularon o lo cambiaron, no lo "revive".
+    // maybeSingle: si no cambió ninguna fila, data viene vacío (no es un error).
+    const { data: pasado, error: errEstado } = await supabase
+      .from('pedidos')
+      .update({ id_estado: ESTADO_POR_ARMAR })
+      .eq('id', id)
+      .eq('id_estado', 2)                                         // solo si sigue En Preparación
+      .select('id, id_estado')
+      .maybeSingle();
+    if (errEstado) return errorInterno(res, errEstado);
+    // ¿no cambió nada? SÍ: lo anularon (o lo pasaron a otro estado) mientras tanto · NO: quedó "Por armar"
+    if (!pasado) {
+      return res.status(409).json({ error: 'El pedido cambió mientras tanto: ya no está En Preparación', platos_listos: true });
+    }
 
     res.json({
       completo: true,
-      mensaje: 'Pedido completo, pasó a Listo para Entregar.',
-      pedido: resultado.pedido
+      mensaje: 'Pedido completo: pasa a Por armar.'
     });
   } catch (e) {
     errorInterno(res, e);
@@ -1970,19 +2057,39 @@ app.put('/api/productos/:id/cocinero', requireAuth, requireRol(6, 5), async (req
    ====================================================== */
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET /api/estados → los estados de un pedido, en orden (los selects de Consultar Pedidos y Envíos)
+// GET /api/estados → los estados de un pedido, en el orden del recorrido (los selects de Consultar Pedidos y Envíos)
 // ENTRADA: nada (el usuario logueado, rol 6, 5, 1 o 3)
-// SALIDA:  [{ id: 1, nombre: 'Registrado' }, { id: 2, nombre: 'En Preparación' }, …] · 500
+// SALIDA:  [{ id: 1, nombre: 'Registrado' }, { id: 2, nombre: 'En Preparación' }, { id: 6, nombre: 'Por armar' },
+//           { id: 3, … }, { id: 4, … }, { id: 5, … }] · 500
+// (05/11) El orden ya no es el del número: el 6 "Por armar" va entre el 2 y el 3 (ORDEN_ESTADOS).
 // ─────────────────────────────────────────────────────────────────────────────
+const ORDEN_ESTADOS = [1, 2, ESTADO_POR_ARMAR, 3, 4, 5];          // Registrado, En Preparación, Por armar, Listo, Entregado, Cancelado
+
 app.get('/api/estados', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => {
   try {
     const { data, error } = await supabase                        // pide a la base...
       .from('estados')                                            // ...la tabla de estados...
-      .select('id, nombre')                                       // ...número y nombre...
-      .order('id', { ascending: true });                          // ...del 1 al 5
+      .select('id, nombre');                                      // ...número y nombre
     if (error) return errorInterno(res, error);                   // si falló la base: 500
 
-    res.json(data);                                               // la lista
+    // 1. Cada estado de la base en un objeto { número: estado }. Ej: { 1: { id: 1, nombre: 'Registrado' }, 6: {…} }
+    const estadoPorId = {};
+    (data || []).forEach(estado => {
+      estadoPorId[estado.id] = estado;
+    });
+
+    // 2. La lista en el orden del recorrido. Si un número de ORDEN_ESTADOS no está en la base, no se pone.
+    const ordenados = [];
+    ORDEN_ESTADOS.forEach(idEstado => {
+      const estado = estadoPorId[idEstado];
+      // ¿está en la base? SÍ: los 6 de hoy · NO: el 6 antes de correr sql/estado_por_armar.sql
+      if (!estado) {
+        return;                                                   // return = saltear este y seguir con el siguiente
+      }
+      ordenados.push(estado);
+    });
+
+    res.json(ordenados);                                          // la lista, en orden
   } catch (e) {
     errorInterno(res, e);
   }
@@ -2424,13 +2531,14 @@ app.post('/api/compras', requireAuth, requireRol(...ROLES_COMPRAS), async (req, 
     const { data: insumos, error: errInsumos } = await supabase
       .from('insumos')
       .select('id, nombre, unidad_medida')
-      .in('id', ids);
+      .in('id', ids);//compracion de los insumos que vienen en la compra con los que existen en la base
+
 
     if (errInsumos) return errorInterno(res, errInsumos);
 
     // Armar un "diccionario" por id para encontrar cada insumo rápido
     const unidadesPorInsumo = {};
-    for (const insumo of insumos) {
+    for (const insumo of insumos) { //el array es insumos, que viene de la base de datos, y se recorre para armar un diccionario con id como clave
       unidadesPorInsumo[insumo.id] = insumo;
     }
 
@@ -2725,14 +2833,15 @@ app.get('/api/viandas-stock', requireAuth, requireRol(...ROLES_HELADERA), async 
       .order('nombre', { ascending: true });                      // ordenados por nombre
     if (errPlatos) return errorInterno(res, errPlatos);           // si falló la base: 500 con un mensaje simple
 
-    // 2. Las reservadas: los platos de pedidos en 1, 2 o 3 que salieron de la heladera.
+    // 2. Las reservadas: los platos de pedidos en 1, 2, 6 o 3 que salieron de la heladera.
     //    Se suma cantidad_de_heladera (NO cantidad): un personalizado tiene 0, porque no salió de la heladera.
     //    "pedidos!inner" = trae solo los renglones cuyo pedido cumple el filtro de estado de abajo.
+    //    (05/11) Con el 6 "Por armar": esas viandas siguen en la heladera hasta que se arma la bandeja.
     const { data: renglones, error: errRenglones } = await supabase  // pide a la base...
       .from('pedido_detalles')                                    // ...los platos de los pedidos
       .select('id_producto, cantidad_de_heladera, pedidos!inner ( id_estado )')  // el plato, cuántas salieron de la heladera y el estado de su pedido
       .gt('cantidad_de_heladera', 0)                              // solo los renglones que sacaron viandas de la heladera
-      .in('pedidos.id_estado', [1, 2, 3]);                        // de pedidos que todavía no se entregaron ni se anularon
+      .in('pedidos.id_estado', [1, 2, ESTADO_POR_ARMAR, 3]);      // de pedidos que todavía no se entregaron ni se anularon
     if (errRenglones) return errorInterno(res, errRenglones);     // si falló la base: 500
 
     // 3. Las reservadas de cada plato, en un objeto { id_producto: viandas }.
@@ -4134,15 +4243,20 @@ app.get('/api/envios', requireAuth, requireRol(6, 5, 1, 3), async (req, res) => 
 /* ======================================================
    API ARMADO DE PEDIDOS (26/10)
    El armador ve los pedidos que se ENTREGAN un día y arma cada bandeja. "Armado" es una MARCA
-   (pedidos.armado_en / armado_por, sql/armado_pedidos.sql): los 5 estados no cambian.
+   (pedidos.armado_en / armado_por, sql/armado_pedidos.sql). (05/11) Al armar, el pedido pasa de 6 "Por armar"
+   a 3 "Listo para Entregar": es el paso que lo manda a Envíos del Día.
    ====================================================== */
 
 const ROLES_ARMADO = [6, 5, 1, 3];   // administradores, dueña y repartidor (los mismos de Envíos del Día)
-const ESTADOS_ARMADO = [2, 3];       // se arman los pedidos En preparación y Listos para entregar
+// (05/11) La pantalla muestra los En preparación (todavía en cocina), los Por armar y los Listos para entregar (ya armados)
+const ESTADOS_ARMADO = [2, ESTADO_POR_ARMAR, 3];
+const ESTADO_PARA_ARMAR = ESTADO_POR_ARMAR;   // (05/11) solo se arma un pedido "Por armar" (6): al armarlo pasa a 3
 
-// Por qué no se arma un pedido, según su estado (los que no están acá, 2 y 3, sí se arman)
+// Por qué no se arma un pedido, según su estado (el 6 sí se arma)
 const MENSAJE_NO_SE_ARMA = {
   1: 'El pedido todavía no está confirmado',
+  2: 'Todavía está En preparación: falta cocinar',
+  3: 'El pedido ya está Listo para entregar',
   4: 'El pedido ya se entregó',
   5: 'Un pedido anulado no se arma'
 };
@@ -4157,7 +4271,7 @@ const MENSAJE_NO_SE_ARMA = {
 //          · 400 fecha inválida · 500
 // Ej: GET /api/armado?fecha=2026-10-29 → [{ id: 81, cliente_nombre: 'Luquitas Gómez', armado_en: null, … }]
 //     GET /api/armado?fecha=2026-02-30 → 400
-// Trae Delivery y Retiro, en estado 2 y 3 (no 1, 4 ni 5), por número de pedido.
+// Trae Delivery y Retiro, en estado 2, 6 y 3 (no 1, 4 ni 5), por número de pedido.
 // ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/armado', requireAuth, requireRol(...ROLES_ARMADO), async (req, res) => {
   // 1. La fecha: AAAA-MM-DD que exista de verdad (leerFechaPara rechaza 2026-02-30)
@@ -4194,7 +4308,7 @@ app.get('/api/armado', requireAuth, requireRol(...ROLES_ARMADO), async (req, res
         )
       `)
       .eq('fecha_entrega', fecha)                                 // los que se entregan ese día
-      .in('id_estado', ESTADOS_ARMADO)                            // en 2 o 3
+      .in('id_estado', ESTADOS_ARMADO)                            // en 2, 6 o 3
       .order('id', { ascending: true });                          // por número de pedido
     if (error) return errorInterno(res, error);
     const pedidos = data || [];
@@ -4217,15 +4331,19 @@ app.get('/api/armado', requireAuth, requireRol(...ROLES_ARMADO), async (req, res
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /api/pedidos/:id/armado → marca un pedido como armado (el botón "✓ Pedido armado")
+// POST /api/pedidos/:id/armado → marca un pedido como armado (el botón "✓ Pedido armado") y lo pasa a 3
 // ENTRADA: el número de pedido en la dirección y { fecha } en el body (el día que está mirando la pantalla).
 //          El usuario que arma sale del token, nunca del body.
-// SALIDA:  { mensaje, pedido: { id, armado_en, armado_por } } · 400 número o fecha inválidos · 404 no existe
-//          · 409 anulado / sin confirmar / entregado / de otro día / ya armado / falta cocinar · 500
-// Ej: #81 del 29/10, todo listo → { mensaje: 'Pedido #81 armado', pedido: { id: 81, armado_en: '2026-10-29T11:42:…' } }
-//     #82 con 2 fideos sin sal sin hacer → 409 'Todavía falta cocinar: 2 fideos (sin sal). …'
-//     #81 otra vez → 409 'El pedido ya estaba armado'
-// No cambia el estado del pedido (armado es una marca aparte) y no se puede deshacer.
+// SALIDA:  { mensaje, pedido: { id, armado_en, armado_por, id_estado: 3 } } · 400 número o fecha inválidos · 404 no existe
+//          · 409 no está en 6 (sin confirmar / en preparación / ya Listo / entregado / anulado) / de otro día / ya armado
+//            / falta cocinar / faltan insumos · 500
+// Ej: #81 del 29/10 en 6 "Por armar" → { mensaje: 'Pedido #081 armado: Listo para entregar', pedido: { id: 81, id_estado: 3, … } }
+//     #82 en 2 con 2 fideos sin sal sin hacer → 409 'Todavía está En preparación: falta cocinar' (no marca ni pasa a 3)
+//     #81 otra vez → 409 'El pedido ya está Listo para entregar'
+// (05/11) Armar es lo que pone "Listo para Entregar": el recorrido siempre pasa por acá (la cocina ya no lo pone).
+// Los pasos 7 (falta cocinar) y 8 (descontar) quedan como segundo control: en 6 ya está todo cocinado y descontado.
+// La marca y el estado se guardan en UNA sola actualización del pedido: no puede quedar armado pero sin pasar a 3.
+// No se puede deshacer: no hay "desarmar".
 // ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/pedidos/:id/armado', requireAuth, requireRol(...ROLES_ARMADO), async (req, res) => {
   const id = Number(req.params.id);                               // el pedido, de la dirección (Number: "12abc" no pasa)
@@ -4248,9 +4366,13 @@ app.post('/api/pedidos/:id/armado', requireAuth, requireRol(...ROLES_ARMADO), as
     if (errLectura) return errorInterno(res, errLectura);
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
 
-    // 4. Solo se arman los pedidos en 2 o 3 (MENSAJE_NO_SE_ARMA dice por qué no los demás)
-    const mensajeEstado = MENSAJE_NO_SE_ARMA[pedido.id_estado];
-    if (mensajeEstado) return res.status(409).json({ error: mensajeEstado });
+    // 4. (05/11) Solo se arma un pedido en 6 "Por armar" (MENSAJE_NO_SE_ARMA dice por qué no los demás)
+    const noEstaPorArmar = pedido.id_estado !== ESTADO_PARA_ARMAR;
+    // ¿no está Por armar? SÍ: en 1, 2, 3, 4 o anulado · NO: en 6
+    if (noEstaPorArmar) {
+      const mensajeEstado = MENSAJE_NO_SE_ARMA[pedido.id_estado] || 'Solo se arma un pedido Por armar';
+      return res.status(409).json({ error: mensajeEstado });
+    }
 
     // 5. Tiene que ser del día que está mirando la pantalla
     if (pedido.fecha_entrega !== fecha) {
@@ -4277,19 +4399,32 @@ app.post('/api/pedidos/:id/armado', requireAuth, requireRol(...ROLES_ARMADO), as
       return res.status(409).json({ error: `Todavía falta cocinar: ${lista}. Cuando la cocina lo marque como listo, se puede armar.` });
     }
 
-    // 8. Se guarda la marca. Solo si sigue sin armar y en 2 o 3: si dos lo tocan a la vez, el segundo no cambia nada.
-    //    El usuario sale del token.
+    // 8. (05/11) Los insumos de lo que cocinó la cocina: ya se descontaron al pasar a 6 (segundo control).
+    //    Si ya se descontaron, la base no hace nada. Un pedido todo de heladera no descuenta nada.
+    const errorDescuento = await descontarStockPedido(id, req.usuario.id);
+    // ¿no se pudieron descontar? SÍ: falta Harina (409) o se cortó la base (500) · NO: se descontaron o ya estaban
+    if (errorDescuento !== null) {
+      return res.status(errorDescuento.status).json({ error: errorDescuento.error });
+    }
+
+    // 9. Se guarda la marca Y el estado 3 juntos, en una sola actualización. Solo si sigue sin armar y en 6: si dos lo
+    //    tocan a la vez, o lo anulan justo, el segundo no cambia nada. El usuario sale del token.
     const { data: guardados, error: errGuardar } = await supabase
       .from('pedidos')
-      .update({ armado_en: new Date().toISOString(), armado_por: req.usuario.id })
+      .update({ armado_en: new Date().toISOString(), armado_por: req.usuario.id, id_estado: 3 })
       .eq('id', id)
       .is('armado_en', null)                                      // solo si nadie lo armó recién
-      .in('id_estado', ESTADOS_ARMADO)                            // y si nadie lo anuló recién
-      .select('id, armado_en, armado_por');
+      .eq('id_estado', ESTADO_PARA_ARMAR)                         // y si sigue en 6 (nadie lo anuló ni lo pasó recién)
+      .select('id, armado_en, armado_por, id_estado');
     if (errGuardar) return errorInterno(res, errGuardar);
-    if (!guardados || guardados.length === 0) return res.status(409).json({ error: 'El pedido ya estaba armado' });
+    const noCambioNada = !guardados || guardados.length === 0;
+    // ¿no se guardó? SÍ: otro lo armó o lo anuló justo · NO: quedó armado y en 3
+    if (noCambioNada) {
+      return res.status(409).json({ error: 'El pedido cambió mientras tanto (ya estaba armado o lo anularon)' });
+    }
 
-    res.json({ mensaje: `Pedido #${id} armado`, pedido: guardados[0] });
+    const numero = String(id).padStart(3, '0');                   // ej: 81 → "081"
+    res.json({ mensaje: `Pedido #${numero} armado: Listo para entregar`, pedido: guardados[0] });
   } catch (e) {
     errorInterno(res, e);
   }
@@ -4754,7 +4889,8 @@ app.put('/api/planes/:id/activo', requireAuth, requireRol(6, 5), async (req, res
 app.post('/api/planes/:id/imagen', requireAuth, requireRol(6, 5), (req, res) => subirFotoCatalogo(req, res, 'planes', 'planes'));
 
 // POST /api/productos/con-receta → crea producto nuevo + receta de forma atómica
-// Body: { nombre, id_plan, insumos: [{ id_insumo, cantidad_necesaria, unidad_medida }] }
+// Body: { nombre, id_plan, precio, insumos: [{ id_insumo, cantidad_necesaria, unidad_medida }] }
+// (05/11) Sin precio válido → 400, antes de pedir el código del plato: con ese dato mal no se gasta ningún código.
 app.post('/api/productos/con-receta', requireAuth, requireRol(6, 5), async (req, res) => {
   const { nombre, id_plan, precio, descuento, insumos } = req.body;
   const idCocinero = req.body.id_cocinero || null; // opcional: null = usa el cocinero del plan
@@ -4762,6 +4898,13 @@ app.post('/api/productos/con-receta', requireAuth, requireRol(6, 5), async (req,
   if (!nombre || !nombre.trim()) return res.status(400).json({ error: 'El nombre del producto es requerido' });
   if (!id_plan)                   return res.status(400).json({ error: 'El plan es requerido' });
   if (!insumos || insumos.length === 0) return res.status(400).json({ error: 'Agregá al menos un insumo' });
+
+  // (05/11) El precio: un número, 0 o más. typeof = de qué tipo es el dato; Number.isFinite = ¿es un número de verdad?
+  const precioInvalido = typeof precio !== 'number' || !Number.isFinite(precio) || precio < 0;
+  // ¿el precio está mal? SÍ: sin precio, null, "abc", -5 · NO: 1000, 0
+  if (precioInvalido) {
+    return res.status(400).json({ error: 'Ingresá un precio válido' });
+  }
 
   // Antes de crear nada: si viene cocinero, tiene que ser un usuario con rol cocinero
   if (idCocinero) {

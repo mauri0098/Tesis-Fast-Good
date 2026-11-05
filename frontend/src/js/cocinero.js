@@ -11,14 +11,15 @@
 //                           25/10: también escribe el número del botón de la vista (los platos de hoy + los atrasados)
 //   crearFilaStock        → una fila de "Para stock" (un plato de un pedido a cocina) con "Detalles" y "✓ Hecho"
 //   crearFilaCliente      → una fila de "Pedidos de clientes" (29/10: un PLATO personalizado de un pedido) con
-//                           "Detalles" y "✓ Listo para entregar". 24/10: Código · Vianda · Cantidad · Personalización · Estado
+//                           "Detalles" y "✓ Cocinado" (05/11: antes "✓ Listo para entregar"). 24/10: Código · Vianda · Cantidad · Personalización · Estado
 //   cambiarVista          → muestra "Para stock" o "Pedidos de clientes"
 //   construirResumen      → arma el panel "Resumen del turno": los platos a cocinar hoy y el avance
 //   abrirResumen          → abre ese panel (pide lo hecho hoy: GET /api/ordenes-produccion/hechos-hoy)
 //   abrirPedidoCocina     → ventana "Detalles" de un pedido a cocina (GET /api/ordenes-produccion/:id, solo lee)
 //   abrirDetallesPedido   → ventana "Detalles" de un pedido de cliente (con lo que ya tiene la pantalla)
 //   cerrarDetallesPedido, cerrarModalListo, cerrarVentanaCocina → cierran las ventanas
-//   marcarListo / confirmarListo → "Listo para entregar": pregunta y PUT /api/pedidos/:id/listo-cocinero
+//   marcarListo / confirmarListo → "✓ Cocinado": pregunta y PUT /api/pedidos/:id/listo-cocinero (05/11: el pedido pasa al
+//                           Armado; "Listo para entregar" lo pone el Armado)
 //   quitarPedidoDeLaTabla → saca de la tabla y del resumen un pedido que ya quedó listo
 //   mostrarAviso          → el aviso flotante de arriba a la derecha
 //
@@ -370,10 +371,10 @@ function crearFilaCliente(fila) {
     ? '<span class="etiqueta-personalizado">' + escHtml(textoPersonalizado) + '</span>'
     : '<span class="dato-vacio">—</span>';
 
-  // "✓ Listo para entregar" (marca listos TODOS los platos de este cocinero en el pedido, como siempre: la confirmación
-  // lo dice). La administración solo mira.
+  // "✓ Cocinado" (05/11: antes "✓ Listo para entregar"; marca listos TODOS los platos de este cocinero en el pedido, como
+  // siempre: la confirmación lo dice). La administración solo mira.
   const accion = esCocinero
-    ? '<button type="button" class="btn-listo boton-listo" onclick="marcarListo(' + idPedido + ', this)">✓ Listo para entregar</button>'
+    ? '<button type="button" class="btn-listo boton-listo" onclick="marcarListo(' + idPedido + ', this)">✓ Cocinado</button>'
     : '<span class="solo-lectura">Solo lectura</span>';
 
   const tr = document.createElement('tr');
@@ -700,6 +701,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   });
 
+  // ── 2b. (05/11) Solo lo que ya hay que cocinar: su día de cocina es HOY o ya pasó (atrasado, en rojo: sigue apareciendo
+  //        hasta que se cocine). Lo que se cocina más adelante todavía no aparece. Un pedido sin fecha de entrega (no
+  //        debería pasar) se sigue viendo, en "Sin fecha".
+  //        Ej (hoy martes 04/11): entrega jueves 06/11 → se cocina el miércoles 05/11 → todavía no aparece
+  //            (hoy miércoles) → aparece en Hoy · (hoy jueves, sin cocinar) → aparece en rojo, atrasado
+  //            entrega lunes 10/11 → se cocina el viernes 07/11 (no se cocina sábado ni domingo)
+  enPrep = enPrep.filter(pedido => {
+    const yaHayQueCocinarlo = pedido.dia.tipo === 'hoy' || pedido.dia.tipo === 'atrasado' || pedido.dia_cocina === '';
+    return yaHayQueCocinarlo;
+  });
+
   // ── 3. Ordenar por día de cocina (y número) ──
   // sort compara de a dos: negativo = a va antes. "AAAA-MM-DD" se compara como texto; sin fecha, al final.
   enPrep.sort((a, b) => {
@@ -716,8 +728,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ── Marcar como listos los platos del cocinero en un pedido ──────────────────
-// Se marca solo lo del cocinero logueado (el servidor lo toma del token). El pedido pasa a
-// "Listo para entregar" recién cuando todos sus platos, de todos los cocineros, están listos.
+// Se marca solo lo del cocinero logueado (el servidor lo toma del token). (05/11) Cuando todos sus platos, de todos
+// los cocineros, están listos, el pedido pasa al Armado ("Listo para entregar" lo pone el Armado).
 let _listoPendiente = null; // { pedidoId, btnEl } mientras el modal está abierto
 
 // 29/10: como cada plato tiene su fila, la pregunta dice claro que se marcan TODOS los platos de ese pedido.
@@ -805,11 +817,11 @@ window.abrirDetallesPedido = function (pedidoId) {
     ${htmlPersonalizados}
     ${seccionStock}`;
 
-  // "✓ Listo para entregar" de la ventana: solo el cocinero. Cierra esta ventana y pide la confirmación de siempre
+  // "✓ Cocinado" de la ventana (05/11: antes "✓ Listo para entregar"): solo el cocinero. Cierra esta ventana y pide la confirmación de siempre
   // (con el botón de la fila, así confirmarListo lo apaga igual que antes)
   const botonListo = document.getElementById('botonListoDetalles');
   botonListo.hidden = !esCocinero;
-  botonListo.textContent = '✓ Listo para entregar';
+  botonListo.textContent = '✓ Cocinado';
   botonListo.onclick = () => {
     window.cerrarDetallesPedido();
     const botonFila = document.querySelector(`tr[data-pedido-id="${idPedido}"] .btn-listo`);
@@ -860,7 +872,7 @@ window.confirmarListo = async function () {
       quitarPedidoDeLaTabla(pedidoId);
 
       if (res.ok && data.completo) {
-        mostrarAviso('exito', 'Pedido completo, pasó a Listo para Entregar.');
+        mostrarAviso('exito', 'Pedido completo: pasa al Armado.');                 // (05/11) antes: "pasó a Listo para Entregar"
       } else if (res.ok) {
         mostrarAviso('info', 'Tus platos quedaron listos. Faltan platos de otros cocineros.');
       } else {
@@ -877,7 +889,7 @@ window.confirmarListo = async function () {
 
   } catch (err) {
     botones.forEach(b => { b.disabled = false; });
-    btnEl.textContent = '✓ Listo para entregar';
+    btnEl.textContent = '✓ Cocinado';
     mostrarAviso('error', err.message || 'No se pudo conectar con el servidor.');
   }
 };
