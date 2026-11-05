@@ -474,7 +474,7 @@ async function cargarViandasPorReponer() {
         </li>`;
     });
     const quedan = porReponer.length - MAXIMO_RENGLONES;
-    const mas = quedan > 0 ? `<li class="renglon-mas"><a class="enlace-sutil" href="pages/heladera.html">y ${quedan} más en Producción${FLECHA}</a></li>` : '';
+    const mas = quedan > 0 ? `<li class="renglon-mas"><a class="enlace-sutil" href="/pantallas/heladera/heladera.html">y ${quedan} más en Producción${FLECHA}</a></li>` : '';
     lista.innerHTML = renglones.join('') + mas;
     // El ancho de cada barra (data-ancho = el %): se pone desde acá, no escrito en el HTML
     lista.querySelectorAll('[data-ancho]').forEach(barra => { barra.style.width = barra.dataset.ancho + '%'; });

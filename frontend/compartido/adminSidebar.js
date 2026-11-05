@@ -35,9 +35,9 @@
     { ruta: 'pages/ConsultarPedidos.html',      grupo: 'Pedidos',        icono: 'icono-menu-pedidos',     nombre: 'Consultar Pedidos' },
     { ruta: 'pages/Envios.html',                grupo: 'Reparto',        icono: 'icono-menu-envios',      nombre: 'Envíos del Día' },
     { ruta: 'pages/armadoPedidos.html',         grupo: 'Reparto',        icono: 'icono-menu-armado',      nombre: 'Armado de pedidos' },
-    { ruta: 'pages/cocinero.html',              grupo: 'Cocina',         icono: 'icono-menu-cocina',      nombre: 'Tareas de Cocina' },
-    { ruta: 'pages/heladera.html',              grupo: 'Cocina',         icono: 'icono-menu-heladera',    nombre: 'Producción' },
-    { ruta: 'pages/AsignarCocinero.html',       grupo: 'Cocina',         icono: 'icono-menu-asignar',     nombre: 'Asignar Cocineros' },
+    { ruta: 'pantallas/cocina/cocinero.html',              grupo: 'Cocina',         icono: 'icono-menu-cocina',      nombre: 'Tareas de Cocina' },
+    { ruta: 'pantallas/heladera/heladera.html',              grupo: 'Cocina',         icono: 'icono-menu-heladera',    nombre: 'Producción' },
+    { ruta: 'pantallas/cocineros/AsignarCocinero.html',       grupo: 'Cocina',         icono: 'icono-menu-asignar',     nombre: 'Asignar Cocineros' },
     { ruta: 'pantallas/movimientos/MovimientosStockNuevo.html', grupo: 'Stock',          icono: 'icono-menu-movimientos', nombre: 'Movimientos de Stock' },
     { ruta: 'pantallas/compras/compras.html',         grupo: 'Stock',          icono: 'icono-menu-compras',     nombre: 'Compras' },
     { ruta: 'pantallas/stock/stock.html',         grupo: 'Stock',          icono: 'icono-menu-stock',       nombre: 'Gestión de Stock' },
@@ -81,7 +81,7 @@
   // El globito con una cantidad al lado del nombre: hoy solo Tareas de Cocina. Queda PREPARADO y escondido
   // (hidden): todavía no se le pide la cantidad al servidor. Para mostrarlo: escribir el número y sacarle el hidden.
   const CONTADOR_DEL_LINK = {
-    'pages/cocinero.html': 'menuContadorCocina'
+    'pantallas/cocina/cocinero.html': 'menuContadorCocina'
   };
 
   // Los links, uno abajo del otro. La primera pantalla de cada grupo lleva un poco de aire arriba

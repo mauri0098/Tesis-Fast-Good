@@ -1,5 +1,5 @@
 // ============================================================================
-// pedirCocina.js — Ventana "Pedir a cocina" de la pantalla Producción (pages/heladera.html)
+// pedirCocina.js — Ventana "Pedir a cocina" de la pantalla Producción (pantallas/heladera/heladera.html)
 //
 // Funciones:
 //   abrirPedirACocina        → abre la ventana: fecha (mañana), el aviso de los que faltan, el filtro de plan y la lista limpia

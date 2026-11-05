@@ -1,5 +1,5 @@
 // ============================================================================
-// cocinero.js — Tareas de Cocina (pages/cocinero.html): "Para stock" y "Pedidos de clientes"
+// cocinero.js — Tareas de Cocina (pantallas/cocina/cocinero.html): "Para stock" y "Pedidos de clientes"
 //
 // Funciones:
 //   describirDia          → de una fecha 'AAAA-MM-DD' saca "25/10", si es hoy / mañana / atrasada / más adelante

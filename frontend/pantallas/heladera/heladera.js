@@ -1,5 +1,5 @@
 // ============================================================================
-// heladera.js — Pantalla Producción (pages/heladera.html)
+// heladera.js — Pantalla Producción (pantallas/heladera/heladera.html)
 //
 // Funciones:
 //   iniciarProduccion      → al abrir la pantalla: engancha botones y filtros, hace la primera carga y recarga cada 60 s

@@ -30,15 +30,15 @@ var FG_ROLES = (function () {
   var PANTALLAS = [
     { ruta: 'admin.html',                   menu: '🏠 Inicio',               roles: [6, 5] },          // Reportes
     { ruta: 'pages/ConsultarPedidos.html',  menu: '🧾 Consultar Pedidos',    roles: [6, 5, 1] },
-    { ruta: 'pages/cocinero.html',          menu: '🥗 Tareas de Cocina',     roles: [2, 6, 5, 1] },    // 6, 5 y 1 solo para ver
+    { ruta: 'pantallas/cocina/cocinero.html',          menu: '🥗 Tareas de Cocina',     roles: [2, 6, 5, 1] },    // 6, 5 y 1 solo para ver
     { ruta: 'pantallas/stock/stock.html',   menu: '📦 Gestión de Stock',     roles: [6, 5, 1] },
-    { ruta: 'pages/heladera.html',          menu: '🍳 Producción',           roles: [6, 5, 1, 2] },
+    { ruta: 'pantallas/heladera/heladera.html',          menu: '🍳 Producción',           roles: [6, 5, 1, 2] },
     { ruta: 'pages/generarReceta.html',     menu: '📝 Generar Receta',       roles: [6, 5] },
     { ruta: 'pages/combos.html',            menu: '🍱 Combos',               roles: [6, 5] },          // armar los combos y su menú
     { ruta: 'pages/planesCategorias.html',  menu: '🗂️ Planes y categorías',  roles: [6, 5] },          // crear, editar, agrupar y desactivar
     { ruta: 'pantallas/movimientos/MovimientosStockNuevo.html', menu: '📋 Movimientos de Stock', roles: [6, 5, 1] },  // insumos y viandas, todo junto (H8)
     { ruta: 'pantallas/compras/compras.html', menu: '🛒 Compras',              roles: [6, 5, 1] },          // qué compré, qué gasté y qué tengo que reponer
-    { ruta: 'pages/AsignarCocinero.html',   menu: '👨‍🍳 Asignar Cocineros',   roles: [6, 5] },
+    { ruta: 'pantallas/cocineros/AsignarCocinero.html',   menu: '👨‍🍳 Asignar Cocineros',   roles: [6, 5] },
     { ruta: 'pages/Envios.html',            menu: '🚗 Envíos del Día',       roles: [6, 5, 1, 3] },
     { ruta: 'pages/armadoPedidos.html',     menu: '🧺 Armado de pedidos',    roles: [6, 5, 1, 3] },  // 26/10: los mismos de Envíos
     { ruta: 'pages/gestionUsuarios.html',   menu: '👥 Gestión de Usuarios',  roles: [6, 5] }
@@ -49,7 +49,7 @@ var FG_ROLES = (function () {
     6: 'admin.html',
     5: 'admin.html',
     1: 'pages/ConsultarPedidos.html',
-    2: 'pages/cocinero.html',
+    2: 'pantallas/cocina/cocinero.html',
     3: 'pages/Envios.html',
     4: 'index.html'
   };

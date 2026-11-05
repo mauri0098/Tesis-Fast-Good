@@ -216,6 +216,40 @@ No hay funciones nuevas ni cambiadas: solo direcciones.
 | Direcciones viejas de estas 3 pantallas en el código | ninguna (solo el comentario de server.js) |
 | `/pantallas/stock/stock.html` · `/pages/stock.html` | 200 · 404 |
 
+## F3: Cocina (cocina, heladera y cocineros) (05/11/2026)
+
+### Qué se movió
+| Antes | Ahora |
+|---|---|
+| pages/cocinero.html, src/css/cocinero.css, src/js/cocinero.js | pantallas/cocina/ |
+| pages/heladera.html, src/css/heladera.css, src/js/heladera.js, src/js/pedirCocina.js | pantallas/heladera/ |
+| pages/AsignarCocinero.html, src/js/AsignarCocinero.js | pantallas/cocineros/ |
+
+No se movieron, porque son compartidos y quedan en compartido/:
+- pedidosCocina.js y pedidosCocina.css, que los usan Tareas de Cocina y Producción.
+- ConsultarPedidos.css, que lo usa también Asignar Cocineros.
+
+### Qué direcciones cambiaron
+Fueron 24 cambios exactos, cada uno con la cantidad de veces esperada.
+- **En las 3 HTML movidas:** el logo pasó a `/src/assets/img/logo.webp` y sus CSS y JS a `/pantallas/<pantalla>/…`.
+- **roles.js:** las 3 rutas de la tabla de permisos, más la pantalla principal del cocinero (rol 2 → `pantallas/cocina/cocinero.html`).
+- **adminSidebar.js:** los 3 links del menú del grupo Cocina, más la clave del contador de Tareas de Cocina.
+- **admin.html:** el link 90 ("Ver cocina") y el 162 ("Planificar cocina").
+- **reportes.js 477:** el link "y N más en Producción".
+- **El comentario de arriba de cocinero.css, cocinero.js, heladera.css, heladera.js y pedirCocina.js:** dice dónde está su pantalla.
+
+El link "Ir a Compras" de pedirCocina.js ya era absoluto desde F2, así que no se rompió con la mudanza.
+No hay funciones nuevas ni cambiadas: solo direcciones.
+
+### Pruebas
+| Control | Resultado |
+|---|---|
+| test heladera | 61/61 |
+| Rutas con requireAuth / públicas | 76 / 13 |
+| Archivos faltantes (16 HTML, 182 archivos, 46 direcciones de los JS) | 0 |
+| Direcciones viejas de estas 3 pantallas en el código | ninguna |
+| `/pantallas/cocina/cocinero.html` · `/pages/cocinero.html` | 200 · 404 |
+
 ---
 
 ## Pendientes para DESPUÉS del MVC
