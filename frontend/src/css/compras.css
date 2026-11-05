@@ -1,0 +1,1276 @@
+/* ============================================================
+   compras.css — Pantalla "Compras"
+   Lo general (letra, título, alto de las filas, títulos de la tabla, pie de la tabla) está en global.css.
+   Colores: las variables de global.css (verde = compré · rojo = gasté · naranja = aviso).
+
+   Secciones: 1. Encabezado · 2. Filtros · 3. Franja de ayuda · 4. Tabla · 5. Paneles de costado
+              6. Lista para imprimir · 7. Ventana Registrar compra · 8. Celular
+   ============================================================ */
+
+
+/* Sin esto, una tabla ancha estira toda la página en celular:
+   el scroll de costado tiene que quedar solo en la tabla */
+.admin-content {
+  min-width: 0;
+}
+
+
+/* ── 1. ENCABEZADO: el título a la izquierda y los dos botones a la derecha ── */
+.compras-encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+/* "Stock · Compras", chico y gris, arriba del título */
+.compras-ruta {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--texto-apagado);
+}
+
+.compras-botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Los botones grandes, en forma de pastilla: los blancos ("Compras hechas" e "Imprimir") y el verde ("+ Registrar compra") */
+.boton-compras-hechas,
+.boton-imprimir-lista,
+.boton-registrar-compra {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--alto-boton);
+  padding: 0 20px;
+  border-radius: var(--radio-pastilla);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.18s, border-color 0.18s;
+}
+
+.boton-compras-hechas,
+.boton-imprimir-lista {
+  border: 1px solid var(--borde-gris);
+  background: var(--blanco);
+  color: var(--texto);
+}
+
+.boton-compras-hechas:hover,
+.boton-imprimir-lista:hover {
+  border-color: var(--borde-casillero);
+  background: var(--gris-encima);
+}
+
+/* "Imprimir" apagado: no hay nada para comprar en lo que se ve (todo "Te alcanza"), o está cargando */
+.boton-imprimir-lista:disabled,
+.boton-imprimir-lista:disabled:hover {
+  border-color: var(--borde-gris);
+  background: var(--blanco);
+  color: var(--texto-suave);
+  cursor: default;
+}
+
+.boton-registrar-compra {
+  border: 1px solid var(--verde-principal);
+  background: var(--verde-principal);
+  color: var(--blanco);
+}
+
+.boton-registrar-compra:hover {
+  border-color: var(--verde-hondo);
+  background: var(--verde-hondo);
+}
+
+
+/* ── 2. FILTROS: una tarjeta con Semana / Mes, el período, el buscador y la categoría ── */
+.filtros-compras {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--borde-gris);
+  border-radius: var(--radio-tarjeta);
+  background: var(--blanco);
+}
+
+/* Semana / Mes: los dos pegados en una sola pastilla. El elegido, verde */
+.selector-periodo {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--borde-gris);
+  border-radius: var(--radio-pastilla);
+}
+
+.selector-periodo button {
+  height: 40px;
+  padding: 0 16px;
+  border: 0;
+  background: var(--blanco);
+  color: var(--texto-apagado);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.18s, color 0.18s;
+}
+
+.selector-periodo button:hover {
+  background: var(--gris-encima);
+}
+
+.selector-periodo .selector-periodo-activo,
+.selector-periodo .selector-periodo-activo:hover {
+  background: var(--verde-principal);
+  color: var(--blanco);
+}
+
+/* El período con sus dos flechas redondas */
+.navegador-periodo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.navegador-periodo button {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border: 1px solid var(--borde-gris);
+  border-radius: var(--radio-pastilla);
+  background: var(--blanco);
+  color: var(--texto);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.18s;
+}
+
+.navegador-periodo button:hover {
+  background: var(--gris-encima);
+}
+
+/* "›" apagado: el período ya llega a hoy */
+.navegador-periodo button:disabled {
+  background: var(--blanco);
+  color: var(--borde-casillero);
+  cursor: default;
+}
+
+.texto-periodo {
+  min-width: 120px;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* El buscador se lleva el lugar que sobra */
+.buscador-insumo,
+.filtro-categoria {
+  height: 40px;
+  border: 1px solid var(--borde-gris);
+  border-radius: var(--radio-pastilla);
+  background-color: var(--blanco);
+  color: var(--texto);
+  font-size: 14px;
+}
+
+.buscador-insumo {
+  flex: 1;
+  min-width: 200px;
+  padding: 0 16px;
+}
+
+.buscador-insumo::placeholder {
+  color: var(--texto-apagado);
+}
+
+/* El desplegable: sin la flecha del navegador, con una flechita gris propia a la derecha */
+.filtro-categoria {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0 34px 0 16px;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M1 1L5 5L9 1' stroke='%236b766e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  cursor: pointer;
+}
+
+/* Campo elegido: borde verde en vez del contorno azul del navegador */
+.buscador-insumo:focus,
+.filtro-categoria:focus {
+  outline: none;
+  border-color: var(--verde-principal);
+}
+
+/* Los botones con el teclado: un contorno verde (al usar el mouse no aparece) */
+.selector-periodo button:focus-visible,
+.navegador-periodo button:focus-visible,
+.boton-gastos:focus-visible,
+.boton-detalle-compra:focus-visible,
+.boton-compras-hechas:focus-visible,
+.boton-imprimir-lista:focus-visible,
+.boton-registrar-compra:focus-visible {
+  outline: 3px solid var(--verde-principal);
+  outline-offset: 2px;
+}
+
+/* En Semana / Mes, adentro de la pastilla: si fuera afuera, el overflow lo cortaría */
+.selector-periodo button:focus-visible {
+  outline-offset: -3px;
+}
+
+.selector-periodo .selector-periodo-activo:focus-visible {
+  outline-color: var(--blanco);
+}
+
+
+/* ── 3. FRANJA DE AYUDA: qué quiere decir "Para repetir, comprá" ── */
+.ayuda-repetir {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radio-tarjeta);
+  background: var(--verde-suave);
+  color: var(--verde-hondo);
+  font-size: 13px;
+}
+
+
+/* ── 4. TABLA: una tarjeta con la tabla y el pie adentro ── */
+.tarjeta-compras {
+  overflow: hidden;
+  border: 1px solid var(--borde-gris);
+  border-radius: var(--radio-tarjeta);
+  background: var(--blanco);
+}
+
+/* Si la tabla no entra, scroll de costado solo dentro de la tarjeta */
+.contenedor-tabla-compras {
+  overflow-x: auto;
+}
+
+/* Cada columna se lleva un porcentaje, así no bailan al filtrar. Debajo del mínimo aparece el scroll de costado.
+   El alto de las filas, la letra y el aire de las celdas son los de todas las tablas del panel (global.css, sección 8) */
+.tabla-compras {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: var(--blanco);
+}
+
+.tabla-compras thead th {
+  white-space: nowrap;
+}
+
+.tabla-compras thead th:nth-child(1) { width: 31%; }  /* Insumo (el nombre, su categoría y el aviso) */
+.tabla-compras thead th:nth-child(2) { width: 10%; }  /* Compré */
+.tabla-compras thead th:nth-child(3) { width: 10%; }  /* Gasté */
+.tabla-compras thead th:nth-child(4) { width: 11%; }  /* Hoy tenés */
+.tabla-compras thead th:nth-child(5) { width: 20%; }  /* Para repetir, comprá */
+.tabla-compras thead th:nth-child(6) { width: 18%; }  /* El botón "En qué se gastó" */
+
+/* La línea verde de 4 px a la izquierda de cada fila, como en Movimientos de Stock */
+.fila-resumen td:first-child {
+  box-shadow: inset 4px 0 0 var(--verde-principal);
+}
+
+/* El nombre en negrita, y una palabra muy larga se corta (no se sale de la celda) */
+.nombre-insumo {
+  display: block;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+/* "Gastaste 500 g más de lo que compraste" */
+.aviso-gasto-de-mas {
+  display: block;
+  margin-top: 2px;
+  color: var(--naranja-texto);
+  font-size: var(--letra-dato-chico);
+  line-height: var(--alto-dato-chico);
+}
+
+/* Los números, a la derecha y en negrita. La unidad, más chica y gris */
+.tabla-compras .celda-numero {
+  text-align: right;
+}
+
+.tabla-compras tbody .celda-numero {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.unidad-cantidad {
+  color: var(--texto-apagado);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tabla-compras .cantidad-comprada {
+  color: var(--verde-texto);
+}
+
+.tabla-compras .cantidad-gastada {
+  color: var(--rojo);
+}
+
+/* La rayita de lo que no tiene cantidad (sin compras, sin gastos, un desactivado) */
+.sin-cantidad {
+  color: var(--texto-suave);
+  font-weight: 500;
+}
+
+/* Para repetir: la pastilla verde con lo que hay que comprar, o "Te alcanza" en gris */
+.pastilla-comprar {
+  display: inline-flex;
+  align-items: center;
+  height: var(--alto-pastilla-estado);
+  padding: 0 10px;
+  border-radius: var(--radio-pastilla);
+  background: var(--verde-suave);
+  color: var(--verde-texto);
+  font-size: var(--letra-pastilla-estado);
+  font-weight: 700;
+}
+
+.texto-te-alcanza {
+  color: var(--texto-apagado);
+  font-size: var(--letra-celdas-tabla);
+  font-weight: 600;
+}
+
+/* El botón "En qué se gastó ›", a la derecha: el alto y la letra son los de los botones de todas las tablas.
+   El "Detalle ›" del panel Compras hechas es igual */
+.tabla-compras .celda-accion {
+  text-align: right;
+}
+
+.boton-gastos,
+.boton-detalle-compra {
+  display: inline-flex;
+  align-items: center;
+  height: var(--alto-boton-tabla);
+  padding: 0 12px;
+  border: 1px solid var(--borde-gris);
+  border-radius: var(--radio-pastilla);
+  background: var(--gris-boton);
+  color: var(--texto);
+  font-size: var(--letra-boton-tabla);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.boton-gastos:hover,
+.boton-detalle-compra:hover {
+  border-color: var(--borde-casillero);
+  background: var(--fondo-cantidad);
+}
+
+/* Renglón "Cargando..." o "No hay compras ni gastos": centrado y gris */
+.tabla-compras .fila-sin-datos td {
+  color: var(--texto-apagado);
+  text-align: center;
+}
+
+/* Renglón con el problema de la última carga */
+.tabla-compras .fila-sin-datos--error td {
+  color: var(--rojo);
+}
+
+
+/* ── 5. PANELES DE COSTADO: "Compras hechas" y "En qué se gastó" ──
+   Lo que ya existe está en global.css: el panel que entra por la derecha (13g, "panel-lateral": ancho, sombra y
+   animación), lo oscuro de atrás (7d, "modal-fondo"), el título y la X (7b) y los recuadros de colores (13k).
+   Acá, lo de adentro */
+
+/* Lo oscuro de atrás, con el color de las ventanas del panel */
+.fondo-panel-compras {
+  background: var(--fondo-ventana);
+}
+
+/* Arriba: el título y el período a la izquierda, la X a la derecha, y una línea finita abajo */
+.cabecera-panel-compras {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 22px 22px 12px;
+  border-bottom: 1px solid var(--borde-gris);
+}
+
+/* El nombre de un insumo muy largo corta en renglones, no se sale del panel */
+.cabecera-panel-compras .ventana-titulo {
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+
+/* "Del 02/11 al 08/11 · también figuran en Movimientos de Stock" */
+.subtitulo-panel-compras {
+  font-size: 13px;
+  color: var(--texto-apagado);
+}
+
+/* La X, gris como en el diseño (en las ventanas de Detalle es verde suave) */
+.cabecera-panel-compras .boton-cerrar {
+  background: var(--gris-boton);
+}
+
+/* Las pastillas grises con el total de cada origen. Mientras carga, o sin salidas, no ocupa lugar */
+.totales-gastos {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 22px 0;
+}
+
+.totales-gastos:empty {
+  display: none;
+}
+
+.pastilla-total-gasto {
+  padding: 5px 10px;
+  border-radius: var(--radio-pastilla);
+  background: var(--gris-boton);
+  font-size: 12.5px;
+}
+
+/* La lista: toma el alto que sobra y, si es larga, se mueve adentro (el título y el pie quedan quietos) */
+.lista-panel-compras {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 22px;
+  list-style: none;
+}
+
+/* Cada renglón: los datos a la izquierda y el botón o la cantidad a la derecha */
+.renglon-panel-compras {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--linea-suave);
+}
+
+/* min-width: 0 = un texto largo corta en renglones en vez de empujar el botón afuera */
+.datos-renglon-panel {
+  min-width: 0;
+}
+
+/* El proveedor ("Molino Juan"), en negrita */
+.proveedor-compra {
+  margin: 6px 0 2px;
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+/* El renglón chico gris: "03/11 16:20 · Mauricio · +3 insumos" */
+.detalle-renglon-panel {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--texto-apagado);
+  overflow-wrap: anywhere;
+}
+
+.insumos-de-la-compra {
+  color: var(--verde-texto);
+  font-weight: 700;
+}
+
+/* "Detalle ›" no se achica */
+.boton-detalle-compra {
+  flex: none;
+}
+
+/* "− 6 kg", a la derecha y en rojo */
+.cantidad-salida {
+  flex: none;
+  color: var(--rojo);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* "Cargando...", "No hay compras en la semana" o el problema (en rojo) */
+.panel-sin-datos {
+  padding: 24px 0;
+  color: var(--texto-apagado);
+  font-size: 13px;
+  text-align: center;
+}
+
+.panel-sin-datos--error {
+  color: var(--rojo);
+}
+
+/* Abajo: "4 compras" y "11 insumos", o "5 salidas" y "Total − 15 kg" (en rojo) */
+.pie-panel-compras {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--borde-gris);
+  color: var(--texto-apagado);
+  font-size: 13px;
+}
+
+.total-gastos {
+  color: var(--rojo);
+}
+
+
+/* ── 6. LISTA PARA IMPRIMIR: en la pantalla no se ve; al imprimir es lo único que sale ── */
+.hoja-lista-compras {
+  display: none;
+  color: var(--texto);
+}
+
+.titulo-lista-compras {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.periodo-lista-compras {
+  margin: 4px 0 14px;
+  font-size: 13px;
+}
+
+.tabla-lista-compras {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.tabla-lista-compras th {
+  padding: 6px 0;
+  border-bottom: 2px solid var(--texto);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.tabla-lista-compras td {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--texto-suave);
+}
+
+/* "Comprá": a la derecha y en negrita */
+.tabla-lista-compras .celda-comprar {
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pie-lista-compras {
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+/* Al imprimir: se esconde todo lo que está suelto en el body (menú, barra, pantalla) y queda solo la hoja */
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  body > * {
+    display: none !important;
+  }
+
+  body > .hoja-lista-compras {
+    display: block !important;
+  }
+
+  body {
+    background: var(--blanco);
+  }
+}
+
+
+/* ── 7. VENTANA "REGISTRAR COMPRA" (diseño 4-registrar-compra) ──
+   Una columna: arriba el título y los campos, en el medio la lista (lo único que se mueve) y abajo el pie.
+   Lo oscuro de atrás es .modal-fondo (global.css, 7d) */
+
+/* Lo oscuro de atrás, con el color de las ventanas del panel y un poco borroso */
+.fondo-ventana-compra {
+  background: var(--fondo-ventana);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* La caja blanca, centrada. Entra con un movimiento corto hacia arriba */
+.ventana-compra {
+  width: 100%;
+  max-width: 840px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--blanco);
+  box-shadow: var(--sombra-ventana);
+  animation: ventana-compra-entra 0.22s var(--easing-out);
+}
+
+@keyframes ventana-compra-entra {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Arriba: el ícono y los textos a la izquierda, la X a la derecha */
+.cabecera-compra {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 28px 0;
+}
+
+.titulo-compra {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* La bolsa verde en su cuadradito verde suave */
+.icono-compra {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--verde-suave);
+  color: var(--verde-principal);
+}
+
+.icono-compra svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* "Registrar compra", grande y verde */
+.ventana-compra h3 {
+  color: var(--verde-principal);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.bajada-compra {
+  margin-top: 1px;
+  color: var(--texto-apagado);
+  font-size: 13px;
+}
+
+/* La X: redonda, sin fondo; al pasar el mouse, gris con borde */
+.boton-cerrar-compra {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radio-pastilla);
+  background: transparent;
+  color: var(--icono-suave);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.boton-cerrar-compra:hover {
+  border-color: var(--borde-gris);
+  background: var(--gris-encima);
+  color: var(--texto);
+}
+
+.boton-cerrar-compra svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Los campos: Fecha (angosta) · Proveedor · Categoría · Solo los bajos, alineados abajo, con una línea abajo */
+.compra-campos {
+  flex: none;
+  display: grid;
+  grid-template-columns: 145px minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 14px;
+  padding: 18px 28px 20px;
+  border-bottom: 1px solid var(--borde-gris);
+}
+
+/* compra-datos y compra-filtros no arman una caja propia: sus campos van directo a la grilla de arriba */
+.compra-datos,
+.compra-filtros {
+  display: contents;
+}
+
+/* Cada campo: el nombre arriba (MAYÚSCULA chica y gris) y el casillero abajo */
+.compra-datos label,
+.compra-filtros label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--texto-apagado);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Los casilleros de arriba: gris muy clarito; elegidos, blancos con borde verde */
+.compra-datos input,
+.compra-filtros select {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--borde-gris);
+  border-radius: var(--radio-chico);
+  background-color: var(--fila-encima);
+  color: var(--texto);
+  font-size: 13.5px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+
+/* "Solo los bajos": una cajita con el interruptor y su texto, a la altura de los casilleros */
+.compra-filtros .interruptor-bajos {
+  height: 38px;
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+  padding: 0 14px;
+  border: 1px solid var(--borde-gris);
+  border-radius: var(--radio-chico);
+  background: var(--fila-encima);
+  color: var(--texto);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.compra-filtros .interruptor-bajos:hover {
+  border-color: var(--borde-casillero);
+  background: var(--gris-encima);
+}
+
+/* El tilde se dibuja como un interruptor: una pastilla gris con un círculo blanco que va a la derecha al prenderse */
+.interruptor-bajos input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 32px;
+  height: 18px;
+  flex: none;
+  margin: 0;
+  border-radius: var(--radio-pastilla);
+  background: var(--borde-casillero);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.interruptor-bajos input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--blanco);
+  box-shadow: var(--sombra-chica);
+  transition: transform 0.2s var(--easing-out);
+}
+
+.interruptor-bajos input[type="checkbox"]:checked {
+  background: var(--verde-principal);
+}
+
+.interruptor-bajos input[type="checkbox"]:checked::after {
+  transform: translateX(14px);
+}
+
+/* La lista: toma el alto que sobra y es lo único que se mueve. Los títulos quedan pegados arriba */
+.compra-lista {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 28px;
+}
+
+/* LA REGLA DE LAS COLUMNAS: los títulos y cada renglón usan las MISMAS 6 columnas, así quedan alineados a plomada.
+   Insumo (2) · Stock (1) · Mínimo (1) · Cantidad (1,5) · Unidad (1) · Vence (1,5) */
+.compra-encabezado,
+.renglon-compra {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.5fr 1fr 1.5fr;
+  gap: 16px;
+  align-items: center;
+}
+
+/* Cada celda puede achicarse: así manda la grilla y no lo que tiene adentro (una fecha larga no corre las columnas) */
+.compra-encabezado > *,
+.renglon-compra > * {
+  min-width: 0;
+}
+
+/* Los títulos: MAYÚSCULA chica y gris, pegados arriba, con una línea abajo */
+.compra-encabezado {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 14px 10px 12px;
+  border-bottom: 1.5px solid var(--borde-gris);
+  background: var(--blanco);
+  color: var(--texto-suave);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* "Cantidad" a la derecha, sobre los números */
+.titulo-cantidad-compra {
+  padding-right: 6px;
+  text-align: right;
+}
+
+/* Un renglón: línea finita abajo; al pasar el mouse, verde muy clarito */
+.renglon-compra {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--linea-suave);
+  border-radius: var(--radio-chico);
+  color: var(--texto);
+  transition: background-color 0.12s;
+}
+
+.renglon-compra:last-child {
+  border-bottom: none;
+}
+
+.renglon-compra:hover {
+  background: var(--fila-encima);
+}
+
+/* Un renglón escondido por los filtros (el JS le pone hidden): sin esto, el display: grid de arriba le gana */
+.renglon-compra[hidden] {
+  display: none;
+}
+
+/* (05/11) Un renglón con cantidad: verde muy clarito, también al pasar el mouse (la clase la pone contarCargadosCompra) */
+.renglon-compra.renglon-compra--cargada {
+  background: var(--fondo-cajita-detalle);
+}
+
+/* Un renglón con una cantidad negativa: rojo muy clarito, el casillero con borde rojo y el aviso abajo (como Registrar salida) */
+.renglon-compra.renglon-compra--negativa {
+  background: var(--fila-sin);
+}
+
+.renglon-compra--negativa .compra-cantidad {
+  border-color: var(--rojo);
+}
+
+/* "Tiene que ser mayor a 0": ocupa todo el ancho del renglón, a la derecha y en rojo */
+.aviso-renglon-compra {
+  grid-column: 1 / -1;
+  color: var(--rojo);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.aviso-renglon-compra[hidden] {
+  display: none;
+}
+
+/* El nombre en negrita y, abajo, su categoría chica y gris. Un nombre muy largo corta de renglón */
+.renglon-compra-nombre {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14.5px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.categoria-renglon-compra {
+  color: var(--texto-suave);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.categoria-renglon-compra:empty {
+  display: none;
+}
+
+.renglon-compra-minimo {
+  color: var(--texto-apagado);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "Cargando..." */
+.compra-renglon-vacio {
+  padding: 24px 12px;
+  color: var(--texto-apagado);
+  text-align: center;
+}
+
+/* El STOCK en una pastilla: gris con letra oscura… */
+.pastilla-stock {
+  min-width: 62px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid var(--borde-gris);
+  border-radius: var(--radio-pastilla);
+  background: var(--fondo-cantidad);
+  color: var(--texto);
+  font-size: 13.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* …y roja, con un puntito adelante y el borde que late suave, si está bajo (menos stock que el mínimo) */
+.pastilla-stock--baja {
+  border-color: var(--rojo-borde);
+  background: var(--rojo-suave);
+  color: var(--rojo);
+  animation: stock-bajo-late 2.5s ease-in-out infinite;
+}
+
+.pastilla-stock--baja::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+@keyframes stock-bajo-late {
+  0%, 100% { border-color: var(--rojo-borde); box-shadow: none; }
+  50%      { border-color: var(--rojo); box-shadow: 0 0 0 2px var(--rojo-suave); }
+}
+
+/* Los casilleros de cada renglón: blancos, de 36 px */
+.renglon-compra input,
+.renglon-compra select {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  border: 1px solid var(--borde-gris);
+  border-radius: var(--radio-chico);
+  background-color: var(--blanco);
+  color: var(--texto);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+/* La cantidad: un número a la derecha, sin las flechitas de subir y bajar */
+.renglon-compra .compra-cantidad {
+  padding: 0 10px;
+  -moz-appearance: textfield;
+  appearance: textfield;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.renglon-compra .compra-cantidad::-webkit-inner-spin-button,
+.renglon-compra .compra-cantidad::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.renglon-compra .compra-cantidad::placeholder {
+  color: var(--texto-suave);
+  font-weight: 400;
+}
+
+.renglon-compra .compra-vence {
+  padding: 0 8px;
+  font-size: 12.5px;
+}
+
+/* Los desplegables (Categoría y Unidad): sin la flecha del navegador, con una flechita gris propia a la derecha */
+.compra-filtros select,
+.renglon-compra select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M1 1L5 5L9 1' stroke='%236b766e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+}
+
+.compra-filtros select {
+  padding-right: 28px;
+}
+
+.renglon-compra select {
+  padding: 0 24px 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Casillero elegido: borde verde y un halo verde suave (los de arriba, además, se ponen blancos) */
+.compra-datos input:focus,
+.compra-filtros select:focus,
+.renglon-compra input:focus,
+.renglon-compra select:focus {
+  outline: none;
+  border-color: var(--verde-principal);
+  background-color: var(--blanco);
+  box-shadow: 0 0 0 3px var(--verde-suave);
+}
+
+/* El interruptor y los botones con el teclado: un contorno verde */
+.interruptor-bajos input[type="checkbox"]:focus-visible,
+.boton-cerrar-compra:focus-visible,
+.boton-cancelar-compra:focus-visible,
+.boton-guardar-compra:focus-visible {
+  outline: 3px solid var(--verde-principal);
+  outline-offset: 2px;
+}
+
+/* El pie: gris muy clarito, con el contador y el error a la izquierda y los botones a la derecha */
+.compra-pie {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 28px;
+  border-top: 1px solid var(--borde-gris);
+  background: var(--fila-encima);
+}
+
+.compra-pie-textos {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* "0 insumos cargados con cantidad": el número en un circulito gris */
+.contador-compra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--texto-apagado);
+  font-size: 13.5px;
+}
+
+.numero-cargados {
+  min-width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  border-radius: var(--radio-pastilla);
+  background: var(--fondo-cantidad);
+  color: var(--texto);
+  font-size: 12px;
+  font-weight: 700;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* (05/11) Con al menos un insumo cargado, el circulito se pone verde (la clase la pone contarCargadosCompra) */
+.numero-cargados--con-insumos {
+  background: var(--verde-principal);
+  color: var(--blanco);
+}
+
+/* El error: texto rojo. Si está vacío no ocupa lugar */
+.compra-error {
+  color: var(--rojo);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.compra-error:empty {
+  display: none;
+}
+
+.botones-compra {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Cancelar (con borde) y Guardar compra (verde, con el disquete): pastillas de 42 px */
+.boton-cancelar-compra,
+.boton-guardar-compra {
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 20px;
+  border-radius: var(--radio-pastilla);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.boton-cancelar-compra {
+  border: 1px solid var(--borde-gris);
+  background: transparent;
+  color: var(--texto-apagado);
+}
+
+.boton-cancelar-compra:hover {
+  border-color: var(--borde-casillero);
+  background: var(--blanco);
+  color: var(--texto);
+}
+
+.boton-guardar-compra {
+  border: 1px solid var(--verde-principal);
+  background: var(--verde-principal);
+  color: var(--blanco);
+  box-shadow: var(--shadow-btn-hover);
+}
+
+.boton-guardar-compra:hover {
+  border-color: var(--verde-hondo);
+  background: var(--verde-hondo);
+}
+
+/* Apagado: mientras guarda (para que no se guarde dos veces) o con una cantidad negativa. Como "Registrar salida" */
+.boton-guardar-compra:disabled,
+.boton-guardar-compra:disabled:hover {
+  border-color: var(--verde-principal);
+  background: var(--verde-principal);
+  box-shadow: none;
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.boton-guardar-compra svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* En el celular: la ventana ocupa casi toda la pantalla, los campos de a dos, la lista conserva sus 6 columnas
+   a plomada y se mueve también de costado (como antes, en Movimientos), y abajo los dos botones mitad y mitad */
+@media (max-width: 768px) {
+  .ventana-compra {
+    max-height: 100%;
+    border-radius: var(--radio-tarjeta);
+  }
+
+  .cabecera-compra {
+    padding: 18px 16px 0;
+  }
+
+  .compra-campos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 14px 16px 16px;
+  }
+
+  .compra-lista {
+    padding: 0 16px;
+  }
+
+  .compra-encabezado,
+  .renglon-compra {
+    min-width: 760px;
+  }
+
+  .compra-pie {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
+  .boton-cancelar-compra,
+  .boton-guardar-compra {
+    flex: 1;
+  }
+}
+
+/* Si la compu pide "menos movimiento" (Accesibilidad): la ventana no se desliza y el stock bajo no late */
+@media (prefers-reduced-motion: reduce) {
+  .ventana-compra,
+  .pastilla-stock--baja {
+    animation: none;
+  }
+}
+
+
+/* ── 8. CELULAR Y TABLET: todo a lo ancho y uno debajo del otro ── */
+@media (max-width: 768px) {
+  .compras-botones {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .boton-compras-hechas,
+  .boton-registrar-compra,
+  .boton-imprimir-lista {
+    width: 100%;
+  }
+
+  .filtros-compras > * {
+    width: 100%;
+  }
+
+  /* Semana y Mes, mitad y mitad */
+  .selector-periodo button {
+    flex: 1;
+  }
+
+  /* Las flechas a los costados y el período en el medio */
+  .navegador-periodo {
+    justify-content: space-between;
+  }
+
+  .buscador-insumo {
+    flex: none;
+  }
+}

@@ -30,8 +30,7 @@
 
   // El menú, en orden: a qué grupo va cada pantalla, con qué ícono y con qué nombre ('' = sin grupo, arriba de todo).
   // Los grupos ya no llevan título: solo se separan con un poco de aire.
-  // Los nombres son los de siempre, sin el emoji. "Movimientos (viejo)" no está: no sale en el menú,
-  // pero se sigue pudiendo abrir (roles.js la deja entrar).
+  // Los nombres son los de siempre, sin el emoji.
   const MENU_PANEL = [
     { ruta: 'admin.html',                       grupo: '',               icono: 'icono-menu-inicio',      nombre: 'Inicio' },
     { ruta: 'pages/ConsultarPedidos.html',      grupo: 'Pedidos',        icono: 'icono-menu-pedidos',     nombre: 'Consultar Pedidos' },
@@ -41,8 +40,10 @@
     { ruta: 'pages/heladera.html',              grupo: 'Cocina',         icono: 'icono-menu-heladera',    nombre: 'Producción' },
     { ruta: 'pages/AsignarCocinero.html',       grupo: 'Cocina',         icono: 'icono-menu-asignar',     nombre: 'Asignar Cocineros' },
     { ruta: 'pages/MovimientosStockNuevo.html', grupo: 'Stock',          icono: 'icono-menu-movimientos', nombre: 'Movimientos de Stock' },
+    { ruta: 'pages/compras.html',               grupo: 'Stock',          icono: 'icono-menu-compras',     nombre: 'Compras' },
     { ruta: 'pages/stock.html',                 grupo: 'Stock',          icono: 'icono-menu-stock',       nombre: 'Gestión de Stock' },
     { ruta: 'pages/combos.html',                grupo: 'Catálogo',       icono: 'icono-menu-combos',      nombre: 'Combos' },
+    { ruta: 'pages/planesCategorias.html',      grupo: 'Catálogo',       icono: 'icono-menu-planes',      nombre: 'Planes y categorías' },
     { ruta: 'pages/generarReceta.html',         grupo: 'Catálogo',       icono: 'icono-menu-receta',      nombre: 'Generar Receta' },
     { ruta: 'pages/gestionUsuarios.html',       grupo: 'Administración', icono: 'icono-menu-usuarios',    nombre: 'Gestión de Usuarios' },
   ];
@@ -62,7 +63,9 @@
       <symbol id="icono-menu-heladera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"></rect><path d="M5 10h14M9 5v2M9 13v3"></path></symbol>
       <symbol id="icono-menu-asignar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M3 20c0-3.3 2.7-6 6-6 1.6 0 3 .6 4.1 1.6"></path><path d="M15 17l2 2 4-4"></path></symbol>
       <symbol id="icono-menu-movimientos" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M7 4l-3 3M7 4l3 3M17 20V4M17 20l-3-3M17 20l3-3"></path></symbol>
+      <symbol id="icono-menu-compras" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"></circle><circle cx="18" cy="20" r="1.5"></circle><path d="M3 4h2l2.4 11h11l2-8H6"></path></symbol>
       <symbol id="icono-menu-stock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5L12 3l9 4.5v9L12 21l-9-4.5z"></path><path d="M3 7.5l9 4.5 9-4.5M12 12v9"></path></symbol>
+      <symbol id="icono-menu-planes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></symbol>
       <symbol id="icono-menu-combos" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="2"></rect><rect x="13" y="3" width="8" height="8" rx="2"></rect><rect x="3" y="13" width="8" height="8" rx="2"></rect><rect x="13" y="13" width="8" height="8" rx="2"></rect></symbol>
       <symbol id="icono-menu-receta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l3 3v15H6z"></path><path d="M9 11h6M9 15h6"></path></symbol>
       <symbol id="icono-menu-usuarios" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21 20c0-2.6-1.6-4.8-4-5.6"></path></symbol>

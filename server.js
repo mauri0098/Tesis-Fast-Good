@@ -42,6 +42,8 @@ app.use(cors({
 }));
 // Tamaño máximo del cuerpo: 6 MB solo para subir imágenes de recetas (base64, máx. 2MB + overhead); el resto, 100 KB
 app.use('/api/productos/:id/imagen', express.json({ limit: '6mb' }));
+app.use('/api/planes/:id/imagen', express.json({ limit: '6mb' }));       // la foto de un plan (Planes y categorías)
+app.use('/api/categorias/:id/imagen', express.json({ limit: '6mb' }));   // la foto de una categoría (Planes y categorías)
 app.use(express.json({ limit: '100kb' }));
 
 const supabase   = require('./config/supabaseClient');// Cliente de Supabase para interactuar con la base de datos
@@ -649,6 +651,8 @@ app.get('/api/v1/productos/:id', async (req, res) => {
 // De cada plato del menú manda "disponibles": las viandas que hay en la heladera, con un tope igual a
 // la cantidad del combo (así no se muestra el stock real completo). Lo personalizado no tiene tope:
 // no sale de la heladera.
+// De cada combo manda también id_plan, plan_imagen y plan_descripcion (null si no tiene): con eso la web muestra
+// una tarjeta por plan. Ej: { plan: 'MANTENIMIENTO', id_plan: 2, plan_imagen: './src/assets/img/combo-mantenimiento-1200.jpg', plan_descripcion: null }
 app.get('/api/v1/combos', limiteCatalogo, async (req, res) => {
   // 1. Combos activos con su plan (y la categoría del plan) y su menú, en una sola consulta
   const { data, error } = await supabase
@@ -660,8 +664,11 @@ app.get('/api/v1/combos', limiteCatalogo, async (req, res) => {
       precio,
       destacado,
       planes (
+        id,
         nombre,
         activo,
+        imagen,
+        descripcion,
         categorias ( id, nombre, imagen, descripcion )
       ),
       combo_productos (
@@ -711,6 +718,9 @@ app.get('/api/v1/combos', limiteCatalogo, async (req, res) => {
       precio:    Number(combo.precio),
       destacado: combo.destacado === true,  // true = lleva "Más elegido" (sin el dato, false)
       plan:      combo.planes.nombre,
+      id_plan:          combo.planes.id,            // el número del plan: la web agrupa las tarjetas con esto
+      plan_imagen:      combo.planes.imagen,        // la dirección de la foto del plan, o null
+      plan_descripcion: combo.planes.descripcion,   // la frase del plan, o null
       categoria: combo.planes.categorias, // { id, nombre, imagen, descripcion }, o null si el plan no tiene categoría
       menu
     });
@@ -2336,146 +2346,6 @@ function convertirACantidadBase(cantidad, unidadIngresada, unidadBaseInsumo) {
   return { cantidadBase: Number(cantidad) * factorIn / factorBase };
 }
 
-// POST /api/movimientos-stock → registrar entrada o salida, actualiza stock_actual
-app.post('/api/movimientos-stock', requireAuth, requireRol(6, 5, 1), async (req, res) => {
-  const { id_insumo, tipo, cantidad, unidad, motivo, fecha, costo_unitario } = req.body;
-
-  if (!id_insumo || !tipo || !cantidad) {
-    return res.status(400).json({ error: 'id_insumo, tipo y cantidad son requeridos' });
-  }
-
-  try {
-    const { data: insumo, error: errInsumo } = await supabase
-      .from('insumos')
-      .select('id, stock_actual, unidad_medida')
-      .eq('id', id_insumo)
-      .single();
-
-    if (errInsumo || !insumo) {
-      return res.status(404).json({ error: 'Insumo no encontrado' });
-    }
-
-    const conversion = convertirACantidadBase(cantidad, unidad, insumo.unidad_medida);
-    if (conversion.error) return res.status(400).json({ error: conversion.error });
-    const cantidadBase = conversion.cantidadBase;
-
-    const nuevoStock = tipo === 'entrada'
-      ? Number(insumo.stock_actual) + cantidadBase
-      : Number(insumo.stock_actual) - cantidadBase;
-
-    if (nuevoStock < 0) {
-      return res.status(400).json({ error: 'Stock insuficiente para registrar la salida' });
-    }
-
-    const costoUnit  = costo_unitario ? Number(costo_unitario) : null;
-    const costoTotal = costoUnit ? costoUnit * Number(cantidad) : null;
-
-    // Guardar el movimiento con la cantidad y unidad ORIGINALES (lo que cargó el admin)
-    const { data: movimiento, error: errMov } = await supabase
-      .from('movimientos_stock')
-      .insert([{
-        id_insumo,
-        tipo,
-        cantidad:      Number(cantidad),
-        unidad:        unidad || null,
-        motivo:        motivo || null,
-        fecha:         fecha || new Date().toISOString(),
-        costo_unitario: costoUnit,
-        costo_total:    costoTotal
-      }])
-      .select()
-      .single();
-
-    if (errMov) return errorInterno(res, errMov);
-
-    // Actualizar únicamente el stock; la unidad de medida del insumo
-    // es fija y solo se edita desde Alta/Gestión de Insumos.
-    const { error: errUpdate } = await supabase
-      .from('insumos')
-      .update({ stock_actual: nuevoStock })
-      .eq('id', id_insumo);
-
-    if (errUpdate) return errorInterno(res, errUpdate);
-
-    res.json({ mensaje: 'Movimiento registrado', movimiento });
-  } catch (e) {
-    errorInterno(res, e);
-  }
-});
-
-// DELETE /api/movimientos-stock/:id → eliminar movimiento y revertir stock
-app.delete('/api/movimientos-stock/:id', requireAuth, requireRol(6, 5, 1), async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const { data: mov, error: errMov } = await supabase
-      .from('movimientos_stock')
-      .select('id, id_insumo, tipo, cantidad, unidad, id_movimiento_vianda')
-      .eq('id', id)
-      .single();
-
-    if (errMov || !mov) return res.status(404).json({ error: 'Movimiento no encontrado' });
-
-    // Las salidas de una tanda de viandas no se borran sueltas: el insumo volvería
-    // al stock pero las viandas seguirían en la heladera
-    if (mov.id_movimiento_vianda) {
-      return res.status(409).json({ error: 'Esta salida pertenece a una tanda de viandas y no se puede borrar desde acá' });
-    }
-
-    // (28/10, FIFO por lotes: sql/insumos_lotes_fifo.sql) Una ENTRADA que ya se usó, en todo o en parte, no se borra:
-    // su lote (lotes_insumo) tiene menos saldo que lo que entró. Si se borrara, el stock quedaría bien pero se perdería
-    // de qué compra salió lo que ya se cocinó. Una entrada sin usar sí se borra: su lote se va con ella (on delete cascade).
-    // Ej: compra de 2000 g de la que ya salieron 500 → 409. "condición ? await … : …" = solo se consulta si es una entrada.
-    const consultaLote = mov.tipo === 'entrada'
-      ? await supabase.from('lotes_insumo').select('cantidad_inicial, cantidad_restante').eq('id_movimiento', mov.id).maybeSingle()
-      : { data: null, error: null };
-    if (consultaLote.error) return errorInterno(res, consultaLote.error);
-    const lote = consultaLote.data;                               // el lote de esta entrada (o null si no tiene)
-    const yaSeUso = Boolean(lote) && Number(lote.cantidad_restante) < Number(lote.cantidad_inicial);
-    if (yaSeUso) {
-      return res.status(409).json({ error: 'Esta entrada ya se usó (en todo o en parte): no se puede borrar' });
-    }
-
-    const { data: insumo, error: errInsumo } = await supabase
-      .from('insumos')
-      .select('id, stock_actual, unidad_medida')
-      .eq('id', mov.id_insumo)
-      .single();
-
-    if (errInsumo || !insumo) return res.status(404).json({ error: 'Insumo no encontrado' });
-
-    const conversion = convertirACantidadBase(mov.cantidad, mov.unidad, insumo.unidad_medida);
-    if (conversion.error) return res.status(400).json({ error: conversion.error });
-    const cantidadBase = conversion.cantidadBase;
-
-    const nuevoStock = mov.tipo === 'entrada'
-      ? Number(insumo.stock_actual) - cantidadBase
-      : Number(insumo.stock_actual) + cantidadBase;
-
-    if (nuevoStock < 0) {
-      return res.status(400).json({ error: 'No se puede eliminar: el stock quedaría negativo' });
-    }
-
-    const { error: errDelete } = await supabase
-      .from('movimientos_stock')
-      .delete()
-      .eq('id', id);
-
-    if (errDelete) return errorInterno(res, errDelete);
-
-    const { error: errUpdate } = await supabase
-      .from('insumos')
-      .update({ stock_actual: nuevoStock })
-      .eq('id', mov.id_insumo);
-
-    if (errUpdate) return errorInterno(res, errUpdate);
-
-    res.json({ mensaje: 'Movimiento eliminado y stock revertido' });
-  } catch (e) {
-    errorInterno(res, e);
-  }
-});
-
 /* ======================================================
    API COMPRAS
    Una compra = varios insumos que llegaron juntos.
@@ -2497,7 +2367,7 @@ function convertirItemsCompra(items, unidadesPorInsumo) {
       return { error: `El insumo ${item.id_insumo} no existe` };
     }
 
-    // Misma conversión que un movimiento suelto (ej: 2 kg → 2000 g)
+    // Pasa la cantidad a la unidad del insumo (ej: 2 kg → 2000 g)
     const conversion = convertirACantidadBase(item.cantidad, item.unidad, insumo.unidad_medida);
     if (conversion.error) {
       return { error: `No se puede cargar "${insumo.nombre}" en ${item.unidad}: ese insumo se mide en ${insumo.unidad_medida}` };
@@ -2519,9 +2389,18 @@ function convertirItemsCompra(items, unidadesPorInsumo) {
 app.post('/api/compras', requireAuth, requireRol(...ROLES_COMPRAS), async (req, res) => {
   const { fecha, proveedor, items } = req.body;
 
-  // La fecha es opcional, pero si viene tiene que ser AAAA-MM-DD (ej: 2026-10-12)
-  if (fecha && !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+  // La fecha es opcional, pero si viene tiene que existir de verdad y no ser de un día que todavía no llegó.
+  // Se compara como texto: en AAAA-MM-DD, el texto mayor es el día más nuevo. Ej: '2026-11-05' > '2026-11-04'
+  const fechaInvalida = fecha && leerFechaPara(fecha) === null;
+  // ¿vino una fecha que no existe? SÍ: '2026-02-30' · NO: '2026-11-04'
+  if (fechaInvalida) {
     return res.status(400).json({ error: 'La fecha es inválida' });
+  }
+  const hoyEnArgentina = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date());  // "en-CA" escribe AAAA-MM-DD
+  const fechaFutura = fecha && fecha > hoyEnArgentina;
+  // ¿la fecha todavía no llegó? SÍ: mañana · NO: hoy o un día anterior
+  if (fechaFutura) {
+    return res.status(400).json({ error: 'La fecha de la compra no puede ser posterior a hoy' });
   }
 
   // 1. Tiene que venir una lista con al menos un insumo
@@ -2577,6 +2456,149 @@ app.post('/api/compras', requireAuth, requireRol(...ROLES_COMPRAS), async (req, 
     }
 
     res.status(201).json({ ok: true, id_compra: data.id_compra });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+/* ======================================================
+   API SALIDAS DE STOCK
+   Una salida manual = uno o varios insumos que salen juntos, por un mismo motivo.
+   Se guarda en la función registrar_salida (sql/registrar_salida.sql),
+   en una sola transacción: si algo falla, no se guarda nada.
+   ====================================================== */
+
+const ROLES_SALIDAS = [6, 5, 1];               // administrador del sistema, dueño y administrador (los de la pantalla)
+const MAXIMO_RENGLONES_SALIDA = 200;           // cuántos insumos puede tener una salida
+const LARGO_MAXIMO_OTRO_MOTIVO = 100;          // el texto de "Otro"
+
+// Los motivos que se pueden elegir y cómo se guardan
+const MOTIVOS_SALIDA = {
+  vencido: 'Vencido',
+  se_echo_a_perder: 'Se echó a perder',
+  merma: 'Merma',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/salidas-stock → registra una salida manual de uno o varios insumos (registrar_salida)
+// ENTRADA: { motivo: 'vencido' | 'se_echo_a_perder' | 'merma' | 'otro', motivo_otro: texto (solo con 'otro'),
+//            items: [{ id_insumo, cantidad, unidad }] }. El usuario sale del token, nunca del body.
+// SALIDA:  201 { ok: true, insumos: 1 } · 400 con un mensaje si algo está mal (no se guarda nada) · 500
+// Ej: { motivo: 'vencido', items: [{ id_insumo: 7, cantidad: 2, unidad: 'kg' }] } con 5 kg en stock
+//     → pasa 2 kg a 2000 g → la base guarda la salida y deja el stock en 3000 g → 201 { ok: true, insumos: 1 }
+// Lo usa la ventana "Registrar salida" de Movimientos de Stock.
+// ─────────────────────────────────────────────────────────────────────────────
+app.post('/api/salidas-stock', requireAuth, requireRol(...ROLES_SALIDAS), async (req, res) => {
+  const { motivo, motivo_otro, items } = req.body;
+
+  // 1. El motivo: solo uno de la lista. Si es "otro", con su texto. El texto se guarda con "Otro: " adelante:
+  //    un motivo idéntico a "Consumo por producción pedido #250" haría creer que ese pedido ya descontó sus insumos.
+  const motivoConocido = typeof motivo === 'string' && (motivo === 'otro' || Object.keys(MOTIVOS_SALIDA).includes(motivo));
+  // ¿el motivo no es de la lista? SÍ: 'hola' · NO: 'vencido'
+  if (!motivoConocido) {
+    return res.status(400).json({ error: 'Elegí un motivo' });
+  }
+  let motivoParaGuardar = MOTIVOS_SALIDA[motivo];
+  // ¿es "Otro"? SÍ: 'otro' · NO: 'vencido'
+  if (motivo === 'otro') {
+    let textoOtro = '';
+    // ¿vino un texto? SÍ: ' se cayó ' · NO: null o un número
+    if (typeof motivo_otro === 'string') {
+      textoOtro = motivo_otro.trim();
+    }
+    const otroInvalido = textoOtro === '' || textoOtro.length > LARGO_MAXIMO_OTRO_MOTIVO;
+    // ¿está vacío o es muy largo? SÍ: '' · NO: 'se cayó'
+    if (otroInvalido) {
+      return res.status(400).json({ error: `Escribí el motivo, de hasta ${LARGO_MAXIMO_OTRO_MOTIVO} caracteres` });
+    }
+    motivoParaGuardar = 'Otro: ' + textoOtro;
+  }
+
+  // 2. Tiene que venir una lista, con al menos un insumo y sin pasarse del máximo
+  const listaInvalida = !Array.isArray(items) || items.length === 0 || items.length > MAXIMO_RENGLONES_SALIDA;
+  // ¿no es una lista, está vacía o es enorme? SÍ: [] · NO: un renglón
+  if (listaInvalida) {
+    return res.status(400).json({ error: 'Cargá al menos un insumo' });
+  }
+
+  // 3. Cada renglón: un objeto, con el id entero mayor a 0, la cantidad un número mayor a 0 y la unidad un texto
+  //    (filter y no find: find devolvería el renglón, y un renglón null parecería "no encontré ninguno")
+  const renglonesMalos = items.filter(item => {
+    const esObjeto = item && typeof item === 'object' && !Array.isArray(item);
+    // ¿no es un objeto? SÍ: null o 'hola' · NO: { id_insumo: 7, … }
+    if (!esObjeto) {
+      return true;
+    }
+    const idBien = Number.isInteger(item.id_insumo) && item.id_insumo > 0 && item.id_insumo <= ENTERO_MAXIMO_BASE;
+    const cantidadBien = typeof item.cantidad === 'number' && Number.isFinite(item.cantidad) && item.cantidad > 0;
+    return !idBien || !cantidadBien || typeof item.unidad !== 'string';
+  });
+  // ¿hay un renglón mal? SÍ: cantidad -5 · NO: { id_insumo: 7, cantidad: 2, unidad: 'kg' }
+  if (renglonesMalos.length > 0) {
+    return res.status(400).json({ error: 'Hay un renglón inválido: revisá el insumo, la cantidad y la unidad' });
+  }
+
+  try {
+    // 4. La unidad de todos los insumos de la lista, en una sola consulta, en un objeto { id: insumo }
+    const ids = items.map(item => item.id_insumo);
+    const { data: insumos, error: errInsumos } = await supabase
+      .from('insumos')
+      .select('id, nombre, unidad_medida')
+      .in('id', ids);
+    if (errInsumos) return errorInterno(res, errInsumos);
+
+    const insumoPorId = {};
+    insumos.forEach(insumo => {
+      insumoPorId[insumo.id] = insumo;
+    });
+
+    // 5. Cada cantidad, en la unidad del insumo. Ej: 2 kg → 2000 g
+    //    Se redondea a 3 decimales: en JavaScript, 1.1 × 1000 da 1100.0000000000002 y no pasaría el control de stock
+    let errorConversion = '';
+    const itemsConvertidos = [];
+    items.forEach(item => {
+      const insumo = insumoPorId[item.id_insumo];
+      // ¿el insumo no existe? SÍ: id 999 · NO: id 7 (return = saltear este y seguir con el siguiente)
+      if (!insumo) {
+        errorConversion = `El insumo ${item.id_insumo} no existe`;
+        return;
+      }
+      const unidadConocida = item.unidad === insumo.unidad_medida || Object.keys(FACTOR_UNIDAD).includes(item.unidad);
+      const conversion = convertirACantidadBase(item.cantidad, item.unidad, insumo.unidad_medida);
+      const unidadMala = !unidadConocida || conversion.error;
+      // ¿la unidad no existe o no es de su familia? SÍ: 'kg' en un insumo en ml · NO: 'kg' en un insumo en g
+      if (unidadMala) {
+        errorConversion = `No se puede sacar "${insumo.nombre}" en esa unidad: se mide en ${insumo.unidad_medida}`;
+        return;
+      }
+      itemsConvertidos.push({ id_insumo: item.id_insumo, cantidad: Math.round(conversion.cantidadBase * 1000) / 1000 });
+    });
+    // ¿alguno falló? SÍ: un insumo que no existe · NO: se pudieron convertir todos
+    if (errorConversion) {
+      return res.status(400).json({ error: errorConversion });
+    }
+
+    // 6. Se guarda en la base: revisa de nuevo, bloquea los insumos, controla el stock y guarda todo o nada
+    const { data, error } = await supabase.rpc('registrar_salida', {
+      p_id_usuario: req.usuario.id,
+      p_motivo:     motivoParaGuardar,
+      p_items:      itemsConvertidos
+    });
+    if (error) return errorInterno(res, error);
+
+    // ok: false = no se guardó nada (no alcanza el stock, insumo inactivo, etc.)
+    const noSeGuardo = !data || !data.ok;
+    // ¿la base dijo que no? SÍ: no alcanza el stock · NO: se guardó
+    if (noSeGuardo) {
+      let mensaje = 'No se pudo registrar la salida';
+      // ¿dijo por qué? SÍ: 'No alcanza "Carne"…' · NO: vino vacío
+      if (data && data.error) {
+        mensaje = data.error;
+      }
+      return res.status(400).json({ error: mensaje });
+    }
+
+    res.status(201).json({ ok: true, insumos: data.insumos });
   } catch (e) {
     errorInterno(res, e);
   }
@@ -3292,6 +3314,8 @@ app.get('/api/movimientos-viandas', requireAuth, requireRol(...ROLES_HELADERA), 
 
 const FILAS_POR_VUELTA = 1000;                                    // Supabase manda como mucho 1000 renglones por consulta
 const TOPE_FILAS_MOVIMIENTOS = 20000;                             // más que esto por libreta = "elegí menos días"
+// En qué columna guarda la fecha cada tabla. Ej: un lote guarda cuándo entró en fecha_ingreso
+const COLUMNA_FECHA = { movimientos_stock: 'fecha', movimientos_viandas: 'fecha', lotes_insumo: 'fecha_ingreso' };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // nombreDeUsuario → "Nombre Apellido" de un usuario que vino de la base, o "-" si no vino
@@ -3308,14 +3332,16 @@ function nombreDeUsuario(usuario) {
 // ─────────────────────────────────────────────────────────────────────────────
 // traerTodasLasFilas → trae TODOS los renglones de una libreta entre dos fechas, de a 1000
 //                      (Supabase manda como mucho 1000 por consulta)
-// ENTRADA: tabla ('movimientos_stock' o 'movimientos_viandas', la pone el servidor, nunca la pantalla),
-//          columnas (qué traer) y desdeISO / hastaISO (fecha y hora con -03:00; null = sin límite)
+// ENTRADA: tabla ('movimientos_stock', 'movimientos_viandas' o 'lotes_insumo', la pone el servidor, nunca la pantalla),
+//          columnas (qué traer), desdeISO / hastaISO (fecha y hora con -03:00; null = sin límite)
+//          y filtros (opcional, también los pone el servidor: { columna: valor }. Ej: { tipo: 'salida' })
 // SALIDA:  { filas } con todos los renglones, del más nuevo al más viejo y sin repetir
 //          · { error } si falló la base · { demasiadas: true } si pasa el tope de 20.000
 // Ej: 2.350 renglones → 3 vueltas: del 0 al 999, del 1000 al 1999 y del 2000 al 2349 (vinieron 350: no hay más).
-// La usa GET /api/movimientos.
+// La usan GET /api/movimientos (sin filtros) y las rutas de la pantalla Compras.
 // ─────────────────────────────────────────────────────────────────────────────
-async function traerTodasLasFilas(tabla, columnas, desdeISO, hastaISO) {
+async function traerTodasLasFilas(tabla, columnas, desdeISO, hastaISO, filtros) {
+  const columnaFecha = COLUMNA_FECHA[tabla];                      // en qué columna está la fecha de esta tabla
   const filas = [];                                               // todos los renglones juntos
   const vistos = {};                                              // { id: true }: si entra uno nuevo mientras se pide, no se repite
   let desde = 0;                                                  // desde qué renglón se pide en cada vuelta
@@ -3328,10 +3354,14 @@ async function traerTodasLasFilas(tabla, columnas, desdeISO, hastaISO) {
     let consulta = supabase                                       // arma el pedido a la base...
       .from(tabla)                                                // ...la libreta...
       .select(columnas)                                           // ...con estas columnas...
-      .order('fecha', { ascending: false })                       // ...del más nuevo al más viejo...
+      .order(columnaFecha, { ascending: false })                  // ...del más nuevo al más viejo...
       .order('id', { ascending: false });                         // ...y si empatan, por número
-    if (desdeISO) consulta = consulta.gte('fecha', desdeISO);     // desde esa hora (incluida)
-    if (hastaISO) consulta = consulta.lt('fecha', hastaISO);      // hasta antes de esa hora
+    if (desdeISO) consulta = consulta.gte(columnaFecha, desdeISO);  // desde esa hora (incluida)
+    if (hastaISO) consulta = consulta.lt(columnaFecha, hastaISO);   // hasta antes de esa hora
+    // ¿vinieron filtros? SÍ: { tipo: 'salida' } · NO: GET /api/movimientos, que trae todo
+    if (filtros) {
+      consulta = consulta.match(filtros);                         // match = un .eq por cada dato (nunca se pega texto en el SQL)
+    }
 
     // 2. Esta vuelta: del renglón "desde" al "desde + 999"
     const { data, error } = await consulta.range(desde, desde + FILAS_POR_VUELTA - 1);
@@ -3355,12 +3385,44 @@ async function traerTodasLasFilas(tabla, columnas, desdeISO, hastaISO) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// origenDeRenglonStock → dice de qué movimiento es un renglón de insumos (movimientos_stock)
+// ENTRADA: fila, con motivo, tipo, id, id_compra, id_movimiento_vianda, id_pedido e id_salida_manual
+// SALIDA:  { clave, origen, tipo, numero }. origen = 'compra' · 'produccion' · 'cocina' · 'salida_manual' · 'ajuste'
+//          Se elige el primero que corresponde, en ese orden.
+// Ej: { id_movimiento_vianda: 40 } → { clave: 'produccion-40', origen: 'produccion', tipo: 'entrada', numero: null }
+//     { motivo: 'Consumo por producción pedido #005' } → { clave: 'cocina-5-…', origen: 'cocina', tipo: 'salida', numero: 5 }
+//     { id: 9, tipo: 'salida' } (sin ningún id) → { clave: 'ajuste-insumo-9', origen: 'ajuste', tipo: 'salida', numero: null }
+// La usan armarMovimientos y GET /api/compras/gastos/:idInsumo: así las dos pantallas dicen lo mismo.
+// ─────────────────────────────────────────────────────────────────────────────
+function origenDeRenglonStock(fila) {
+  // a. ¿Es lo que gastó la cocina en un pedido? Los nuevos tienen id_pedido; los viejos, el motivo EXACTO.
+  //    exec busca el texto: ^ y $ = tiene que ser el motivo entero; (\d+) = el número. Ej: '…pedido #005' → ['…', '005']
+  const motivoDePedido = /^Consumo por producción pedido #(\d+)$/.exec(fila.motivo || '');
+  const pedidoDelMotivo = motivoDePedido ? Number(motivoDePedido[1]) : null;  // '005' → 5 (null si no es de un pedido)
+  const idPedido = fila.id_pedido || pedidoDelMotivo;             // primero id_pedido; si no, el del motivo
+
+  // b. A qué movimiento pertenece: se elige el primero que corresponde, en este orden
+  //    (compra, después "Hecho", después pedido; si no es ninguno, lo cargado a mano es un ajuste)
+  let datos = null;
+  if (fila.id_compra) datos = { clave: 'compra-' + fila.id_compra, origen: 'compra', tipo: 'entrada', numero: fila.id_compra };
+  if (!datos && fila.id_movimiento_vianda) datos = { clave: 'produccion-' + fila.id_movimiento_vianda, origen: 'produccion', tipo: 'entrada', numero: null };
+  if (!datos && idPedido) datos = { clave: 'cocina-' + idPedido + '-' + fila.fecha, origen: 'cocina', tipo: 'salida', numero: idPedido };
+  // ¿es de la ventana "Registrar salida"? SÍ: tiene id_salida_manual · NO: una salida de la pantalla vieja (esas siguen como ajuste)
+  if (!datos && fila.id_salida_manual) {
+    datos = { clave: 'salida-manual-' + fila.id_salida_manual, origen: 'salida_manual', tipo: 'salida', numero: null };
+  }
+  if (!datos) datos = { clave: 'ajuste-insumo-' + fila.id, origen: 'ajuste', tipo: fila.tipo === 'entrada' ? 'entrada' : 'salida', numero: null };
+
+  return datos;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // armarMovimientos → junta los renglones de las dos libretas en MOVIMIENTOS (una fila por cosa que pasó)
 // ENTRADA: filasViandas (renglones de movimientos_viandas) y filasStock (renglones de movimientos_stock),
 //          con sus datos unidos (plato, insumo, usuario, compra, pedido, pedido a cocina)
 // SALIDA:  [{ clave, origen, tipo, fecha, numero, usuario, proveedor, motivo, cliente, pidio, insumos, viandas }],
 //          del más nuevo al más viejo
-//            origen  = 'compra' · 'produccion' · 'venta' · 'devolucion' · 'descarte' · 'cocina' · 'ajuste'
+//            origen  = 'compra' · 'produccion' · 'venta' · 'devolucion' · 'descarte' · 'cocina' · 'salida_manual' · 'ajuste'
 //            tipo    = 'entrada' o 'salida'
 //            numero  = el de la compra, el pedido a cocina o el pedido (null si no tiene)
 //            insumos = [{ nombre, cantidad, unidad, vence }] · viandas = [{ plato, cantidad }]
@@ -3372,6 +3434,7 @@ async function traerTodasLasFilas(tabla, columnas, desdeISO, hastaISO) {
 //   compra → id_compra · produccion → el renglón de viandas (los insumos lo traen en id_movimiento_vianda)
 //   venta y devolucion → el pedido (todos sus renglones se guardan juntos, con la misma hora)
 //   cocina → id_pedido, o el motivo EXACTO "Consumo por producción pedido #005" (los renglones viejos y los de Render)
+//   salida_manual → id_salida_manual (todos los insumos de una salida juntos, en una fila)
 //   descarte y ajuste → uno por renglón
 // La usa GET /api/movimientos.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3432,19 +3495,8 @@ function armarMovimientos(filasViandas, filasStock) {
 
   // 2. LOS INSUMOS (movimientos_stock): compra, producción (se suman a su renglón de viandas), cocina y ajuste
   filasStock.forEach(fila => {                                    // por cada renglón de insumos...
-    // a. ¿Es lo que gastó la cocina en un pedido? Los nuevos tienen id_pedido; los viejos, el motivo EXACTO.
-    //    exec busca el texto: ^ y $ = tiene que ser el motivo entero; (\d+) = el número. Ej: '…pedido #005' → ['…', '005']
-    const motivoDePedido = /^Consumo por producción pedido #(\d+)$/.exec(fila.motivo || '');
-    const pedidoDelMotivo = motivoDePedido ? Number(motivoDePedido[1]) : null;  // '005' → 5 (null si no es de un pedido)
-    const idPedido = fila.id_pedido || pedidoDelMotivo;           // primero id_pedido; si no, el del motivo
-
-    // b. A qué movimiento pertenece: se elige el primero que corresponde, en este orden
-    //    (compra, después "Hecho", después pedido; si no es ninguno, lo cargado a mano es un ajuste)
-    let datos = null;
-    if (fila.id_compra) datos = { clave: 'compra-' + fila.id_compra, origen: 'compra', tipo: 'entrada', numero: fila.id_compra };
-    if (!datos && fila.id_movimiento_vianda) datos = { clave: 'produccion-' + fila.id_movimiento_vianda, origen: 'produccion', tipo: 'entrada', numero: null };
-    if (!datos && idPedido) datos = { clave: 'cocina-' + idPedido + '-' + fila.fecha, origen: 'cocina', tipo: 'salida', numero: idPedido };
-    if (!datos) datos = { clave: 'ajuste-insumo-' + fila.id, origen: 'ajuste', tipo: fila.tipo === 'entrada' ? 'entrada' : 'salida', numero: null };
+    // a. y b. A qué movimiento pertenece (compra, "Hecho", pedido, salida manual o ajuste)
+    const datos = origenDeRenglonStock(fila);
 
     // c. Si es el primer renglón de su movimiento, se crea (en producción ya lo creó el paso 1)
     const esNuevo = !movimientoPorClave[datos.clave];
@@ -3530,7 +3582,7 @@ app.get('/api/movimientos', requireAuth, requireRol(6, 5, 1), async (req, res) =
 
     // 4. Los insumos, con su nombre y unidad, quién, y el proveedor (compras)
     const stock = await traerTodasLasFilas('movimientos_stock',
-      'id, tipo, cantidad, unidad, motivo, fecha, fecha_vencimiento, id_compra, id_movimiento_vianda, id_pedido, ' +
+      'id, tipo, cantidad, unidad, motivo, fecha, fecha_vencimiento, id_compra, id_movimiento_vianda, id_pedido, id_salida_manual, ' +
       'insumos ( nombre, unidad_medida ), usuarios ( nombre, apellido ), compras ( proveedor )',
       desdeISO, hastaISO);
     if (stock.error) return errorInterno(res, stock.error);
@@ -3538,6 +3590,396 @@ app.get('/api/movimientos', requireAuth, requireRol(6, 5, 1), async (req, res) =
 
     // 5. Se juntan en movimientos (una fila por cosa que pasó) y se mandan
     res.json(armarMovimientos(viandas.filas, stock.filas));
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+/* ======================================================
+   API COMPRAS: LO QUE LEE LA PANTALLA COMPRAS (pages/compras.html)
+   Las tres rutas solo leen. Todas las cantidades van en la unidad del insumo (g, ml o u).
+   Guardar una compra sigue siendo POST /api/compras (más arriba).
+   ====================================================== */
+
+const MAXIMO_DIAS_PERIODO = 62;                                   // el período más largo que se puede pedir (contando los dos extremos)
+const MILISEGUNDOS_POR_DIA = 86400000;                            // 24 × 60 × 60 × 1000
+const MENSAJE_DEMASIADOS_RENGLONES = 'Hay demasiados movimientos en esas fechas: elegí menos días';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// leerPeriodo → revisa las fechas de la dirección y las pasa a horas de Argentina
+// ENTRADA: consulta (req.query): { desde: 'AAAA-MM-DD', hasta: 'AAAA-MM-DD' }, las dos obligatorias
+// SALIDA:  { desdeISO, hastaISO } · { error: 'mensaje' } si algo está mal (la ruta responde 400)
+// Ej: { desde: '2026-11-02', hasta: '2026-11-08' } → { desdeISO: '2026-11-02T00:00:00-03:00', hastaISO: '2026-11-09T00:00:00-03:00' }
+//     { desde: '2026-02-30', hasta: '2026-03-01' } → { error: 'Las fechas son inválidas' } (el 30 de febrero no existe)
+//     { desde: '2026-09-01', hasta: '2026-11-30' } → { error: 'El período puede tener hasta 62 días' } (son 91)
+// La usan las tres rutas de la pantalla Compras. Lee y frena: así un pedido de años no hace trabajar a la base.
+// ─────────────────────────────────────────────────────────────────────────────
+function leerPeriodo(consulta) {
+  const desde = leerFechaPara(consulta.desde);                    // 'AAAA-MM-DD' que exista de verdad, o null
+  const hasta = leerFechaPara(consulta.hasta);
+
+  // 1. Las dos fechas tienen que servir. Fuera de 2000 a 2099 no hay nada guardado (y el año 0000 la base ni lo acepta)
+  //    En AAAA-MM-DD, el texto menor es el día más viejo: se comparan directo. Ej: '2026-11-02' < '2026-11-08'
+  const fechaMala = desde === null || hasta === null || desde < '2000-01-01' || hasta > '2099-12-31';
+  // ¿alguna no sirve? SÍ: vacía o '2026-02-30' · NO: '2026-11-02'
+  if (fechaMala) {
+    return { error: 'Las fechas son inválidas' };
+  }
+  // ¿están al revés? SÍ: desde 08/11 y hasta 02/11 · NO: desde 02/11 y hasta 08/11
+  if (desde > hasta) {
+    return { error: 'La fecha "desde" no puede ser mayor que "hasta"' };
+  }
+
+  // 2. Cuántos días son, contando los dos extremos. Ej: del 02/11 al 08/11 → 6 de diferencia + 1 = 7
+  const horaDesde = new Date(desde + 'T00:00:00Z').getTime();     // el día como número (milisegundos)
+  const horaHasta = new Date(hasta + 'T00:00:00Z').getTime();
+  const dias = (horaHasta - horaDesde) / MILISEGUNDOS_POR_DIA + 1;
+  // ¿son demasiados? SÍ: 63 días · NO: un mes de 31
+  if (dias > MAXIMO_DIAS_PERIODO) {
+    return { error: 'El período puede tener hasta ' + MAXIMO_DIAS_PERIODO + ' días' };
+  }
+
+  // 3. Desde las 00:00 de "desde" hasta antes de las 00:00 del día después de "hasta" (en Argentina)
+  const diaSiguiente = new Date(horaHasta + MILISEGUNDOS_POR_DIA).toISOString().slice(0, 10);  // ej: '2026-11-09'
+  return {
+    desdeISO: desde + 'T00:00:00' + OFFSET_ARGENTINA,             // ej: '2026-11-02T00:00:00-03:00'
+    hastaISO: diaSiguiente + 'T00:00:00' + OFFSET_ARGENTINA       // ej: '2026-11-09T00:00:00-03:00'
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// cantidadEnUnidadDelInsumo → la cantidad de un renglón de movimientos_stock, en la unidad del insumo
+// ENTRADA: fila ({ cantidad, unidad }; unidad puede venir vacía) y unidadDelInsumo (ej: 'g')
+// SALIDA:  el número. Si las unidades son de distinta familia, queda como está (igual que la carga de lotes)
+// Ej: { cantidad: 2, unidad: 'kg' }, 'g' → 2000 · { cantidad: 2000, unidad: 'g' }, 'g' → 2000 · { cantidad: 5, unidad: null }, 'u' → 5
+// Por qué hace falta: el servidor de Render guarda la salida como se escribió (2 y kg), no en la unidad del insumo.
+// La usan GET /api/compras/resumen (Gasté) y GET /api/compras/gastos/:idInsumo: con la misma cuenta, el total da igual que Gasté.
+// ─────────────────────────────────────────────────────────────────────────────
+function cantidadEnUnidadDelInsumo(fila, unidadDelInsumo) {
+  const conversion = convertirACantidadBase(fila.cantidad, fila.unidad, unidadDelInsumo);
+  // ¿no se puede convertir? SÍ: kg en un insumo en ml · NO: kg en un insumo en g
+  if (conversion.error) {
+    return Number(fila.cantidad);
+  }
+  return conversion.cantidadBase;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/compras/resumen → las filas de la tabla de la pantalla Compras: una por insumo con compras o gastos
+// ENTRADA: ?desde=AAAA-MM-DD&hasta=AAAA-MM-DD (obligatorias, días de Argentina, hasta 62)
+// SALIDA:  [{ id_insumo, nombre, unidad, id_categoria, categoria, activo, compre, gaste, hoy_tenes, comprar, te_alcanza, gasto_de_mas }],
+//          por nombre · 400 si las fechas están mal o hay demasiados renglones · 500
+//            compre       = lotes que entraron por una compra (cantidad_inicial)
+//            gaste        = salidas de movimientos_stock, cada una en la unidad del insumo
+//            comprar      = gaste − hoy_tenes (0 y te_alcanza: true si da 0 o menos)
+//            gasto_de_mas = gaste − compre (0 si gastó menos o lo mismo)
+// Ej: carne en g, compré 20 kg, gasté 15 kg y tengo 8 kg →
+//     { nombre: 'Carne', unidad: 'g', compre: 20000, gaste: 15000, hoy_tenes: 8000, comprar: 7000, te_alcanza: false, gasto_de_mas: 0 }
+// Sin forEach anidado: tres objetos { id del insumo: valor } y cada lista se recorre una sola vez.
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/compras/resumen', requireAuth, requireRol(...ROLES_COMPRAS), async (req, res) => {
+  // 1. El período
+  const periodo = leerPeriodo(req.query);
+  // ¿las fechas están mal? SÍ: '2026-02-30' · NO: '2026-11-02'
+  if (periodo.error) {
+    return res.status(400).json({ error: periodo.error });
+  }
+
+  try {
+    // 2. Lo que hace falta: los lotes de compra, las salidas y los insumos (por nombre)
+    const lotes = await traerTodasLasFilas('lotes_insumo', 'id, id_insumo, cantidad_inicial',
+      periodo.desdeISO, periodo.hastaISO, { origen: 'compra' });
+    const salidas = await traerTodasLasFilas('movimientos_stock', 'id, id_insumo, cantidad, unidad',
+      periodo.desdeISO, periodo.hastaISO, { tipo: 'salida' });
+    const consultaInsumos = await supabase
+      .from('insumos')
+      .select('id, nombre, stock_actual, unidad_medida, activo, id_categoria_insumo, categorias_insumos ( nombre )')
+      .order('nombre', { ascending: true });
+
+    const errorDeBase = [lotes.error, salidas.error, consultaInsumos.error].find(error => error);  // find = el primero que haya
+    // ¿falló alguna consulta? SÍ: se cortó la base · NO: vinieron las tres
+    if (errorDeBase) {
+      return errorInterno(res, errorDeBase);
+    }
+    const hayDemasiados = lotes.demasiadas || salidas.demasiadas;
+    // ¿pasó el tope de renglones? SÍ: más de 20.000 · NO: lo normal
+    if (hayDemasiados) {
+      return res.status(400).json({ error: MENSAJE_DEMASIADOS_RENGLONES });
+    }
+    const insumos = consultaInsumos.data;
+
+    // 3. Tres objetos { id del insumo: valor }. Ej: compradoPorInsumo = { 7: 0 } · unidadPorInsumo = { 7: 'g' }
+    const compradoPorInsumo = {};
+    const gastadoPorInsumo = {};
+    const unidadPorInsumo = {};
+    insumos.forEach(insumo => {
+      compradoPorInsumo[insumo.id] = 0;
+      gastadoPorInsumo[insumo.id] = 0;
+      unidadPorInsumo[insumo.id] = insumo.unidad_medida;
+    });
+
+    // 4. Cada lote se suma a su insumo (ya está en la unidad del insumo). Ej: 12000 + 8000 → { 7: 20000 }
+    lotes.filas.forEach(lote => {
+      compradoPorInsumo[lote.id_insumo] = compradoPorInsumo[lote.id_insumo] + Number(lote.cantidad_inicial);
+    });
+
+    // 5. Cada salida se pasa a la unidad del insumo y se suma. Ej: 2 kg + 2000 g → { 7: 4000 }
+    salidas.filas.forEach(fila => {
+      gastadoPorInsumo[fila.id_insumo] = gastadoPorInsumo[fila.id_insumo] + cantidadEnUnidadDelInsumo(fila, unidadPorInsumo[fila.id_insumo]);
+    });
+
+    // 6. Solo los insumos con compras o gastos en el período
+    const conMovimientos = insumos.filter(insumo => {
+      return compradoPorInsumo[insumo.id] > 0 || gastadoPorInsumo[insumo.id] > 0;
+    });
+
+    // 7. La fila de cada uno. Se redondea a 3 decimales: en JavaScript, 0.1 + 0.2 da 0.30000000000000004
+    const filas = conMovimientos.map(insumo => {
+      const compre = Math.round(compradoPorInsumo[insumo.id] * 1000) / 1000;
+      const gaste = Math.round(gastadoPorInsumo[insumo.id] * 1000) / 1000;
+      const hoyTenes = Number(insumo.stock_actual);               // vacío cuenta como 0. Puede ser negativo (ej: "cociné igual")
+
+      let comprar = Math.round((gaste - hoyTenes) * 1000) / 1000;
+      let teAlcanza = false;
+      // ¿ya alcanza? SÍ: gasté 5 kg y tengo 8 kg · NO: gasté 15 kg y tengo 8 kg
+      if (comprar <= 0) {
+        comprar = 0;
+        teAlcanza = true;
+      }
+
+      let gastoDeMas = 0;
+      // ¿gastó más de lo que compró? SÍ: compré 4 kg y gasté 4,5 kg · NO: compré 20 kg y gasté 15 kg
+      if (gaste > compre) {
+        gastoDeMas = Math.round((gaste - compre) * 1000) / 1000;
+      }
+
+      let categoria = null;
+      // ¿tiene categoría? SÍ: Carnicería · NO: un insumo sin categoría
+      if (insumo.categorias_insumos) {
+        categoria = insumo.categorias_insumos.nombre;
+      }
+
+      return {
+        id_insumo:    insumo.id,
+        nombre:       insumo.nombre,
+        unidad:       insumo.unidad_medida,
+        id_categoria: insumo.id_categoria_insumo,
+        categoria:    categoria,
+        activo:       insumo.activo,                              // un desactivado se ve, pero no se puede comprar
+        compre:       compre,
+        gaste:        gaste,
+        hoy_tenes:    hoyTenes,
+        comprar:      comprar,
+        te_alcanza:   teAlcanza,
+        gasto_de_mas: gastoDeMas
+      };
+    });
+
+    res.json(filas);
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/compras → las compras del período, para el panel "Compras hechas"
+// ENTRADA: ?desde=AAAA-MM-DD&hasta=AAAA-MM-DD (obligatorias, días de Argentina, hasta 62)
+// SALIDA:  la lista de armarMovimientos, de la más nueva a la más vieja: el MISMO objeto que trae GET /api/movimientos,
+//          así el modal de Detalle lo muestra sin cambios · 400 si las fechas están mal o hay demasiados renglones · 500
+// Ej: [{ clave: 'compra-15', origen: 'compra', tipo: 'entrada', fecha: '…', numero: 15, usuario: 'Ana López', proveedor: 'Molino Juan',
+//        insumos: [{ nombre: 'Harina', cantidad: 2000, unidad: 'g', vence: '2026-12-31' }], viandas: [], … }]
+// La fecha y la hora salen de movimientos_stock: compras.fecha guarda solo el día.
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/compras', requireAuth, requireRol(...ROLES_COMPRAS), async (req, res) => {
+  // 1. El período
+  const periodo = leerPeriodo(req.query);
+  // ¿las fechas están mal? SÍ: '2026-02-30' · NO: '2026-11-02'
+  if (periodo.error) {
+    return res.status(400).json({ error: periodo.error });
+  }
+
+  try {
+    // 2. Las entradas del período, con su insumo, quién y el proveedor
+    const entradas = await traerTodasLasFilas('movimientos_stock',
+      'id, tipo, cantidad, unidad, motivo, fecha, fecha_vencimiento, id_compra, ' +
+      'insumos ( nombre, unidad_medida ), usuarios ( nombre, apellido ), compras ( proveedor )',
+      periodo.desdeISO, periodo.hastaISO, { tipo: 'entrada' });
+    // ¿falló la base? SÍ: se cortó · NO: vinieron los renglones
+    if (entradas.error) {
+      return errorInterno(res, entradas.error);
+    }
+    // ¿pasó el tope de renglones? SÍ: más de 20.000 · NO: lo normal
+    if (entradas.demasiadas) {
+      return res.status(400).json({ error: MENSAJE_DEMASIADOS_RENGLONES });
+    }
+
+    // 3. Solo las de una compra (una entrada suelta no tiene id_compra). armarMovimientos junta los renglones de cada compra
+    const deCompras = entradas.filas.filter(fila => fila.id_compra);
+    res.json(armarMovimientos([], deCompras));
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/compras/gastos/:idInsumo → en qué se gastó un insumo en el período, para su panel
+// ENTRADA: el id en la dirección (entero, mayor a 0) y ?desde=AAAA-MM-DD&hasta=AAAA-MM-DD (obligatorias, hasta 62 días)
+// SALIDA:  { insumo: { id, nombre, unidad }, total, totales: { produccion, cocina, salida_manual, ajuste }, salidas }
+//          · 400 si el id o las fechas están mal, o si hay demasiados renglones · 404 si el insumo no existe · 500
+//            total = el mismo número que "gaste" en GET /api/compras/resumen
+//            salidas = una por renglón, de la más nueva a la más vieja:
+//              { origen, numero, fecha, usuario, motivo, viandas, plato, cliente, personalizado, cantidad }
+//            OJO con los nombres: 'produccion' es un Hecho de un pedido a cocina; 'cocina' es un pedido de cliente personalizado
+// Ej: carne → { insumo: { id: 7, nombre: 'Carne', unidad: 'g' }, total: 15000,
+//               totales: { produccion: 9000, cocina: 2000, salida_manual: 4000, ajuste: 0 },
+//               salidas: [{ origen: 'salida_manual', motivo: 'Vencido', usuario: 'Ana López', cantidad: 4000, … },
+//                         { origen: 'cocina', numero: 119, cliente: 'Laura R.', personalizado: 'sin sal', cantidad: 1500, … },
+//                         { origen: 'produccion', numero: 9, usuario: 'Marta', viandas: 20, plato: 'Albóndigas', cantidad: 6000, … }, …] }
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/compras/gastos/:idInsumo', requireAuth, requireRol(...ROLES_COMPRAS), async (req, res) => {
+  // 1. El insumo de la dirección: entero, mayor a 0 y que entre en la base
+  const idInsumo = Number(req.params.idInsumo);                   // Number: "12abc" no pasa
+  const idInvalido = !Number.isInteger(idInsumo) || idInsumo <= 0 || idInsumo > ENTERO_MAXIMO_BASE;
+  // ¿no es un id? SÍ: 'abc' o 0 · NO: 7
+  if (idInvalido) {
+    return res.status(400).json({ error: 'Insumo inválido' });
+  }
+
+  // 2. El período
+  const periodo = leerPeriodo(req.query);
+  // ¿las fechas están mal? SÍ: '2026-02-30' · NO: '2026-11-02'
+  if (periodo.error) {
+    return res.status(400).json({ error: periodo.error });
+  }
+
+  try {
+    // 3. El insumo y sus salidas del período. De un Hecho vienen también sus viandas, su plato y su pedido a cocina
+    const consultaInsumo = await supabase
+      .from('insumos')
+      .select('id, nombre, unidad_medida')
+      .eq('id', idInsumo)
+      .maybeSingle();                                             // maybeSingle = uno o ninguno
+    const renglones = await traerTodasLasFilas('movimientos_stock',
+      'id, tipo, cantidad, unidad, motivo, fecha, id_compra, id_movimiento_vianda, id_pedido, id_salida_manual, ' +
+      'usuarios ( nombre, apellido ), ' +
+      'movimientos_viandas ( cantidad, productos ( nombre ), orden_produccion_detalles ( id_orden_produccion ) )',
+      periodo.desdeISO, periodo.hastaISO, { tipo: 'salida', id_insumo: idInsumo });
+
+    const errorDeBase = [consultaInsumo.error, renglones.error].find(error => error);  // find = el primero que haya
+    // ¿falló alguna consulta? SÍ: se cortó la base · NO: vinieron las dos
+    if (errorDeBase) {
+      return errorInterno(res, errorDeBase);
+    }
+    const insumo = consultaInsumo.data;
+    // ¿el insumo no existe? SÍ: id 999 · NO: id 7
+    if (!insumo) {
+      return res.status(404).json({ error: 'El insumo no existe' });
+    }
+    // ¿pasó el tope de renglones? SÍ: más de 20.000 · NO: lo normal
+    if (renglones.demasiadas) {
+      return res.status(400).json({ error: MENSAJE_DEMASIADOS_RENGLONES });
+    }
+
+    // 4. Una salida por renglón, y de paso se va sumando el total y el total por origen
+    let total = 0;
+    const totales = { produccion: 0, cocina: 0, salida_manual: 0, ajuste: 0 };
+    const salidas = renglones.filas.map(fila => {
+      const datos = origenDeRenglonStock(fila);                   // el mismo criterio que Movimientos de Stock
+      const cantidad = cantidadEnUnidadDelInsumo(fila, insumo.unidad_medida);
+      total = total + cantidad;
+      totales[datos.origen] = totales[datos.origen] + cantidad;
+
+      // Lo del Hecho: el pedido a cocina, las viandas y el plato. Una tanda vieja no tiene pedido a cocina: queda sin número
+      let viandas = null;
+      let plato = null;
+      let detallesDelHecho = [];
+      const hecho = fila.movimientos_viandas;
+      // ¿salió de un Hecho? SÍ: tiene id_movimiento_vianda · NO: una salida manual
+      if (hecho) {
+        viandas = Number(hecho.cantidad);
+        plato = hecho.productos.nombre;
+        detallesDelHecho = hecho.orden_produccion_detalles;
+      }
+      let numero = datos.numero;
+      // ¿tiene pedido a cocina? SÍ: el #9 · NO: una tanda vieja, o no salió de un Hecho
+      if (detallesDelHecho.length > 0) {
+        numero = detallesDelHecho[0].id_orden_produccion;
+      }
+
+      return {
+        origen:        datos.origen,
+        numero:        numero,
+        fecha:         fila.fecha,
+        usuario:       nombreDeUsuario(fila.usuarios),            // quién marcó Hecho, o quién registró la salida
+        motivo:        fila.motivo,
+        viandas:       viandas,
+        plato:         plato,
+        cliente:       null,                                      // solo los pedidos de cliente (paso 7)
+        personalizado: '',                                        // solo los pedidos de cliente (paso 7)
+        cantidad:      Math.round(cantidad * 1000) / 1000         // en JavaScript, 1.1 × 1000 da 1100.0000000000002
+      };
+    });
+
+    // 5. Los pedidos de cliente de estas salidas: su cliente, sus textos ("sin sal") y qué platos usan este insumo.
+    //    Un motivo viejo puede traer un número que no entra en la base: ese no se busca.
+    const deClientes = salidas.filter(salida => salida.origen === 'cocina');
+    const idsPedidos = deClientes.map(salida => salida.numero).filter(id => id <= ENTERO_MAXIMO_BASE);
+    const consultaClientes = await supabase.from('pedidos').select('id, cliente_nombre').in('id', idsPedidos);
+    const consultaPlatos = await supabase.from('pedido_detalles')
+      .select('id_pedido, id_producto, cantidad, cantidad_de_heladera, observaciones_plato')
+      .in('id_pedido', idsPedidos);
+    const consultaReceta = await supabase.from('producto_insumo').select('id_producto').eq('id_insumo', idInsumo);
+
+    const errorDePedidos = [consultaClientes.error, consultaPlatos.error, consultaReceta.error].find(error => error);
+    // ¿falló alguna consulta? SÍ: se cortó la base · NO: vinieron las tres
+    if (errorDePedidos) {
+      return errorInterno(res, errorDePedidos);
+    }
+
+    // 6. Tres objetos, para no recorrer una lista adentro de otra.
+    //    Ej: clientePorPedido = { 119: 'Laura R.' } · platoUsaElInsumo = { 5: true } · textosPorPedido = { 119: ['sin sal'] }
+    const clientePorPedido = {};
+    const textosPorPedido = {};
+    deClientes.forEach(salida => {
+      clientePorPedido[salida.numero] = null;                     // si el pedido no aparece, queda sin cliente
+      textosPorPedido[salida.numero] = [];
+    });
+    consultaClientes.data.forEach(pedido => {
+      clientePorPedido[pedido.id] = pedido.cliente_nombre;
+    });
+    const platoUsaElInsumo = {};
+    consultaReceta.data.forEach(renglonReceta => {
+      platoUsaElInsumo[renglonReceta.id_producto] = true;
+    });
+    consultaPlatos.data.forEach(detalle => {
+      const lista = textosPorPedido[detalle.id_pedido];
+      const aCocinar = Number(detalle.cantidad) - Number(detalle.cantidad_de_heladera);  // vacío cuenta como 0
+      const tieneTextoNuevo = aCocinar > 0 && platoUsaElInsumo[detalle.id_producto] === true
+        && Boolean(detalle.observaciones_plato) && !lista.includes(detalle.observaciones_plato);
+      // ¿es un texto para agregar? SÍ: "sin sal" en un plato con esta carne · NO: un plato de heladera o que no la usa
+      if (tieneTextoNuevo) {
+        lista.push(detalle.observaciones_plato);
+      }
+    });
+
+    // 7. Se completan las salidas de clientes. Ej: pedido 119 → cliente 'Laura R.' y personalizado 'sin sal'
+    deClientes.forEach(salida => {
+      salida.cliente = clientePorPedido[salida.numero];
+      salida.personalizado = textosPorPedido[salida.numero].join(', ');  // join une los textos. Ej: ['sin sal', 'sin ajo'] → 'sin sal, sin ajo'
+    });
+
+    // 8. Se manda, con los totales redondeados a 3 decimales
+    res.json({
+      insumo: { id: insumo.id, nombre: insumo.nombre, unidad: insumo.unidad_medida },
+      total: Math.round(total * 1000) / 1000,
+      totales: {
+        produccion:    Math.round(totales.produccion * 1000) / 1000,
+        cocina:        Math.round(totales.cocina * 1000) / 1000,
+        salida_manual: Math.round(totales.salida_manual * 1000) / 1000,
+        ajuste:        Math.round(totales.ajuste * 1000) / 1000
+      },
+      salidas: salidas
+    });
   } catch (e) {
     errorInterno(res, e);
   }
@@ -3944,6 +4386,372 @@ app.put('/api/planes/:id/abreviatura', requireAuth, requireRol(6, 5), async (req
     errorInterno(res, e);
   }
 });
+
+/* ======================================================
+   API PLANES Y CATEGORÍAS (pantalla "Planes y categorías": pages/planesCategorias.html)
+   Mismos roles que Combos y Generar Receta (6, 5). Nada se borra: se desactiva.
+   Cada ruta escribe en UNA sola tabla con UNA sola instrucción: no hace falta una función de la base.
+   Regla: un plan activo nunca queda en una categoría desactivada. Así, lo desactivado no sale en la web
+   y tampoco se puede comprar: una categoría desactivada no tiene planes activos, y por eso tampoco combos a la venta.
+   La abreviatura de un plan que ya existe se cambia en "Abreviaturas de los planes" (también cambia el código de sus platos).
+   Funciones de ayuda: leerNombreCatalogo, leerFraseCatalogo, nombreYaUsado, leerCategoriaElegida y subirFotoCatalogo.
+   ====================================================== */
+
+const LARGO_MAXIMO_NOMBRE_CATALOGO = 100;   // el nombre de un plan o una categoría
+const LARGO_MAXIMO_FRASE_CATALOGO  = 200;   // la frase corta de la tarjeta
+
+// leerNombreCatalogo → controla un nombre
+// ENTRADA: lo que vino en el body
+// SALIDA:  el nombre sin espacios en las puntas, o null si no sirve (no es texto, está vacío o es muy largo)
+// Ej: '  Keto ' → 'Keto' · '' → null · 12 → null
+function leerNombreCatalogo(valor) {
+  if (typeof valor !== 'string') return null;
+  const nombre = valor.trim();
+  const nombreValido = nombre !== '' && nombre.length <= LARGO_MAXIMO_NOMBRE_CATALOGO;
+  return nombreValido ? nombre : null;
+}
+
+// leerFraseCatalogo → controla la frase de la tarjeta (es opcional, pero hay que mandarla: null = sin frase)
+// ENTRADA: lo que vino en el body
+// SALIDA:  { frase: texto o null } · o { error } si no sirve
+// Ej: ' Para la semana ' → { frase: 'Para la semana' } · '' → { frase: null } · sin mandar → { error }
+function leerFraseCatalogo(valor) {
+  if (valor === null) return { frase: null };
+  if (typeof valor !== 'string') return { error: 'La frase tiene que ser un texto' };
+  const frase = valor.trim();
+  if (frase.length > LARGO_MAXIMO_FRASE_CATALOGO) return { error: `La frase admite hasta ${LARGO_MAXIMO_FRASE_CATALOGO} caracteres` };
+  return { frase: frase || null };
+}
+
+// nombreYaUsado → mira si otro plan u otra categoría ya tiene ese nombre (sin importar mayúsculas)
+// ENTRADA: tabla ('planes' o 'categorias', la escribe cada ruta), el nombre y el id propio (null al crear)
+// SALIDA:  true o false. Si falla la base, lanza el error (lo atrapa el try de la ruta)
+// Ej: 'keto' con un plan 4 llamado 'KETO': al crear → true · al editar el plan 4 → false
+async function nombreYaUsado(tabla, nombre, idPropio) {
+  const { data, error } = await supabase.from(tabla).select('id, nombre');
+  if (error) throw error;
+  const buscado = nombre.toLowerCase();
+  // some responde true si AL MENOS UNA fila cumple. Ej: [{ id: 4, nombre: 'KETO' }] y 'keto' → true
+  return (data || []).some(fila => fila.id !== idPropio && String(fila.nombre).toLowerCase() === buscado);
+}
+
+// leerCategoriaElegida → controla la categoría de un plan: null ("Sin categoría") o una que exista y esté activa
+// ENTRADA: lo que vino en el body (un número de verdad, o null)
+// SALIDA:  { idCategoria: número o null } · o { error } si no sirve. Si falla la base, lanza el error
+// Ej: null → { idCategoria: null } · 3 (activa) → { idCategoria: 3 } · 3 (desactivada), '3' o sin mandar → { error }
+async function leerCategoriaElegida(valor) {
+  if (valor === null) return { idCategoria: null };
+  const numeroValido = Number.isInteger(valor) && valor > 0 && valor <= ENTERO_MAXIMO_BASE;
+  if (!numeroValido) return { error: 'Elegí una categoría o "Sin categoría"' };
+
+  const { data: categoria, error } = await supabase
+    .from('categorias')
+    .select('id, activo')
+    .eq('id', valor)
+    .maybeSingle();
+  if (error) throw error;
+  if (!categoria || !categoria.activo) return { error: 'La categoría elegida no existe o está desactivada' };
+  return { idCategoria: valor };
+}
+
+// subirFotoCatalogo → sube la foto de un plan o una categoría y guarda su dirección (como la foto de un plato)
+// ENTRADA: req y res de la ruta, la tabla y la carpeta del Storage (las escribe cada ruta).
+//          En el body: { imagen_base64, tipo }. Formatos: JPG, PNG o WebP, hasta 2 MB.
+// SALIDA:  responde { mensaje, imagen } · 400 dato inválido · 404 no existe · 500
+// Ej: plan 2 con un JPG → sube planes/2.jpg y guarda su dirección en planes.imagen
+async function subirFotoCatalogo(req, res, tabla, carpeta) {
+  const id = leerIdPlan(req.params.id);   // leerIdPlan sirve para cualquier número de la dirección: entero, mayor a 0 y que entre en la base
+  if (id === null) return res.status(400).json({ error: 'Número inválido' });
+
+  const { imagen_base64, tipo } = req.body || {};
+  const extension = EXTENSIONES_IMAGEN[tipo];   // solo los formatos de la lista: de acá sale la extensión del archivo
+  if (typeof imagen_base64 !== 'string' || imagen_base64 === '') return res.status(400).json({ error: 'Falta la imagen' });
+  if (!extension) return res.status(400).json({ error: 'Formato de imagen no soportado. Usá JPG, PNG o WebP.' });
+
+  try {
+    const buffer = Buffer.from(imagen_base64, 'base64');
+    if (buffer.length > TAMANIO_MAX_IMAGEN) return res.status(400).json({ error: 'La imagen supera el tamaño máximo permitido (2MB).' });
+
+    // Tiene que existir antes de subir nada
+    const { data: existente, error: errorBusqueda } = await supabase.from(tabla).select('id').eq('id', id).maybeSingle();
+    if (errorBusqueda) return errorInterno(res, errorBusqueda);
+    if (!existente) return res.status(404).json({ error: 'No se encontró' });
+
+    // La misma dirección para cada uno: al subir otra foto del mismo tipo, se reemplaza la anterior
+    const rutaArchivo = `${carpeta}/${id}.${extension}`;
+    const { error: errorSubida } = await supabase.storage
+      .from(BUCKET_IMAGENES_PRODUCTOS)
+      .upload(rutaArchivo, buffer, { contentType: tipo, upsert: true });
+    if (errorSubida) return errorInterno(res, errorSubida);
+
+    // ?v=…: si la foto se reemplaza, el navegador no sigue mostrando la vieja
+    const { data: publica } = supabase.storage.from(BUCKET_IMAGENES_PRODUCTOS).getPublicUrl(rutaArchivo);
+    const imagen = `${publica.publicUrl}?v=${Date.now()}`;
+
+    const { error: errorGuardar } = await supabase.from(tabla).update({ imagen }).eq('id', id);
+    if (errorGuardar) return errorInterno(res, errorGuardar);
+
+    res.json({ mensaje: 'Foto guardada', imagen });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+}
+
+// GET /api/categorias → todas las categorías (activas y desactivadas) para la pantalla del panel
+// SALIDA: [{ id, nombre, imagen, descripcion, activo }]
+app.get('/api/categorias', requireAuth, requireRol(6, 5), async (req, res) => {
+  const { data, error } = await supabase
+    .from('categorias')
+    .select('id, nombre, imagen, descripcion, activo')
+    .order('id', { ascending: true });
+  if (error) return errorInterno(res, error);
+  res.json(data || []);
+});
+
+// POST /api/categorias → crea una categoría activa
+// ENTRADA: { nombre, descripcion } (descripcion puede ser null)
+// SALIDA:  { mensaje, categoria } · 400 dato inválido · 409 nombre repetido · 500
+// Ej: { nombre: 'Veggie', descripcion: null } → { mensaje: 'Categoría creada', categoria: { id: 6, … } }
+app.post('/api/categorias', requireAuth, requireRol(6, 5), async (req, res) => {
+  const nombre = leerNombreCatalogo(req.body?.nombre);   // ?. = "si vino body, su nombre"
+  if (nombre === null) return res.status(400).json({ error: `Escribí un nombre de hasta ${LARGO_MAXIMO_NOMBRE_CATALOGO} caracteres` });
+  const lecturaFrase = leerFraseCatalogo(req.body.descripcion);
+  if (lecturaFrase.error) return res.status(400).json({ error: lecturaFrase.error });
+
+  try {
+    if (await nombreYaUsado('categorias', nombre, null)) return res.status(409).json({ error: 'Ya hay una categoría con ese nombre' });
+
+    const { data, error } = await supabase
+      .from('categorias')
+      .insert({ nombre, descripcion: lecturaFrase.frase, activo: true })
+      .select('id, nombre, imagen, descripcion, activo')
+      .single();
+    if (error) return errorInterno(res, error);
+    res.json({ mensaje: 'Categoría creada', categoria: data });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// PUT /api/categorias/:id → edita el nombre y la frase de una categoría
+// ENTRADA: el número en la dirección y { nombre, descripcion }
+// SALIDA:  { mensaje, categoria } · 400 dato inválido · 404 no existe · 409 nombre repetido · 500
+app.put('/api/categorias/:id', requireAuth, requireRol(6, 5), async (req, res) => {
+  const idCategoria = leerIdPlan(req.params.id);   // la misma regla para cualquier número de la dirección
+  if (idCategoria === null) return res.status(400).json({ error: 'Categoría inválida' });
+  const nombre = leerNombreCatalogo(req.body?.nombre);
+  if (nombre === null) return res.status(400).json({ error: `Escribí un nombre de hasta ${LARGO_MAXIMO_NOMBRE_CATALOGO} caracteres` });
+  const lecturaFrase = leerFraseCatalogo(req.body.descripcion);
+  if (lecturaFrase.error) return res.status(400).json({ error: lecturaFrase.error });
+
+  try {
+    if (await nombreYaUsado('categorias', nombre, idCategoria)) return res.status(409).json({ error: 'Ya hay una categoría con ese nombre' });
+
+    const { data, error } = await supabase
+      .from('categorias')
+      .update({ nombre, descripcion: lecturaFrase.frase })
+      .eq('id', idCategoria)
+      .select('id, nombre, imagen, descripcion, activo')
+      .maybeSingle();
+    if (error) return errorInterno(res, error);
+    if (!data) return res.status(404).json({ error: 'Categoría no encontrada' });
+    res.json({ mensaje: 'Categoría actualizada', categoria: data });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// PUT /api/categorias/:id/activo → activa o desactiva una categoría (nunca se borra)
+// ENTRADA: el número en la dirección y { activo: true o false }
+// SALIDA:  { mensaje, categoria } · 400 dato inválido · 404 no existe · 409 todavía tiene planes activos · 500
+// Ej: desactivar "Viandas Saludables" con PLAN VEGGIE activo adentro → 409 "Todavía tiene planes activos: PLAN VEGGIE…"
+app.put('/api/categorias/:id/activo', requireAuth, requireRol(6, 5), async (req, res) => {
+  const idCategoria = leerIdPlan(req.params.id);   // la misma regla para cualquier número de la dirección
+  if (idCategoria === null) return res.status(400).json({ error: 'Categoría inválida' });
+  const activo = req.body?.activo;
+  if (typeof activo !== 'boolean') return res.status(400).json({ error: 'El estado tiene que ser true o false' });
+
+  try {
+    // Sin esto, un plan activo quedaría a la venta dentro de una categoría que ya no se ve
+    const { data: planesActivos, error: errorPlanes } = await supabase
+      .from('planes')
+      .select('nombre')
+      .eq('id_categoria', idCategoria)
+      .eq('activo', true);
+    if (errorPlanes) return errorInterno(res, errorPlanes);
+    const quedanPlanes = !activo && (planesActivos || []).length > 0;
+    if (quedanPlanes) {
+      const nombres = planesActivos.map(plan => plan.nombre).join(', ');   // ej: 'PLAN VEGGIE, PLAN KIDS'
+      return res.status(409).json({ error: `Todavía tiene planes activos: ${nombres}. Pasalos a otra categoría o a "Sin categoría" primero.` });
+    }
+
+    const { data, error } = await supabase
+      .from('categorias')
+      .update({ activo })
+      .eq('id', idCategoria)
+      .select('id, nombre, activo')
+      .maybeSingle();
+    if (error) return errorInterno(res, error);
+    if (!data) return res.status(404).json({ error: 'Categoría no encontrada' });
+    const mensaje = activo ? 'Categoría activada' : 'Categoría desactivada';
+    res.json({ mensaje, categoria: data });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// POST /api/categorias/:id/imagen → la foto de una categoría. Ver subirFotoCatalogo
+app.post('/api/categorias/:id/imagen', requireAuth, requireRol(6, 5), (req, res) => subirFotoCatalogo(req, res, 'categorias', 'categorias'));
+
+// GET /api/planes/todos → todos los planes (activos y desactivados) para la pantalla del panel
+// SALIDA: [{ id, nombre, codigo_plan, id_categoria, imagen, descripcion, activo }]
+app.get('/api/planes/todos', requireAuth, requireRol(6, 5), async (req, res) => {
+  const { data, error } = await supabase
+    .from('planes')
+    .select('id, nombre, codigo_plan, id_categoria, imagen, descripcion, activo')
+    .order('id', { ascending: true });
+  if (error) return errorInterno(res, error);
+  res.json(data || []);
+});
+
+// POST /api/planes → crea un plan activo
+// ENTRADA: { nombre, abreviatura, id_categoria, descripcion } (id_categoria y descripcion pueden ser null)
+// SALIDA:  { mensaje, plan } · 400 dato inválido · 409 nombre o abreviatura repetidos · 500
+// Ej: { nombre: 'Keto', abreviatura: 'ke', id_categoria: null, descripcion: null } → plan con codigo_plan 'KE' y contador en 0 (su primer plato es KE1)
+// El cocinero no se manda: queda vacío, como un plan sin asignar. Cada plato lleva el suyo o se asigna después.
+app.post('/api/planes', requireAuth, requireRol(6, 5), async (req, res) => {
+  const nombre = leerNombreCatalogo(req.body?.nombre);
+  if (nombre === null) return res.status(400).json({ error: `Escribí un nombre de hasta ${LARGO_MAXIMO_NOMBRE_CATALOGO} caracteres` });
+  // La misma regla que la base y que PUT /api/planes/:id/abreviatura: de 1 a 4 letras, en mayúscula
+  const abreviatura = typeof req.body.abreviatura === 'string' ? req.body.abreviatura.trim().toUpperCase() : '';
+  if (!/^[A-Z]{1,4}$/.test(abreviatura)) return res.status(400).json({ error: 'La abreviatura tiene que tener de 1 a 4 letras, sin números' });
+  const lecturaFrase = leerFraseCatalogo(req.body.descripcion);
+  if (lecturaFrase.error) return res.status(400).json({ error: lecturaFrase.error });
+
+  try {
+    const lecturaCategoria = await leerCategoriaElegida(req.body.id_categoria);
+    if (lecturaCategoria.error) return res.status(400).json({ error: lecturaCategoria.error });
+    if (await nombreYaUsado('planes', nombre, null)) return res.status(409).json({ error: 'Ya hay un plan con ese nombre' });
+
+    const { data: usada, error: errorUsada } = await supabase.from('planes').select('id').eq('codigo_plan', abreviatura).maybeSingle();
+    if (errorUsada) return errorInterno(res, errorUsada);
+    if (usada) return res.status(409).json({ error: `La abreviatura ${abreviatura} ya la usa otro plan` });
+
+    const { data, error } = await supabase
+      .from('planes')
+      .insert({
+        nombre,
+        codigo_plan:         abreviatura,
+        id_categoria:        lecturaCategoria.idCategoria,
+        descripcion:         lecturaFrase.frase,
+        ultimo_numero_plato: 0,      // el contador del plan: su primer plato va a ser el 1
+        activo:              true
+      })
+      .select('id, nombre, codigo_plan, id_categoria, imagen, descripcion, activo')
+      .single();
+    // 23505 = la base rechazó un dato repetido: si dos personas crean la misma abreviatura a la vez, el índice único frena a la segunda
+    if (error && error.code === '23505') return res.status(409).json({ error: `La abreviatura ${abreviatura} ya la usa otro plan` });
+    if (error) return errorInterno(res, error);
+    res.json({ mensaje: 'Plan creado', plan: data });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// PUT /api/planes/:id → edita el nombre, la categoría y la frase de un plan (la abreviatura va por su ruta propia)
+// ENTRADA: el número en la dirección y { nombre, id_categoria, descripcion } (id_categoria y descripcion pueden ser null)
+// SALIDA:  { mensaje, plan } · 400 dato inválido · 404 no existe · 409 nombre repetido · 500
+app.put('/api/planes/:id', requireAuth, requireRol(6, 5), async (req, res) => {
+  const idPlan = leerIdPlan(req.params.id);
+  if (idPlan === null) return res.status(400).json({ error: 'ID de plan inválido' });
+  const nombre = leerNombreCatalogo(req.body?.nombre);
+  if (nombre === null) return res.status(400).json({ error: `Escribí un nombre de hasta ${LARGO_MAXIMO_NOMBRE_CATALOGO} caracteres` });
+  const lecturaFrase = leerFraseCatalogo(req.body.descripcion);
+  if (lecturaFrase.error) return res.status(400).json({ error: lecturaFrase.error });
+
+  try {
+    const lecturaCategoria = await leerCategoriaElegida(req.body.id_categoria);
+    if (lecturaCategoria.error) return res.status(400).json({ error: lecturaCategoria.error });
+    if (await nombreYaUsado('planes', nombre, idPlan)) return res.status(409).json({ error: 'Ya hay un plan con ese nombre' });
+
+    const { data, error } = await supabase
+      .from('planes')
+      .update({ nombre, id_categoria: lecturaCategoria.idCategoria, descripcion: lecturaFrase.frase })
+      .eq('id', idPlan)
+      .select('id, nombre, codigo_plan, id_categoria, imagen, descripcion, activo')
+      .maybeSingle();
+    if (error) return errorInterno(res, error);
+    if (!data) return res.status(404).json({ error: 'Plan no encontrado' });
+    res.json({ mensaje: 'Plan actualizado', plan: data });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// PUT /api/planes/:id/categoria → cambia solo la categoría de un plan (el desplegable de la lista: así se agrupan)
+// ENTRADA: el número en la dirección y { id_categoria: número o null }. Hay que mandarlo: si falta, no se borra nada
+// SALIDA:  { mensaje, plan } · 400 dato inválido · 404 no existe · 500
+// Ej: plan 2, { id_categoria: null } → MANTENIMIENTO queda "Sin categoría" y tiene su propia tarjeta en la web
+app.put('/api/planes/:id/categoria', requireAuth, requireRol(6, 5), async (req, res) => {
+  const idPlan = leerIdPlan(req.params.id);
+  if (idPlan === null) return res.status(400).json({ error: 'ID de plan inválido' });
+
+  try {
+    const lecturaCategoria = await leerCategoriaElegida(req.body?.id_categoria);
+    if (lecturaCategoria.error) return res.status(400).json({ error: lecturaCategoria.error });
+
+    const { data, error } = await supabase
+      .from('planes')
+      .update({ id_categoria: lecturaCategoria.idCategoria })
+      .eq('id', idPlan)
+      .select('id, nombre, id_categoria')
+      .maybeSingle();
+    if (error) return errorInterno(res, error);
+    if (!data) return res.status(404).json({ error: 'Plan no encontrado' });
+    res.json({ mensaje: 'Categoría del plan actualizada', plan: data });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// PUT /api/planes/:id/activo → activa o desactiva un plan (nunca se borra)
+// ENTRADA: el número en la dirección y { activo: true o false }
+// SALIDA:  { mensaje, plan } · 400 dato inválido · 404 no existe · 409 su categoría está desactivada · 500
+// Al desactivarlo, sus combos dejan de verse en la web y de poder comprarse (crear_pedido_combos pide un plan activo).
+app.put('/api/planes/:id/activo', requireAuth, requireRol(6, 5), async (req, res) => {
+  const idPlan = leerIdPlan(req.params.id);
+  if (idPlan === null) return res.status(400).json({ error: 'ID de plan inválido' });
+  const activo = req.body?.activo;
+  if (typeof activo !== 'boolean') return res.status(400).json({ error: 'El estado tiene que ser true o false' });
+
+  try {
+    // Al activarlo, su categoría tiene que estar activa. Un plan sin categoría pasa siempre
+    const { data: plan, error: errorPlan } = await supabase
+      .from('planes')
+      .select('id, categorias ( nombre, activo )')
+      .eq('id', idPlan)
+      .maybeSingle();
+    if (errorPlan) return errorInterno(res, errorPlan);
+    if (!plan) return res.status(404).json({ error: 'Plan no encontrado' });
+    const categoriaApagada = activo && plan.categorias && !plan.categorias.activo;
+    if (categoriaApagada) return res.status(409).json({ error: `Su categoría (${plan.categorias.nombre}) está desactivada: activala primero.` });
+
+    const { data, error } = await supabase
+      .from('planes')
+      .update({ activo })
+      .eq('id', idPlan)
+      .select('id, nombre, activo')
+      .maybeSingle();
+    if (error) return errorInterno(res, error);
+    const mensaje = activo ? 'Plan activado' : 'Plan desactivado';
+    res.json({ mensaje, plan: data });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// POST /api/planes/:id/imagen → la foto de un plan. Ver subirFotoCatalogo
+app.post('/api/planes/:id/imagen', requireAuth, requireRol(6, 5), (req, res) => subirFotoCatalogo(req, res, 'planes', 'planes'));
 
 // POST /api/productos/con-receta → crea producto nuevo + receta de forma atómica
 // Body: { nombre, id_plan, insumos: [{ id_insumo, cantidad_necesaria, unidad_medida }] }

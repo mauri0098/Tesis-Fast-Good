@@ -24,7 +24,7 @@
 // Los controles de acá son una AYUDA: el servidor vuelve a controlar todo.
 // El pedido NO lleva precios, total ni usuario: el servidor los saca de la base y del token.
 // Necesita antes: escape.js (escHtml), fechas.js (días hábiles), api.js (apiFetch),
-// combosCatalogo.js (cargarCombos, volverACategorias) y carritoCombos.js (carritoCombos, guardarCarrito, renderizarCarrito).
+// carritoCombos.js (carritoCombos, guardarCarrito, renderizarCarrito) y renderizadoCatalogo.js (cargarCombos y volverAPlanes).
 // ====================================================================
 
 // Datos del negocio para el mensaje de WhatsApp (los mismos que usa el formulario viejo)
@@ -418,7 +418,7 @@ async function confirmarPedido(evento) {
   textoBoton.textContent = 'Confirmar pedido';
 
   // Si no alcanzan las viandas de un plato (otro cliente se las llevó), se vuelven a pedir los combos
-  // (combosCatalogo.js), en la misma categoría: así el menú muestra lo que queda al armar el combo de nuevo.
+  // (cargarCombos), sin salir del plan abierto: así el menú muestra lo que queda al armar el combo de nuevo.
   // startsWith = "empieza con". Ej: 'No quedan suficientes viandas de «fideos»: pediste 16 y quedan 12' → sí
   const faltanViandas = !resultado.ok && resultado.error.startsWith('No quedan suficientes viandas');
   if (faltanViandas) cargarCombos(true);
@@ -549,9 +549,9 @@ function mostrarConfirmacion(respuesta, datos) {
   document.getElementById('vista-formulario').hidden = true;
   document.getElementById('vista-confirmacion').hidden = false;
 
-  // Detrás de la confirmación quedan otra vez las categorías (en el celu se cierra la pantalla de combos):
-  // así "Volver al inicio" vuelve al inicio. volverACategorias es de combosCatalogo.js
-  volverACategorias();
+  // Detrás de la confirmación quedan otra vez las tarjetas (en el celu se cierra la pantalla de combos):
+  // así "Volver al inicio" vuelve al inicio. volverAPlanes es de renderizadoCatalogo.js
+  volverAPlanes();
 }
 
 // ── Arma el mensaje de WhatsApp (mismo formato que redirigirAWhatsApp del formulario viejo) ──

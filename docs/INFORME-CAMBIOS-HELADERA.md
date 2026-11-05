@@ -887,7 +887,7 @@ y no se guarda nada (ni el pedido, ni la venta, ni la heladera).
 
 | Se conecta con | |
 |---|---|
-| Pantallas | Web nueva (`index-combos.html`: `combosCatalogo.js`, `armarCombo.js`, `carritoCombos.js`, `pedidoCombos.js`). Si sale el error, `pedidoCombos.js` lo muestra tal cual (es un 400) |
+| Pantallas | Web nueva (`index-combos.html`: `renderizadoPlanes.js`, `armarCombo.js`, `carritoCombos.js`, `pedidoCombos.js`). Si sale el error, `pedidoCombos.js` lo muestra tal cual (es un 400) |
 | Ruta | `POST /api/pedidos-combos` (controla los datos del cliente; con `some` y `flatMap` mira la forma de los combos, ver arriba) |
 | Tablas | `pedidos`, `pedido_combos`, `pedido_detalles`, `productos.stock_heladera`, `movimientos_viandas` |
 | Después | El catálogo (`GET /api/v1/combos`, "disponibles" = lo que hay, con tope en la cantidad del combo) baja solo. Producción muestra "Venta −18 · Pedido #N". La cocina ve solo los personalizados. Al pasar de 1 a 2, H5 decide si salta a 3. Anular devuelve las 18 (H4) |
@@ -1476,7 +1476,7 @@ El número de viandas lo manda el servidor (`viandas_devueltas`, de la base): la
 | Archivo | Qué cambió |
 |---|---|
 | `frontend/src/js/pedidosCocina.js` | Reescrito: de **11 funciones a 3** (`conPlural`, `cargarPendientes`, `marcarHecho`). Lo usan Producción y Tareas de Cocina |
-| `frontend/src/js/combosCatalogo.js` | `cargarCombos(mantenerCategoria)`: al recargar se queda en la categoría elegida si todavía tiene combos |
+| `frontend/src/js/renderizadoPlanes.js` | `cargarCombos(mantenerCategoria)`: al recargar se queda en la categoría elegida si todavía tiene combos |
 | `frontend/src/js/pedidoCombos.js` | Si el servidor dice "No quedan suficientes viandas…", vuelve a pedir los combos |
 
 #### 8.3.1 "Hecho": el motivo de verdad
@@ -1514,9 +1514,9 @@ viandas de «fideos»: pediste 16 y quedan 12" pero el menú seguía mostrando l
 ```js
 // startsWith = "empieza con". Ej: 'No quedan suficientes viandas de «fideos»: pediste 16 y quedan 12' → sí
 const faltanViandas = !resultado.ok && resultado.error.startsWith('No quedan suficientes viandas');
-if (faltanViandas) cargarCombos(true);    // combosCatalogo.js: recarga, en la misma categoría
+if (faltanViandas) cargarCombos(true);    // renderizadoPlanes.js: recarga, en la misma categoría
 ```
-y en `combosCatalogo.js`:
+y en `renderizadoPlanes.js`:
 ```js
 const sigueLaElegida = mantenerCategoria && combosDisponibles.some(combo => combo.categoria.id === categoriaElegida);
 categoriaElegida = sigueLaElegida ? categoriaElegida : combosDisponibles[0].categoria.id;   // si no, la del primer combo
@@ -1818,7 +1818,7 @@ switch (filtro) {
 | `pedidoCombos.js` | 8 | — (los controles del formulario pasaron a una lista `{ estaMal, mensaje }`) |
 | `heladera.js` | 14 | `crearFilaPlato`, `fechaYHoraCortas` |
 | `pedirCocina.js` | 8 | `alCambiarCantidad` |
-| `combosCatalogo.js` | 3 | — (solo lo de 3A: `some` en vez de un `if` adentro de otro) |
+| `renderizadoPlanes.js` | 3 | — (solo lo de 3A: `some` en vez de un `if` adentro de otro) |
 | `movimientosStockNuevo.js` | 11 del modal + 5 de la tabla | la tabla entera es nueva (8.5) |
 
 ### 9.4 Las rutas de `server.js`: antes y ahora (ejemplos)
@@ -2031,7 +2031,7 @@ ni `style=""` en el HTML).
 |---|---|
 | `frontend/index-combos.html` | El marcado de la maqueta con nombres claros: encabezado, portada con la foto en tarjeta, los 3 pasos, categorías, combos, Dónde estamos, Preguntas (`<details>`), pie y los 3 modales. Mismos campos del formulario (mismos `name`, `value`, `maxlength`, `inputmode`). Letra Figtree. Ya no carga `global.css`. Sin `<style>` ni `style=""` |
 | `frontend/src/css/index-combos.css` | Reescrito: la hoja de la maqueta (`estilos.css` v5) con los nombres en español, sin las partes que la página no usa, y al final los agregados (personalizar un plato, fotos de verdad, el botón de sesión de `auth.js`, etc.) |
-| `frontend/src/js/combosCatalogo.js` | `cargarCombos` (+ "Combos desde $…"), `renderizarCategorias`, `renderizarCombos` |
+| `frontend/src/js/renderizadoPlanes.js` | `cargarCombos` (+ "Combos desde $…"), `renderizarCategorias`, `renderizarCombos` |
 | `frontend/src/js/armarCombo.js` | `renderizarMenuCombo` (y los ids que usan `abrirModalCombo`, `cerrarModalCombo` y los clics) |
 | `frontend/src/js/carritoCombos.js` | `renderizarCarrito` (y los ids de los clics) |
 | `frontend/src/js/pedidoCombos.js` | `abrirFinalizarPedido` (antes `abrirCheckout`) y `mostrarConfirmacion`; `cargarBarrios` y `validarFormulario` solo cambian nombres |
@@ -2042,7 +2042,7 @@ manda el pedido (`armarPedido`, `enviarPedido`, `armarMensajeWhatsApp` quedan ig
 ### 13.2 Las funciones: antes y ahora
 Ejemplos con el combo de prueba «PRUEBA Mantenimiento x10» ($ 137.000, de MANTENIMIENTO, categoría "Viandas Saludables").
 
-**`cargarCombos(mantenerCategoria)`** (combosCatalogo.js) — trae los combos del servidor y dibuja categorías y tarjetas.
+**`cargarCombos(mantenerCategoria)`** (renderizadoPlanes.js) — trae los combos del servidor y dibuja categorías y tarjetas.
 - ENTRADA: `false` al abrir la página, `true` al recargar porque no alcanzaron las viandas. SALIDA: nada (dibuja).
 - Cambió: escribe "Combos desde $…" en la portada con el precio más bajo (solo para mostrar). El texto viene de la maqueta
   (hoy no había nada ahí, decisión 2).
@@ -2393,7 +2393,7 @@ tachados (`s`), `.opcion__input:checked + .chip`, `.bloque.invalido`, `.input[ar
 `viandaprincipal2` (las viandas sobre la mesa de madera) con `srcset` de 900, 1600 y la original. Esto también responde la
 pregunta abierta de 13.6: el nombre va a 18 px.
 
-**1) Las tarjetas.** Cambió solo el HTML que arma `renderizarCombos` (combosCatalogo.js) y el CSS de las tarjetas.
+**1) Las tarjetas.** Cambió solo el HTML que arma `renderizarCombos` (renderizadoPlanes.js) y el CSS de las tarjetas.
 
 | | ANTES | AHORA |
 |---|---|---|
@@ -2526,11 +2526,11 @@ ni los campos del formulario, ni los datos que vienen del servidor. Nada de SQL 
 | 1. CSS y letra | Copié `index-final.css` con los mismos valores y nuestros nombres, y lo linkeé como el **último** CSS. Figtree ya estaba (línea 10) y no se duplicó | `src/css/index-final.css` (nuevo), `index.html` | Se carga último y gana sobre `index-combos.css` |
 | 1b. Volver a la v5 (decisión 5) | `index-combos.css` volvió a ser la v5 de `estilos.css`, con nuestros nombres: 78 reglas con los valores de la v5 y 23 retoques a mano. Salieron los agregados de 13.10 que la v5 no tiene (como el bloque verde) y los que ahora trae `index-final.css` | `src/css/index-combos.css` | Comparado regla por regla con `estilos.css`: quedan 3 diferencias, a propósito (13.11.3) |
 | 2. Estructura y títulos | Ya estaba igual que la referencia: el orden de las secciones, sin Ofertas, los mismos títulos y "Combos {categoría}" con su texto. El orden es encabezado, portada con los 3 pasos, Categorías con fondo verde, Dónde estamos, Preguntas con fondo verde, pie y WhatsApp | `index.html` (sin cambios en este paso) | Igual a `referencia.html` |
-| 3. Tarjeta de combo | Template nuevo. La tarjeta entera es el botón, con los mismos `data-accion="armar-combo"` y `data-id-combo`. Adentro van los datos (nombre, precio, "por vianda" y "Armar combo ›") y la foto. Todas van en `<div class="grilla-combos">` | `src/js/combosCatalogo.js` (`renderizarCombos`) | 3 por fila en compu y 1 en celu. El clic abre "Armar combo" igual que antes |
+| 3. Tarjeta de combo | Template nuevo. La tarjeta entera es el botón, con los mismos `data-accion="armar-combo"` y `data-id-combo`. Adentro van los datos (nombre, precio, "por vianda" y "Armar combo ›") y la foto. Todas van en `<div class="grilla-combos">` | `src/js/renderizadoPlanes.js` (`renderizarCombos`) | 3 por fila en compu y 1 en celu. El clic abre "Armar combo" igual que antes |
 | 3. "Más elegido" | No marqué ninguno: el sistema no tiene un dato para saber cuál es | — | Lo aviso en 13.11.7. El estilo queda listo |
-| 3b. Fotos | Las fotos están en `frontend/src/assets/img/` como `COMBO MANTENIMIENTO.jpeg` y `COMBO SALUDABLE.jpeg` (no se renombraron ni se tocaron). Hice `combo-mantenimiento-1200.jpg` y `combo-saludable-1200.jpg`. La tarjeta elige la foto con la regla de la decisión 4 | `src/js/combosCatalogo.js`, `src/assets/img/` | Hoy los 3 combos son del plan MANTENIMIENTO, así que los 3 muestran COMBO MANTENIMIENTO. La web baja 178 KB en lugar de 3,2 MB (las 3 tarjetas usan la misma foto) |
+| 3b. Fotos | Las fotos están en `frontend/src/assets/img/` como `COMBO MANTENIMIENTO.jpeg` y `COMBO SALUDABLE.jpeg` (no se renombraron ni se tocaron). Hice `combo-mantenimiento-1200.jpg` y `combo-saludable-1200.jpg`. La tarjeta elige la foto con la regla de la decisión 4 | `src/js/renderizadoPlanes.js`, `src/assets/img/` | Hoy los 3 combos son del plan MANTENIMIENTO, así que los 3 muestran COMBO MANTENIMIENTO. La web baja 178 KB en lugar de 3,2 MB (las 3 tarjetas usan la misma foto) |
 | 4. Platos de "Armar combo" | Ya estaban en ese orden (foto → `plato-datos` con nombre y descripción → `selector-cantidad`), así que no toqué el JS | — | En compu, el nombre queda centrado entre la foto y el − / +. En celu, el − / + va abajo de la descripción |
-| 5. Animaciones | Copié `animaciones-index.js` (solo cambia `.contador` → `.contador-combos`) y lo cargué al final, después de los otros scripts. Puse la clase `revelar` en los 9 lugares que dice el PROMPT. Saqué mi IntersectionObserver del script del final de `index.html` y el salto de `agregarAlCarrito` | `src/js/animaciones-index.js` (nuevo), `index.html`, `combosCatalogo.js`, `carritoCombos.js` | Las secciones aparecen al bajar y el contador salta cuando cambia el número |
+| 5. Animaciones | Copié `animaciones-index.js` (solo cambia `.contador` → `.contador-combos`) y lo cargué al final, después de los otros scripts. Puse la clase `revelar` en los 9 lugares que dice el PROMPT. Saqué mi IntersectionObserver del script del final de `index.html` y el salto de `agregarAlCarrito` | `src/js/animaciones-index.js` (nuevo), `index.html`, `renderizadoPlanes.js`, `carritoCombos.js` | Las secciones aparecen al bajar y el contador salta cuando cambia el número |
 | 5. Ventanas | Revisé las ventanas: "Armar combo" y "Finalizar pedido" son `<dialog class="modal">` y "Mi pedido" es `<dialog class="modal modal-pedido">`. Son `hoja` y `hoja hoja--pedido` con nuestros nombres | `index.html` (sin cambios) | Suben al abrirse y, en compu, "Mi pedido" entra de costado, como la referencia |
 | 6.1 Igual a las capturas | Saqué capturas a 1440 y 390 px y las comparé con `ref-compu.png`, `ref-celu.png`, `armar-compu.png` y `armar-celu.png` | — | Iguales, salvo los datos del sistema (13.11.7) |
 | 6.2 Scroll de costado | Medí el ancho de la página | — | 390 de 390 y 1440 de 1440: no hay scroll de costado |
@@ -2545,7 +2545,7 @@ No se tocaron `server.js`, `sql/`, `armarCombo.js`, `pedidoCombos.js` ni `auth.j
 se manda al servidor.
 
 #### 13.11.2 Las funciones: antes y ahora
-**`renderizarCombos`** (`combosCatalogo.js`). Cambió solo el HTML que arma.
+**`renderizarCombos`** (`renderizadoPlanes.js`). Cambió solo el HTML que arma.
 - **Qué hace:** dibuja el título "Combos {categoría}", el texto de abajo y una tarjeta por cada combo de la categoría elegida.
 - **ENTRADA:** nada (usa `combosDisponibles` y `categoriaElegida`). **SALIDA:** nada (escribe el HTML en `#combos`).
 
@@ -2640,10 +2640,10 @@ el salto del personal a su panel, el menú de sesión, el login en ventana y `ca
 | Antes (13.10) | Ahora | Archivos |
 |---|---|---|
 | `contador-salta` (la ponía `agregarAlCarrito`) | `salta` (la pone `animaciones-index.js`) | `index-final.css`, `animaciones-index.js`, `carritoCombos.js` (salió) |
-| `<article class="tarjeta-combo">` | `<button class="tarjeta-combo revelar">` (el mismo nombre; ahora la tarjeta es el botón) | `combosCatalogo.js` y los dos CSS |
-| `div.tarjeta-combo-boton` con un `button.boton.boton-principal` adentro | `span.tarjeta-combo-boton` (el mismo nombre; ya no es un botón aparte) | `combosCatalogo.js` y los dos CSS |
-| `p.tarjeta-combo-precios` | Ya no está: el precio y "por vianda" van directo en `tarjeta-combo-datos` | `combosCatalogo.js` y `index-combos.css` |
-| `h3.tarjeta-combo-nombre`, `strong.tarjeta-combo-precio`, `div.tarjeta-combo-datos`, `div.tarjeta-combo-foto` | `span.` con los mismos nombres (dentro de un botón solo puede ir texto y cosas como `span`) | `combosCatalogo.js` |
+| `<article class="tarjeta-combo">` | `<button class="tarjeta-combo revelar">` (el mismo nombre; ahora la tarjeta es el botón) | `renderizadoPlanes.js` y los dos CSS |
+| `div.tarjeta-combo-boton` con un `button.boton.boton-principal` adentro | `span.tarjeta-combo-boton` (el mismo nombre; ya no es un botón aparte) | `renderizadoPlanes.js` y los dos CSS |
+| `p.tarjeta-combo-precios` | Ya no está: el precio y "por vianda" van directo en `tarjeta-combo-datos` | `renderizadoPlanes.js` y `index-combos.css` |
+| `h3.tarjeta-combo-nombre`, `strong.tarjeta-combo-precio`, `div.tarjeta-combo-datos`, `div.tarjeta-combo-foto` | `span.` con los mismos nombres (dentro de un botón solo puede ir texto y cosas como `span`) | `renderizadoPlanes.js` |
 
 Revisado en todos los archivos de `frontend/`: no queda ningún `contador-salta` ni `tarjeta-combo-precios`.
 
@@ -2693,7 +2693,7 @@ el logo entero y no recortado.
 
 Las hice con un script de PowerShell: achica a 1200 px de ancho, mantiene la proporción y guarda en JPEG con calidad 82. Si
 el archivo nuevo ya existe, no lo pisa. 1200 px alcanza para la tarjeta más grande en una pantalla de alta densidad, y cada
-foto pesa unas 18 veces menos. Las dos constantes de arriba de `combosCatalogo.js` (`FOTO_COMBO_MANTENIMIENTO` y
+foto pesa unas 18 veces menos. Las dos constantes de arriba de `renderizadoPlanes.js` (`FOTO_COMBO_MANTENIMIENTO` y
 `FOTO_COMBO_SALUDABLE`) dicen qué archivo se usa.
 
 #### 13.11.5 Cómo se comprobó
@@ -3001,7 +3001,7 @@ El front pasó de 100 archivos a 62.
 | Archivo | Antes | Ahora |
 |---|---|---|
 | `animaciones-index.js` | "Es docs/diseno-final-index/animaciones-index.js tal cual" | "Es el animaciones-index.js del diseño final tal cual (su carpeta de referencia se borró el 17/10: está en git)" + "Lo que hace cada clase está en index.css" |
-| `combosCatalogo.js` | "index-final.css pone la foto arriba", "…está en index-final.css" y las fotos originales "quedan sin tocar" | "index.css (parte 2)…" y "las originales se borraron el 17/10: están en git" |
+| `renderizadoPlanes.js` | "index-final.css pone la foto arriba", "…está en index-final.css" y las fotos originales "quedan sin tocar" | "index.css (parte 2)…" y "las originales se borraron el 17/10: están en git" |
 | `fechas.js` | "Lo usan formulario.js … y ListarPedidos.js" | "Lo usan pedidoCombos.js …, ListarPedidos.js …, otras pantallas del panel y server.js" |
 | `pedidoCombos.js` (2) | "el formulario viejo (pages/formulario.html + formulario.js)" | Lo mismo + "borrados el 17/10" |
 | `global.css` (2) | "GRID + TARJETAS" y "animations.js aplica el reveal en index.html" | "TARJETAS" y "visibles por defecto" |
@@ -3098,7 +3098,7 @@ portada salió distinto por el `@import` (ver 14.6). Esa tanda se descartó.
 | `server.js` | 5 rutas GET mandan los datos nuevos (15.3). Solo lectura |
 | `frontend/index.html` | Las cosas nuevas de la pantalla (15.5 y 15.6), sin renombrar nada: <br>· categorías y zona de combos; <br>· "Cómo funciona" y las insignias del celu; <br>· el encabezado y el resumen del armado en el celu; <br>· "✨ Armalo por mí"; <br>· el título, los íconos, la ayuda del retiro, los días y el total del botón de "Finalizar pedido" |
 | `frontend/src/css/index.css` | Ordenado (15.4), la compu (15.5), el celu (15.6) y las animaciones (15.8). Pasó de 859 a 1236 renglones |
-| `combosCatalogo.js` | La tarjeta de categoría, la foto compartida y el ir y volver entre categorías y combos |
+| `renderizadoPlanes.js` | La tarjeta de categoría, la foto compartida y el ir y volver entre categorías y combos |
 | `armarCombo.js` | "Armalo por mí", y el encabezado y los textos del celu |
 | `carritoCombos.js` | En el celu, "Mandar pedido" va directo a "Finalizar pedido" |
 | `pedidoCombos.js` | Los días como botones, el total adentro del botón y volver a las categorías después de la confirmación |
@@ -3190,7 +3190,7 @@ Solo lectura, con los mismos permisos y los mismos controles.
 Ejemplos con «PRUEBA Mantenimiento x10» ($ 137.000, plan MANTENIMIENTO, categoría "Viandas Saludables"; su menú:
 berenjenas rellenas, canelones y fideos).
 
-**`combosCatalogo.js`** (de 3 a 5 funciones)
+**`renderizadoPlanes.js`** (de 3 a 5 funciones)
 
 **`cargarCombos(mantenerCategoria)`** — trae los combos y dibuja las categorías.
 - ENTRADA: `false` al abrir la página, `true` al recargar porque no alcanzaron las viandas. SALIDA: nada (dibuja).
@@ -5551,3 +5551,406 @@ Se usa la clase `.dos-renglones` de `global.css` (sección 25).
 **Capturas** en `diseno-simple/resultado/`: `h-index-lunes-26-10-20-59-1440` / `-390`, `h-index-lunes-26-10-21-01-1440` / `-390`, `h-asignar-cocineros-aviso-1440`.
 
 **Hay que reiniciar el servidor** (cambiaron server.js y fechas.js).
+
+
+---
+
+## 3/11 — Categorías opcionales y pantalla "Planes y categorías"
+
+**Regla nueva:** un plan con categoría va junto con los otros de esa categoría en UNA tarjeta de la web; un plan sin categoría tiene su tarjeta propia. Nada se borra: se desactiva. `categorias` y `planes.id_categoria` se quedan.
+
+**SQL (lo corre el usuario):** `planes_foto_y_frase.sql`, `planes_foto_actual.sql` (ya corridos), `categorias_activo.sql` y `categoria_banner_viandas_saludables.sql`.
+
+### server.js — rutas nuevas (requireAuth + requireRol(6, 5); cada una escribe en una sola tabla)
+| Ruta | ENTRADA | SALIDA |
+|---|---|---|
+| `GET /api/categorias` | nada | todas las categorías, activas y desactivadas |
+| `POST /api/categorias` | `{ nombre, descripcion }` | `{ mensaje, categoria }` · 400 · 409 repetida |
+| `PUT /api/categorias/:id` | `{ nombre, descripcion }` | `{ mensaje, categoria }` · 400 · 404 · 409 |
+| `PUT /api/categorias/:id/activo` | `{ activo }` | `{ mensaje, categoria }` · 400 · 404 · 409 si tiene planes activos |
+| `POST /api/categorias/:id/imagen` | `{ imagen_base64, tipo }` | `{ mensaje, imagen }` · 400 · 404 |
+| `GET /api/planes/todos` | nada | todos los planes, activos y desactivados |
+| `POST /api/planes` | `{ nombre, abreviatura, id_categoria, descripcion }` | `{ mensaje, plan }` · 400 · 409 repetido |
+| `PUT /api/planes/:id` | `{ nombre, id_categoria, descripcion }` | `{ mensaje, plan }` · 400 · 404 · 409 |
+| `PUT /api/planes/:id/categoria` | `{ id_categoria }` (número o null) | `{ mensaje, plan }` · 400 · 404 |
+| `PUT /api/planes/:id/activo` | `{ activo }` | `{ mensaje, plan }` · 400 · 404 · 409 si su categoría está desactivada |
+| `POST /api/planes/:id/imagen` | `{ imagen_base64, tipo }` | `{ mensaje, imagen }` · 400 · 404 |
+
+Ayudantes: `leerNombreCatalogo`, `leerFraseCatalogo`, `nombreYaUsado`, `leerCategoriaElegida`, `subirFotoCatalogo`. `GET /api/v1/combos` suma `id_plan`, `plan_imagen` y `plan_descripcion`.
+
+**Por qué no se pide `categorias.activo` en la web:** un plan activo nunca queda en una categoría desactivada (se bloquea al desactivar la categoría y al activar el plan). Una categoría desactivada no tiene planes activos, entonces tampoco combos a la venta. `crear_pedido_combos` ya pide un plan activo.
+
+### renderizadoPlanes.js — las tarjetas
+- **ANTES:** `renderizarCategorias`, una tarjeta por categoría, y "Otros combos" para un plan sin categoría.
+- **AHORA:** `renderizarPlanes` agrupa con `claveDeGrupo` (`'categoria-3'` o `'plan-2'`) y ordena por el id_plan más chico de cada grupo. El prefijo evita que la categoría 2 se mezcle con el plan 2.
+- **Ejemplo:** Deportivo y Veggie (categoría 1) + Mantenimiento (plan 2, sin categoría) → `plan-2` (2) primero y `categoria-1` (3) después.
+- **`armarFotoTarjeta(combos, fotoPropia, textoAlternativo)`:** foto propia → primer plato con foto de todos los combos → recuadro gris. Sin las reglas de "mantenimiento" y "saludable".
+- **`flatMap`:** `[{ menu: [fideos, tarta] }, { menu: [arroz] }]` → `[fideos, tarta, arroz]`.
+- **armarCombo.js:** el encabezado vuelve a "Categoría · Plan" si tiene categoría; si no, solo el plan.
+
+### generarReceta.js — el plan se elige directo
+- **ANTES:** categoría → plan (`cargarCategoriasEnSelect` + `cargarPlanesParaCategoria`). Un plan sin categoría no se podía elegir y el plato no se podía guardar.
+- **AHORA:** `cargarPlanesEnSelect` usa `GET /api/planes`. Al editar un plato de un plan desactivado, ese plan se muestra como "(desactivado)" solo en ese plato.
+- La tabla sigue con su columna y su filtro de categoría.
+
+### Pantalla nueva: pages/planesCategorias.html, planesCategorias.js, planesCategorias.css
+Lista de categorías y lista de planes, con Nueva, Editar, Desactivar y Activar. Agrupar = cambiar el desplegable de cada plan. Pregunta antes de guardar. Está en el menú (Catálogo) y en roles.js (6 y 5). La abreviatura de un plan existente sigue cambiándose en "Abreviaturas de los planes", porque también cambia los códigos de sus platos.
+
+### Pruebas
+- `server.js` real con una base falsa en memoria + Chrome: 106 de 106.
+- `node tests/test_e2e.js heladera` contra la base real: 2 pasaron, 1 falló y el resto no corrió, porque no hay un combo de 3 o más viandas con un plato con libres para dos pedidos. Es un tema de datos. No se creó ningún pedido.
+
+
+---
+
+## 3/11 — Web del cliente: index solo con planes y página de categoría
+
+**Regla:** no mezclar. Cada página dibuja una sola cosa, con su propio JS. Sin rutas nuevas ni SQL: se usa `GET /api/v1/combos` y se filtra en el navegador.
+
+### Archivos nuevos
+| Archivo | Funciones |
+|---|---|
+| `categoria.html` | (la página, en `frontend/`, para que las direcciones `./src/...` de la base sirvan igual) |
+| `src/js/renderizadoCategorias.js` | `leerIdCategoria`, `cargarCombos`, `mostrarAvisoCategoria`, `renderizarCategoriaConPlanes`, `renderizarCombosDelPlan`, `volverAPlanes` |
+| `src/js/catalogoCompartido.js` | `traerCombos`, `armarFotoTarjeta`, `armarTarjetasCombos` |
+| `src/js/modalesCompartidos.js` | Ninguna: agrega los íconos y 3 modales con `insertAdjacentHTML`. Va ANTES que armarCombo, carritoCombos y pedidoCombos |
+| `src/css/categoria.css` | Barra verde y tarjeta horizontal |
+
+### renderizadoPlanes.js — ANTES / AHORA
+- **ANTES:** tocar una categoría abría sus combos agrupados en el index.
+- **AHORA:** la tarjeta de categoría es un enlace, `<a href="categoria.html?id=N">`, con "N planes" y "Ver planes →". Un plan sin categoría sigue abriendo sus combos en el index.
+- **`new Set`:** deja cada plan una sola vez. Ej: combos de los planes `[3, 4, 3]` → `{3, 4}` → `.size` = 2.
+
+### Mismo nombre a propósito
+`renderizadoPlanes.js` y `renderizadoCategorias.js` tienen `cargarCombos` y `volverAPlanes`. Las llama `pedidoCombos.js`, y cada página carga solo uno de los dos archivos. Por eso `pedidoCombos.js` cambió solo en comentarios.
+
+### Cómo pasa el id
+`categoria.html?id=N` → `leerIdCategoria` usa `Number()` y controla que sea entero, mayor a 0 y que entre en la base → se filtra `combosDisponibles`. Ej: `?id=2` → 2 · `?id=abc`, `?id=2.5` o sin id → `null` y aviso. El id no se escribe en la página ni va al servidor. Si la categoría no existe, está desactivada o no tiene combos, el filtro queda vacío y sale el mismo aviso.
+
+### Pruebas
+- `server.js` real con base falsa + Chrome, en compu y celu: 70 de 70.
+- Los modales mudados son letra por letra los de antes.
+- Con la base real, solo lectura: las dos páginas abren sin errores de JavaScript.
+- `node tests/test_e2e.js heladera`: 2 pasaron, 1 falló y el resto no corrió. Falta un combo de 3 o más viandas con un plato con libres para dos pedidos. No se creó ningún pedido.
+
+
+---
+
+## 3/11 — Web del cliente: nombres claros
+
+Solo cambian nombres y comentarios. El funcionamiento, los ids, las clases y los textos visibles quedan iguales.
+
+| Tipo | Antes | Ahora |
+|---|---|---|
+| Archivo | `combosCatalogo.js` | `renderizadoPlanes.js` (lo usa solo `index.html`) |
+| Archivo | `categoria.js` | `renderizadoCategorias.js` (lo usa solo `categoria.html`) |
+| Función (index) | `renderizarCombos` | `renderizarCombosDelPlan` |
+| Función (categoría) | `renderizarPlanesDeCategoria` | `renderizarCategoriaConPlanes` |
+
+**Secciones viejas de este informe:** el nombre de los archivos se actualizó en todo el documento. Los nombres de funciones quedaron como estaban en cada fecha: donde dice `renderizarCombos` de la web, hoy es `renderizarCombosDelPlan`. `renderizarCombos` de `gestionCombos.js` es del panel, es otra función y no cambió.
+
+### Pruebas
+- Sin comentarios y con los renombres aplicados, los 2 JS y los 2 HTML son iguales a los de antes.
+- `server.js` real con base falsa + Chrome, en compu y celu: 70 de 70.
+- Con la base real, solo lectura: `index.html`, `categoria.html?id=1` y `categoria.html?id=999` abren con 0 errores de JavaScript.
+- `node tests/test_e2e.js heladera` no se volvió a correr: no carga estos archivos, y sigue el único combo que no alcanza para el test.
+
+---
+
+## 3/11 — Web del cliente: una sola página con 3 niveles
+
+**ANTES:** `index.html` mostraba las tarjetas y `categoria.html` mostraba cada categoría.
+**AHORA:** todo está en `index.html`, con un solo JS: `renderizadoCatalogo.js`. Sin rutas nuevas, sin SQL y sin cambios en `server.js`.
+
+| Nivel | Qué se ve | Función | Dónde dibuja |
+|---|---|---|---|
+| 1 | Planes sueltos y una tarjeta por categoría | `renderizarTarjetasDelIndex()` | `#tarjetas-del-index` |
+| 2 | Los planes de una categoría | `renderizarPlanesDeLaCategoria(idCategoria)` | `#planes-de-la-categoria` |
+| 3 | Los combos de un plan | `renderizarCombosDelPlan(idPlan)` | `#combos` |
+
+### Archivos
+- **Se borraron:** `categoria.html`, `renderizadoCategorias.js`, `renderizadoPlanes.js`, `categoria.css`, `catalogoCompartido.js` y `modalesCompartidos.js`.
+- **Secciones viejas de este informe:** donde dicen `renderizadoPlanes.js`, `renderizadoCategorias.js` o `catalogoCompartido.js`, hoy es `renderizadoCatalogo.js`. Los modales de `modalesCompartidos.js` volvieron a `index.html`.
+
+### El "‹" y el "atrás"
+Abrir un nivel anota `{ idCategoria, idPlan }` con `pushState`. El "‹" hace `history.back()`, y `popstate` llama a `mostrarNivelElegido`, que lee ese paso y dibuja. Por eso los dos hacen lo mismo. Ej: combos de Veggie `{ 1, 4 }` → planes de la categoría `{ 1, null }` → nivel 1 `null`.
+
+### Ids y clases
+`#categorias` → `#catalogo` · `.seccion-categorias` → `.seccion-catalogo` · `#lista-categorias` y `.lista-categorias` → `#tarjetas-del-index` y `.tarjetas-del-index` · `.grilla-categorias` → `.grilla-tarjetas-del-index` · `.tarjeta-categoria` → `.tarjeta-del-index` · `.tarjeta-categoria-desde` → `.tarjeta-desde` · `.boton-volver-categorias` → `.boton-volver-un-nivel` · `data-accion="volver-categorias"` → `data-accion="volver-un-nivel"`.
+
+### Pruebas
+- `server.js` real con base falsa + Chrome, en compu y celu: 80 de 80.
+- Con la base real, solo lectura: el nivel 1 abre con 0 errores de JavaScript. Hoy ningún plan con combos tiene categoría, así que los niveles 2 y 3 de categoría no se vieron con datos reales.
+- `node tests/test_e2e.js heladera`: 2 pasaron, 1 falló y el resto no corrió. Falta un combo de 3 o más viandas con un plato con libres para dos pedidos. No se creó ningún pedido.
+
+---
+
+## 4/11 — Movimientos de Stock: el último movimiento sale primero
+
+**La causa:** `registrar_compra` guardaba siempre a las 12:00. Ej: una compra de las 16:00 quedaba debajo de un Hecho de las 15:00. `armarMovimientos` no se tocó: las dos columnas de fecha de movimientos son `timestamptz` y el orden ya estaba bien.
+
+### sql/compra_hora_real.sql (nuevo, lo corre Mauri)
+- **ANTES:** `compras.fecha`, `movimientos_stock.fecha` y `lotes_insumo.fecha_ingreso` con las 12:00 del día elegido.
+- **AHORA:** `movimientos_stock.fecha` y `lotes_insumo.fecha_ingreso` con la hora real si la compra es de hoy, o las 12:00 si es de otro día. `compras.fecha` es `date`: guarda siempre el día elegido.
+- **Ej:** hoy 04/11 a las 22:00 → movimiento 04/11 22:00 y compra 04/11 (no 05/11) · fecha 02/11 → movimiento 02/11 12:00 y compra 02/11.
+- **Ojo:** volver a correr `sql/insumos_lotes_fifo.sql` vuelve a poner las 12:00. Las compras viejas quedan como están.
+
+### server.js
+| Ruta | ANTES | AHORA |
+|---|---|---|
+| `POST /api/compras` | Solo miraba el formato de la fecha | 400 si la fecha no existe (30/02) o si es futura |
+| `POST /api/movimientos-stock` | Guardaba la fecha que mandaba la pantalla | Hoy → la hora real · otro día → la elegida · fecha que no se puede leer → 400 |
+
+### movimientosStockNuevo.js
+Al volver a la pestaña se piden los movimientos de nuevo, salvo con el modal de compra abierto.
+
+### Cuándo aparece un movimiento
+"Listo para entregar" solo crea un movimiento si el pedido tiene viandas cocinadas con receta. Un pedido que sale todo de la heladera no agrega fila.
+
+### Pruebas
+- SQL, sin comentarios, igual al original salvo los pasos 2 y 7; y las dos rutas con base falsa: 19 de 19. El SQL corregido no se probó contra la base.
+- La pantalla con `server.js` real, base falsa y Chrome, en compu y celu: 37 de 37.
+- `node tests/test_e2e.js heladera`: 2 pasaron, 1 falló y el resto no corrió. Falta un combo de 3 o más viandas con un plato con libres para dos pedidos. No se creó ningún pedido.
+
+
+---
+
+## 4/11 — Movimientos de Stock: filtro Mixtos y Resumen con signos
+
+No cambian rutas, datos ni `server.js`, y no hace falta SQL.
+
+### Filtro "Mixtos" (`filtrarMovimientos` y una opción en el HTML)
+- **ANTES:** Todos, Solo insumos y Solo viandas.
+- **AHORA:** también Mixtos: solo los movimientos que mueven viandas E insumos juntos. Los otros tres siguen igual: un Hecho sale en los dos "Solo".
+- **ENTRADA / SALIDA:** lee los filtros de arriba y dibuja los movimientos que pasan.
+- **Ej:** un Hecho con receta sale · una venta o una compra, no. Hoy el único que tiene las dos cosas es el Hecho con receta.
+- **También:** el `some` se cambió por `filter(...).length > 0`, sin cambiar qué filas salen.
+
+### Columna Resumen (`crearRenglon`)
+- **ANTES:** solo contaba. Ej: "2 viandas · 2 insumos".
+- **AHORA:** lo que entró con + en verde y lo que salió con − en rojo. De los insumos solo dice cuántos son.
+- **ENTRADA / SALIDA:** recibe un movimiento y devuelve su fila; el Resumen sale de `mov.viandas`, `mov.insumos` y `mov.partes`.
+- **Ej:** Hecho → "+5 viandas · −1 insumo" o "+5 viandas · −3 insumos" · compra → "+2 insumos" · venta → "−10 viandas" · anulación → "+10 viandas" · descarte → "−2 viandas".
+- **El nombre y la cantidad de cada insumo:** se ven solo en el Detalle (`htmlDetalle`, con `mostrarCantidad`).
+- **Seguridad:** el Resumen ya no lleva textos de la base. En el Detalle, el nombre y la unidad siguen pasando por `escHtml`, para que un texto guardado no se ejecute en la página.
+
+### Anchos (movimientosStockNuevo.css)
+Resumen pasó de 170 a 230 px y puede ir en dos renglones. Fecha pasó de 170 a 155 px y Tipo de 150 a 140 px. La tabla sigue con 1080 px de mínimo.
+
+### Pruebas
+- Filtro y Resumen con `server.js` real, base falsa y Chrome, en compu (1440, 1500 y 1920 px) y celu: 44 de 44.
+- La pantalla completa con la misma base falsa: 37 de 37.
+- `node tests/test_e2e.js heladera`: 2 pasaron, 1 falló y el resto no corrió. Falta un combo de 3 o más viandas con un plato con libres para dos pedidos. No se creó ningún pedido.
+
+
+
+---
+
+## 4/11 — Movimientos de Stock: ventana Registrar salida
+
+**Orden para instalarlo:** primero se corre `sql/registrar_salida.sql` y después se reinicia el servidor. Al revés, Movimientos de Stock da error, porque el servidor pide una columna que todavía no existe.
+
+### sql/registrar_salida.sql (nuevo, lo corre Mauri)
+- **ANTES:** no había forma de sacar varios insumos juntos.
+- **AHORA:** la columna `movimientos_stock.id_salida_manual` y la función `registrar_salida`, todo o nada, solo para `service_role`.
+- **ENTRADA / SALIDA:** usuario, motivo y renglones → `{ ok: true, insumos: 1 }` o `{ ok: false, error }`, sin guardar nada.
+- **Ej:** 2000 g de carne con 5000 en stock, motivo Vencido → guarda la salida y deja 3000. El disparador `lotes_insumo_fifo` descuenta los lotes, primero el que vence antes.
+
+### server.js
+| Qué | ANTES | AHORA |
+|---|---|---|
+| `POST /api/salidas-stock` | No existía | Con `requireAuth` y `requireRol(6, 5, 1)`. Valida motivo y renglones, pasa cada cantidad a la unidad del insumo, y el usuario sale del token |
+| `armarMovimientos` | Las salidas a mano eran "ajuste", una por renglón | Con `id_salida_manual`: origen `salida_manual`, una fila por salida. Las viejas siguen como "ajuste" |
+| `GET /api/movimientos` | No pedía la columna | Pide `id_salida_manual` |
+
+**Ej:** `{ motivo: 'vencido', items: [{ id_insumo: 7, cantidad: 2, unidad: 'kg' }] }` → 201 `{ ok: true, insumos: 1 }`.
+
+### movimientosStockNuevo.js
+- `renderizarInsumosSalida(insumos)`: lista de insumos → un renglón por cada activo con stock. La unidad arranca en kg, lts o u.
+- `revisarCantidadesSalida()`: lee los renglones → contador, aviso de los que se pasan y botón apagado.
+- `guardarSalida()`: lee la ventana → manda la salida, cierra y recarga.
+- `salida_manual` en `ASPECTO_ORIGEN`, `ORIGENES` y `DETALLE_ORIGEN`: el recuadro gris y su Detalle.
+
+### Por qué así
+- **"Otro" se guarda con el prefijo "Otro: ":** un motivo idéntico a "Consumo por producción pedido #250" haría creer que ese pedido ya descontó sus insumos.
+- **Se redondea a 3 decimales:** en JavaScript, 1.1 × 1000 da 1100.0000000000002, y sacar justo 1,1 kg sería rechazado.
+
+### Lo que sigue igual
+`POST /api/movimientos-stock` y la pantalla vieja no se tocaron. Esa ruta no guarda el usuario, acepta cantidades negativas (una salida de -5 suma stock) y descuenta en dos pasos.
+
+### Pruebas
+- `sql/registrar_salida.sql` en un Postgres de prueba en memoria, con el archivo real de lotes: 28 de 28. No se corrió en Supabase.
+- La ruta y la ventana con `server.js` real, base falsa y Chrome, en compu y celu: 89 de 89.
+- Registrar compra: 0 diferencias en estilos y posiciones, y manda lo mismo.
+- El resto de la pantalla: 55 de 55, 44 de 44 y 37 de 37.
+- `node tests/test_e2e.js heladera`: 2 pasaron, 1 falló y el resto no corrió. Falta un combo de 3 o más viandas con un plato con libres para dos pedidos. No se creó ningún pedido.
+
+
+---
+
+## 4/11 — Movimientos de Stock: se saca la pantalla vieja
+
+La pantalla nueva ya hace todo lo que hacía la vieja, con Registrar salida.
+
+### Lo que cambió
+| Archivo | ANTES | AHORA |
+|---|---|---|
+| `roles.js` | Renglón "Movimientos (viejo)", para los roles 6, 5 y 1 | No está |
+| `adminSidebar.js` | Comentario: "se sigue pudiendo abrir" | Sin esa parte |
+| `server.js` | `POST` y `DELETE /api/movimientos-stock` | No están. `GET` se queda mientras lo use `tests/test_e2e.js` |
+
+- **ENTRADA / SALIDA:** esas dos rutas ahora responden 404, y no tocan el stock.
+- **Ej:** `POST /api/movimientos-stock` con una salida de 1 unidad → 404, y el stock queda igual.
+- **Render:** el servidor de la rama `Rodriguez` tiene su propia copia de esas rutas. Este cambio no lo afecta.
+- **Registrar salida:** sus roles quedan en 6, 5 y 1.
+
+
+---
+
+## 4/11 — Compras, paso 1: las 3 rutas que leen (`server.js`)
+
+Solo el servidor: la pantalla viene en los pasos siguientes. Las rutas solo leen y no hace falta SQL nuevo. Todas las cantidades van en la unidad del insumo (g, ml o u).
+
+### Rutas nuevas (`requireAuth` + `requireRol(6, 5, 1)`)
+| Ruta | ENTRADA | SALIDA |
+|---|---|---|
+| `GET /api/compras/resumen` | `?desde&hasta` | Una fila por insumo con compras o gastos: `compre`, `gaste`, `hoy_tenes`, `comprar`, `te_alcanza`, `gasto_de_mas` |
+| `GET /api/compras` | `?desde&hasta` | Las compras, con el mismo objeto de `GET /api/movimientos` (el modal de Detalle no cambia) |
+| `GET /api/compras/gastos/:idInsumo` | id y `?desde&hasta` | `{ insumo, total, totales, salidas }` |
+
+Si las fechas o el id están mal: 400. Si el insumo no existe: 404. Más de 62 días: 400.
+
+### Funciones nuevas
+| Función | ENTRADA → SALIDA | Ej |
+|---|---|---|
+| `leerPeriodo` | `req.query` → `{ desdeISO, hastaISO }` o `{ error }` | 02/11 y 08/11 → desde las 00:00 del 02/11 hasta antes de las 00:00 del 09/11 (Argentina) |
+| `cantidadEnUnidadDelInsumo` | renglón y unidad del insumo → número | `{ cantidad: 2, unidad: 'kg' }`, `'g'` → 2000 |
+| `origenDeRenglonStock` | renglón de `movimientos_stock` → `{ clave, origen, tipo, numero }` | `{ id_salida_manual: 'x' }` → origen `salida_manual` |
+
+### Funciones que cambiaron
+| Función | ANTES | AHORA |
+|---|---|---|
+| `traerTodasLasFilas` | Solo `movimientos_stock` y `movimientos_viandas`, sin filtros | También `lotes_insumo` (tabla `COLUMNA_FECHA`) y un dato opcional `filtros`, ej: `{ tipo: 'salida' }`. `GET /api/movimientos` no lo usa y sigue igual |
+| `armarMovimientos` | Elegía el origen de cada renglón de insumos adentro de la función | Llama a `origenDeRenglonStock`: los mismos renglones, movidos. Da lo mismo que antes |
+
+### Por qué así
+- **Gasté se convierte renglón por renglón:** el servidor de Render guarda la salida como se escribió (2 y kg). Sumar directo daría 2 + 2000 = 2002, cuando son 4000 g.
+- **El total da igual que Gasté:** las dos rutas usan `cantidadEnUnidadDelInsumo` y los mismos renglones.
+- **El origen se decide en un solo lugar:** así Movimientos de Stock y Compras dicen lo mismo.
+- **La hora de una compra sale de `movimientos_stock.fecha`:** `compras.fecha` guarda solo el día.
+
+### Ejemplo: carne, semana del 02/11 al 08/11
+- **Compré:** lotes de 12.000 g + 8.000 g = 20.000 g.
+- **Gasté:** cocina 9.000 g + personalizados 2.000 g + a mano 4.000 g = 15.000 g.
+- **Hoy tenés:** 8.000 g. **Para repetir, comprá:** 15.000 − 8.000 = 7.000 g.
+- **Respuesta de gastos:** `{ total: 15000, totales: { produccion: 9000, cocina: 2000, salida_manual: 4000, ajuste: 0 }, salidas: [...] }`
+
+**OJO con los nombres del código:** `produccion` es un Hecho de un pedido a cocina; `cocina` es un pedido de cliente personalizado.
+
+### Con qué se conecta
+Tablas que leen: `lotes_insumo`, `movimientos_stock`, `movimientos_viandas`, `orden_produccion_detalles`, `insumos`, `categorias_insumos`, `compras`, `usuarios`, `pedidos`, `pedido_detalles`, `productos` y `producto_insumo`.
+
+
+---
+
+## 4/11 — Compras, paso 2: lo compartido se muda a `stockCompartido.js`
+
+La pantalla Compras va a necesitar el modal de Detalle y las funciones de unidades de Movimientos de Stock. Para no copiarlas, se mudan a un archivo que usan las dos pantallas. **Movimientos de Stock se ve y anda igual.**
+
+### Lo que se mudó, sin cambiar
+| Qué | De | A |
+|---|---|---|
+| `listaInsumos`, `UNIDADES_COMPATIBLES`, `traerInsumos`, `opcionesUnidad`, `mostrarCantidad` | `movimientosStockNuevo.js` | `stockCompartido.js` |
+| Íconos, `TEXTOS_TIPO`, `ASPECTO_ORIGEN`, `ORIGENES`, `DETALLE_ORIGEN` | `movimientosStockNuevo.js` | `stockCompartido.js` |
+| `abrirDetalleMovimiento` y los cierres del modal | `movimientosStockNuevo.js` | `stockCompartido.js` |
+| `.modal-fondo`, `.ventana-detalle-movimiento .valor-cajita`, `.cantidad-linea` | `movimientosStockNuevo.css` | `global.css` |
+
+### Lo que cambió de lugar con algo distinto
+| Qué | ANTES | AHORA |
+|---|---|---|
+| HTML del modal de Detalle | Escrito en `MovimientosStockNuevo.html` | Lo pone `stockCompartido.js` en la página, como `adminSidebar.js` con el menú. Los mismos ids y clases |
+| Escape | Un solo `keydown` cerraba el Detalle y la Salida | Cada ventana tiene el suyo: el del Detalle en `stockCompartido.js` y el de la Salida en `movimientosStockNuevo.js` |
+
+- **ENTRADA / SALIDA:** las funciones reciben y devuelven lo mismo que antes. Ej: `mostrarCantidad(16600, 'ml')` → `"16,6 lts"`.
+- **Con qué se conecta:** `MovimientosStockNuevo.html` carga `stockCompartido.js` antes de `movimientosStockNuevo.js`. Registrar compra sigue en Movimientos de Stock hasta el paso 5.
+
+
+---
+
+## 5/11 — Compras, paso 5: Registrar compra se muda a la pantalla Compras
+
+La ventana "Registrar compra" sale de Movimientos de Stock y pasa a la pantalla Compras, con su diseño nuevo (el diseño no se detalla acá). **Lo que se manda al servidor no cambió:** la misma ruta (`POST /api/compras`) con el mismo cuerpo. Acá va solo lo que cambió de funcionamiento.
+
+### Lo que se mudó, sin reescribir
+| Qué | De | A |
+|---|---|---|
+| `estaBajo`, `calcularVencimiento`, `renderizarInsumosModal`, `recalcularVencimientos`, `filtrarRenglonesCompra`, `llenarCategorias`, `juntarItemsCompra`, `guardarCompra` y los botones de la ventana | `movimientosStockNuevo.js` | `registrarCompra.js` (nuevo) |
+| El HTML de la ventana (los mismos ids) | `MovimientosStockNuevo.html` | `compras.html` |
+| Su CSS | `movimientosStockNuevo.css` | `compras.css` (sección 7), con el diseño nuevo |
+
+### Lo que cambió
+| Archivo y qué | ANTES | AHORA |
+|---|---|---|
+| `guardarCompra`, el final | Después de guardar recargaba los movimientos: `listaMovimientos = await traerMovimientos(); filtrarMovimientos();` | Recarga la pantalla Compras: `await cargarCompras();` (la tabla y Compras hechas). Los insumos se siguen trayendo de nuevo |
+| `renderizarInsumosModal`, solo el HTML que arma | El nombre solo | El nombre con su categoría abajo, y un "0" de ejemplo en Cantidad. El `if / else` que ya elegía `data-categoria` ahora guarda también el texto |
+| La X de arriba (nueva del diseño) | No había | Cierra igual que "Cancelar". Escape y tocar afuera siguen sin cerrarla, para no perder lo escrito |
+| `compras.js`, al cargar la página | — | Trae los insumos (`traerInsumos` + `llenarCategorias`) y, si la dirección termina en `?compra=1`, abre la ventana sola |
+| "+ Registrar compra" de Movimientos de Stock | Un botón que abría la ventana ahí | Un link a `compras.html?compra=1` (mismo id y mismo aspecto) |
+| "Ir a Compras" de Pedir a cocina (`pedirCocina.js`) | `MovimientosStockNuevo.html?compra=1` | `compras.html?compra=1` |
+| `movimientosStockNuevo.js`, al cargar la página | Traía los insumos y llenaba las categorías de la compra | Ya no: eran solo para la ventana de compra. Registrar salida los pide cuando se abre, como antes |
+| `movimientosStockNuevo.js`, al volver a la pestaña | No recargaba si la ventana de compra estaba abierta (`modalCompra.hidden`) | Recarga siempre: la ventana ya no está. Si quedaba `modalCompra`, la pantalla daba error |
+
+### Por qué así
+- **Una sola ventana de compra:** Movimientos lleva a la de Compras en vez de tener una copia.
+- **Después de guardar:** se ve enseguida lo comprado en la columna Compré y en Compras hechas.
+
+### ENTRADA / SALIDA
+- `guardarCompra()`: nada (lee la ventana) → manda `{ items, fecha, proveedor }` a `POST /api/compras`. Si sale bien, cierra la ventana, trae los insumos y llama a `cargarCompras`. Si sale mal, muestra el error y la ventana queda abierta.
+- El resto de las funciones mudadas reciben y devuelven lo mismo que antes.
+
+### Ejemplo
+Harina, 2 kg, proveedor "Don José", fecha 01/11 → se manda `{"items":[{"id_insumo":1,"cantidad":2,"unidad":"kg","fecha_vencimiento":"2026-12-04"}],"fecha":"2026-11-01","proveedor":"Don José"}`, **igual, letra por letra**, que lo que mandaba desde Movimientos de Stock. Después, la tabla de Compras muestra "+ 2 kg" en Harina y la compra aparece en Compras hechas.
+
+### Con qué se conecta
+- `compras.html` carga `fechas.js`, `stockCompartido.js`, `registrarCompra.js` y `compras.js`, en ese orden.
+- Ruta `POST /api/compras` y función de la base `registrar_compra` (sin cambios); después, `GET /api/insumos`, `GET /api/compras/resumen` y `GET /api/compras`.
+- Movimientos de Stock (el link) y Pedir a cocina (el aviso de faltantes) llevan a `compras.html?compra=1`.
+
+### Pruebas
+- Con `server.js` real, base falsa y Chrome: la ventana (65 de 65), lo que manda (igual que antes), `?compra=1` y el link de Movimientos.
+- Movimientos de Stock, antes y después: todo igual salvo el botón, que ahora es un link; 45 capturas iguales.
+- Las pruebas de los pasos 1 a 4 siguen bien.
+- `node tests/test_e2e.js heladera`: 2 pasaron y 1 falló porque falta un combo de 3 o más viandas con un plato con libres para dos pedidos. El resto no corrió (no se creó nada en la base).
+
+
+---
+
+## 5/11 — Compras: el contador de Registrar compra cuenta en vivo
+
+### ANTES / AHORA
+| Qué | ANTES | AHORA |
+|---|---|---|
+| El contador de abajo | Decía siempre "0 insumos cargados con cantidad": ningún JS lo cambiaba | Cuenta mientras se escribe los renglones con cantidad mayor a 0: "0 insumos cargados", "1 insumo cargado", "3 insumos cargados" |
+| El circulito del número | Gris siempre | Verde con al menos uno |
+| Un renglón con cantidad | Igual que los demás | Verde muy clarito |
+| Una cantidad negativa | Se mandaba, y la base la rechazaba | El renglón se pone rojo clarito, aparece "Tiene que ser mayor a 0" y "Guardar compra" se apaga, como en Registrar salida. El servidor lo sigue rechazando igual |
+
+### La función nueva: `contarCargadosCompra` (`registrarCompra.js`)
+- **ENTRADA:** nada (lee las cantidades de todos los renglones).
+- **SALIDA:** nada. Escribe el contador, pone verdes el circulito y los renglones con cantidad, y si hay una negativa muestra el aviso en su renglón y apaga "Guardar compra".
+- **La llaman:** escribir una cantidad (un `input` sobre la lista, como Registrar salida) y abrir la ventana, que la deja en 0.
+- **Cuenta también los renglones que esconde un filtro**, porque "Guardar compra" también los manda.
+
+### Ejemplo
+Harina 2, Ajo vacío, Leche 0 → "1 insumo cargado", el circulito verde y Harina en verde clarito. Si después escribís −2 en Ajo: sigue "1 insumo cargado", abajo de Ajo aparece "Tiene que ser mayor a 0" en rojo y "Guardar compra" queda apagado hasta corregirlo.
+
+### Lo demás que cambió
+- **`renderizarInsumosModal`, solo el HTML que arma:** cada renglón trae el aviso escondido al final.
+- **`compras.html`:** el texto del contador va en su propio `<span class="texto-cargados">`, así el JS lo cambia con `textContent`.
+- **`compras.css`:** el verde del renglón y del circulito, el rojo del renglón negativo y su aviso, y "Guardar compra" apagado (más claro, cursor de "no se puede"), como el de Registrar salida.
+- **Lo que se manda al servidor no cambió.**
+
+### Pruebas
+- Registrar compra con base falsa y Chrome: 79 de 79. Incluye escribir con el teclado, 0, −2, 0.5, singular y plural, el filtro y volver a abrir. Lo que se manda sigue igual que antes, letra por letra.
+- La pantalla (130/130) y los paneles (84/84) siguen bien.
+- `node tests/test_e2e.js heladera`: igual que antes, 2 bien y 1 mal, porque falta el combo de 3 o más viandas. No creó nada en la base.

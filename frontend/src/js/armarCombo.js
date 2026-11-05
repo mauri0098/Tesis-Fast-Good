@@ -19,7 +19,8 @@
 // y (24/10) tiene un día de producción en el medio: el pedido se entrega desde 2 días hábiles después.
 // Un renglón personalizado = un plato + un texto.
 //
-// Necesita antes: escape.js (escHtml) y combosCatalogo.js (combosDisponibles, IMAGEN_POR_DEFECTO, armarFotoTarjeta).
+// Necesita antes: escape.js (escHtml), index.html (el HTML de la ventana) y
+// renderizadoCatalogo.js (combosDisponibles, IMAGEN_POR_DEFECTO, armarFotoTarjeta).
 // Los límites de acá son una AYUDA para el cliente: el servidor los vuelve a controlar
 // todos al crear el pedido.
 // ====================================================================
@@ -93,13 +94,15 @@ function abrirModalCombo(idCombo) {
   });
 
   // Encabezado (textContent muestra el texto tal cual, no hace falta escHtml)
-  document.getElementById('modal-combo-categoria').textContent = combo.categoria.nombre + ' · ' + combo.plan;
+  // Con categoría: "Viandas Saludables · PLAN VEGGIE" · sin categoría: solo "MANTENIMIENTO"
+  const encabezadoCombo = combo.categoria ? combo.categoria.nombre + ' · ' + combo.plan : combo.plan;
+  document.getElementById('modal-combo-categoria').textContent = encabezadoCombo;
   document.getElementById('modal-combo-titulo').textContent = combo.nombre;
 
   // Arriba de los platos (se ve solo en el celu): la foto del combo (con la misma regla de las tarjetas,
-  // armarFotoTarjeta de combosCatalogo.js, que ya pasa los datos por escHtml), el nombre, el precio y
+  // armarFotoTarjeta de renderizadoCatalogo.js, que ya pasa los datos por escHtml), el nombre, el precio y
   // "Elegí tus 10 platos · podés repetir". El precio es solo para mostrar: el que se cobra lo calcula el servidor.
-  document.getElementById('armar-combo-foto').innerHTML = armarFotoTarjeta(combo, '', '');
+  document.getElementById('armar-combo-foto').innerHTML = armarFotoTarjeta([combo], combo.plan_imagen, '');
   document.getElementById('armar-combo-nombre').textContent = combo.nombre;
   document.getElementById('armar-combo-precio').textContent = '$ ' + Number(combo.precio).toLocaleString('es-AR');
   document.getElementById('armar-combo-rotulo').textContent = `Elegí tus ${combo.cantidad} platos · podés repetir`;
@@ -451,8 +454,8 @@ function cerrarModalCombo(forzar) {
 document.addEventListener('DOMContentLoaded', () => {
   const modal = document.getElementById('modal-combo');
 
-  // Botones "Armar combo" de las tarjetas. Las dibuja combosCatalogo.js y se vuelven a dibujar
-  // al cambiar de categoría, por eso se escucha en el contenedor #combos.
+  // Botones "¡Lo quiero!" de las tarjetas. Las dibuja renderizadoCatalogo.js, y se vuelven a dibujar
+  // al abrir otro plan, por eso se escucha en el contenedor #combos.
   document.getElementById('combos').addEventListener('click', evento => {
     const boton = evento.target.closest('[data-accion="armar-combo"]');
     if (boton) {

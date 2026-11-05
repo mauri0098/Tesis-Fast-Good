@@ -38,7 +38,7 @@ Fast Good: sistema de gestión de viandas para el negocio de mi prima (Villa All
 - Fase 0 de limpieza.
 - Tablas de combos: `combos`, `combo_productos`, `pedido_combos` + columnas nuevas en `pedido_detalles`.
 - Web nueva `frontend/index-combos.html` (en paralelo al index viejo, que NO se tocó):
-  - `combosCatalogo.js` (catálogo), `armarCombo.js` (modal X de N + personalizar), `carritoCombos.js` (carrito en localStorage), `pedidoCombos.js` (formulario igual al viejo + envío + WhatsApp).
+  - `renderizadoCatalogo.js` (catálogo), `armarCombo.js` (modal X de N + personalizar), `carritoCombos.js` (carrito en localStorage), `pedidoCombos.js` (formulario igual al viejo + envío + WhatsApp).
 - Rutas: `GET /api/v1/combos` (pública), `POST /api/pedidos-combos` (pública, limitePedidos).
 - Función de base `crear_pedido_combos` (todo o nada) — con heladera desde el paso H6.
 - Cocina: ve personalizados (⚠), una fila por pedido con botón "Detalles".

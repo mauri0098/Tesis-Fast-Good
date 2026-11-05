@@ -1,5 +1,5 @@
 // ====================================================================
-// CARRITOCOMBOS.JS — Carrito de combos ("Mi pedido") de index.html
+// CARRITOCOMBOS.JS — Carrito de combos ("Mi pedido") de index.html (se guarda en el navegador)
 //
 // Funciones:
 //   cargarCarrito    → lee el carrito guardado en el navegador (localStorage) y descarta lo que esté roto

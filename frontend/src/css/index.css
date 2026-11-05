@@ -245,10 +245,10 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
   color: var(--titulo-suave);
   font-size: var(--titulo-seccion-tamano); font-weight: 800; line-height: 1.08; letter-spacing: -.03em;
 }
-.titulo-seccion + .lista-categorias, .titulo-seccion + .donde-columnas, .titulo-seccion + .preguntas-columnas { margin-top: 20px; }
+.titulo-seccion + .tarjetas-del-index, .titulo-seccion + .donde-columnas, .titulo-seccion + .preguntas-columnas { margin-top: 20px; }
 @media (min-width: 768px) {
   .seccion { padding: var(--seccion-espacio-compu) 0; }
-  .titulo-seccion + .lista-categorias, .titulo-seccion + .donde-columnas, .titulo-seccion + .preguntas-columnas { margin-top: 28px; }
+  .titulo-seccion + .tarjetas-del-index, .titulo-seccion + .donde-columnas, .titulo-seccion + .preguntas-columnas { margin-top: 28px; }
 }
 
 /* Rótulo: título chiquito, en mayúsculas y gris ("CÓMO FUNCIONA", "¿CUÁNTAS VIANDAS?", "ELEGÍ TUS 10 PLATOS…").
@@ -729,51 +729,87 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 
 /* ===================================================================================
    3. CATEGORÍAS: una tarjeta por categoría (el mismo molde que la tarjeta de combo: sección 4) y la zona de combos.
-   Al tocar una categoría, combosCatalogo.js le pone a la sección la clase "mostrando-combos": en compu los combos
+   Al tocar una categoría, renderizadoCatalogo.js le pone a la sección la clase "mostrando-combos": en compu los combos
    reemplazan a las categorías (con "‹ Todas las categorías" para volver); en el celu entran como una pantalla
    aparte (sección 5)
    =================================================================================== */
 /* La grilla de categorías: de a 3 por fila como máximo y ninguna más angosta que --tarjeta-categoria-ancho-minimo.
    auto-fill deja lugares vacíos cuando hay menos de 3: así 1 o 2 categorías miden lo mismo que cuando hay 3.
    min(…, 100%): en un celu muy angosto la tarjeta se achica al ancho de la pantalla (sin scroll de costado) */
-.grilla-categorias {
+.grilla-tarjetas-del-index {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--tarjeta-categoria-ancho-minimo), 100%), 1fr));
   gap: var(--tarjetas-separacion); align-items: stretch;
 }
 /* Lo que la tarjeta de categoría tiene de más: la descripción debajo del nombre, "DESDE" arriba del precio
    y el precio por vianda en verde ("o $ 11.600 por vianda") */
 .tarjeta-combo-descripcion { display: block; margin-top: 2px; font-size: 13px; font-weight: 600; letter-spacing: 0; opacity: .9; }
-.tarjeta-categoria-desde { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--texto-suave); }
+.tarjeta-desde { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--texto-suave); }
 .tarjeta-combo-por-vianda b { color: var(--verde-texto); }
 
 /* La zona de combos de la categoría elegida: escondida hasta que se toca una categoría.
    Arriba "‹ Todas las categorías", después "Combos …", la bajada y las tarjetas */
 .zona-combos { display: none; scroll-margin-top: 120px; }
 .mostrando-combos .zona-combos { display: block; }
-.zona-combos h3 { color: var(--titulo-suave); font-size: var(--titulo-combos-tamano); font-weight: 800; line-height: 1.1; letter-spacing: -.025em; }
-.zona-combos > p { margin: 6px 0 20px; font-size: 1rem; color: var(--texto-suave); }
+/* El nivel 2: los planes de una categoría, escondidos hasta que se toca una */
+.zona-planes { display: none; }
+.mostrando-planes .zona-planes { display: block; }
+.seccion-catalogo.mostrando-planes .titulo-seccion, .seccion-catalogo.mostrando-combos .titulo-seccion { display: none; }
+.zona-planes h3, .zona-combos h3 { color: var(--titulo-suave); font-size: var(--titulo-combos-tamano); font-weight: 800; line-height: 1.1; letter-spacing: -.025em; }
+.zona-planes > p, .zona-combos > p { margin: 6px 0 20px; font-size: 1rem; color: var(--texto-suave); }
 /* El nombre de la categoría en la barra y "¿Cuántas viandas?" van solo en el celu (sección 5) */
 .combos-barra-titulo, .zona-combos-rotulo { display: none; }
 /* "‹ Todas las categorías": pastilla gris con la flecha en un círculo blanco (como la de "¡Lo quiero!", al revés) */
 .combos-barra { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
-.boton-volver-categorias {
+.boton-volver-un-nivel {
   display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px 0 5px;
   border: 0; border-radius: 999px; background: var(--gris); color: var(--texto);
   font-weight: 700; font-size: .9375rem; cursor: pointer;
   transition: background-color .2s, color .2s, transform .2s var(--curva);
 }
-.boton-volver-categorias:hover { background: var(--verde-claro); color: var(--verde-texto); }
-.boton-volver-categorias:active { transform: scale(.97); }
+.boton-volver-un-nivel:hover { background: var(--verde-claro); color: var(--verde-texto); }
+.boton-volver-un-nivel:active { transform: scale(.97); }
 .boton-volver-flecha {
   display: grid; place-items: center; width: 30px; height: 30px; padding-bottom: 2px; border-radius: 50%;
   background: var(--blanco); font-size: 20px; font-weight: 800; line-height: 1;
 }
 /* En compu, con los combos a la vista las categorías no se ven (en el celu quedan detrás de la pantalla de combos) */
 @media (min-width: 768px) {
-  .zona-combos { margin-top: 28px; }
-  .zona-combos > p { margin-bottom: 24px; }
-  .mostrando-combos .lista-categorias { display: none; }
+  .zona-planes > p, .zona-combos > p { margin-bottom: 24px; }
+  .mostrando-planes .tarjetas-del-index, .mostrando-combos .tarjetas-del-index { display: none; }
+  .mostrando-combos .zona-planes { display: none; }
+  .grilla-planes-categoria { grid-template-columns: repeat(2, 1fr); }
 }
+/* Las tarjetas de los planes de una categoría: una por fila en el celu, dos en compu */
+.grilla-planes-categoria { display: grid; gap: var(--tarjetas-separacion); }
+
+/* La tarjeta horizontal de un plan: la foto, el nombre con su "Desde $" y la flecha. La tarjeta entera es el botón */
+.tarjeta-plan {
+  display: grid; grid-template-columns: 112px 1fr auto; align-items: center; gap: 14px;
+  width: 100%; padding: 8px; text-align: left; cursor: pointer; color: inherit;
+  background: var(--blanco); border: 1px solid #e9eee8; border-radius: var(--tarjeta-radio);
+  box-shadow: 0 1px 2px rgb(22 32 26 / .05), 0 12px 28px -12px rgb(22 32 26 / .22);
+  transition: transform .3s var(--curva), box-shadow .3s;
+}
+.tarjeta-plan:active { transform: translateY(-1px) scale(.99); }
+@media (hover: hover) {
+  .tarjeta-plan:hover { transform: translateY(-3px); box-shadow: 0 2px 4px rgb(22 32 26 / .05), 0 22px 40px -14px rgb(22 32 26 / .3); }
+}
+.tarjeta-plan-foto {
+  display: block; aspect-ratio: 1; border-radius: 16px; overflow: hidden; background: var(--gris);
+}
+.tarjeta-plan-foto img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tarjeta-plan-foto img.foto-logo { object-fit: contain; }
+.tarjeta-plan-foto .foto { height: 100%; aspect-ratio: auto; border-radius: 0; font-size: .75rem; padding: 4px; }
+.tarjeta-plan-textos { display: grid; gap: 2px; min-width: 0; }
+.tarjeta-plan-nombre {
+  margin-bottom: 4px; color: var(--texto);
+  font-size: 1.0625rem; font-weight: 800; letter-spacing: -.015em; line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.tarjeta-plan-flecha { padding-right: 8px; color: var(--verde-fuerte); font-size: 28px; font-weight: 700; line-height: 1; }
+
+/* La frase de la categoría o del plan, arriba de sus tarjetas */
+.frase-de-la-categoria, .frase-del-plan { color: var(--texto); font-weight: 600; }
 /* Mensajes donde van las categorías: "Cargando combos...", "Por ahora no hay combos disponibles." */
 .aviso-combos { padding: 24px 0; color: var(--texto-suave); }
 
@@ -781,14 +817,14 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
    y debajo de las tarjetas va "Cómo funciona" (🥗 Elegís · ✋ Armás · 🛵 Recibís). En compu "Cómo funciona" no se ve */
 .como-funciona { display: none; }
 @media (max-width: 767px) {
-  .seccion-categorias { padding-top: 24px; }
-  .seccion-categorias .titulo-seccion {
+  .seccion-catalogo { padding-top: 24px; }
+  .seccion-catalogo .titulo-seccion {
     display: flex; align-items: center; gap: .35em; margin: 0 2px;
     font-size: 13px; font-weight: 800; line-height: 1.3; letter-spacing: .04em; text-transform: uppercase; color: var(--texto-suave);
   }
-  .seccion-categorias .titulo-seccion::after { content: ""; flex: 1; height: 1px; margin-left: .3em; background: var(--borde); }
-  .seccion-categorias .titulo-seccion .palabra-verde { color: inherit; }
-  .seccion-categorias .titulo-seccion + .lista-categorias { margin-top: 12px; }
+  .seccion-catalogo .titulo-seccion::after { content: ""; flex: 1; height: 1px; margin-left: .3em; background: var(--borde); }
+  .seccion-catalogo .titulo-seccion .palabra-verde { color: inherit; }
+  .seccion-catalogo .titulo-seccion + .tarjetas-del-index { margin-top: 12px; }
   /* Mientras cargan los combos, "Cargando combos..." guarda lugar: con la portada compacta la página queda corta y
      "Dónde estamos" entraba en la pantalla antes de tiempo (después ya no aparecía con su animación al bajar) */
   .aviso-cargando { min-height: 70vh; }
@@ -808,7 +844,7 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
    Foto grande con el nombre en blanco encima, "N viandas" y "Más elegido" (si el combo es destacado);
    abajo, el precio grande, "$ … por vianda" y el botón "¡Lo quiero! →" (late y lo cruza un brillo: sección 11).
    La tarjeta de categoría usa este mismo molde (con "N combos", "DESDE" y "Ver combos →"; lo que tiene de más
-   está en la sección 3; su clic lo escucha combosCatalogo.js)
+   está en la sección 3; su clic lo escucha renderizadoCatalogo.js)
    =================================================================================== */
 /* La grilla: 3 por fila en compu; si hay más combos se achican solas (hasta --tarjeta-ancho-minimo) y pasan
    a la fila de abajo. En el celu, una por fila */
@@ -932,14 +968,14 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
   /* position: fixed + inset: 0 = ocupa toda la pantalla aunque se baje. Capa 30: arriba del encabezado (10) y
      del WhatsApp (20); las ventanas (armar, finalizar) quedan arriba de todo igual.
      overscroll-behavior: contain = al llegar al final, la página de atrás no se mueve */
-  .mostrando-combos .zona-combos {
+  .mostrando-planes .zona-planes, .mostrando-combos .zona-combos {
     position: fixed; inset: 0; z-index: 30; margin: 0;
     overflow-y: auto; overscroll-behavior: contain;
     padding: 0 16px calc(32px + env(safe-area-inset-bottom)); background: var(--blanco);
   }
   /* Mientras la pantalla de combos está abierta, la página de atrás queda quieta.
      :has(…) = "el body que tiene adentro algo con la clase mostrando-combos" */
-  body:has(.mostrando-combos) { overflow: hidden; }
+  body:has(.mostrando-planes, .mostrando-combos) { overflow: hidden; }
 
   /* La barra de arriba: "‹" (botón redondo gris) y el nombre de la categoría.
      sticky + top: 0 = queda pegada arriba cuando se bajan los combos */
@@ -949,18 +985,18 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
   }
   /* Área para el dedo: el botón mide 38 px (como la referencia) pero se puede tocar en 48 px: su ::after es un
      recuadro invisible un poco más grande (position: relative = el ::after se acomoda alrededor del botón) */
-  .boton-volver-categorias { position: relative; flex: none; justify-content: center; width: 38px; height: 38px; min-height: 38px; padding: 0; }
-  .boton-volver-categorias::after { content: ""; position: absolute; inset: -5px; }
+  .boton-volver-un-nivel { position: relative; flex: none; justify-content: center; width: 38px; height: 38px; min-height: 38px; padding: 0; }
+  .boton-volver-un-nivel::after { content: ""; position: absolute; inset: -5px; }
   .boton-volver-texto { display: none; }
   .boton-volver-flecha { width: auto; height: auto; background: none; }
-  .zona-combos .combos-barra-titulo {
+  .zona-planes .combos-barra-titulo, .zona-combos .combos-barra-titulo {
     display: block; min-width: 0; color: var(--texto);
     font-size: 17px; font-weight: 800; letter-spacing: -.015em;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;   /* un nombre muy largo termina en "…" */
   }
   /* En el celu no van "Combos …" ni la bajada: va el rótulo "¿Cuántas viandas?" (con su tamaño de rótulo: si no,
      le gana el de la bajada, ".zona-combos > p") */
-  .zona-combos > h3, .zona-combos > p.revelar { display: none; }
+  .zona-planes > h3, .zona-combos > h3, .zona-combos > p.revelar { display: none; }
   .zona-combos > .zona-combos-rotulo { display: block; margin: 0 0 10px; font-size: 13px; }
 }
 
@@ -1523,7 +1559,7 @@ textarea.casillero { resize: vertical; min-height: 96px; }
 @media (min-width: 768px) { .modal-pedido[open] { animation: deslizar var(--ventana-duracion) var(--curva); } }
 /* Celu: la pantalla de combos y la de armar entran desde la derecha; "Finalizar pedido" sube desde abajo */
 @media (max-width: 767px) {
-  .mostrando-combos .zona-combos { animation: entrar-derecha var(--pantalla-duracion) var(--curva); }
+  .mostrando-planes .zona-planes, .mostrando-combos .zona-combos { animation: entrar-derecha var(--pantalla-duracion) var(--curva); }
   .modal-armar[open] { animation: entrar-derecha var(--pantalla-duracion) var(--curva); }
   .modal-finalizar[open] { animation: subir-hoja var(--hoja-duracion) var(--curva); }
 }
@@ -1577,18 +1613,18 @@ textarea.casillero { resize: vertical; min-height: 96px; }
    1 vez, la 3.ª 2 veces…; de la 13.ª en adelante, 12 veces). :is(A, B) = "A o B": vale para las dos grillas */
 .zona-combos > p.revelar { --d: .05s; }
 .donde-columnas.revelar, .preguntas-columnas.revelar { --d: .08s; }
-:is(.grilla-combos, .grilla-categorias) > :nth-child(2) { --d: calc(var(--demora-entre-tarjetas) * 1); }
-:is(.grilla-combos, .grilla-categorias) > :nth-child(3) { --d: calc(var(--demora-entre-tarjetas) * 2); }
-:is(.grilla-combos, .grilla-categorias) > :nth-child(4) { --d: calc(var(--demora-entre-tarjetas) * 3); }
-:is(.grilla-combos, .grilla-categorias) > :nth-child(5) { --d: calc(var(--demora-entre-tarjetas) * 4); }
-:is(.grilla-combos, .grilla-categorias) > :nth-child(6) { --d: calc(var(--demora-entre-tarjetas) * 5); }
-:is(.grilla-combos, .grilla-categorias) > :nth-child(7) { --d: calc(var(--demora-entre-tarjetas) * 6); }
-:is(.grilla-combos, .grilla-categorias) > :nth-child(8) { --d: calc(var(--demora-entre-tarjetas) * 7); }
-:is(.grilla-combos, .grilla-categorias) > :nth-child(9) { --d: calc(var(--demora-entre-tarjetas) * 8); }
-:is(.grilla-combos, .grilla-categorias) > :nth-child(10) { --d: calc(var(--demora-entre-tarjetas) * 9); }
-:is(.grilla-combos, .grilla-categorias) > :nth-child(11) { --d: calc(var(--demora-entre-tarjetas) * 10); }
-:is(.grilla-combos, .grilla-categorias) > :nth-child(12) { --d: calc(var(--demora-entre-tarjetas) * 11); }
-:is(.grilla-combos, .grilla-categorias) > :nth-child(n+13) { --d: calc(var(--demora-entre-tarjetas) * 12); }
+:is(.grilla-combos, .grilla-tarjetas-del-index) > :nth-child(2) { --d: calc(var(--demora-entre-tarjetas) * 1); }
+:is(.grilla-combos, .grilla-tarjetas-del-index) > :nth-child(3) { --d: calc(var(--demora-entre-tarjetas) * 2); }
+:is(.grilla-combos, .grilla-tarjetas-del-index) > :nth-child(4) { --d: calc(var(--demora-entre-tarjetas) * 3); }
+:is(.grilla-combos, .grilla-tarjetas-del-index) > :nth-child(5) { --d: calc(var(--demora-entre-tarjetas) * 4); }
+:is(.grilla-combos, .grilla-tarjetas-del-index) > :nth-child(6) { --d: calc(var(--demora-entre-tarjetas) * 5); }
+:is(.grilla-combos, .grilla-tarjetas-del-index) > :nth-child(7) { --d: calc(var(--demora-entre-tarjetas) * 6); }
+:is(.grilla-combos, .grilla-tarjetas-del-index) > :nth-child(8) { --d: calc(var(--demora-entre-tarjetas) * 7); }
+:is(.grilla-combos, .grilla-tarjetas-del-index) > :nth-child(9) { --d: calc(var(--demora-entre-tarjetas) * 8); }
+:is(.grilla-combos, .grilla-tarjetas-del-index) > :nth-child(10) { --d: calc(var(--demora-entre-tarjetas) * 9); }
+:is(.grilla-combos, .grilla-tarjetas-del-index) > :nth-child(11) { --d: calc(var(--demora-entre-tarjetas) * 10); }
+:is(.grilla-combos, .grilla-tarjetas-del-index) > :nth-child(12) { --d: calc(var(--demora-entre-tarjetas) * 11); }
+:is(.grilla-combos, .grilla-tarjetas-del-index) > :nth-child(n+13) { --d: calc(var(--demora-entre-tarjetas) * 12); }
 
 /* Sin movimiento: todo queda quieto (las animaciones y transiciones duran casi nada) */
 @media (prefers-reduced-motion: reduce) {

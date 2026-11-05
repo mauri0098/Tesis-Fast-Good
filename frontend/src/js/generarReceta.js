@@ -4,7 +4,8 @@
 //
 // Funciones nuevas o cambiadas por el código de plato (28/10):
 //   crearFilaReceta            → la columna Código muestra la pastillita ("F3")
-//   abrirModalEditar           → arranca con la categoría y el plan del plato, y su código
+//   abrirModalEditar           → arranca con el plan del plato y su código
+//   cargarPlanesEnSelect       → llena el select de planes del modal (GET /api/planes): el plan se elige directo, tenga o no categoría
 //   actualizarCodigoAutomatico → muestra el código que tendría con el plan elegido; al editar, el aviso "F3 → K5"
 //   actualizarRecetaExistente  → si cambió el plan, pregunta y lo cambia primero (con cambiarPlanDelPlato)
 //   cambiarPlanDelPlato        → PUT /api/productos/:id/plan: el servidor da el código nuevo
@@ -18,7 +19,6 @@
 let todasRecetas    = [];
 let todosInsumos    = [];
 let todosProductos  = [];
-let todasCategorias = [];
 let idProductoEditando = null;
 let modoCreacion       = false;
 let cocineroOriginal   = '';   // cocinero del plato al abrir "Editar", para saber si cambió
@@ -52,25 +52,7 @@ document.addEventListener('DOMContentLoaded', function () {
     abrirModalEditar(id);
   });
 
-  // Cascada: categoría → plan
-  document.getElementById('edCategoria').addEventListener('change', function () {
-    const idCat       = this.value;
-    const planSelect  = document.getElementById('edPlan');
-    const codigoInput = document.getElementById('edCodigo');
-
-    codigoInput.value = '';
-    document.getElementById('edAvisoCodigo').hidden = true;   // sin plan elegido, no hay aviso del código
-
-    if (!idCat) {
-      planSelect.innerHTML = '<option value="">Seleccioná una categoría primero</option>';
-      planSelect.disabled  = true;
-      return;
-    }
-
-    cargarPlanesParaCategoria(parseInt(idCat));
-  });
-
-  // Cascada: plan → código automático
+  // Al elegir el plan: el código automático
   document.getElementById('edPlan').addEventListener('change', function () {
     const idPlan      = this.value;
     const codigoInput = document.getElementById('edCodigo');
@@ -472,12 +454,8 @@ function abrirModalNuevaReceta() {
   document.getElementById('edAvisoCodigo').hidden = true;     // el aviso del código es solo para "Editar"
   limpiarImagen();
 
-  const planSelect = document.getElementById('edPlan');
-  planSelect.innerHTML = '<option value="">Seleccioná una categoría primero</option>';
-  planSelect.disabled  = true;
-
   Promise.all([
-    cargarCategoriasEnSelect(),
+    cargarPlanesEnSelect(),
     cargarInsumosDisponibles(),
     cargarCocinerosEnSelect(null, null)
   ]).then(function () {
@@ -514,11 +492,11 @@ async function abrirModalEditar(idProducto) {
   await Promise.all([
     cargarInsumosDisponibles(),
     cargarCocinerosEnSelect(receta ? receta.id_cocinero : null, receta ? receta.cocinero_nombre : null),
-    cargarCategoriasEnSelect()
+    cargarPlanesEnSelect()
   ]);
   cocineroOriginal = (receta && receta.id_cocinero) || '';
 
-  // Categoría, plan y código del plato (28/10): arrancan con los suyos. Si se elige otro plan, el código se
+  // Plan y código del plato (28/10): arrancan con los suyos. Si se elige otro plan, el código se
   // recalcula y aparece el aviso (actualizarCodigoAutomatico). || = el valor de la derecha si no hay plan
   const planDelPlato = (receta && receta.plan) || {};
   planOriginal   = planDelPlato.id ? String(planDelPlato.id) : '';
@@ -526,11 +504,20 @@ async function abrirModalEditar(idProducto) {
   codigoPrevisto = '';
   document.getElementById('edCodigo').value        = codigoOriginal;
   document.getElementById('edAvisoCodigo').hidden  = true;
-  if (planDelPlato.id_categoria) {
-    document.getElementById('edCategoria').value = String(planDelPlato.id_categoria);
-    await cargarPlanesParaCategoria(planDelPlato.id_categoria);  // los planes de su categoría…
-    document.getElementById('edPlan').value = planOriginal;      // …con el suyo elegido
+
+  // Si el plan del plato está desactivado, no viene en la lista: se muestra igual solo acá, para poder guardar la receta
+  // sin cambiarle el plan (mismo criterio que el cocinero que ya no es cocinero).
+  // some responde true si AL MENOS UNA opción es ese plan. Ej: opciones [2, 6] y plan 4 → false: se agrega "PLAN KIDS (desactivado)"
+  const planSelect = document.getElementById('edPlan');
+  const planEnLaLista = Array.from(planSelect.options).some(function (opcion) { return opcion.value === planOriginal; });
+  const planDesactivado = planOriginal !== '' && !planEnLaLista;
+  if (planDesactivado) {
+    const option       = document.createElement('option');
+    option.value       = planOriginal;
+    option.textContent = planDelPlato.nombre + ' (desactivado)';
+    planSelect.appendChild(option);
   }
+  planSelect.value = planOriginal;   // con el suyo elegido
 
   if (receta && receta.insumos) {
     receta.insumos.forEach(function (ins) { agregarFilaInsumo(ins); });
@@ -599,44 +586,20 @@ async function cargarCocinerosEnSelect(idAsignado, nombreAsignado) {
 }
 
 // ==========================================
-// CARGAR CATEGORÍAS (select modal creación)
+// CARGAR PLANES (select del modal)
 // ==========================================
-async function cargarCategoriasEnSelect() {
-  const select = document.getElementById('edCategoria');
-  select.innerHTML = '<option value="">Cargando categorías...</option>';
-
-  try {
-    const response    = await fetch('/api/v1/categorias');
-    todasCategorias   = await response.json();
-
-    select.innerHTML = '<option value="">Seleccioná una categoría...</option>';
-    todasCategorias.forEach(function (cat) {
-      const option       = document.createElement('option');
-      option.value       = cat.id;
-      option.textContent = cat.nombre;
-      select.appendChild(option);
-    });
-  } catch (error) {
-    console.error('Error al cargar categorías:', error);
-    select.innerHTML = '<option value="">Error al cargar</option>';
-  }
-}
-
-// ==========================================
-// CARGAR PLANES (cascada desde categoría)
-// ==========================================
-async function cargarPlanesParaCategoria(idCategoria) {
+// cargarPlanesEnSelect → llena el select con los planes activos, tengan o no categoría
+// ENTRADA: nada
+// SALIDA:  nada. Llena #edPlan con GET /api/planes y lo deja listo para elegir ("Error al cargar" si falló)
+// Ej: planes MANTENIMIENTO (sin categoría) y PLAN VEGGIE (con categoría) → los dos salen en la lista
+async function cargarPlanesEnSelect() {
   const planSelect = document.getElementById('edPlan');
   planSelect.innerHTML = '<option value="">Cargando planes...</option>';
   planSelect.disabled  = true;
 
   try {
-    const response = await fetch('/api/v1/categorias/' + idCategoria + '/planes');
-
-    if (!response.ok) {
-      planSelect.innerHTML = '<option value="">Sin planes para esta categoría</option>';
-      return;
-    }
+    const response = await apiFetch('/api/planes');
+    if (!response.ok) throw new Error('HTTP ' + response.status);   // si el servidor dio error, va al catch
 
     const planes = await response.json();
 

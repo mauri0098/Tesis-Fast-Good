@@ -92,10 +92,7 @@
     --envio-retira: #6b3fbf;               /* "Retira": violeta */
     --pago-a-cobrar: #a35f00;              /* "A cobrar": naranja (el "✓ Cobrado" usa el verde de los textos chicos) */
 
-    /* Ventanas */
-    --radio-recuadro: 14px;                /* esquinas de los recuadros de adentro de las ventanas */
-    --ancho-ventana-detalles: 440px;       /* el ancho de "Detalles" (24/10: antes 360, por las 3 cajitas) */
-    --fondo-cajita-detalle: #f2f9f4;       /* las 3 cajitas de "Detalles" (Entrega · Envío · Viandas): verde muy suave */
+    /* Las variables de las ventanas de Detalle están en global.css */
 }
 
 
@@ -701,8 +698,7 @@ table.tabla-pedidos .col-costo {
     display: flex;
 }
 
-/* El ancho de cada ventana (el de la referencia); en el celu, todo el ancho que haya */
-.ventana-detalles { width: 100%; max-width: var(--ancho-ventana-detalles); }   /* 24/10: 440 px */
+/* El ancho de cada ventana (el de la referencia); en el celu, todo el ancho que haya. El de Detalles está en global.css */
 .ventana-pago     { width: 100%; max-width: 380px; }
 .ventana-chica    { width: 100%; max-width: 300px; }   /* Confirmar pago y Anular */
 .ventana-faltan-insumos { max-width: 360px; }          /* "Faltan insumos" (24/10): un poco más ancha, el aviso puede ser largo */
@@ -713,81 +709,12 @@ table.tabla-pedidos .col-costo {
     align-items: stretch;
 }
 
-/* --- Detalles: las 3 cajitas, un recuadro por combo con sus platos, y el total abajo (26/10: sin el renglón del cliente) --- */
+/* --- Detalles: las cajitas, los recuadros, los renglones y el total están en global.css (7c). Acá, lo que es solo de los pedidos --- */
 
-/* Entre las partes, 12 px (las piezas de la ventana están en global.css, 7b) */
-.ventana-detalles .ventana-cuerpo {
-    gap: 12px;
-}
-
-/* (24/10) Las 3 cajitas: Entrega · Envío · Viandas, del mismo ancho, verde muy suave con el nombre en verde y MAYÚSCULA */
-.cajitas-detalle {
-    display: flex;
-    gap: 8px;
-}
-
-.cajita-detalle {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    padding: 10px 12px;
-    border-radius: 12px;
-    background: var(--fondo-cajita-detalle);
-}
-
-.nombre-cajita {
-    color: var(--verde-texto);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-}
-
-.valor-cajita {
-    margin-top: 2px;
-    color: var(--texto);
-    font-size: 15px;
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-/* El recuadro de cada combo */
-.recuadro-combo {
-    padding: 12px 14px;
-    border: 1px solid var(--borde-gris);
-    border-radius: var(--radio-recuadro);
-}
-
-/* Arriba del recuadro: el nombre del combo y su precio */
-.cabecera-combo {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    font-weight: 800;
-}
-
+/* El precio del combo, a la derecha de su nombre */
 .precio-combo {
     color: var(--verde-principal);
     white-space: nowrap;
-}
-
-/* Los platos del combo, un renglón cada uno, con una línea finita entre ellos */
-.platos-combo {
-    margin-top: 6px;
-}
-
-.linea-plato {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--gris-boton);
-    font-size: 14px;
-}
-
-.linea-plato:last-child {
-    border-bottom: 0;
 }
 
 /* (24/10) Un plato que sale de la heladera: "de la heladera" a la derecha, chiquito y en gris */
@@ -810,15 +737,6 @@ table.tabla-pedidos .col-costo {
 .precio-plato {
     font-weight: 700;
     white-space: nowrap;
-}
-
-/* El total del pedido, abajo de todo */
-.total-detalle {
-    display: flex;
-    justify-content: space-between;
-    padding-top: 4px;
-    font-size: 16px;
-    font-weight: 800;
 }
 
 /* "Sin detalles" (un pedido sin platos) */

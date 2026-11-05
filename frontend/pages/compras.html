@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compras - Fast Good</title>
+  <link rel="icon" href="../src/assets/img/logo.webp" type="image/webp"/>
+  <!-- Letra: Inter, la del panel -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../src/css/global.css" />
+  <link rel="stylesheet" href="../src/css/compras.css" />
+</head>
+
+<body>
+  <!-- Arriba: no buscan nada de la página. guard.js revisa el login y el rol antes que nada -->
+  <script src="../src/js/roles.js"></script>
+  <script src="../src/js/guard.js"></script>
+  <script src="../src/js/api.js"></script>
+  <script src="../src/js/escape.js"></script>
+  <script src="../src/js/adminSidebar.js"></script>
+
+  <!-- La hoja de la lista de compras: en la pantalla no se ve. Al imprimir es lo único que sale (compras.css, parte 6).
+       Va suelta en el body, afuera de admin-content, así el CSS de impresión puede esconder todo lo demás.
+       Y va antes que compras.js: si estuviera después, cuando compras.js la busca todavía no existiría -->
+  <div id="hojaListaCompras" class="hoja-lista-compras"></div>
+
+  <div class="admin-content">
+    <!-- Título a la izquierda y los dos botones a la derecha -->
+    <header class="compras-encabezado">
+      <div>
+        <p class="compras-ruta">Stock · Compras</p>
+        <h1>Compras</h1>
+      </div>
+      <div class="compras-botones">
+        <button type="button" id="botonComprasHechas" class="boton-compras-hechas">
+          <svg class="icono-boton" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>
+          Compras hechas
+        </button>
+        <button type="button" id="btnRegistrarCompra" class="boton-registrar-compra">+ Registrar compra</button>
+      </div>
+    </header>
+
+    <div class="page-container">
+      <!-- Filtros: Semana o Mes, el período con sus flechas, el buscador y la categoría -->
+      <div class="filtros-compras">
+        <div class="selector-periodo" role="group" aria-label="Ver por semana o por mes">
+          <button type="button" id="botonSemana">Semana</button>
+          <button type="button" id="botonMes">Mes</button>
+        </div>
+
+        <div class="navegador-periodo">
+          <button type="button" id="botonPeriodoAnterior" aria-label="Período anterior">‹</button>
+          <b id="textoPeriodo" class="texto-periodo" aria-live="polite"></b>
+          <button type="button" id="botonPeriodoSiguiente" aria-label="Período siguiente">›</button>
+        </div>
+
+        <input type="search" id="buscadorInsumo" class="buscador-insumo" placeholder="Buscar insumo" aria-label="Buscar insumo" autocomplete="off" />
+
+        <!-- El JS agrega una opción por categoría -->
+        <select id="filtroCategoria" class="filtro-categoria" aria-label="Categoría">
+          <option value="">Todas las categorías</option>
+        </select>
+      </div>
+
+      <p class="ayuda-repetir"><b>Para repetir, comprá</b> = lo que gastaste en <span id="ayudaPeriodo">la semana</span> menos lo que tenés hoy.</p>
+
+      <!-- La tarjeta: la tabla y, abajo, cuántos insumos son y el botón de imprimir -->
+      <div class="tarjeta-compras">
+        <!-- Si la tabla no entra, se mueve de costado solo adentro de la tarjeta -->
+        <div class="contenedor-tabla-compras">
+          <table class="grilla-fg tabla-compras">
+            <thead>
+              <tr>
+                <th>Insumo</th>
+                <th class="celda-numero">Compré</th>
+                <th class="celda-numero">Gasté</th>
+                <th class="celda-numero">Hoy tenés</th>
+                <th class="celda-numero">Para repetir, comprá</th>
+                <th aria-label="Acción"></th>
+              </tr>
+            </thead>
+            <!-- El JS llena el tbody: una fila por insumo con compras o gastos en el período -->
+            <tbody id="cuerpoResumen">
+              <tr class="fila-sin-datos">
+                <td colspan="6">Cargando...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- cierra contenedor-tabla-compras -->
+
+        <div class="pie-tabla">
+          <span id="contadorResumen"></span>
+          <button type="button" id="botonImprimirLista" class="boton-imprimir-lista">Imprimir lista de compras</button>
+        </div>
+      </div>
+      <!-- cierra tarjeta-compras -->
+    </div>
+    <!-- cierra page-container -->
+
+    <!-- PANEL DE COSTADO "Compras hechas": entra por la derecha (global.css: panel-lateral).
+         Lo de adentro lo arma compras.js (renderizarComprasHechas) -->
+    <div id="panelComprasHechas" class="modal-fondo fondo-panel-compras" hidden>
+      <aside class="panel-lateral" role="dialog" aria-modal="true" aria-labelledby="tituloComprasHechas">
+        <!-- Arriba: el título, el período y la X -->
+        <div class="cabecera-panel-compras">
+          <div>
+            <h2 id="tituloComprasHechas" class="ventana-titulo">Compras hechas</h2>
+            <p id="subtituloComprasHechas" class="subtitulo-panel-compras"></p>
+          </div>
+          <button type="button" id="botonCerrarComprasHechas" class="boton-cerrar" aria-label="Cerrar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+          </button>
+        </div>
+        <!-- Una compra por renglón, de la más nueva a la más vieja -->
+        <ul id="listaComprasHechas" class="lista-panel-compras">
+          <li class="panel-sin-datos">Cargando...</li>
+        </ul>
+        <!-- Abajo: cuántas compras y cuántos insumos -->
+        <div class="pie-panel-compras">
+          <span id="cantidadComprasHechas"></span>
+          <span id="cantidadInsumosComprados"></span>
+        </div>
+      </aside>
+    </div>
+
+    <!-- PANEL DE COSTADO "En qué se gastó": el de cada insumo. Lo llena compras.js (abrirGastosInsumo) -->
+    <div id="panelGastos" class="modal-fondo fondo-panel-compras" hidden>
+      <aside class="panel-lateral" role="dialog" aria-modal="true" aria-labelledby="tituloGastos">
+        <!-- Arriba: el insumo, el período y la X -->
+        <div class="cabecera-panel-compras">
+          <div>
+            <h2 id="tituloGastos" class="ventana-titulo"></h2>
+            <p id="subtituloGastos" class="subtitulo-panel-compras"></p>
+          </div>
+          <button type="button" id="botonCerrarGastos" class="boton-cerrar" aria-label="Cerrar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+          </button>
+        </div>
+        <!-- Las pastillas con el total de cada origen: Cocina · Pedidos personalizados · Salidas a mano (y Ajuste) -->
+        <div id="totalesGastos" class="totales-gastos"></div>
+        <!-- Una salida por renglón, de la más nueva a la más vieja -->
+        <ul id="listaGastos" class="lista-panel-compras"></ul>
+        <!-- Abajo: cuántas salidas y el total -->
+        <div class="pie-panel-compras">
+          <span id="cantidadSalidas"></span>
+          <b id="totalGastos" class="total-gastos"></b>
+        </div>
+      </aside>
+    </div>
+
+    <!-- VENTANA "REGISTRAR COMPRA" (05/11: se mudó de Movimientos de Stock, con el diseño 4-registrar-compra).
+         Arranca oculta (hidden) y la abre "+ Registrar compra" (registrarCompra.js). Los ids son los de antes: lo que se
+         manda al servidor no cambió. Es una columna: arriba el título y los campos, en el medio la lista (lo único que se
+         mueve) y abajo el pie -->
+    <div id="modalCompra" class="modal-fondo fondo-ventana-compra" hidden>
+      <div class="ventana-compra" role="dialog" aria-modal="true" aria-labelledby="compraTitulo">
+        <!-- Arriba: el ícono de la bolsa, el título, la frase y la X -->
+        <div class="cabecera-compra">
+          <div class="titulo-compra">
+            <span class="icono-compra" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><path d="M3 6h18M16 10a4 4 0 0 1-8 0"></path></svg>
+            </span>
+            <div>
+              <h3 id="compraTitulo">Registrar compra</h3>
+              <p class="bajada-compra">Ingreso de insumos al depósito con stock y fecha de vencimiento</p>
+            </div>
+          </div>
+          <button type="button" id="botonCerrarCompra" class="boton-cerrar-compra" aria-label="Cerrar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+          </button>
+        </div>
+
+        <!-- Los campos: Fecha · Proveedor · Categoría · Solo los bajos, en una sola grilla alineada abajo -->
+        <div class="compra-campos">
+          <!-- Datos de la compra -->
+          <div class="compra-datos">
+            <label>
+              Fecha
+              <input type="date" id="compraFecha" />
+            </label>
+            <label>
+              Proveedor (opcional)
+              <input type="text" id="compraProveedor" placeholder="Ej: Verdulería Juan, Carnicería" />
+            </label>
+          </div>
+          <!-- cierra compra-datos -->
+
+          <!-- Filtros: categoría y solo los bajos (el tilde se ve como un interruptor) -->
+          <div class="compra-filtros">
+            <label>
+              Categoría
+              <select id="compraCategoria">
+                <option value="">Todas las categorías</option>
+              </select>
+            </label>
+            <label class="interruptor-bajos">
+              <input type="checkbox" id="compraSoloBajos" />
+              Solo los bajos
+            </label>
+          </div>
+          <!-- cierra compra-filtros -->
+        </div>
+        <!-- cierra compra-campos -->
+
+        <!-- La lista de insumos (lo único que se mueve). Los títulos y cada renglón usan las mismas 6 columnas.
+             role="table" / "row" / "columnheader": el lector de pantalla la lee como una tabla -->
+        <div class="compra-lista" role="table" aria-label="Insumos de la compra">
+          <div class="compra-encabezado" role="row">
+            <span role="columnheader">Insumo</span>
+            <span role="columnheader">Stock</span>
+            <span role="columnheader">Mínimo</span>
+            <span role="columnheader" class="titulo-cantidad-compra">Cantidad</span>
+            <span role="columnheader">Unidad</span>
+            <span role="columnheader">Vence</span>
+          </div>
+          <!-- Los renglones: el JS dibuja uno por insumo (renderizarInsumosModal) -->
+          <div id="comprasItemsBody" class="compra-renglones" role="rowgroup">
+            <div class="compra-renglon-vacio" role="row"><span role="cell">Cargando...</span></div>
+          </div>
+        </div>
+        <!-- cierra compra-lista -->
+
+        <!-- Abajo: a la izquierda cuántos se cargaron y el error; a la derecha los botones -->
+        <div class="compra-pie">
+          <div class="compra-pie-textos">
+            <!-- Cuántos insumos tienen cantidad cargada: el número y el texto los cambia contarCargadosCompra mientras se escribe -->
+            <p id="compraContador" class="contador-compra"><span class="numero-cargados">0</span> <span class="texto-cargados">insumos cargados</span></p>
+            <!-- Acá aparecen los errores (vacío al principio) -->
+            <p id="compraError" class="compra-error" role="alert"></p>
+          </div>
+          <!-- Botones -->
+          <div class="botones-compra">
+            <button type="button" id="btnCancelarCompra" class="boton-cancelar-compra">Cancelar</button>
+            <button type="button" id="btnGuardarCompra" class="boton-guardar-compra">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><path d="M17 21v-8H7v8M7 3v5h8"></path></svg>
+              Guardar compra
+            </button>
+          </div>
+          <!-- cierra botones-compra -->
+        </div>
+        <!-- cierra compra-pie -->
+      </div>
+      <!-- cierra ventana-compra -->
+    </div>
+    <!-- cierra modalCompra -->
+
+    <!-- Abajo: buscan elementos de la página, así que van cuando ya está todo armado -->
+    <script src="../src/js/fechas.js"></script>
+    <!-- Lo que comparte con Movimientos de Stock. Pone también el modal de Detalle en la página -->
+    <script src="../src/js/stockCompartido.js"></script>
+    <!-- La ventana Registrar compra (antes que compras.js: compras.js la abre sola si la dirección dice ?compra=1) -->
+    <script src="../src/js/registrarCompra.js"></script>
+    <script src="../src/js/compras.js"></script>
+  </div>
+  <!-- cierra admin-content -->
+</body>
+
+</html>

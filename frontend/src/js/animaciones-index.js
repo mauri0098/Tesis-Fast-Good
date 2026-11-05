@@ -7,7 +7,7 @@
 //   iniciarAnimacionesIndex → pone la clase "js" en <html>, mira los elementos "revelar" (les pone "visible" cuando
 //                             entran en la pantalla) y hace saltar el contador de "Mi pedido" cuando cambia
 //     observarNuevos (adentro) → empieza a mirar los "revelar" que todavía no se vieron (también los que se dibujan
-//                             después, como las tarjetas al cambiar de categoría)
+//                             después, como las tarjetas al abrir una)
 //
 // Es el animaciones-index.js del diseño final tal cual (su carpeta de referencia se borró el 17/10: está en git);
 // lo único distinto es el nombre del contador: ".contador" → ".contador-combos" (regla "Nombres claros" del CLAUDE.md).
@@ -35,7 +35,7 @@ function iniciarAnimacionesIndex() {
   }
   observarNuevos();
 
-  // Las tarjetas de combos se vuelven a dibujar al tocar una categoría: las nuevas también se observan.
+  // Las tarjetas de combos se vuelven a dibujar al tocar una tarjeta: las nuevas también se observan.
   const vigia = new MutationObserver(observarNuevos);
   vigia.observe(document.body, { childList: true, subtree: true });
 

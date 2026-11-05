@@ -161,7 +161,7 @@ La base guarda g / ml / u. La pantalla muestra kg / lts (≥1000). Servidor conv
 ### Web nueva del cliente (`frontend/index-combos.html`, en paralelo al index viejo)
 | Archivo | Funciones |
 |---|---|
-| `combosCatalogo.js` | `cargarCombos`, `renderizarCategorias`, `renderizarCombos`. Variables: `combosDisponibles`, `categoriaElegida`, `IMAGEN_POR_DEFECTO`. |
+| `renderizadoCatalogo.js` | `cargarCombos`, `armarFotoTarjeta`, `renderizarTarjetasDelIndex`, `renderizarPlanesDeLaCategoria`, `renderizarCombosDelPlan`, `mostrarNivelElegido`, `volverAPlanes`. Variables: `combosDisponibles`, `idCategoriaElegida`, `idPlanElegido`, `IMAGEN_POR_DEFECTO`. |
 | `armarCombo.js` | `abrirModalCombo` (calcula `topePorPlato` restando lo del carrito), `renderizarMenuCombo`, `cambiarCantidadPlato`, `agregarPlatoPersonalizado`, `cambiarCantidadPersonalizado`, `confirmarCombo` (arma `comboArmado`), `cerrarModalCombo`. Variables: `comboEnArmado` (el "molde" del servidor), `cantidadesElegidas` ({idPlato: cant}, la "libreta"), `personalizados`, `totalElegido`. |
 | `carritoCombos.js` | `cargarCarrito`, `guardarCarrito` (localStorage `FG_CARRITO_COMBOS`), `agregarAlCarrito`, `quitarDelCarrito`, `renderizarCarrito`, `abrirMiPedido`. Variable `carritoCombos` (el array final). Ícono cuenta COMBOS. |
 | `pedidoCombos.js` | El formulario (mismos campos que el viejo: Nombre, Apellido, Dirección, Teléfono, Email, Fecha, Pago, Entrega, Barrio, Observaciones). `abrirCheckout`, `cargarBarrios`, `validarFormulario` (devuelve `datos`), `armarPedido(datos)` (carrito + datos → pedido), `confirmarPedido` (valida → arma → `enviarPedido` → vacía carrito → `mostrarConfirmacion`), `enviarPedido`, `mostrarConfirmacion`, `armarMensajeWhatsApp` (botón, número 5493512294243, alias FAST.GOOD.VA). |

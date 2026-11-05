@@ -16,20 +16,37 @@
   Nada de partir todo en funcioncitas de 3 líneas. Si una función se usa una sola vez y es corta, va adentro de la otra.
 - Cada archivo JS arranca con un comentario que lista sus funciones y qué hace cada una.
 - ANTES de escribir un archivo nuevo, mostrame la lista de funciones que va a tener (nombre + una línea).
-  Si son más de 6-8, explicame por qué.
+- Pocas funciones, grandes pero claras. NO crear funciones chiquitas de ayuda (ej: precioMasBajo, textoPlural):
+  ese cálculo va escrito adentro de la función que lo usa. Si creés que hace falta una función nueva, PREGUNTAME antes.
 - Comentarios en español en cada parte.
 - Respetá mis funciones y mi estilo. Cambiá lo mínimo posible. Si algo hay que reescribir, preguntame antes.
 - Nada de trucos difíciles de leer. Prefiero más líneas claras que pocas líneas complicadas.
 
-## Estilo: código profesional y simple (sin if anidados)
+## Estilo: buenas prácticas, pero que yo lo lea al ojo
+- Buenas prácticas SIEMPRE (seguro, rápido, sin código repetido, una sola pasada por la lista cuando se pueda),
+  pero escrito con lo que yo sé leer.
+- LO QUE SE PUEDE USAR: if / else con llaves, forEach, map, filter, find, return temprano,
+  booleanos con nombre (const tieneCategoria = ...), tablas (objetos) para elegir un valor (COLORES_ESTADO[estado]).
 - NUNCA un if adentro de otro if. Máximo un nivel.
-- Valores por defecto con ||: const direccion = pedido.cliente_direccion || '-';  (nada de let + if)
-- switch ("según sea") cuando se compara una misma variable contra varios valores. Cada case con su comentario "según sea…" y su break.
-- Tablas (objetos) en vez de if / else if para elegir un texto, un color o un valor. Ej: MENSAJE_VACIO[modo], COLORES_ESTADO[estado].
-- Salir temprano: los "no" arriba con return (if (!pedido) return;) y lo importante abajo, sin else.
-- Ternario simple, de un solo nivel, solo FUERA del HTML, para elegir entre dos valores: const texto = pedido.pagado ? 'PAGADO' : 'PENDIENTE';  Nunca un ternario adentro de otro, ni adentro de un template.
-- Si una condición mezcla varias cosas, primero se guarda en una variable con nombre claro (const faltaEfectivo = a && !b;) y después un solo if.
-- Código básico que se entienda leyéndolo una vez: nombres en español, comentario en cada línea, ENTRADA / SALIDA y un ejemplo arriba de cada función. Profesional no quiere decir complicado.
+- Si varias cosas dependen de la MISMA pregunta, UN solo if / else que las resuelve todas juntas.
+  Ej: let textoBoton = 'Ver combos'; let atributoId = 'data-id-plan';
+      if (tieneCategoria) { textoBoton = 'Ver planes'; atributoId = 'data-id-categoria'; }
+- Pocos if por función (2 o 3). Si quedan MUCHOS if, NO decidas vos: PREGUNTAME si prefiero
+  un ternario (? :) o un switch, mostrándome cómo quedaría cada opción. Sin mi OK, ni ternario ni switch.
+- Si te doy el OK al switch: cada case con su comentario "según sea…" y su break.
+  Si te doy el OK al ternario: de un solo nivel, nunca uno adentro de otro, nunca adentro de un template (`...`).
+- Salir temprano: los "no" arriba con return, siempre con llaves: if (!pedido) { return; }
+- Si una condición mezcla varias cosas, primero se guarda en una variable con nombre claro
+  (const faltaEfectivo = a && !b;) y después el if.
+- PROHIBIDO (difícil de leer): Math.min(...lista) y Math.max(...lista), new Set, flatMap, some, reduce,
+  ?. , ?? , || para valores por defecto, classList.toggle con condición, if de una sola línea sin llaves.
+  En su lugar: un forEach con una variable que se va guardando (let masBajo = ...; if (precio < masBajo) { masBajo = precio; }),
+  if / else con llaves, classList.add / classList.remove.
+- .sort se puede usar, con un comentario en palabras y un ejemplo
+  (ej: Mantenimiento 2 − Viandas 3 = −1 → negativo → Mantenimiento va primero).
+- Comentario en cada if: qué pregunta, un ejemplo SÍ y uno NO. Ej: if (num > 100) // ¿es mayor a 100? SÍ: 122 · NO: 80
+- Código básico que se entienda leyéndolo una vez: nombres en español, ENTRADA / SALIDA y un ejemplo arriba de cada función.
+  Profesional no quiere decir complicado.
 
 ## Cómo recorrer listas y armar HTML (para que yo lo entienda)
 - Para recorrer listas usá forEach (es el que mejor entiendo). No uses for...of ni for con contador.
@@ -37,10 +54,8 @@
 - Para buscar UN solo elemento en una lista usá find. Para filtrar varios, filter.
 - Nada de forEach adentro de otro forEach si se puede evitar. Si hay que cruzar dos listas,
   primero armá un objeto { id: valor } con una de ellas y después recorré la otra.
-- Nada de "? :" adentro de los template strings (`...`). Calculá eso antes en una variable (ver "Estilo" arriba).
-  Ej: const claseElegido = cantidad > 0 ? ' plato--elegido' : '';
-- Cuando uses algo que no sea básico (flatMap, some, reduce, etc.), poné un comentario con un ejemplo
-  de qué entra y qué sale.
+- Nada calculado adentro de los template strings (`...`): se calcula antes, en una variable, con if / else.
+  Ej: let claseElegido = ''; if (cantidad > 0) { claseElegido = ' plato--elegido'; }
 
 ## Cambios de pantalla: SOLO lo visual
 - En un cambio de pantalla se toca SOLO: el HTML, el CSS y las animaciones. Si un JS arma HTML (innerHTML),
@@ -76,7 +91,7 @@
 - Personalizado (ej: "sin sal"): se escribe en la web, mismo precio, NO sale de la heladera, va a cocina, +1 día hábil.
   Sus insumos se descuentan cuando el pedido pasa a 3 (Listo para entregar).
 - Anular un pedido en estado 1, 2 o 3 devuelve las viandas a la heladera. Un pedido anulado (5) no cambia más de estado.
-- Las cosas se DESACTIVAN, no se borran.
+- Las cosas se DESACTIVAN, no se borran
 
 ## Seguridad (siempre, aunque el código sea simple)
 - NUNCA confiar en lo que manda el navegador. El servidor revisa todo de nuevo:

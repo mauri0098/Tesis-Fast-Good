@@ -1,0 +1,125 @@
+/* ===================================================
+   PLANESCATEGORIAS.CSS — Pantalla "Planes y categorías" del panel (pages/planesCategorias.html)
+   Las tablas, las ventanas, los botones y las etiquetas de estado salen de global.css, stock.css y combos.css.
+   Acá va solo lo propio de esta pantalla.
+   =================================================== */
+
+/* Evita el flash de contenido sin estilos: el body se muestra cuando la página terminó de cargar */
+body { visibility: hidden; opacity: 0; transition: opacity 0.15s ease-in; }
+body.cargada { visibility: visible; opacity: 1; }
+
+/* Encabezado: el logo y el título */
+.encabezado-pantalla {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.logo-encabezado {
+  height: 40px;
+  border-radius: 4px;
+}
+
+/* El aviso queda a la vista aunque se esté mirando la segunda lista (vacío no ocupa lugar) */
+.aviso-planes {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 5;
+  margin-bottom: 1rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+.aviso-planes:empty {
+  display: none;
+}
+
+/* Las dos listas, una debajo de la otra */
+.seccion-planes-categorias {
+  margin-bottom: 1.5rem;
+}
+.titulo-lista {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.nota-lista {
+  margin: 0 0 0.8rem;
+  color: #6c757d;
+  font-size: 0.85rem;
+}
+
+/* En pantallas chicas, la tabla se mueve de costado sin romper la página */
+.tabla-con-desplazamiento {
+  overflow-x: auto;
+}
+.tabla-categorias {
+  min-width: 720px;
+}
+.tabla-planes {
+  min-width: 980px;
+}
+
+/* Anchos de las columnas: Nombre y Planes adentro o Frase se quedan con lo que sobra */
+.tabla-categorias th:nth-child(1), .tabla-planes th:nth-child(1) { width: 76px; }   /* Foto */
+.tabla-categorias th:nth-child(4) { width: 120px; }  /* Estado */
+.tabla-categorias th:nth-child(5) { width: 190px; }  /* Acciones */
+.tabla-planes th:nth-child(3) { width: 110px; }      /* Abreviatura */
+.tabla-planes th:nth-child(4) { width: 190px; }      /* Categoría */
+.tabla-planes th:nth-child(6) { width: 120px; }      /* Estado */
+.tabla-planes th:nth-child(7) { width: 190px; }      /* Acciones */
+
+/* La foto de cada fila de las listas */
+.foto-lista {
+  display: block;
+  width: 56px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.sin-foto {
+  color: #6c757d;
+  font-size: 0.75rem;
+}
+
+/* El desplegable de categoría de cada plan */
+.desplegable-categoria-plan {
+  width: 100%;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+/* La abreviatura se escribe en mayúscula */
+.casillero-abreviatura-plan {
+  text-transform: uppercase;
+}
+
+/* La foto dentro de la ventana: la actual o la recién elegida */
+.foto-ventana {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 130px;
+  margin-bottom: 0.4rem;
+  border: 1px dashed #ced4da;
+  border-radius: var(--radius);
+  background: #f8f9fa;
+  overflow: hidden;
+}
+.foto-ventana-imagen {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.foto-ventana-imagen[hidden], .sin-foto[hidden] {
+  display: none;
+}
+.nota-foto {
+  margin: 0 0 0.8rem;
+  color: #6c757d;
+  font-size: 0.78rem;
+}

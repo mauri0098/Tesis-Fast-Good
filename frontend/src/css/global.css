@@ -26,7 +26,7 @@
     11. Animaciones
     12. Celular (hasta 768 px)
     13. Piezas del panel nuevo (el molde, 27/10): botones de arriba, pestañas, buscador, pastillas,
-        botón de filtro y su menú, ventanas y panel de la derecha
+        botón de filtro y su menú, ventanas, panel de la derecha y recuadro de referencia (13k)
    ============================================================ */
 
 
@@ -48,11 +48,15 @@
     --fondo: #ffffff;             /* fondo de todas las pantallas (blanco, como el index) */
     --blanco: #ffffff;
     --naranja: #ff9800;           /* lo destacado en naranja (el mismo de antes y del index) */
+    --naranja-texto: #b45309;     /* textos naranjas chicos, sobre blanco ("Gastaste 500 g más de lo que compraste"): el de arriba casi no se leería */
     --rojo: #b42318;              /* el botón de anular y los textos de error */
     --rojo-suave: #f3e3e1;        /* fondo rojo suave de los avisos de "cuidado" */
     --rojo-texto: #8a2219;        /* letra de esos avisos */
     --rojo-borde: #f5c9c4;        /* borde rojo clarito: el ícono de "Descartar viandas" y el error de las ventanas nuevas */
     --rojo-error: #9b1f16;        /* la letra del error de las ventanas nuevas */
+    --azul: #1e5cb3;              /* producción y pedidos a cocina (Movimientos de Stock) */
+    --azul-suave: #ebf3fd;        /* fondo azul suave de esas pastillas y recuadros */
+    --azul-borde: #bcd5f7;        /* borde azul clarito de esos recuadros */
     --fondo-ventana: rgb(14 20 26 / .5);  /* lo oscuro que tapa la pantalla detrás de una ventana (.5 = a medias) */
 
     /* ── Tamaños ────────────────────────────────────────────────────────────────── */
@@ -126,6 +130,9 @@
     --sombra-tarjeta-panel: 0 0 0 1px var(--linea-tabla), 0 1px 2px rgba(17, 26, 20, .04);  /* la tarjeta de la tabla: un borde finito y casi nada de sombra */
     --sombra-menu: 0 0 0 1px rgba(17, 26, 20, .07), 0 16px 36px -10px rgba(17, 26, 20, .22);   /* la de los menús que se abren (Plan, Estado) */
     --fondo-ventana-panel: rgba(40, 44, 41, .72);       /* lo oscuro detrás de las ventanas nuevas */
+    --radio-recuadro: 14px;                /* esquinas de los recuadros de adentro de las ventanas */
+    --ancho-ventana-detalles: 440px;       /* el ancho de las ventanas de Detalle (Consultar Pedidos y Movimientos de Stock) */
+    --fondo-cajita-detalle: #f2f9f4;       /* las cajitas de datos de esas ventanas: verde muy suave */
     --ancho-panel-lateral: 460px; /* el ancho del panel que entra por la derecha ("Últimos movimientos") */
     /* La pastillita del código del plato ("F3"), adelante del nombre en todas las pantallas (13j) */
     --codigo-plato-fondo: #f1f4f1;  /* fondo gris muy clarito, como las pastillas de la grilla (29/10: antes oscuro) */
@@ -642,6 +649,133 @@ footer {
     outline-offset: 2px;
 }
 
+/* --- 7c. La ventana de Detalle (Consultar Pedidos y Movimientos de Stock): las cajitas de datos, los recuadros
+   con su lista y el total abajo --- */
+
+/* El ancho; en el celu, todo el ancho que haya */
+.ventana-detalles {
+    width: 100%;
+    max-width: var(--ancho-ventana-detalles);
+}
+
+/* Entre las partes, 12 px */
+.ventana-detalles .ventana-cuerpo {
+    gap: 12px;
+}
+
+/* Las cajitas de datos, del mismo ancho, verde muy suave con el nombre en verde y MAYÚSCULA */
+.cajitas-detalle {
+    display: flex;
+    gap: 8px;
+}
+
+.cajita-detalle {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--fondo-cajita-detalle);
+}
+
+.nombre-cajita {
+    color: var(--verde-texto);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.valor-cajita {
+    margin-top: 2px;
+    color: var(--texto);
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Un recuadro con su lista (en Consultar Pedidos, un combo) */
+.recuadro-combo {
+    padding: 12px 14px;
+    border: 1px solid var(--borde-gris);
+    border-radius: var(--radio-recuadro);
+}
+
+/* Arriba del recuadro: su título */
+.cabecera-combo {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-weight: 800;
+}
+
+/* La lista: un renglón cada uno, con una línea finita entre ellos */
+.platos-combo {
+    margin-top: 6px;
+}
+
+.linea-plato {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--gris-boton);
+    font-size: 14px;
+}
+
+.linea-plato:last-child {
+    border-bottom: 0;
+}
+
+/* El total, abajo de todo */
+.total-detalle {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 4px;
+    font-size: 16px;
+    font-weight: 800;
+}
+
+
+/* Lo propio del Detalle de un movimiento (Movimientos de Stock y Compras).
+   Un proveedor o un motivo largo va en varios renglones, y una palabra muy larga se corta (no se sale de la cajita) */
+.ventana-detalle-movimiento .valor-cajita {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+/* La cantidad de cada renglón, a la derecha y con los números del mismo ancho, así quedan alineadas */
+.cantidad-linea {
+    flex: none;
+    font-weight: 700;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- 7d. El fondo de las ventanas de stock (Movimientos de Stock y Compras): tapa toda la pantalla, oscuro y
+   semitransparente, con la caja centrada --- */
+.modal-fondo {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+/* La ventana arranca con el atributo hidden: sin esto, el display: flex de arriba le gana y se vería siempre */
+.modal-fondo[hidden] {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .modal-fondo {
+        padding: 0.5rem;
+    }
+}
 
 /* ===== 8. TABLAS ===== */
 
@@ -1669,6 +1803,71 @@ td.codigo-plato {
         background: none;
         color: #000;
     }
+}
+
+
+/* --- 13k. El recuadro de referencia: dibujito, nombre y número ("Compra #15", "Pedido a Cocina #009") ---
+   Lo usan Movimientos de Stock (la columna Referencia) y Compras (sus dos paneles de costado). Antes estaba en
+   movimientosStockNuevo.css: se mudó acá sin cambios, para no repetirlo. El mismo alto que las pastillas de las tablas */
+.recuadro-referencia {
+    height: var(--alto-pastilla-estado);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 0 8px 0 6px;
+    border: 1px solid;
+    border-radius: var(--radio-chico);
+    font-size: var(--letra-dato-chico);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* El dibujito de los recuadros y de la pastilla de producción: toma el color de la letra */
+.icono-movimiento {
+    width: 12px;
+    height: 12px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* El número, un poco más marcado. Sin número (descarte, ajuste) no ocupa lugar */
+.recuadro-numero {
+    font-weight: 800;
+}
+
+.recuadro-numero:empty {
+    display: none;
+}
+
+/* Un color por origen: verde las compras, azul los pedidos a cocina, rojo los pedidos de clientes y gris lo demás */
+.recuadro-compra {
+    border-color: var(--verde-borde);
+    background: var(--verde-suave);
+    color: var(--verde-texto);
+}
+
+.recuadro-cocina {
+    border-color: var(--azul-borde);
+    background: var(--azul-suave);
+    color: var(--azul);
+}
+
+.recuadro-cliente {
+    border-color: var(--rojo-borde);
+    background: var(--rojo-suave);
+    color: var(--rojo);
+}
+
+.recuadro-neutro {
+    border-color: var(--borde-gris);
+    background: var(--gris-boton);
+    color: var(--texto-gris);
 }
 
 

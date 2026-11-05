@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fast Good — Planes y categorías</title>
+  <link rel="icon" href="../src/assets/img/logo.webp" type="image/webp"/>
+  <!-- Letra: Inter, la del panel. Poppins queda porque stock.css y combos.css todavía la usan -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/global.css">
+  <!-- Mismo estilo que Gestión de Stock y Combos (tablas, ventanas, botones y etiquetas de estado) -->
+  <link rel="stylesheet" href="../src/css/stock.css">
+  <link rel="stylesheet" href="../src/css/combos.css">
+  <!-- Lo propio de esta pantalla -->
+  <link rel="stylesheet" href="../src/css/planesCategorias.css">
+</head>
+
+<body>
+<!-- Permisos de la pantalla (roles 6 y 5), menú lateral y llamadas con sesión -->
+<script src="../src/js/roles.js"></script>
+<script src="../src/js/guard.js"></script>
+<script src="../src/js/api.js"></script>
+<script src="../src/js/escape.js"></script>
+<script src="../src/js/adminSidebar.js"></script>
+
+<div class="admin-content">
+
+  <header>
+    <div class="container-centrado">
+      <div class="encabezado-pantalla">
+        <img src="../src/assets/img/logo.webp" alt="Fast Good" class="logo-encabezado" onerror="this.hidden = true">
+        <h1>Planes y categorías</h1>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-container">
+
+    <!-- Avisos de la pantalla (guardado, error al guardar…): los escribe planesCategorias.js -->
+    <p id="avisoPlanes" class="aviso-combos aviso-planes" role="status"></p>
+
+    <!-- LISTA DE CATEGORÍAS -->
+    <div class="table-wrapper seccion-planes-categorias">
+      <div class="tabla-header">
+        <h2 class="titulo-lista">Categorías</h2>
+        <button class="btn-nuevo-insumo" onclick="abrirFormularioCategoria(null)">+ Nueva categoría</button>
+      </div>
+      <p class="nota-lista">Una categoría junta varios planes en una sola tarjeta de la web.</p>
+
+      <div class="tabla-con-desplazamiento">
+        <table class="standard-table tabla-categorias">
+          <thead>
+            <tr>
+              <th>Foto</th>
+              <th>Nombre</th>
+              <th>Planes adentro</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="categoriasBody">
+            <tr>
+              <td colspan="5" class="loading-text">Cargando categorías...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- LISTA DE PLANES -->
+    <div class="table-wrapper seccion-planes-categorias">
+      <div class="tabla-header">
+        <h2 class="titulo-lista">Planes</h2>
+        <button class="btn-nuevo-insumo" onclick="abrirFormularioPlan(null)">+ Nuevo plan</button>
+      </div>
+      <p class="nota-lista">Para agrupar planes, elegí la misma categoría en su desplegable. Con "Sin categoría", el plan tiene su propia tarjeta.</p>
+
+      <div class="tabla-con-desplazamiento">
+        <table class="standard-table tabla-planes">
+          <thead>
+            <tr>
+              <th>Foto</th>
+              <th>Nombre</th>
+              <th>Abreviatura</th>
+              <th>Categoría</th>
+              <th>Frase</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="planesBody">
+            <tr>
+              <td colspan="7" class="loading-text">Cargando planes...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- VENTANA: Nueva categoría / Editar categoría (la maneja planesCategorias.js) -->
+  <div id="modalCategoria" class="modal">
+    <div class="modal-content modal-stock">
+      <span class="close" data-accion="cerrar">&times;</span>
+      <h3 id="fcTitulo">Nueva categoría</h3>
+
+      <div class="modal-grid">
+        <label for="fcNombre">Nombre *</label>
+        <input id="fcNombre" type="text" maxlength="100" placeholder="Ej: Viandas Saludables">
+
+        <label for="fcFrase">Frase</label>
+        <input id="fcFrase" type="text" maxlength="200" placeholder="Opcional. Va debajo del nombre, en la tarjeta">
+
+        <label for="fcFotoInput">Foto</label>
+        <input id="fcFotoInput" type="file" accept="image/png, image/jpeg, image/webp" onchange="elegirFoto(event, 'fc')">
+      </div>
+
+      <!-- La foto actual o la recién elegida. Se sube después de guardar los datos -->
+      <div class="foto-ventana">
+        <img id="fcFotoVista" class="foto-ventana-imagen" alt="Vista previa de la foto" hidden>
+        <span id="fcFotoVacia" class="sin-foto">Sin foto</span>
+      </div>
+      <p class="nota-foto">JPG, PNG o WebP, hasta 2 MB. Sin foto, la tarjeta usa la del primer plato con foto.</p>
+
+      <div id="fcError" class="modal-error"></div>
+
+      <div class="modal-actions">
+        <button class="btn-cancelar" data-accion="cerrar">Cancelar</button>
+        <button class="btn-confirmar" id="fcGuardar" onclick="guardarCategoria()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VENTANA: Nuevo plan / Editar plan (la maneja planesCategorias.js) -->
+  <div id="modalPlan" class="modal">
+    <div class="modal-content modal-stock">
+      <span class="close" data-accion="cerrar">&times;</span>
+      <h3 id="fpTitulo">Nuevo plan</h3>
+
+      <div class="modal-grid">
+        <label for="fpNombre">Nombre *</label>
+        <input id="fpNombre" type="text" maxlength="100" placeholder="Ej: PLAN KETO">
+
+        <label for="fpAbreviatura">Abreviatura *</label>
+        <input id="fpAbreviatura" class="casillero-abreviatura-plan" type="text" maxlength="4" placeholder="Ej: KE">
+
+        <label for="fpCategoria">Categoría</label>
+        <select id="fpCategoria"></select>
+
+        <label for="fpFrase">Frase</label>
+        <input id="fpFrase" type="text" maxlength="200" placeholder="Opcional. Va debajo del nombre, en la tarjeta">
+
+        <label for="fpFotoInput">Foto</label>
+        <input id="fpFotoInput" type="file" accept="image/png, image/jpeg, image/webp" onchange="elegirFoto(event, 'fp')">
+      </div>
+
+      <!-- Al editar: la abreviatura se cambia en otra ventana, porque también cambia el código de los platos -->
+      <p id="fpNotaAbreviatura" class="nota-combo" hidden>La abreviatura se cambia en Generar Receta → "Abreviaturas de los planes", porque también cambia el código de sus platos.</p>
+
+      <!-- La foto actual o la recién elegida. Se sube después de guardar los datos -->
+      <div class="foto-ventana">
+        <img id="fpFotoVista" class="foto-ventana-imagen" alt="Vista previa de la foto" hidden>
+        <span id="fpFotoVacia" class="sin-foto">Sin foto</span>
+      </div>
+      <p class="nota-foto">JPG, PNG o WebP, hasta 2 MB. Sin foto, la tarjeta usa la del primer plato con foto.</p>
+
+      <div id="fpError" class="modal-error"></div>
+
+      <div class="modal-actions">
+        <button class="btn-cancelar" data-accion="cerrar">Cancelar</button>
+        <button class="btn-confirmar" id="fpGuardar" onclick="guardarPlan()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../src/js/planesCategorias.js"></script>
+
+</div> <!-- /.admin-content -->
+</body>
+
+</html>

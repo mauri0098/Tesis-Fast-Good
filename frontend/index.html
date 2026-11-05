@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- ESTA PÁGINA TIENE TODO EL CATÁLOGO, EN 3 NIVELES (renderizadoCatalogo.js):
+     NIVEL 1: planes sueltos y categorías · NIVEL 2: los planes de una categoría · NIVEL 3: los combos de un plan -->
 <html lang="es-AR">
 
 <head>
@@ -69,6 +71,7 @@
     </symbol>
   </svg>
 
+
   <a class="saltar-al-contenido" href="#contenido">Saltar al contenido</a>
 
   <!-- 1. Encabezado -->
@@ -83,8 +86,8 @@
       <!-- En el celu el menú no se ve (como la referencia). "Combos" lleva a las categorías: los combos se ven
            recién al tocar una (la zona #combos está escondida hasta entonces) -->
       <nav class="menu-principal" aria-label="Principal">
-        <a href="#categorias">Categorías</a>
-        <a href="#categorias">Combos</a>
+        <a href="#catalogo">Categorías</a>
+        <a href="#catalogo">Combos</a>
         <a href="#preguntas">Preguntas</a>
         <a href="#donde-estamos">Contacto</a>
       </nav>
@@ -104,6 +107,7 @@
 
   <main id="contenido">
 
+    <!-- La dibuja: ninguna función, es HTML fijo. Solo "Combos desde $…" lo escribe cargarCombos (renderizadoCatalogo.js) -->
     <!-- 2. Portada. En el celu: compacta, sin foto. En compu: el texto a la izquierda sobre blanco y la foto grande a la
          derecha, que se funde con el blanco (diseno-portada, 19/10) -->
     <section class="portada" id="inicio">
@@ -120,10 +124,10 @@
           <h1>Fast <span class="palabra-verde">&amp; Good</span></h1>
           <p class="portada-subtitulo">Viandas saludables, caseras y congeladas. Elegís tu combo y te lo llevamos.</p>
           <div class="portada-botones">
-            <a class="boton boton-principal boton-grande" href="#categorias">Pedir ahora</a>
+            <a class="boton boton-principal boton-grande" href="#catalogo">Pedir ahora</a>
             <!-- "Ver categorías": lleva al mismo lugar que "Pedir ahora" (se ve en compu) -->
-            <a class="boton boton-secundario boton-grande boton-ver-categorias" href="#categorias">Ver categorías</a>
-            <!-- "Combos desde $…": lo completa combosCatalogo.js con el precio más bajo. En compu no se ve (19/10) -->
+            <a class="boton boton-secundario boton-grande boton-ver-categorias" href="#catalogo">Ver categorías</a>
+            <!-- "Combos desde $…": lo completa renderizadoCatalogo.js con el precio más bajo. En compu no se ve (19/10) -->
             <p class="combos-desde" id="combos-desde" hidden>Combos desde <strong id="combos-desde-precio"></strong></p>
           </div>
           <ul class="portada-contacto">
@@ -168,18 +172,19 @@
       </div>
     </section>
 
-    <!-- 3. Categorías + Combos (los llena combosCatalogo.js con los datos del servidor).
-         Primero se ven las tarjetas de categorías; al tocar una, sus combos (combosCatalogo.js le pone a esta sección
-         la clase "mostrando-combos"): en compu en el mismo lugar, en el celu como una pantalla que entra desde la derecha -->
-    <section class="seccion seccion-fondo-blanco seccion-categorias" id="categorias" aria-labelledby="titulo-categorias">
+    <!-- 3. CATÁLOGO: los 3 niveles (renderizadoCatalogo.js) -->
+    <section class="seccion seccion-fondo-blanco seccion-catalogo" id="catalogo" aria-labelledby="titulo-categorias">
       <div class="contenedor">
         <h2 id="titulo-categorias" class="titulo-seccion revelar">Elegí tu <span class="palabra-verde">categoría</span></h2>
-        <!-- Las tarjetas de categorías (renderizarCategorias). Cada tarjeta aparece sola, de a una -->
-        <div class="lista-categorias" id="lista-categorias" role="group" aria-label="Elegí una categoría">
+        <!-- NIVEL 1: lo dibuja renderizarTarjetasDelIndex() -->
+        <div class="tarjetas-del-index" id="tarjetas-del-index" role="group" aria-label="Elegí una categoría">
           <p class="aviso-combos aviso-cargando">Cargando combos...</p>
         </div>
 
-        <!-- Los combos de la categoría elegida (renderizarCombos): escondidos hasta que se toca una categoría -->
+        <!-- NIVEL 2: lo dibuja renderizarPlanesDeLaCategoria(idCategoria) -->
+        <div class="zona-planes" id="planes-de-la-categoria"></div>
+
+        <!-- NIVEL 3: lo dibuja renderizarCombosDelPlan(idPlan) -->
         <div class="zona-combos" id="combos"></div>
 
         <!-- "Cómo funciona": solo en el celu, debajo de las categorías (en compu están los 3 pasos de la portada) -->
@@ -194,6 +199,7 @@
       </div>
     </section>
 
+    <!-- La dibuja: ninguna función, es HTML fijo -->
     <!-- 4. Dónde estamos (texto fijo): los datos a la izquierda y el recuadro del mapa a la derecha (debajo en el celular) -->
     <section class="seccion" id="donde-estamos" aria-labelledby="titulo-donde">
       <div class="contenedor">
@@ -242,6 +248,7 @@
       </div>
     </section>
 
+    <!-- La dibuja: ninguna función, es HTML fijo -->
     <!-- 5. Preguntas frecuentes: <details> (anda sin JavaScript). name="preguntas" = se abre una a la vez -->
     <section class="seccion seccion-fondo-verde" id="preguntas" aria-labelledby="titulo-preguntas">
       <div class="contenedor">
@@ -288,9 +295,9 @@
       </div>
       <nav class="pie-columna" aria-label="Pie de página">
         <h2>Navegación</h2>
-        <a href="#categorias">Categorías</a>
+        <a href="#catalogo">Categorías</a>
         <!-- Lleva a las categorías: los combos se ven al tocar una (la zona #combos está escondida hasta entonces) -->
-        <a href="#categorias">Combos</a>
+        <a href="#catalogo">Combos</a>
         <a href="#donde-estamos">Dónde estamos</a>
         <a href="#preguntas">Preguntas frecuentes</a>
       </nav>
@@ -309,7 +316,7 @@
     </div>
   </footer>
 
-  <!-- 7. Modal para armar un combo (lo maneja armarCombo.js). En compu, una ventana centrada; en el celu, una
+    <!-- 7. Modal para armar un combo (lo maneja armarCombo.js). En compu, una ventana centrada; en el celu, una
        pantalla completa que entra desde la derecha, con la barra "‹ Armá tu combo" y la barra fija de abajo -->
   <dialog class="modal modal-armar" id="modal-combo" aria-labelledby="modal-combo-titulo">
     <div class="modal-encabezado">
@@ -639,7 +646,7 @@
   <script src="./src/js/escape.js"></script>
   <script src="./src/js/api.js"></script>
   <script src="./src/js/fechas.js"></script>
-  <script src="./src/js/combosCatalogo.js"></script>
+  <script src="./src/js/renderizadoCatalogo.js"></script>
   <script src="./src/js/carritoCombos.js"></script>
   <script src="./src/js/armarCombo.js"></script>
   <script src="./src/js/pedidoCombos.js"></script>
