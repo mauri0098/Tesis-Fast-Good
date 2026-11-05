@@ -32,7 +32,7 @@ const nodemailer = require('nodemailer');              // Envío de emails (recu
 const bcrypt     = require('bcryptjs');                // Hash de contraseñas
 const jwt        = require('jsonwebtoken');            // Tokens de autenticación
 const crypto     = require('crypto');                  // Comparación segura del PIN de anulación
-const fechas     = require('./frontend/src/js/fechas.js'); // Días hábiles y feriados (el mismo archivo que usa el frontend)
+const fechas     = require('./frontend/compartido/fechas.js'); // Días hábiles y feriados (el mismo archivo que usa el frontend)
 
 // La base común del servidor (backend/): se mudó de este archivo en el paso 2 del MVC
 const { limiteLogin, limiteRegistro, limiteRecuperarPassword, limiteAnular, limitePedidos, limiteCatalogo } = require('./backend/middlewares/limites');

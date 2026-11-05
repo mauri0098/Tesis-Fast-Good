@@ -416,7 +416,7 @@ async function avisarFaltantes(items) {
     <strong class="aviso-faltantes-titulo">Con este pedido te faltarían:</strong>
     <ul class="aviso-faltantes-lista">${renglones}</ul>
     <p class="aviso-faltantes-nota">Cuenta también lo que ya está pedido a cocina y los personalizados de clientes sin cocinar.</p>
-    <a class="aviso-faltantes-compras" href="compras.html?compra=1" target="_blank" rel="noopener">Ir a Compras ↗</a>`;
+    <a class="aviso-faltantes-compras" href="/pantallas/compras/compras.html?compra=1" target="_blank" rel="noopener">Ir a Compras ↗</a>`;
   cartel.hidden = false;
 
   // 4. El botón cambia: el próximo toque (sin cambiar el pedido) lo envía igual

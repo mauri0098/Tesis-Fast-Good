@@ -4,7 +4,7 @@
 // Arma el menú (logo, links, usuario y cerrar sesión) y la barra blanca de arriba ("Panel / [la pantalla]",
 // la fecha de hoy y, en pantallas de menos de 900 px, el botón ☰). Corre apenas se lee (está al principio del <body>).
 // Qué pantallas ve cada rol lo decide roles.js (la misma tabla que usa guard.js).
-// El estilo está en src/css/menuPanel.css, que este archivo carga.
+// El estilo está en compartido/menuPanel.css, que este archivo carga.
 //
 // Funciones:
 //   toggleAdminSidebar → abre o cierra el menú en pantallas chicas (el ☰, lo oscuro de atrás o un link)
@@ -13,15 +13,14 @@
 // ============================================================================
 
 (function () {
-  // Detecta si estamos dentro de /pages/ para armar las rutas correctamente
-  const enSubpagina = window.location.pathname.includes('/pages/');
-  const base = enSubpagina ? '../' : './';
+  // Las direcciones se arman desde la raíz de la web ("/" = la carpeta frontend/): sirven desde cualquier carpeta
+  const base = '/';
 
   // Inyecta el CSS del menú si no está ya cargado
   if (!document.querySelector('link[href*="menuPanel.css"]')) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = base + 'src/css/menuPanel.css';
+    link.href = base + 'compartido/menuPanel.css';
     document.head.appendChild(link);
   }
 
@@ -39,9 +38,9 @@
     { ruta: 'pages/cocinero.html',              grupo: 'Cocina',         icono: 'icono-menu-cocina',      nombre: 'Tareas de Cocina' },
     { ruta: 'pages/heladera.html',              grupo: 'Cocina',         icono: 'icono-menu-heladera',    nombre: 'Producción' },
     { ruta: 'pages/AsignarCocinero.html',       grupo: 'Cocina',         icono: 'icono-menu-asignar',     nombre: 'Asignar Cocineros' },
-    { ruta: 'pages/MovimientosStockNuevo.html', grupo: 'Stock',          icono: 'icono-menu-movimientos', nombre: 'Movimientos de Stock' },
-    { ruta: 'pages/compras.html',               grupo: 'Stock',          icono: 'icono-menu-compras',     nombre: 'Compras' },
-    { ruta: 'pages/stock.html',                 grupo: 'Stock',          icono: 'icono-menu-stock',       nombre: 'Gestión de Stock' },
+    { ruta: 'pantallas/movimientos/MovimientosStockNuevo.html', grupo: 'Stock',          icono: 'icono-menu-movimientos', nombre: 'Movimientos de Stock' },
+    { ruta: 'pantallas/compras/compras.html',         grupo: 'Stock',          icono: 'icono-menu-compras',     nombre: 'Compras' },
+    { ruta: 'pantallas/stock/stock.html',         grupo: 'Stock',          icono: 'icono-menu-stock',       nombre: 'Gestión de Stock' },
     { ruta: 'pages/combos.html',                grupo: 'Catálogo',       icono: 'icono-menu-combos',      nombre: 'Combos' },
     { ruta: 'pages/planesCategorias.html',      grupo: 'Catálogo',       icono: 'icono-menu-planes',      nombre: 'Planes y categorías' },
     { ruta: 'pages/generarReceta.html',         grupo: 'Catálogo',       icono: 'icono-menu-receta',      nombre: 'Generar Receta' },

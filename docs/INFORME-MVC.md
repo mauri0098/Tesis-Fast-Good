@@ -1,0 +1,231 @@
+# Informe del MVC y la mudanza del front (rama mvc_fastgood)
+
+Acá va todo lo del MVC del servidor y de la mudanza del front: qué se movió, a dónde, y las pruebas.
+Lo de la heladera y los combos sigue en INFORME-CAMBIOS-HELADERA.md.
+
+**La regla de todo este trabajo: mover NO es cambiar.** Cada ruta tiene que responder exactamente lo mismo que antes.
+
+**Las pruebas de cada paso:**
+- `node tests/test_e2e.js heladera` tiene que dar 61/61.
+- Siguen siendo 89 rutas: 76 con requireAuth y 13 públicas.
+
+**Quién hace qué:**
+- Claude hace la base común (backend/config, backend/middlewares, backend/utils) y la mudanza del front.
+- Los módulos (backend/modulos/) los escribe el usuario a mano.
+- Antes de cada módulo, Claude da una guía.
+- Después, Claude lo revisa y corre las pruebas, sin corregir el código.
+
+---
+
+## Paso 1: las carpetas de backend/ (05/11/2026)
+
+### Qué se hizo
+- Se creó `backend/` con `config/`, `middlewares/`, `utils/` y `modulos/` (17 módulos con `rutas.X.js`, `controlador.X.js` y `modelo.X.js`).
+  Son 61 archivos vacíos, cada uno con un comentario arriba de qué va y qué no va. En cada `rutas.X.js` están anotadas
+  las rutas que va a recibir (suman las 89).
+- `config/supabaseClient.js` → `backend/config/supabaseClient.js` (sin cambios adentro). La carpeta `config/` se borró.
+- `server.js`, renglón 49: `require('./config/supabaseClient')` → `require('./backend/config/supabaseClient')`.
+- `tests/test_e2e.js`, renglón 23: `'..', 'config', 'supabaseClient'` → `'..', 'backend', 'config', 'supabaseClient'`.
+
+### Antes de empezar: datos para la prueba
+La prueba de base daba 2 de 3: faltaban viandas de "PRUEBA fideos" en la heladera.
+Se hizo por las rutas de la web (sin SQL) el pedido a cocina #35, con 12 "PRUEBA fideos", y se marcó "Hecho" el renglón #46.
+Quedó anotado en la lista de datos de prueba para borrar, en INFORME-CAMBIOS-HELADERA.md.
+
+### Pruebas
+| Control | Antes | Después |
+|---|---|---|
+| test heladera | 61/61 | 61/61 |
+| Rutas con requireAuth / públicas | 76 / 13 | 76 / 13 |
+
+---
+
+## Paso 2: la base común (05/11/2026)
+
+### Qué se movió y a dónde
+Cada pedazo se copió tal cual de server.js con un script. El script confirmaba que cada renglón de inicio y de fin
+fuera el planeado. Después se borró de server.js, y arriba de server.js quedó un `require` por archivo.
+server.js pasó de 5693 a 5245 renglones.
+
+| Archivo nuevo | Qué tiene | Venía de server.js (renglones de antes) |
+|---|---|---|
+| backend/config/cors.js | `origenesPermitidos`, `opcionesCors` | 21–42 |
+| backend/middlewares/limites.js | `limitador` y los 6 límites | 56–102 |
+| backend/middlewares/auth.js | `leerToken`, `requireAuth`, `requireRol` | 104–137 |
+| backend/middlewares/manejadorErrores.js | `manejadorErrores` | 5671–5685 |
+| backend/utils/errores.js | `MENSAJE_ERROR_INTERNO`, `mensajeInterno`, `errorInterno` | 139–148 |
+| backend/utils/constantes.js | `METODOS_PAGO`, `ESTADO_ANULADO`, `ESTADO_POR_ARMAR`, `OFFSET_ARGENTINA`, `BUCKET_IMAGENES_PRODUCTOS`, `EXTENSIONES_IMAGEN`, `TAMANIO_MAX_IMAGEN`, `ENTERO_MAXIMO_BASE` | 850, 1215–1219, 2349–2351, 2724 |
+| backend/utils/validaciones.js | `leerFechaPara`, `leerPeriodo` (con `MAXIMO_DIAS_PERIODO` y `MILISEGUNDOS_POR_DIA`), `leerIdPlan` | 2974–2981, 3713–3714, 3717–3757, 4451–4456 |
+| backend/utils/cuentasInsumos.js | `calcularFaltantes`, `unirConY`, `convertirACantidadBase`, `FACTOR_UNIDAD`, `FAMILIA_UNIDAD` | 193–231, 273–278, 2430–2454 |
+| backend/utils/platosDelCocinero.js | `platoEsDelCocinero`, `platoSinCocinero`, `platoVisibleParaCocinero` | 737–744, 2983–2995 |
+| backend/utils/listaMovimientos.js | `nombreDeUsuario`, `origenDeRenglonStock`, `armarMovimientos` | 3429–3439, 3496–3526, 3528–3649 |
+
+### Las dos únicas cosas que cambiaron de forma
+Hoy no tenían nombre, y hacía falta dárselo para poder compartirlas.
+- **opcionesCors**
+  - *Antes:* el objeto estaba escrito adentro de `app.use(cors({ … }))`.
+  - *Ahora:* es `const opcionesCors = { … }` en cors.js, y en server.js queda `app.use(cors(opcionesCors))`. El contenido es el mismo.
+- **manejadorErrores**
+  - *Antes:* era `app.use((err, req, res, next) => { … })`, una función sin nombre.
+  - *Ahora:* es `function manejadorErrores(err, req, res, next)`, y en server.js queda `app.use(manejadorErrores)` como último app.use.
+  - *Por qué los 4 datos de entrada:* así Express reconoce que es un manejador de errores.
+
+### Qué protege cada pieza
+- **CORS:** que otro sitio web use la API desde el navegador de alguien con la sesión abierta.
+- **Los límites:** la fuerza bruta de claves y PIN, y la carga masiva de pedidos falsos.
+- **requireAuth y requireRol:** que alguien sin login, o con otro rol, use el panel.
+- **errorInterno y manejadorErrores:** que se filtren detalles de la base o del código.
+- **Las validaciones:** que entren fechas que no existen, números truchos o períodos enormes.
+
+### Pruebas
+| Control | Resultado |
+|---|---|
+| test heladera | 61/61 |
+| Rutas con requireAuth / públicas | 76 / 13 |
+| Funciones mudadas que siguen en server.js (código repetido) | ninguna |
+| Nombres que server.js usa y ya no existen | ninguno |
+| Los 10 archivos nuevos cargan | sí |
+
+Además se probó a mano, contra una copia del servidor en el 3001:
+
+| Prueba | Resultado |
+|---|---|
+| JSON roto | 400 "El contenido enviado no es un JSON válido" |
+| Sitio no permitido | 500 con mensaje simple (igual que antes) |
+| Sitio permitido | 200 |
+| Panel sin token | 401 |
+| Catálogo | sigue con su límite de 60 por minuto |
+
+**Corrección (05/11, antes de F1): las pruebas del paso 2 se repitieron.**
+- *Qué pasó:* la primera vez, el servidor de prueba del paso 1 había quedado prendido en el 3001, y las pruebas le pegaron a
+  ese servidor viejo. Lo delató el log: el error de CORS apuntaba a `server.js:39`, donde estaba CORS antes de la mudanza.
+- *Qué se hizo:* se apagó y se repitió todo con un servidor nuevo. Esta vez el error de CORS apunta a `backend/config/cors.js:28`,
+  o sea que sí contestaba el código nuevo. Resultado: 61/61 y las mismas respuestas a mano. El paso 2 está bien.
+- *Para que no se repita:* los servidores de prueba arrancan con la marca `--prueba3001` y se apagan buscando esa marca.
+  Antes de cada prueba se confirma en el log qué servidor contesta.
+
+---
+
+# FASE 2: la mudanza del front
+
+**La regla:** solo cambian direcciones. No se toca ninguna función, id, clase, ni lo que se manda al servidor.
+Las direcciones nuevas son absolutas: empiezan con "/", que es la raíz de la web (la carpeta frontend/), y sirven desde cualquier carpeta.
+
+**El orden, de a un paso por vez (se frena después de cada uno):**
+- F1 compartido/
+- F2 Stock: movimientos, compras y stock
+- F3 Cocina: cocina, heladera y cocineros
+- F4 Pedidos y reparto: pedidos, envíos y armado
+- F5 Catálogo: combos, planesCategorias y recetas
+- F6 Usuarios e Inicio
+- F7 Las piezas de la tienda y del login (index.html y login.html NO se mueven)
+- F8 Cierre: los .md a docs/, el .sql a sql/, y revisar que no quede ningún ../src/ ni pages/ en frontend/
+- **F9 Limpieza de CSS, pantalla por pantalla.** En cada pantalla:
+  1. Fotos de antes, en compu y celu.
+  2. La lista de lo que sobra: reglas repetidas de global.css, clases que no usa ningún HTML ni JS, y los `<style>` adentro del HTML.
+  3. Freno y espero el OK del usuario.
+  4. Se borra lo que sobra.
+  5. Fotos de después: tienen que quedar iguales.
+  
+  Ahí se resuelven también ConsultarPedidos.css, combos.css y stock.css (hoy en compartido/, con nombre de una sola pantalla).
+
+**Las pruebas de cada paso:**
+- El test heladera: 61/61.
+- El conteo de rutas: 76 con requireAuth y 13 públicas.
+- El **control de archivos faltantes**: un script lee cada HTML y le pide al servidor cada archivo que carga
+  (`src` y `href`), y además revisa en el disco las direcciones que arman los JS (roles.js, adminSidebar.js, api.js,
+  guard.js, los links y los logos). Tiene que dar 0 faltantes.
+- El recorrido a mano del usuario, en celu y compu.
+
+Antes de mover nada (05/11) se borraron a mano la pantalla vieja de movimientos (`pages/MovimientosStock.html` y
+`src/js/MovimientosStock.js`) y `src/css/adminSidebar.css`, que no cargaba nadie.
+
+## F1: frontend/compartido/ (05/11/2026)
+
+### Qué se movió
+Son 17 archivos que usan varias pantallas. Pasaron de `frontend/src/js/` y `frontend/src/css/` a `frontend/compartido/`:
+- **11 JS:** roles, guard, api, escape, auth, fechas, paginacion, global, adminSidebar, stockCompartido y pedidosCocina.
+- **6 CSS:** global, menuPanel, pedidosCocina, stock, combos y ConsultarPedidos.
+
+### Qué direcciones cambiaron
+- **En las 16 HTML:** cambiaron 125 renglones, solo los que cargan esos 17 archivos.
+  Ej: `<script src="../src/js/api.js">` → `<script src="/compartido/api.js">`.
+- **roles.js, `base()`**
+  - *Antes:* `'../'` si la pantalla estaba en `pages/` y `'./'` si no.
+  - *Ahora:* siempre `'/'`.
+  - *Quién la usa:* guard.js, para mandar al login o a la pantalla principal. guard.js no se tocó.
+- **api.js, la redirección cuando la sesión vence (401)**
+  - *Antes:* calculaba `'../'` o `'./'` + `'login.html'`.
+  - *Ahora:* `window.location.replace('/login.html')`.
+- **adminSidebar.js**
+  - *Antes:* calculaba `enSubpagina` y la `base`, y el CSS del menú estaba en `src/css/menuPanel.css`.
+  - *Ahora:* `const base = '/'` y el CSS está en `compartido/menuPanel.css`. También se actualizó el comentario de arriba.
+- **fechas.js, que también lo usa el servidor:**
+  - `server.js` 35: `./frontend/src/js/fechas.js` → `./frontend/compartido/fechas.js`.
+  - `backend/utils/validaciones.js` 10: `../../frontend/src/js/fechas.js` → `../../frontend/compartido/fechas.js`.
+  - `tests/test_e2e.js` 21: `'frontend', 'src', 'js', 'fechas.js'` → `'frontend', 'compartido', 'fechas.js'`.
+
+No hay funciones nuevas. La única función que cambió por dentro es `base()` de roles.js: ahora devuelve siempre "/".
+
+### Pruebas
+| Control | Antes | Después |
+|---|---|---|
+| test heladera | 61/61 | 61/61 |
+| Rutas con requireAuth / públicas | 76 / 13 | 76 / 13 |
+| Archivos faltantes (16 HTML, 182 archivos pedidos, 46 direcciones de los JS) | 0 | 0 |
+| Direcciones viejas de los 17 archivos que quedan en el código | — | ninguna |
+| `/src/js/api.js` (el lugar viejo) | 200 | 404 (ya no está ahí) |
+
+## F2: Stock (movimientos, compras y stock) (05/11/2026)
+
+### Qué se movió
+| Antes | Ahora |
+|---|---|
+| pages/MovimientosStockNuevo.html, src/css/movimientosStockNuevo.css, src/js/movimientosStockNuevo.js | pantallas/movimientos/ |
+| pages/compras.html, src/css/compras.css, src/js/compras.js, src/js/registrarCompra.js | pantallas/compras/ |
+| pages/stock.html, src/js/stock.js | pantallas/stock/ |
+
+stock.css no se movió: está en compartido/ porque también lo usan combos y planesCategorias. Se resuelve en F9.
+
+### Qué direcciones cambiaron
+Fueron 24 cambios exactos. Un script frenaba si el texto viejo no aparecía justo las veces esperadas.
+- **En las 3 HTML movidas:**
+  - El logo pasó a `/src/assets/img/logo.webp`.
+  - Sus CSS y JS pasaron a `/pantallas/<pantalla>/…`.
+  - El botón "+ Registrar compra" de Movimientos pasó a `/pantallas/compras/compras.html?compra=1`.
+- **roles.js:** las 3 rutas de la tabla de permisos, más el ejemplo del comentario de `base()`.
+- **adminSidebar.js:** los 3 links del menú del grupo Stock.
+- **admin.html 145:** el link "Gestionar stock" del Inicio.
+- **reportes.js 433:** el link "y N más en Gestión de Stock" del Inicio.
+- **pedirCocina.js 419:** el link "Ir a Compras" del aviso de faltantes de Producción.
+  - *Antes:* `compras.html?compra=1`, una dirección relativa: "el archivo que está al lado mío".
+  - *Ahora:* es absoluta.
+  - *Por qué en este paso:* si heladera se mudaba antes que compras, este link se habría roto en el medio.
+- **El comentario de arriba de compras.js, registrarCompra.js y movimientosStockNuevo.js:** dice dónde está su pantalla.
+
+Queda un comentario viejo en `server.js` ("pages/compras.html", en la sección de Compras). Se corrige cuando el usuario haga el módulo compras.
+
+No hay funciones nuevas ni cambiadas: solo direcciones.
+
+### Pruebas
+| Control | Resultado |
+|---|---|
+| test heladera | 61/61 |
+| Rutas con requireAuth / públicas | 76 / 13 |
+| Archivos faltantes (16 HTML, 182 archivos, 46 direcciones de los JS) | 0 |
+| Direcciones viejas de estas 3 pantallas en el código | ninguna (solo el comentario de server.js) |
+| `/pantallas/stock/stock.html` · `/pages/stock.html` | 200 · 404 |
+
+---
+
+## Pendientes para DESPUÉS del MVC
+1. **CORS bloqueado responde 500 y debería ser 403.**
+   - *Hoy:* un sitio no permitido recibe "Error interno del servidor" (500), porque el error de CORS cae en el manejador de errores.
+   - *Por qué no se arregla ahora:* mover no es cambiar. Durante el MVC queda igual.
+   - *Después:* responder 403 "Origen no permitido", que dice la verdad y no parece una falla del servidor.
+2. **`GET /api/v1/productos/:id` es pública y no tiene límite por IP.** Solo `/api/v1/combos` lo tiene, y la regla del CLAUDE.md
+   dice que las públicas lo llevan.
+4. **El test heladera tendría que crear sus propias viandas al arrancar.** Hoy depende de lo que haya en la heladera:
+   el 05/11 dio 2 de 3 porque faltaban "PRUEBA fideos", y hubo que hacer a mano el pedido a cocina #35.
+3. **El código mudado tiene cosas que la regla de estilo prohíbe:** `||`, `?.`, `if` de una línea y un `if` adentro de otro.
+   Se copiaron igual; ordenarlas es otro paso.

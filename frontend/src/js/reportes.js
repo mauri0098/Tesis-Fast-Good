@@ -430,7 +430,7 @@ async function cargarInsumosCriticos() {
         </li>`;
     });
     const quedan = criticos.length - MAXIMO_RENGLONES;
-    const mas = quedan > 0 ? `<li class="renglon-mas"><a class="enlace-sutil" href="pages/stock.html">y ${quedan} más en Gestión de Stock${FLECHA}</a></li>` : '';
+    const mas = quedan > 0 ? `<li class="renglon-mas"><a class="enlace-sutil" href="/pantallas/stock/stock.html">y ${quedan} más en Gestión de Stock${FLECHA}</a></li>` : '';
     lista.innerHTML = renglones.join('') + mas;
   } catch (error) {
     console.error('[Inicio] No se pudieron cargar los insumos:', error);

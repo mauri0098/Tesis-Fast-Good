@@ -31,13 +31,13 @@ var FG_ROLES = (function () {
     { ruta: 'admin.html',                   menu: '🏠 Inicio',               roles: [6, 5] },          // Reportes
     { ruta: 'pages/ConsultarPedidos.html',  menu: '🧾 Consultar Pedidos',    roles: [6, 5, 1] },
     { ruta: 'pages/cocinero.html',          menu: '🥗 Tareas de Cocina',     roles: [2, 6, 5, 1] },    // 6, 5 y 1 solo para ver
-    { ruta: 'pages/stock.html',             menu: '📦 Gestión de Stock',     roles: [6, 5, 1] },
+    { ruta: 'pantallas/stock/stock.html',   menu: '📦 Gestión de Stock',     roles: [6, 5, 1] },
     { ruta: 'pages/heladera.html',          menu: '🍳 Producción',           roles: [6, 5, 1, 2] },
     { ruta: 'pages/generarReceta.html',     menu: '📝 Generar Receta',       roles: [6, 5] },
     { ruta: 'pages/combos.html',            menu: '🍱 Combos',               roles: [6, 5] },          // armar los combos y su menú
     { ruta: 'pages/planesCategorias.html',  menu: '🗂️ Planes y categorías',  roles: [6, 5] },          // crear, editar, agrupar y desactivar
-    { ruta: 'pages/MovimientosStockNuevo.html', menu: '📋 Movimientos de Stock', roles: [6, 5, 1] },  // insumos y viandas, todo junto (H8)
-    { ruta: 'pages/compras.html',           menu: '🛒 Compras',              roles: [6, 5, 1] },          // qué compré, qué gasté y qué tengo que reponer
+    { ruta: 'pantallas/movimientos/MovimientosStockNuevo.html', menu: '📋 Movimientos de Stock', roles: [6, 5, 1] },  // insumos y viandas, todo junto (H8)
+    { ruta: 'pantallas/compras/compras.html', menu: '🛒 Compras',              roles: [6, 5, 1] },          // qué compré, qué gasté y qué tengo que reponer
     { ruta: 'pages/AsignarCocinero.html',   menu: '👨‍🍳 Asignar Cocineros',   roles: [6, 5] },
     { ruta: 'pages/Envios.html',            menu: '🚗 Envíos del Día',       roles: [6, 5, 1, 3] },
     { ruta: 'pages/armadoPedidos.html',     menu: '🧺 Armado de pedidos',    roles: [6, 5, 1, 3] },  // 26/10: los mismos de Envíos
@@ -77,9 +77,10 @@ var FG_ROLES = (function () {
     return PANTALLAS.filter(function (p) { return p.roles.indexOf(rol) !== -1; });
   }
 
-  // Prefijo para armar links desde la página actual ('../' dentro de /pages/, './' en la raíz)
+  // Prefijo para armar links: siempre "/" (la raíz de la web = la carpeta frontend/).
+  // Con "/" la dirección sirve desde cualquier carpeta. Ej: '/' + 'pantallas/stock/stock.html' → '/pantallas/stock/stock.html'
   function base() {
-    return window.location.pathname.indexOf('/pages/') !== -1 ? '../' : './';
+    return '/';
   }
 
   return {

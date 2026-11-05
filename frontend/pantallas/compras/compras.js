@@ -1,5 +1,5 @@
 // ============================================================================
-// compras.js — Pantalla Compras (pages/compras.html): qué compré, qué gasté y qué tengo que reponer
+// compras.js — Pantalla Compras (pantallas/compras/compras.html): qué compré, qué gasté y qué tengo que reponer
 //
 // Funciones:
 //   elegirPeriodo           → guarda la semana o el mes de un día y escribe el período en la pantalla

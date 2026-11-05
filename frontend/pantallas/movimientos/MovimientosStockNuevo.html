@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Movimientos de Stock - Fast Good</title>
-  <link rel="icon" href="../src/assets/img/logo.webp" type="image/webp"/>
+  <link rel="icon" href="/src/assets/img/logo.webp" type="image/webp"/>
   <!-- Evita el flash de contenido sin estilos (FOUC): el body se muestra cuando la página terminó de cargar -->
   <style>
     body { visibility: hidden; opacity: 0; transition: opacity 0.15s ease-in; }
@@ -14,17 +14,17 @@
 
   <!-- Letra: Inter, la del panel (20/10; el index sigue con Figtree) -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../src/css/global.css" />
-  <link rel="stylesheet" href="../src/css/movimientosStockNuevo.css" />
+  <link rel="stylesheet" href="/compartido/global.css" />
+  <link rel="stylesheet" href="/pantallas/movimientos/movimientosStockNuevo.css" />
 </head>
 
 <body>
   <!-- Arriba: no buscan nada de la página. guard.js revisa el login antes que nada -->
-  <script src="../src/js/roles.js"></script>
-  <script src="../src/js/guard.js"></script>
-  <script src="../src/js/api.js"></script>
-  <script src="../src/js/escape.js"></script>
-  <script src="../src/js/adminSidebar.js"></script>
+  <script src="/compartido/roles.js"></script>
+  <script src="/compartido/guard.js"></script>
+  <script src="/compartido/api.js"></script>
+  <script src="/compartido/escape.js"></script>
+  <script src="/compartido/adminSidebar.js"></script>
 
   <div class="admin-content">
     <!-- Título a la izquierda y los dos botones a la derecha. Botones: type (qué hace), id (para el JS), class (para el CSS) -->
@@ -36,7 +36,7 @@
       <div class="acciones-btns">
         <!-- (05/11) La ventana Registrar compra se mudó a la pantalla Compras: este botón ahora es un link que la abre allá
              (?compra=1 = se abre sola). Mismo id y mismo aspecto -->
-        <a id="btnRegistrarCompra" class="btn-compra" href="compras.html?compra=1">
+        <a id="btnRegistrarCompra" class="btn-compra" href="/pantallas/compras/compras.html?compra=1">
           <svg class="icono-boton" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           Registrar compra
         </a>
@@ -177,11 +177,11 @@
     <!-- cierra modalSalida -->
 
     <!-- Abajo: buscan elementos de la página, así que van cuando ya está todo armado -->
-    <script src="../src/js/paginacion.js"></script>
-    <script src="../src/js/fechas.js"></script>
+    <script src="/compartido/paginacion.js"></script>
+    <script src="/compartido/fechas.js"></script>
     <!-- Lo que comparte con la pantalla Compras. Pone también el modal de Detalle en la página -->
-    <script src="../src/js/stockCompartido.js"></script>
-    <script src="../src/js/movimientosStockNuevo.js"></script>
+    <script src="/compartido/stockCompartido.js"></script>
+    <script src="/pantallas/movimientos/movimientosStockNuevo.js"></script>
   </div>
   <!-- cierra admin-content -->
   <script>

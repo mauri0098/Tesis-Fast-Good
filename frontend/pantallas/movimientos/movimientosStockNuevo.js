@@ -1,5 +1,5 @@
 // ============================================================================
-// movimientosStockNuevo.js — Pantalla Movimientos de Stock (pages/MovimientosStockNuevo.html)
+// movimientosStockNuevo.js — Pantalla Movimientos de Stock (pantallas/movimientos/MovimientosStockNuevo.html)
 //
 // (05/11) La ventana "Registrar compra" se mudó a la pantalla Compras (registrarCompra.js): el botón
 // "+ Registrar compra" de acá es un link a compras.html?compra=1, que la abre sola.

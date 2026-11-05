@@ -22,8 +22,7 @@ function apiFetch(url, opciones) {
      'usuario_apellido', 'usuario_telefono', 'usuario_direccion'].forEach(function (k) {
       localStorage.removeItem(k);
     });
-    var base = window.location.pathname.indexOf('/pages/') !== -1 ? '../' : './';
-    window.location.replace(base + 'login.html');
+    window.location.replace('/login.html');   // al login: "/" = la raíz de la web, sirve desde cualquier carpeta
     return new Promise(function () {});
   });
 }

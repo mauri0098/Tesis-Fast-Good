@@ -1,5 +1,5 @@
 // ============================================================================
-// registrarCompra.js — La ventana "Registrar compra" de la pantalla Compras (pages/compras.html)
+// registrarCompra.js — La ventana "Registrar compra" de la pantalla Compras (pantallas/compras/compras.html)
 // (05/11) Se mudó desde movimientosStockNuevo.js sin reescribirla: las funciones son las mismas y lo que se manda al
 // servidor (POST /api/compras) no cambió. Cambiaron solo el HTML que arma cada renglón (diseño 4-registrar-compra),
 // la X de arriba y el final de guardarCompra, que ahora recarga la pantalla Compras.

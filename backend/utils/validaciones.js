@@ -7,7 +7,7 @@
 // Se mudó tal cual de server.js en el paso 2 del MVC (mover no es cambiar).
 // ============================================================================
 
-const fechas = require('../../frontend/src/js/fechas.js');               // días hábiles y feriados (el mismo del front)
+const fechas = require('../../frontend/compartido/fechas.js');             // días hábiles y feriados (el mismo del front)
 const { OFFSET_ARGENTINA, ENTERO_MAXIMO_BASE } = require('./constantes');
 
 // Fecha "AAAA-MM-DD" que exista de verdad (rechaza 2026-02-30). Devuelve el texto o null.

@@ -18,7 +18,7 @@
 
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true });
-const fechas = require(path.join(__dirname, '..', 'frontend', 'src', 'js', 'fechas.js'));
+const fechas = require(path.join(__dirname, '..', 'frontend', 'compartido', 'fechas.js'));
 // Para la limpieza de pedidos de prueba: ya no existe DELETE /api/pedidos/:id (los pedidos se anulan)
 const supabase = require(path.join(__dirname, '..', 'backend', 'config', 'supabaseClient'));
 // Para la sección HELADERA: firma un token de un cocinero de mentira (solo para ver que el servidor le dice 403)

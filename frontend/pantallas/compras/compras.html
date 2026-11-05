@@ -5,20 +5,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Compras - Fast Good</title>
-  <link rel="icon" href="../src/assets/img/logo.webp" type="image/webp"/>
+  <link rel="icon" href="/src/assets/img/logo.webp" type="image/webp"/>
   <!-- Letra: Inter, la del panel -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../src/css/global.css" />
-  <link rel="stylesheet" href="../src/css/compras.css" />
+  <link rel="stylesheet" href="/compartido/global.css" />
+  <link rel="stylesheet" href="/pantallas/compras/compras.css" />
 </head>
 
 <body>
   <!-- Arriba: no buscan nada de la página. guard.js revisa el login y el rol antes que nada -->
-  <script src="../src/js/roles.js"></script>
-  <script src="../src/js/guard.js"></script>
-  <script src="../src/js/api.js"></script>
-  <script src="../src/js/escape.js"></script>
-  <script src="../src/js/adminSidebar.js"></script>
+  <script src="/compartido/roles.js"></script>
+  <script src="/compartido/guard.js"></script>
+  <script src="/compartido/api.js"></script>
+  <script src="/compartido/escape.js"></script>
+  <script src="/compartido/adminSidebar.js"></script>
 
   <!-- La hoja de la lista de compras: en la pantalla no se ve. Al imprimir es lo único que sale (compras.css, parte 6).
        Va suelta en el body, afuera de admin-content, así el CSS de impresión puede esconder todo lo demás.
@@ -249,14 +249,14 @@
     <!-- cierra modalCompra -->
 
     <!-- Abajo: buscan elementos de la página, así que van cuando ya está todo armado -->
-    <script src="../src/js/fechas.js"></script>
+    <script src="/compartido/fechas.js"></script>
     <!-- (05/11) La paginación que usan todas las tablas del panel (crearPaginacion) -->
-    <script src="../src/js/paginacion.js"></script>
+    <script src="/compartido/paginacion.js"></script>
     <!-- Lo que comparte con Movimientos de Stock. Pone también el modal de Detalle en la página -->
-    <script src="../src/js/stockCompartido.js"></script>
+    <script src="/compartido/stockCompartido.js"></script>
     <!-- La ventana Registrar compra (antes que compras.js: compras.js la abre sola si la dirección dice ?compra=1) -->
-    <script src="../src/js/registrarCompra.js"></script>
-    <script src="../src/js/compras.js"></script>
+    <script src="/pantallas/compras/registrarCompra.js"></script>
+    <script src="/pantallas/compras/compras.js"></script>
   </div>
   <!-- cierra admin-content -->
 </body>
