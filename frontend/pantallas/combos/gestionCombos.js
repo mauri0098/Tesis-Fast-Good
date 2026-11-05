@@ -1,5 +1,5 @@
 // ====================================================================
-// GESTIONCOMBOS.JS — Pantalla "Combos" del panel (pages/combos.html)
+// GESTIONCOMBOS.JS — Pantalla "Combos" del panel (pantallas/combos/combos.html)
 //
 // Funciones:
 //   cargarCombos         → trae los combos y los planes del servidor y dibuja la tabla

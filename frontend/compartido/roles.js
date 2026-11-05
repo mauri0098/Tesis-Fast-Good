@@ -33,9 +33,9 @@ var FG_ROLES = (function () {
     { ruta: 'pantallas/cocina/cocinero.html',          menu: '🥗 Tareas de Cocina',     roles: [2, 6, 5, 1] },    // 6, 5 y 1 solo para ver
     { ruta: 'pantallas/stock/stock.html',   menu: '📦 Gestión de Stock',     roles: [6, 5, 1] },
     { ruta: 'pantallas/heladera/heladera.html',          menu: '🍳 Producción',           roles: [6, 5, 1, 2] },
-    { ruta: 'pages/generarReceta.html',     menu: '📝 Generar Receta',       roles: [6, 5] },
-    { ruta: 'pages/combos.html',            menu: '🍱 Combos',               roles: [6, 5] },          // armar los combos y su menú
-    { ruta: 'pages/planesCategorias.html',  menu: '🗂️ Planes y categorías',  roles: [6, 5] },          // crear, editar, agrupar y desactivar
+    { ruta: 'pantallas/recetas/generarReceta.html',     menu: '📝 Generar Receta',       roles: [6, 5] },
+    { ruta: 'pantallas/combos/combos.html',            menu: '🍱 Combos',               roles: [6, 5] },          // armar los combos y su menú
+    { ruta: 'pantallas/planesCategorias/planesCategorias.html',  menu: '🗂️ Planes y categorías',  roles: [6, 5] },          // crear, editar, agrupar y desactivar
     { ruta: 'pantallas/movimientos/MovimientosStockNuevo.html', menu: '📋 Movimientos de Stock', roles: [6, 5, 1] },  // insumos y viandas, todo junto (H8)
     { ruta: 'pantallas/compras/compras.html', menu: '🛒 Compras',              roles: [6, 5, 1] },          // qué compré, qué gasté y qué tengo que reponer
     { ruta: 'pantallas/cocineros/AsignarCocinero.html',   menu: '👨‍🍳 Asignar Cocineros',   roles: [6, 5] },

@@ -282,6 +282,50 @@ No hay funciones nuevas ni cambiadas: solo direcciones.
 | Direcciones viejas de estas 3 pantallas en el código | ninguna |
 | `/pantallas/pedidos/ConsultarPedidos.html` · `/pages/ConsultarPedidos.html` | 200 · 404 |
 
+## F5: Catálogo (combos, planesCategorias y recetas) (05/11/2026)
+
+### Qué se movió
+| Antes | Ahora |
+|---|---|
+| pages/combos.html, src/js/gestionCombos.js | pantallas/combos/ |
+| pages/planesCategorias.html, src/css/planesCategorias.css, src/js/planesCategorias.js | pantallas/planesCategorias/ |
+| pages/generarReceta.html, src/css/generarReceta.css, src/js/generarReceta.js | pantallas/recetas/ |
+
+combos.css y stock.css quedan en compartido/, porque los usan Combos y Planes y categorías (stock.css también Gestión de Stock).
+Se resuelve en F9.
+
+### Qué direcciones cambiaron
+Fueron 26 cambios exactos, cada uno con la cantidad de veces esperada.
+- **En las 3 HTML movidas:** el logo (el ícono y la imagen) y sus CSS y JS.
+- **roles.js y adminSidebar.js:** las 3 pantallas del grupo Catálogo.
+- **El comentario de arriba de combos.css, planesCategorias.css, planesCategorias.js, gestionCombos.js y generarReceta.js:** dice dónde está su pantalla.
+- **planesCategorias.js, la función `direccionDeFoto`.** Es el único cambio adentro de una función en F5.
+  - *Qué hace:* adapta la dirección de una foto de plan o categoría, tal como está guardada en la base, para usarla desde esta pantalla.
+  - *Antes:* cambiaba el `./` del principio por `../`, que sirve desde `pages/`.
+  - *Ahora:* lo cambia por `/`, que sirve desde cualquier carpeta.
+  - *Entrada y salida:* recibe la dirección guardada y devuelve la que sirve. Ej: `'./src/assets/img/combo-saludable-1200.jpg'` → `'/src/assets/img/combo-saludable-1200.jpg'`. Una dirección `https://…` (foto subida a Supabase) queda igual.
+  - *Quién la llama:* `armarFotoLista`, que dibuja la foto de cada fila de las listas.
+  - En la misma `armarFotoLista`, el logo de respaldo (cuando una foto no carga) pasó de `'../src/assets/img/logo.webp'` a `'/src/assets/img/logo.webp'`.
+
+Quedan 2 comentarios viejos en `server.js` ("pages/planesCategorias.html" y "pages/combos.html").
+Se corrigen cuando el usuario haga esos módulos.
+
+### Pruebas
+| Control | Resultado |
+|---|---|
+| test heladera | 61/61 |
+| Rutas con requireAuth / públicas | 76 / 13 |
+| Archivos faltantes (16 HTML, 182 archivos, 46 direcciones de los JS) | 0 |
+| Direcciones viejas de estas 3 pantallas en el front | ninguna |
+| `/pantallas/combos/combos.html` · `/pages/combos.html` | 200 · 404 |
+| **Las fotos reales de la base, pasadas por `direccionDeFoto` y pedidas al servidor** | 6 de 7 cargan (ver abajo) |
+
+**La foto que no carga YA estaba rota antes de la mudanza:**
+- *Cuál es:* la categoría 1 ("Viandas Saludables") tiene `./src/assets/img/BANNER-AQUI.jpg`.
+- *De dónde sale:* `BANNER-AQUI.jpg` es el nombre de ejemplo de `sql/categoria_banner_viandas_saludables.sql`, que dice que hay que cambiarlo por el nombre real antes de correrlo.
+- *Por qué no la rompió la mudanza:* el archivo no existe ni existió nunca en git, y con la función vieja daba el mismo 404.
+- *Qué se ve hoy:* esa tarjeta muestra el logo en vez de la foto. Quedó como pendiente.
+
 ---
 
 ## Pendientes para DESPUÉS del MVC
@@ -293,5 +337,8 @@ No hay funciones nuevas ni cambiadas: solo direcciones.
    dice que las públicas lo llevan.
 4. **El test heladera tendría que crear sus propias viandas al arrancar.** Hoy depende de lo que haya en la heladera:
    el 05/11 dio 2 de 3 porque faltaban "PRUEBA fideos", y hubo que hacer a mano el pedido a cocina #35.
+5. **La foto de la categoría "Viandas Saludables" no existe.** En la base dice `./src/assets/img/BANNER-AQUI.jpg`, que es el nombre
+   de ejemplo del SQL. Hay que copiar el banner real a `frontend/src/assets/img/` y cambiar ese dato en la base (lo corre el usuario),
+   o subir la foto desde la pantalla Planes y categorías.
 3. **El código mudado tiene cosas que la regla de estilo prohíbe:** `||`, `?.`, `if` de una línea y un `if` adentro de otro.
    Se copiaron igual; ordenarlas es otro paso.

@@ -41,9 +41,9 @@
     { ruta: 'pantallas/movimientos/MovimientosStockNuevo.html', grupo: 'Stock',          icono: 'icono-menu-movimientos', nombre: 'Movimientos de Stock' },
     { ruta: 'pantallas/compras/compras.html',         grupo: 'Stock',          icono: 'icono-menu-compras',     nombre: 'Compras' },
     { ruta: 'pantallas/stock/stock.html',         grupo: 'Stock',          icono: 'icono-menu-stock',       nombre: 'Gestión de Stock' },
-    { ruta: 'pages/combos.html',                grupo: 'Catálogo',       icono: 'icono-menu-combos',      nombre: 'Combos' },
-    { ruta: 'pages/planesCategorias.html',      grupo: 'Catálogo',       icono: 'icono-menu-planes',      nombre: 'Planes y categorías' },
-    { ruta: 'pages/generarReceta.html',         grupo: 'Catálogo',       icono: 'icono-menu-receta',      nombre: 'Generar Receta' },
+    { ruta: 'pantallas/combos/combos.html',                grupo: 'Catálogo',       icono: 'icono-menu-combos',      nombre: 'Combos' },
+    { ruta: 'pantallas/planesCategorias/planesCategorias.html',      grupo: 'Catálogo',       icono: 'icono-menu-planes',      nombre: 'Planes y categorías' },
+    { ruta: 'pantallas/recetas/generarReceta.html',         grupo: 'Catálogo',       icono: 'icono-menu-receta',      nombre: 'Generar Receta' },
     { ruta: 'pages/gestionUsuarios.html',       grupo: 'Administración', icono: 'icono-menu-usuarios',    nombre: 'Gestión de Usuarios' },
   ];
 

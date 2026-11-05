@@ -1,5 +1,5 @@
 // ====================================================================
-// PLANESCATEGORIAS.JS — Pantalla "Planes y categorías" del panel (pages/planesCategorias.html)
+// PLANESCATEGORIAS.JS — Pantalla "Planes y categorías" del panel (pantallas/planesCategorias/planesCategorias.html)
 //
 // Funciones:
 //   cargarDatos              → trae las categorías y los planes del servidor y dibuja las dos listas
@@ -67,12 +67,13 @@ async function cargarDatos() {
   renderizarPlanesPanel();
 }
 
-// ── Adapta la dirección de una foto para usarla desde pages/ ──────────────
+// ── Adapta la dirección de una foto para usarla desde cualquier pantalla ──
 // ENTRADA: la dirección guardada en la base
 // SALIDA:  la dirección que sirve desde esta pantalla. Las guardadas con "./" están pensadas para index.html
-// Ej: './src/assets/img/combo-saludable-1200.jpg' → '../src/assets/img/combo-saludable-1200.jpg' · 'https://…' → igual
+// Ej: './src/assets/img/combo-saludable-1200.jpg' → '/src/assets/img/combo-saludable-1200.jpg' · 'https://…' → igual
+// ("/" = la raíz de la web: la dirección sirve desde cualquier carpeta)
 function direccionDeFoto(imagen) {
-  if (imagen.startsWith('./')) return '../' + imagen.slice(2);   // slice(2) = sin los 2 primeros caracteres
+  if (imagen.startsWith('./')) return '/' + imagen.slice(2);   // slice(2) = sin los 2 primeros caracteres
   return imagen;
 }
 
@@ -82,7 +83,7 @@ function direccionDeFoto(imagen) {
 function armarFotoLista(imagen, nombre) {
   if (!imagen) return '<span class="sin-foto">Sin foto</span>';
   return `<img class="foto-lista" src="${escHtml(direccionDeFoto(imagen))}" alt="${escHtml(nombre)}" loading="lazy"
-               onerror="this.onerror = null; this.src = '../src/assets/img/logo.webp';">`;
+               onerror="this.onerror = null; this.src = '/src/assets/img/logo.webp';">`;
 }
 
 // ── Dibuja la lista de categorías ─────────────────────────────────────────

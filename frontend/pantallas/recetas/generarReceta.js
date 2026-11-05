@@ -1,5 +1,5 @@
 // ============================================================================
-// generarReceta.js — Generar Receta (pages/generarReceta.html): la lista de platos con su receta,
+// generarReceta.js — Generar Receta (pantallas/recetas/generarReceta.html): la lista de platos con su receta,
 // "Nuevo producto", "Editar receta" y (28/10) las abreviaturas de los planes.
 //
 // Funciones nuevas o cambiadas por el código de plato (28/10):
