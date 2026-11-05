@@ -6106,6 +6106,8 @@ Stock al terminar, igual a lo calculado: 3 "PRUEBA fideos" libres y 6 reservadas
 
 ### Datos de prueba que quedaron en la base (se borran al final)
 Plan "PRUEBA" (#9), plato "PRUEBA fideos" (#9, PRB2), combos "PRUEBA fideos x3" (#9) y "x5" (#10), usuario "PRUEBA Cocinero", pedido a cocina #34 y pedidos #124 a #129.
+05/11 (antes del MVC, para la prueba `heladera`): pedido a cocina #35 (12 "PRUEBA fideos", renglón #46 marcado Hecho por la web:
+gastó 1200 g de harina integral y 12 huevos; la heladera quedó con 12 "PRUEBA fideos").
 
 ### Pendientes
 1. Borrar los datos de prueba.

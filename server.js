@@ -18,134 +18,32 @@ if (process.env.NODE_ENV === 'production') {
 // La CSP queda desactivada por ahora: la que trae helmet por defecto bloquea los onclick y <script> inline.
 app.use(helmet({ contentSecurityPolicy: false }));
 
-// Orígenes permitidos: localhost (desarrollo) + los de CORS_ORIGIN (el dominio publicado; varios, separados por coma)
-const origenesPermitidos = [
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  ...(process.env.CORS_ORIGIN || '').split(',').map(o => o.trim().replace(/\/+$/, '')).filter(Boolean)
-];
-
-app.use(cors({
-  origin: function (origin, callback) {
-    // Las peticiones sin origen (Postman, curl, mismo servidor) se permiten
-    if (!origin) {
-      callback(null, true);
-      return;
-    }
-
-    if (origenesPermitidos.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Bloqueado por política CORS'));
-    }
-  }
-}));
+// Qué sitios pueden llamar a la API: la lista y la regla están en backend/config/cors.js
+const { opcionesCors } = require('./backend/config/cors');
+app.use(cors(opcionesCors));
 // Tamaño máximo del cuerpo: 6 MB solo para subir imágenes de recetas (base64, máx. 2MB + overhead); el resto, 100 KB
 app.use('/api/productos/:id/imagen', express.json({ limit: '6mb' }));
 app.use('/api/planes/:id/imagen', express.json({ limit: '6mb' }));       // la foto de un plan (Planes y categorías)
 app.use('/api/categorias/:id/imagen', express.json({ limit: '6mb' }));   // la foto de una categoría (Planes y categorías)
 app.use(express.json({ limit: '100kb' }));
 
-const supabase   = require('./config/supabaseClient');// Cliente de Supabase para interactuar con la base de datos
+const supabase   = require('./backend/config/supabaseClient');// Cliente de Supabase para interactuar con la base de datos
 const nodemailer = require('nodemailer');              // Envío de emails (recuperación de contraseña)
 const bcrypt     = require('bcryptjs');                // Hash de contraseñas
 const jwt        = require('jsonwebtoken');            // Tokens de autenticación
 const crypto     = require('crypto');                  // Comparación segura del PIN de anulación
 const fechas     = require('./frontend/src/js/fechas.js'); // Días hábiles y feriados (el mismo archivo que usa el frontend)
 
-/* ======================================================
-   LÍMITE DE INTENTOS POR IP (express-rate-limit)
-   Frena la fuerza bruta (contraseñas, PIN) y la carga masiva de pedidos falsos.
-   Cada endpoint tiene su propio contador. Superado el límite responde 429 con { error }.
-   Si el servidor queda detrás de un proxy (Nginx, Render, etc.) hay que configurar
-   app.set('trust proxy', 1): si no, todos los clientes comparten la IP del proxy.
-   ====================================================== */
-const { rateLimit } = require('express-rate-limit');
-
-function limitador({ minutos, maximo, mensaje, soloFallidos = false }) {
-  return rateLimit({
-    windowMs: minutos * 60 * 1000,
-    limit: maximo,
-    standardHeaders: 'draft-8', // informa el límite en el header RateLimit
-    legacyHeaders: false,
-    // soloFallidos: cuentan solo las respuestas de error (el objetivo es quien prueba claves, no el uso normal)
-    skipSuccessfulRequests: soloFallidos,
-    message: { error: mensaje }
-  });
-}
-
-const limiteLogin = limitador({
-  minutos: 15, maximo: 10, soloFallidos: true,
-  mensaje: 'Demasiados intentos de inicio de sesión fallidos. Esperá unos minutos y volvé a intentar.'
-});
-const limiteRegistro = limitador({
-  minutos: 15, maximo: 10,
-  mensaje: 'Demasiados intentos de registro seguidos. Esperá unos minutos y volvé a intentar.'
-});
-const limiteRecuperarPassword = limitador({
-  minutos: 15, maximo: 10,
-  mensaje: 'Demasiadas solicitudes de recuperación de contraseña. Esperá unos minutos y volvé a intentar.'
-});
-const limiteAnular = limitador({
-  minutos: 15, maximo: 10, soloFallidos: true,
-  mensaje: 'Demasiados intentos de anulación fallidos. Esperá unos minutos y volvé a intentar.'
-});
-const limitePedidos = limitador({
-  minutos: 10, maximo: 5,
-  mensaje: 'Hiciste demasiados pedidos seguidos, esperá unos minutos.'
-});
-// Catálogo de combos (público): 60 consultas por minuto por IP. Sobra para una persona que navega
-// la página; frena a quien la llama sin parar para saturar el servidor o copiar el catálogo.
-const limiteCatalogo = limitador({
-  minutos: 1, maximo: 60,
-  mensaje: 'Demasiadas consultas seguidas. Esperá un momento y volvé a intentar.'
-});
-
-/* ======================================================
-   MIDDLEWARE DE AUTENTICACIÓN JWT
-   Lee el token del header Authorization: Bearer <token>
-   ====================================================== */
-// Devuelve el payload del token ({ id, rol, iat, exp }) si viene uno válido, o null. No corta la request.
-function leerToken(req) {
-  const partes = (req.headers['authorization'] || '').split(' ');
-  if (partes.length !== 2 || partes[0] !== 'Bearer') return null;
-  try {
-    return jwt.verify(partes[1], process.env.JWT_SECRET);
-  } catch (err) {
-    return null;
-  }
-}
-
-function requireAuth(req, res, next) {
-  const payload = leerToken(req);
-  if (!payload) {
-    return res.status(401).json({ error: 'No autorizado' });
-  }
-  req.usuario = payload; // { id, rol, iat, exp }
-  next();
-}
-
-// Va después de requireAuth: deja pasar solo a los roles de la lista (403 si no).
-// Roles: 1 Administrador, 2 Cocinero, 3 Repartidor, 4 Consumidor final, 5 Dueño, 6 Administrador del sistema.
-function requireRol(...roles) {
-  return (req, res, next) => {
-    if (!req.usuario || !roles.includes(Number(req.usuario.rol))) {
-      return res.status(403).json({ error: 'No tenés permiso para esta acción' });
-    }
-    next();
-  };
-}
-
-// Errores internos: el detalle va a la consola del servidor; al cliente, un mensaje genérico
-// (no se filtran mensajes de la base ni stack traces).
-const MENSAJE_ERROR_INTERNO = 'Error interno del servidor';
-function mensajeInterno(err) {
-  console.error('[ERROR INTERNO]', err);
-  return MENSAJE_ERROR_INTERNO;
-}
-function errorInterno(res, err) {
-  return res.status(500).json({ error: mensajeInterno(err) });
-}
+// La base común del servidor (backend/): se mudó de este archivo en el paso 2 del MVC
+const { limiteLogin, limiteRegistro, limiteRecuperarPassword, limiteAnular, limitePedidos, limiteCatalogo } = require('./backend/middlewares/limites');
+const { leerToken, requireAuth, requireRol } = require('./backend/middlewares/auth');
+const { manejadorErrores } = require('./backend/middlewares/manejadorErrores');
+const { MENSAJE_ERROR_INTERNO, mensajeInterno, errorInterno } = require('./backend/utils/errores');
+const { METODOS_PAGO, ESTADO_ANULADO, ESTADO_POR_ARMAR, OFFSET_ARGENTINA, BUCKET_IMAGENES_PRODUCTOS, EXTENSIONES_IMAGEN, TAMANIO_MAX_IMAGEN, ENTERO_MAXIMO_BASE } = require('./backend/utils/constantes');
+const { leerFechaPara, leerPeriodo, leerIdPlan } = require('./backend/utils/validaciones');
+const { calcularFaltantes, unirConY, convertirACantidadBase, FACTOR_UNIDAD } = require('./backend/utils/cuentasInsumos');
+const { platoVisibleParaCocinero } = require('./backend/utils/platosDelCocinero');
+const { nombreDeUsuario, origenDeRenglonStock, armarMovimientos } = require('./backend/utils/listaMovimientos');
 
 /* ======================================================
    INSUMOS DE LOS PEDIDOS (solo lo que cocina la cocina: cantidad − cantidad_de_heladera)
@@ -191,46 +89,6 @@ async function leerRecetasEInsumos(idsPlatos) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// calcularFaltantes → qué insumos no alcanzan para cocinar unas viandas (la cuenta; no pregunta nada a la base)
-// ENTRADA: viandasPorPlato ({ id_producto: viandas } lo que se quiere cocinar), datos (de leerRecetasEInsumos) y,
-//          opcional, comprometidoPorPlato ({ id_producto: viandas } lo que ya está pedido y todavía no gastó insumos)
-// SALIDA:  [{ id_insumo, nombre, unidad, tenes, necesitas, falta, texto }], en orden de número de insumo ([] si alcanza)
-//          necesitas = receta × (lo nuevo + lo comprometido). Solo van los insumos que usa lo NUEVO.
-// Ej: 2 fideos (300 g de harina c/u), harina 400 → [{ nombre: 'Harina', unidad: 'g', tenes: 400, necesitas: 600, falta: 200, texto: '200 g de Harina' }]
-//     lo mismo con 1 fideo ya pedido sin hacer (comprometido) → necesitas 900, falta 500
-// ─────────────────────────────────────────────────────────────────────────────
-function calcularFaltantes(viandasPorPlato, datos, comprometidoPorPlato) {
-  const comprometido = comprometidoPorPlato || {};                // sin comprometido: nada
-  const necesarioPorInsumo = {};                                  // { id_insumo: cuánto hace falta en total }
-  const usaLoNuevo = {};                                          // { id_insumo: true } los que usa lo que se quiere cocinar
-
-  // 1. Receta × viandas, sumando todos los platos. Ej: fideos (300 g de harina) × (2 nuevos + 1 pedido) → harina 900
-  datos.recetas.forEach(renglon => {                              // por cada renglón de receta...
-    const nuevas = Number(viandasPorPlato[renglon.id_producto] || 0);
-    const yaPedidas = Number(comprometido[renglon.id_producto] || 0);
-    const porVianda = Number(renglon.cantidad_necesaria || 0);
-    necesarioPorInsumo[renglon.id_insumo] = (necesarioPorInsumo[renglon.id_insumo] || 0) + porVianda * (nuevas + yaPedidas);
-    if (nuevas > 0) usaLoNuevo[renglon.id_insumo] = true;         // este insumo lo usa lo nuevo
-  });
-
-  // 2. Los que no alcanzan, en orden de número (el mismo de la base). Object.keys da los números como texto: Number los pasa a número
-  const faltantes = [];
-  Object.keys(usaLoNuevo).map(Number).sort((a, b) => a - b).forEach(idInsumo => {   // sort (a − b) = de menor a mayor
-    const insumo = datos.insumoPorId[idInsumo];                   // sus datos (pueden faltar si se borró)
-    const tenes = Number(insumo?.stock_actual ?? 0);              // ?. = "si existe el insumo, su stock"; ?? 0 = vacío cuenta como 0
-    const necesitas = necesarioPorInsumo[idInsumo];
-    if (tenes >= necesitas) return;                               // alcanza (return = saltear este y seguir con el siguiente)
-    const falta = necesitas - tenes;
-    const unidad = insumo?.unidad_medida || '';                   // ej: "g" (sin unidad: '')
-    const nombre = insumo?.nombre || String(idInsumo);            // su nombre (o su número si no se encontró)
-    const conUnidad = unidad ? ' ' + unidad : '';
-    const texto = falta.toLocaleString('es-AR', { maximumFractionDigits: 2 }) + conUnidad + ' de ' + nombre;   // ej: "200 g de Harina"
-    faltantes.push({ id_insumo: idInsumo, nombre: nombre, unidad: unidad, tenes: tenes, necesitas: necesitas, falta: falta, texto: texto });
-  });
-  return faltantes;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // leerComprometido → lo que ya está pedido y todavía no gastó insumos (para el aviso de "Pedir a cocina")
 // ENTRADA: nada
 // SALIDA:  { porPlato: { id_producto: viandas } } o { error }
@@ -268,13 +126,6 @@ async function leerComprometido() {
     porPlato[detalle.id_producto] = (porPlato[detalle.id_producto] || 0) + deCocina;
   });
   return { porPlato: porPlato };
-}
-
-// unirConY → una lista en una frase: los de antes con coma y el último con "y"
-// Ej: ['200 g de Carne'] → "200 g de Carne" · ['200 g de Carne', '39 u de Huevo', '1 kg de Sal'] → "200 g de Carne, 39 u de Huevo y 1 kg de Sal"
-function unirConY(lista) {
-  const ultimo = lista[lista.length - 1];                         // el último de la lista
-  return lista.length === 1 ? ultimo : lista.slice(0, -1).join(', ') + ' y ' + ultimo;   // slice(0, -1) = todos menos el último
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -734,15 +585,6 @@ app.get('/api/v1/combos', limiteCatalogo, async (req, res) => {
    API TAREAS DE COCINA (filtradas por cocinero asignado)
    ====================================================== */
 
-// Un plato le corresponde a un cocinero si lo tiene asignado directamente o, cuando el plato
-// no tiene cocinero propio, si es el principal o el suplente de su plan (respaldo).
-// `producto` debe traer id_cocinero y planes(id_cocinero, id_cocinero_suplente).
-function platoEsDelCocinero(producto, cocineroId) {
-  if (producto.id_cocinero) return producto.id_cocinero === cocineroId;
-  const plan = producto.planes;
-  return !!plan && (plan.id_cocinero === cocineroId || plan.id_cocinero_suplente === cocineroId);
-}
-
 // GET /api/cocina/tareas?cocinero_id=UUID
 // Si se pasa cocinero_id, devuelve los pedidos en estado 2 que tienen al menos un plato de ese
 // cocinero (asignado al plato o, como respaldo, por su plan) sin marcar como listo.
@@ -847,7 +689,6 @@ function hoyArgentina() {
 const CANTIDAD_MAXIMA_POR_PLATO = 100;
 
 // Valores permitidos (lista cerrada) y largo máximo de lo que manda el formulario público
-const METODOS_PAGO  = ['Efectivo', 'Transferencia', 'Tarjeta Débito', 'Tarjeta Crédito', 'Mixto'];
 const TIPOS_ENTREGA = ['Delivery', 'Retiro en local'];
 const LARGO_MAXIMO_PEDIDO = [
   ['cliente_nombre',    'El nombre',        100],
@@ -1212,11 +1053,6 @@ app.post('/api/pedidos-combos', limitePedidos, async (req, res) => {
 // CONSULTAR PEDIDOS (paso H8, parada 2): lista, pago, estado. Un pedido ANULADO (estado 5)
 // no cambia más de estado ni se cobra.
 // =============================================================================
-const ESTADO_ANULADO = 5;                                         // el estado "Cancelado": es final
-// (05/11) "Por armar" (sql/estado_por_armar.sql): todo cocinado (o todo de heladera), esperando el Armado.
-// El recorrido: 1 Registrado → 2 En Preparación → 6 Por armar → 3 Listo para entregar → 4 Entregado (5 Cancelado)
-const ESTADO_POR_ARMAR = 6;
-const OFFSET_ARGENTINA = '-03:00';                                // la hora de Argentina (no tiene horario de verano)
 const FORMATO_FECHA = /^\d{4}-\d{2}-\d{2}$/;                      // una fecha AAAA-MM-DD (ej: 2026-10-16)
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2346,9 +2182,6 @@ app.delete('/api/recetas/:idProducto', requireAuth, requireRol(6, 5), async (req
 
 // POST /api/productos/:id/imagen → sube/reemplaza la imagen de un producto en Supabase Storage
 // Body: { imagen_base64, tipo } — tipo debe ser image/jpeg, image/png o image/webp
-const BUCKET_IMAGENES_PRODUCTOS = 'imagenes-productos';
-const EXTENSIONES_IMAGEN = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
-const TAMANIO_MAX_IMAGEN = 2 * 1024 * 1024; // 2MB
 
 app.post('/api/productos/:id/imagen', requireAuth, requireRol(6, 5), async (req, res) => {
   const { id } = req.params;
@@ -2426,32 +2259,6 @@ app.get('/api/movimientos-stock', requireAuth, requireRol(6, 5, 1), async (req, 
   if (error) return errorInterno(res, error);
   res.json(data);
 });
-
-// Conversión entre unidades de una misma familia (masa / volumen / unidad),
-// para poder cargar un movimiento en una unidad distinta a la base del
-// insumo (ej: insumo en "g", carga en "kg") sin desalinear stock_actual.
-const FACTOR_UNIDAD  = { g: 1, kg: 1000, ml: 1, lts: 1000, u: 1 };
-const FAMILIA_UNIDAD = { g: 'masa', kg: 'masa', ml: 'volumen', lts: 'volumen', u: 'unidad' };
-
-function convertirACantidadBase(cantidad, unidadIngresada, unidadBaseInsumo) {
-  const unidadBase = (unidadBaseInsumo || '').toLowerCase().trim();
-  const unidadIn   = (unidadIngresada || unidadBase).toLowerCase().trim();
-
-  const factorBase = FACTOR_UNIDAD[unidadBase];
-  const factorIn   = FACTOR_UNIDAD[unidadIn];
-
-  // Si alguna unidad no es reconocida, no convertimos: se asume que ya
-  // viene expresada en la unidad base del insumo (comportamiento previo).
-  if (factorBase === undefined || factorIn === undefined) {
-    return { cantidadBase: Number(cantidad) };
-  }
-
-  if (FAMILIA_UNIDAD[unidadIn] !== FAMILIA_UNIDAD[unidadBase]) {
-    return { error: 'La unidad ingresada no corresponde a la familia de medida del insumo.' };
-  }
-
-  return { cantidadBase: Number(cantidad) * factorIn / factorBase };
-}
 
 /* ======================================================
    API COMPRAS
@@ -2721,7 +2528,6 @@ app.post('/api/salidas-stock', requireAuth, requireRol(...ROLES_SALIDAS), async 
 
 const ROLES_HELADERA = [6, 5, 1, 2]; // administradores, dueño y cocinero
 const LARGO_MAXIMO_MOTIVO_VIANDA = 200;
-const ENTERO_MAXIMO_BASE = 2147483647; // tope de una columna integer de Postgres
 
 const MAXIMO_PLATOS_PEDIDO = 100;
 
@@ -2970,29 +2776,6 @@ app.post('/api/viandas-stock/descarte', requireAuth, requireRol(...ROLES_HELADER
    ------------------------------------------------------ */
 
 const ROLES_PIDEN_COCINA = [6, 5, 1]; // administradores y dueño. El cocinero no pide, cocina.
-
-// Fecha "AAAA-MM-DD" que exista de verdad (rechaza 2026-02-30). Devuelve el texto o null.
-// Que no sea anterior a hoy lo controla la base, con la hora de Argentina.
-function leerFechaPara(valor) {
-  if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return null;
-  const fecha = new Date(valor + 'T00:00:00Z');
-  if (Number.isNaN(fecha.getTime()) || fecha.toISOString().slice(0, 10) !== valor) return null;
-  return valor;
-}
-
-// Plato sin nadie asignado: ni cocinero propio, ni principal ni suplente en su plan.
-// `producto` trae id_cocinero y planes(id_cocinero, id_cocinero_suplente), igual que platoEsDelCocinero.
-function platoSinCocinero(producto) {
-  if (producto.id_cocinero) return false;
-  const plan = producto.planes;
-  return !plan || (!plan.id_cocinero && !plan.id_cocinero_suplente);
-}
-
-// Lo que un cocinero puede ver y marcar: los platos que le tocan (platoEsDelCocinero)
-// y los que no tienen a nadie asignado. Misma regla en pendientes, hechos de hoy y marcar hecho.
-function platoVisibleParaCocinero(producto, idCocinero) {
-  return platoEsDelCocinero(producto, idCocinero) || platoSinCocinero(producto);
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/ordenes-produccion → crea un pedido a cocina (botón "Enviar a cocina" de Producción)
@@ -3427,18 +3210,6 @@ const TOPE_FILAS_MOVIMIENTOS = 20000;                             // más que es
 const COLUMNA_FECHA = { movimientos_stock: 'fecha', movimientos_viandas: 'fecha', lotes_insumo: 'fecha_ingreso' };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// nombreDeUsuario → "Nombre Apellido" de un usuario que vino de la base, o "-" si no vino
-// ENTRADA: usuario ({ nombre, apellido } o null)
-// SALIDA:  el texto. Ej: { nombre: 'Ana', apellido: 'López' } → 'Ana López' · null → '-'
-// La usa armarMovimientos (para quién cargó, quién pidió y quién marcó Hecho).
-// ─────────────────────────────────────────────────────────────────────────────
-function nombreDeUsuario(usuario) {
-  if (!usuario) return '-';                                       // no vino: "-"
-  const nombre = (String(usuario.nombre || '') + ' ' + String(usuario.apellido || '')).trim();  // "Ana López" (trim saca el espacio que sobra)
-  return nombre || '-';                                           // si quedó vacío, "-"
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // traerTodasLasFilas → trae TODOS los renglones de una libreta entre dos fechas, de a 1000
 //                      (Supabase manda como mucho 1000 por consulta)
 // ENTRADA: tabla ('movimientos_stock', 'movimientos_viandas' o 'lotes_insumo', la pone el servidor, nunca la pantalla),
@@ -3491,161 +3262,6 @@ async function traerTodasLasFilas(tabla, columnas, desdeISO, hastaISO, filtros) 
   }
 
   return { filas: filas };                                        // todos los renglones
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// origenDeRenglonStock → dice de qué movimiento es un renglón de insumos (movimientos_stock)
-// ENTRADA: fila, con motivo, tipo, id, id_compra, id_movimiento_vianda, id_pedido e id_salida_manual
-// SALIDA:  { clave, origen, tipo, numero }. origen = 'compra' · 'produccion' · 'cocina' · 'salida_manual' · 'ajuste'
-//          Se elige el primero que corresponde, en ese orden.
-// Ej: { id_movimiento_vianda: 40 } → { clave: 'produccion-40', origen: 'produccion', tipo: 'entrada', numero: null }
-//     { motivo: 'Consumo por producción pedido #005' } → { clave: 'cocina-5-…', origen: 'cocina', tipo: 'salida', numero: 5 }
-//     { id: 9, tipo: 'salida' } (sin ningún id) → { clave: 'ajuste-insumo-9', origen: 'ajuste', tipo: 'salida', numero: null }
-// La usan armarMovimientos y GET /api/compras/gastos/:idInsumo: así las dos pantallas dicen lo mismo.
-// ─────────────────────────────────────────────────────────────────────────────
-function origenDeRenglonStock(fila) {
-  // a. ¿Es lo que gastó la cocina en un pedido? Los nuevos tienen id_pedido; los viejos, el motivo EXACTO.
-  //    exec busca el texto: ^ y $ = tiene que ser el motivo entero; (\d+) = el número. Ej: '…pedido #005' → ['…', '005']
-  const motivoDePedido = /^Consumo por producción pedido #(\d+)$/.exec(fila.motivo || '');
-  const pedidoDelMotivo = motivoDePedido ? Number(motivoDePedido[1]) : null;  // '005' → 5 (null si no es de un pedido)
-  const idPedido = fila.id_pedido || pedidoDelMotivo;             // primero id_pedido; si no, el del motivo
-
-  // b. A qué movimiento pertenece: se elige el primero que corresponde, en este orden
-  //    (compra, después "Hecho", después pedido; si no es ninguno, lo cargado a mano es un ajuste)
-  let datos = null;
-  if (fila.id_compra) datos = { clave: 'compra-' + fila.id_compra, origen: 'compra', tipo: 'entrada', numero: fila.id_compra };
-  if (!datos && fila.id_movimiento_vianda) datos = { clave: 'produccion-' + fila.id_movimiento_vianda, origen: 'produccion', tipo: 'entrada', numero: null };
-  if (!datos && idPedido) datos = { clave: 'cocina-' + idPedido + '-' + fila.fecha, origen: 'cocina', tipo: 'salida', numero: idPedido };
-  // ¿es de la ventana "Registrar salida"? SÍ: tiene id_salida_manual · NO: una salida de la pantalla vieja (esas siguen como ajuste)
-  if (!datos && fila.id_salida_manual) {
-    datos = { clave: 'salida-manual-' + fila.id_salida_manual, origen: 'salida_manual', tipo: 'salida', numero: null };
-  }
-  if (!datos) datos = { clave: 'ajuste-insumo-' + fila.id, origen: 'ajuste', tipo: fila.tipo === 'entrada' ? 'entrada' : 'salida', numero: null };
-
-  return datos;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// armarMovimientos → junta los renglones de las dos libretas en MOVIMIENTOS (una fila por cosa que pasó)
-// ENTRADA: filasViandas (renglones de movimientos_viandas) y filasStock (renglones de movimientos_stock),
-//          con sus datos unidos (plato, insumo, usuario, compra, pedido, pedido a cocina)
-// SALIDA:  [{ clave, origen, tipo, fecha, numero, usuario, proveedor, motivo, cliente, pidio, insumos, viandas }],
-//          del más nuevo al más viejo
-//            origen  = 'compra' · 'produccion' · 'venta' · 'devolucion' · 'descarte' · 'cocina' · 'salida_manual' · 'ajuste'
-//            tipo    = 'entrada' o 'salida'
-//            numero  = el de la compra, el pedido a cocina o el pedido (null si no tiene)
-//            insumos = [{ nombre, cantidad, unidad, vence }] · viandas = [{ plato, cantidad }]
-// Ej: el "Hecho" de 2 fideos del pedido a cocina #9 = 1 renglón de viandas (+2) y 2 de insumos (harina, huevo)
-//     → { origen: 'produccion', tipo: 'entrada', numero: 9, usuario: 'Ana López', pidio: 'Mauri Rodriguez',
-//         viandas: [{ plato: 'fideos', cantidad: 2 }],
-//         insumos: [{ nombre: 'Harina integral', cantidad: 600, unidad: 'g' }, { nombre: 'Huevo', cantidad: 4, unidad: 'u' }] }
-// Cómo se juntan, sin forEach adentro de otro: un objeto { clave: movimiento } y cada renglón se suma al suyo.
-//   compra → id_compra · produccion → el renglón de viandas (los insumos lo traen en id_movimiento_vianda)
-//   venta y devolucion → el pedido (todos sus renglones se guardan juntos, con la misma hora)
-//   cocina → id_pedido, o el motivo EXACTO "Consumo por producción pedido #005" (los renglones viejos y los de Render)
-//   salida_manual → id_salida_manual (todos los insumos de una salida juntos, en una fila)
-//   descarte y ajuste → uno por renglón
-// La usa GET /api/movimientos.
-// ─────────────────────────────────────────────────────────────────────────────
-function armarMovimientos(filasViandas, filasStock) {
-  const movimientoPorClave = {};                                  // { clave: movimiento }
-  const movimientos = [];                                         // la lista, en el orden en que se crean
-
-  // 1. LAS VIANDAS (movimientos_viandas): producción, venta, devolución, descarte y ajuste
-  filasViandas.forEach(fila => {                                  // por cada renglón de viandas...
-    const cantidad = Number(fila.cantidad);                       // + entran, − salen
-    const pedidoACocina = (fila.orden_produccion_detalles || [])[0];  // el pedido a cocina del "Hecho" (undefined si no tiene)
-
-    // a. A qué movimiento pertenece, según sea el tipo del renglón. Lo que no es de estos tipos
-    //    (o una venta o devolución sin pedido) queda como ajuste, uno por renglón.
-    const ajuste = { clave: 'ajuste-vianda-' + fila.id, origen: 'ajuste', tipo: cantidad > 0 ? 'entrada' : 'salida', numero: null };
-    let datos = ajuste;
-    switch (fila.tipo) {
-      case 'produccion':                                          // según sea un "Hecho" (o una tanda vieja): sus insumos traen este número
-        datos = { clave: 'produccion-' + fila.id, origen: 'produccion', tipo: 'entrada', numero: pedidoACocina?.id_orden_produccion ?? null };
-        break;
-      case 'venta':                                               // según sea una venta de la web nueva: todos los platos del pedido juntos
-        datos = fila.id_pedido ? { clave: 'venta-' + fila.id_pedido + '-' + fila.fecha, origen: 'venta', tipo: 'salida', numero: fila.id_pedido } : ajuste;
-        break;
-      case 'devolucion':                                          // según sea una anulación: todos los platos que volvieron juntos
-        datos = fila.id_pedido ? { clave: 'devolucion-' + fila.id_pedido + '-' + fila.fecha, origen: 'devolucion', tipo: 'entrada', numero: fila.id_pedido } : ajuste;
-        break;
-      case 'descarte':                                            // según sea un descarte: uno por renglón
-        datos = { clave: 'descarte-' + fila.id, origen: 'descarte', tipo: 'salida', numero: null };
-        break;
-    }
-
-    // b. Si es el primer renglón de su movimiento, se crea el movimiento
-    //    (?. = "si existe…"; en producción: quién pidió a cocina; en venta: el cliente)
-    const esNuevo = !movimientoPorClave[datos.clave];
-    if (esNuevo) {
-      const quienPidio = datos.origen === 'produccion' ? pedidoACocina?.ordenes_produccion : null;  // solo en producción: el pedido a cocina, con su usuario
-      movimientoPorClave[datos.clave] = {
-        clave:     datos.clave,                                   // para reconocerlo
-        origen:    datos.origen,                                  // de dónde viene
-        tipo:      datos.tipo,                                    // entrada o salida
-        fecha:     fila.fecha,                                    // cuándo
-        numero:    datos.numero,                                  // el pedido o el pedido a cocina
-        usuario:   nombreDeUsuario(fila.usuarios),                // quién lo hizo (en producción: quién marcó Hecho)
-        proveedor: null,                                          // solo las compras
-        motivo:    fila.motivo,                                   // el motivo escrito (ej: "vencidas")
-        cliente:   datos.origen === 'venta' ? fila.pedidos?.cliente_nombre ?? null : null,  // solo las ventas: el cliente
-        pidio:     quienPidio ? nombreDeUsuario(quienPidio.usuarios) : null,               // solo la producción: quién pidió
-        insumos:   [],                                            // los insumos (se llenan en el paso 2)
-        viandas:   []                                             // los platos
-      };
-      movimientos.push(movimientoPorClave[datos.clave]);          // y se agrega a la lista
-    }
-
-    // c. El plato de este renglón (en positivo: el tipo ya dice si entra o sale)
-    const plato = fila.productos && fila.productos.nombre ? fila.productos.nombre : '-';
-    movimientoPorClave[datos.clave].viandas.push({ plato: plato, cantidad: Math.abs(cantidad) });
-  });
-
-  // 2. LOS INSUMOS (movimientos_stock): compra, producción (se suman a su renglón de viandas), cocina y ajuste
-  filasStock.forEach(fila => {                                    // por cada renglón de insumos...
-    // a. y b. A qué movimiento pertenece (compra, "Hecho", pedido, salida manual o ajuste)
-    const datos = origenDeRenglonStock(fila);
-
-    // c. Si es el primer renglón de su movimiento, se crea (en producción ya lo creó el paso 1)
-    const esNuevo = !movimientoPorClave[datos.clave];
-    if (esNuevo) {
-      movimientoPorClave[datos.clave] = {
-        clave:     datos.clave,
-        origen:    datos.origen,
-        tipo:      datos.tipo,
-        fecha:     fila.fecha,
-        numero:    datos.numero,
-        usuario:   nombreDeUsuario(fila.usuarios),
-        proveedor: datos.origen === 'compra' ? fila.compras?.proveedor || null : null,  // solo las compras
-        motivo:    fila.motivo,
-        cliente:   null,
-        pidio:     null,
-        insumos:   [],
-        viandas:   []
-      };
-      movimientos.push(movimientoPorClave[datos.clave]);
-    }
-
-    // d. El insumo de este renglón. La unidad: la del renglón o, si no la guardó, la del insumo.
-    movimientoPorClave[datos.clave].insumos.push({
-      nombre:   fila.insumos?.nombre || '-',                      // ej: "Harina integral"
-      cantidad: Number(fila.cantidad),                            // ej: 600
-      unidad:   fila.unidad || fila.insumos?.unidad_medida || '', // ej: "g"
-      vence:    fila.fecha_vencimiento || null                    // solo las compras
-    });
-  });
-
-  // 3. Del más nuevo al más viejo (si dos tienen la misma hora, por su clave, para que el orden no cambie)
-  //    sort recibe una función que compara dos movimientos: negativo = a va antes, positivo = b va antes
-  movimientos.sort((a, b) => {
-    const horaA = new Date(a.fecha).getTime();                    // la fecha como número (milisegundos)
-    const horaB = new Date(b.fecha).getTime();
-    if (horaA !== horaB) return horaB - horaA;                    // el más nuevo primero
-    return a.clave.localeCompare(b.clave);                        // empate: por clave
-  });
-
-  return movimientos;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3710,51 +3326,7 @@ app.get('/api/movimientos', requireAuth, requireRol(6, 5, 1), async (req, res) =
    Guardar una compra sigue siendo POST /api/compras (más arriba).
    ====================================================== */
 
-const MAXIMO_DIAS_PERIODO = 62;                                   // el período más largo que se puede pedir (contando los dos extremos)
-const MILISEGUNDOS_POR_DIA = 86400000;                            // 24 × 60 × 60 × 1000
 const MENSAJE_DEMASIADOS_RENGLONES = 'Hay demasiados movimientos en esas fechas: elegí menos días';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// leerPeriodo → revisa las fechas de la dirección y las pasa a horas de Argentina
-// ENTRADA: consulta (req.query): { desde: 'AAAA-MM-DD', hasta: 'AAAA-MM-DD' }, las dos obligatorias
-// SALIDA:  { desdeISO, hastaISO } · { error: 'mensaje' } si algo está mal (la ruta responde 400)
-// Ej: { desde: '2026-11-02', hasta: '2026-11-08' } → { desdeISO: '2026-11-02T00:00:00-03:00', hastaISO: '2026-11-09T00:00:00-03:00' }
-//     { desde: '2026-02-30', hasta: '2026-03-01' } → { error: 'Las fechas son inválidas' } (el 30 de febrero no existe)
-//     { desde: '2026-09-01', hasta: '2026-11-30' } → { error: 'El período puede tener hasta 62 días' } (son 91)
-// La usan las tres rutas de la pantalla Compras. Lee y frena: así un pedido de años no hace trabajar a la base.
-// ─────────────────────────────────────────────────────────────────────────────
-function leerPeriodo(consulta) {
-  const desde = leerFechaPara(consulta.desde);                    // 'AAAA-MM-DD' que exista de verdad, o null
-  const hasta = leerFechaPara(consulta.hasta);
-
-  // 1. Las dos fechas tienen que servir. Fuera de 2000 a 2099 no hay nada guardado (y el año 0000 la base ni lo acepta)
-  //    En AAAA-MM-DD, el texto menor es el día más viejo: se comparan directo. Ej: '2026-11-02' < '2026-11-08'
-  const fechaMala = desde === null || hasta === null || desde < '2000-01-01' || hasta > '2099-12-31';
-  // ¿alguna no sirve? SÍ: vacía o '2026-02-30' · NO: '2026-11-02'
-  if (fechaMala) {
-    return { error: 'Las fechas son inválidas' };
-  }
-  // ¿están al revés? SÍ: desde 08/11 y hasta 02/11 · NO: desde 02/11 y hasta 08/11
-  if (desde > hasta) {
-    return { error: 'La fecha "desde" no puede ser mayor que "hasta"' };
-  }
-
-  // 2. Cuántos días son, contando los dos extremos. Ej: del 02/11 al 08/11 → 6 de diferencia + 1 = 7
-  const horaDesde = new Date(desde + 'T00:00:00Z').getTime();     // el día como número (milisegundos)
-  const horaHasta = new Date(hasta + 'T00:00:00Z').getTime();
-  const dias = (horaHasta - horaDesde) / MILISEGUNDOS_POR_DIA + 1;
-  // ¿son demasiados? SÍ: 63 días · NO: un mes de 31
-  if (dias > MAXIMO_DIAS_PERIODO) {
-    return { error: 'El período puede tener hasta ' + MAXIMO_DIAS_PERIODO + ' días' };
-  }
-
-  // 3. Desde las 00:00 de "desde" hasta antes de las 00:00 del día después de "hasta" (en Argentina)
-  const diaSiguiente = new Date(horaHasta + MILISEGUNDOS_POR_DIA).toISOString().slice(0, 10);  // ej: '2026-11-09'
-  return {
-    desdeISO: desde + 'T00:00:00' + OFFSET_ARGENTINA,             // ej: '2026-11-02T00:00:00-03:00'
-    hastaISO: diaSiguiente + 'T00:00:00' + OFFSET_ARGENTINA       // ej: '2026-11-09T00:00:00-03:00'
-  };
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // cantidadEnUnidadDelInsumo → la cantidad de un renglón de movimientos_stock, en la unidad del insumo
@@ -4447,13 +4019,6 @@ app.get('/api/planes', requireAuth, requireRol(6, 5), async (req, res) => {
   if (error) return errorInterno(res, error);
   res.json(data || []);
 });
-
-// Lee el número de plan de la dirección: entero, mayor a 0 y que entre en la base (null si no sirve)
-function leerIdPlan(texto) {
-  const idPlan = Number(texto);                                   // Number: "12abc" no pasa
-  const idInvalido = !Number.isInteger(idPlan) || idPlan <= 0 || idPlan > ENTERO_MAXIMO_BASE;
-  return idInvalido ? null : idPlan;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/planes/:id/siguiente-codigo → el código que le TOCARÍA al próximo plato del plan (solo para mostrar)
@@ -5668,21 +5233,8 @@ app.post('/api/recuperar-password', limiteRecuperarPassword, async (req, res) =>
   }
 });
 
-/* ======================================================
-   MANEJADOR DE ERRORES (al final de todo)
-   Errores no atrapados en las rutas (y los del parser de JSON): nunca devuelve el stack trace.
-   ====================================================== */
-app.use((err, req, res, next) => {
-  if (res.headersSent) return next(err);
-  if (err.type === 'entity.too.large') {
-    return res.status(413).json({ error: 'El contenido enviado es demasiado grande' });
-  }
-  if (err.type === 'entity.parse.failed') {
-    return res.status(400).json({ error: 'El contenido enviado no es un JSON válido' });
-  }
-  console.error(`[ERROR] ${req.method} ${req.originalUrl}:`, err);
-  res.status(500).json({ error: MENSAJE_ERROR_INTERNO });
-});
+// El manejador de errores (backend/middlewares/manejadorErrores.js): SIEMPRE el último app.use
+app.use(manejadorErrores);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {

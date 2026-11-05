@@ -57,6 +57,61 @@
 - Nada calculado adentro de los template strings (`...`): se calcula antes, en una variable, con if / else.
   Ej: let claseElegido = ''; if (cantidad > 0) { claseElegido = ' plato--elegido'; }
 
+## Refactor de JavaScript (pantalla por pantalla)
+Cuando te diga "refactorizá este JS" (ej: generar receta), es ORDENARLO para que yo lo entienda, sin cambiar lo que hace.
+- SOLO cuando yo te lo pido, y de a UN archivo del front (frontend/src/js/). No refactorices JS por tu cuenta
+  mientras hacemos otra cosa (ni durante el MVC). Primero se termina el MVC del servidor, después los JS que yo elija.
+- POCAS FUNCIONES GRANDES, una por cada trabajo de la pantalla. Mejor 3 funciones que se entienden que 6 cortitas.
+  La forma de casi toda pantalla:
+    · cargar<Algo>     → pide los datos al servidor (fetch) y los guarda          Ej: cargarReceta
+    · renderizar<Algo> → dibuja la pantalla con esos datos (innerHTML + escHtml)  Ej: renderizarReceta
+    · guardar<Algo>    → junta lo que cargó el usuario, lo manda y vuelve a cargar Ej: guardarReceta
+  Más los escuchadores (addEventListener) abajo de todo, en una sección "LOS BOTONES".
+  Si la pantalla necesita más de 5 funciones, PREGUNTAME antes, mostrándome la lista.
+- Una función grande se lee por PARTES NUMERADAS, cada una con su comentario: // 1. Lo que se pide · // 2. Se dibuja…
+  Así es grande pero se lee de arriba a abajo, como compras.js.
+- Si un pedazo se usa en varias pantallas, va a un archivo compartido (como stockCompartido.js). Preguntame antes.
+- Lo que se borra: funciones de 3 líneas que se usan una sola vez (van adentro de la que las usa), código repetido,
+  código muerto. Lo que NO se toca: ids, clases, rutas, lo que se manda al servidor y lo que se ve.
+- ANTES de tocar: el PLAN con la lista de funciones de HOY → la lista NUEVA (qué se junta con qué y por qué), y FRENÁ.
+- DESPUÉS: las mismas pruebas que antes tienen que dar lo mismo, y el recorrido a mano de esa pantalla.
+- Todas las reglas de "Estilo" de arriba siguen valiendo (sin if adentro de if, sin trucos, comentario SÍ/NO en cada if).
+
+## MVC del servidor (rama mvc_fastgood)
+server.js se parte por MÓDULO, con la forma de mi proyecto viejo. La carpeta del servidor se llama backend/
+(server.js se queda en la raíz):
+  backend/config/            → la conexión a Supabase (se crea una sola vez)
+  backend/middlewares/       → requireAuth, requireRol
+  backend/utils/             → lo que usan varios módulos y NO habla con la base (errorInterno, leerPeriodo, leerFechaPara…).
+                               Lo compartido que sí consulta la base va en el modelo de su módulo
+                               (ej: traerTodasLasFilas en modelo.movimientos.js; compras la pide de ahí).
+  backend/modulos/<modulo>/  → rutas.<modulo>.js, controlador.<modulo>.js, modelo.<modulo>.js
+- rutas: SOLO dirección + requireAuth/requireRol/validaciones + qué controlador llama. Sin lógica.
+  Las direcciones van ENTERAS, igual que hoy en server.js: router.get('/api/insumos', ...), router.put('/api/planes/:id/activo', ...).
+  server.js las monta SIN prefijo: app.use(rutasStock). Así el frontend y el test no se enteran del cambio,
+  y si buscás una dirección (ej: '/api/pedidos/:id/anular') la encontrás escrita tal cual.
+  Las rutas fijas ('/api/ordenes-produccion/pendientes') van ANTES que las de parámetro ('/api/ordenes-produccion/:id').
+- controlador: lee req, valida, llama al modelo y decide qué responder (200, 201, 400, 404, 409, 500). No toca Supabase.
+- modelo: SOLO consultas a Supabase (supabase.from / supabase.rpc). No conoce req ni res. Devuelve { data, error }.
+- server.js al final: arrancar Express, archivos estáticos y los app.use de cada módulo. Nada más.
+- Mover NO es cambiar: cada ruta tiene que responder EXACTAMENTE lo mismo que antes. Primero se copia, se prueba, y después
+  se borra de server.js. Un módulo por vez, con las pruebas antes y después.
+- Seguir con require o import, el que ya use server.js. No mezclar.
+- La carpeta frontend/ no se toca en el MVC.
+
+### Quién hace qué en el MVC
+- Claude hace SOLO la base común: backend/config/, backend/middlewares/ y backend/utils/ (con plan antes y freno).
+- Los MÓDULOS (backend/modulos/: rutas, controlador y modelo) los escribo YO a mano, todos.
+  Claude NO escribe ni corrige código en backend/modulos/.
+- Para cada módulo, ANTES de que yo lo haga, Claude me da una GUÍA (sin escribirme el código):
+  · cada ruta de server.js con su número de línea, y qué parte va a rutas, cuál a controlador y cuál a modelo;
+  · los require que van arriba de cada uno de los 3 archivos.
+- DESPUÉS de que yo lo paso, Claude lo REVISA y me dice qué está mal, sin arreglarlo:
+  · que cada ruta responda igual que antes y que no falte ningún requireAuth / requireRol / límite;
+  · corre node tests/test_e2e.js heladera (61/61) y cuenta las rutas (76 con requireAuth y 13 públicas,
+    sumando server.js y backend/modulos/*/rutas.*.js).
+  Si algo falla, me dice qué y dónde, y yo lo arreglo.
+
 ## Cambios de pantalla: SOLO lo visual
 - En un cambio de pantalla se toca SOLO: el HTML, el CSS y las animaciones. Si un JS arma HTML (innerHTML),
   se cambia SOLO el HTML que arma, nada más.
@@ -75,7 +130,8 @@
 
 ## Seguridad y cuidado
 - NUNCA hagas commit ni push. Los hago yo.
-- NUNCA trabajes en la rama Rodriguez (es producción). Siempre en mejoras-fastgood.
+- NUNCA trabajes en la rama Rodriguez (es producción). Trabajás en la rama que yo tenga abierta:
+  mejoras-fastgood (arreglos de lo que reporta mi prima) o mvc_fastgood (el refactor). Si no sabés cuál, preguntame.
 - La base de datos es la REAL (la usa mi prima). No ejecutes nada en la base.
   Si hace falta SQL, escribilo en un archivo dentro de sql/, con comentarios en cada línea, y yo lo corro.
 - En la base solo se AGREGA (tablas o columnas nuevas). No borres ni renombres nada sin preguntarme.
@@ -89,8 +145,14 @@
 - Las viandas salen de la HELADERA (productos.stock_heladera) y se descuentan AL CREAR el pedido. Esas no descuentan insumos
   (ya los gastaron cuando la cocina tocó "Hecho").
 - Personalizado (ej: "sin sal"): se escribe en la web, mismo precio, NO sale de la heladera, va a cocina, +1 día hábil.
-  Sus insumos se descuentan cuando el pedido pasa a 3 (Listo para entregar).
-- Anular un pedido en estado 1, 2 o 3 devuelve las viandas a la heladera. Un pedido anulado (5) no cambia más de estado.
+  Le aparece al cocinero el día hábil ANTERIOR a la entrega (entrega lunes → se cocina el viernes).
+  Sus insumos se descuentan cuando el cocinero toca "✓ Cocinado" y el pedido pasa a 6 (Por armar). Una sola vez por pedido.
+- Anular un pedido en estado 1, 2, 3 o 6 devuelve las viandas a la heladera. Un pedido anulado (5) no cambia más de estado.
+- Los estados, en orden: 1 Registrado → 2 En Preparación → 6 Por armar → 3 Listo para entregar → 4 Entregado (5 Cancelado).
+  · Todo pedido pasa por En Preparación y por Por armar. SIEMPRE pasa por el Armado.
+  · Todo de heladera: al confirmarlo pasa solo a 6. Con personalizados: queda en 2 hasta "✓ Cocinado".
+  · "Listo para entregar" lo pone SOLO el Armado (OK en Armado de pedidos). El cocinero nunca.
+  · Entregado solo desde Listo. Para atrás, solo Entregado → Listo. Envíos del Día muestra 3 y 4.
 - Las cosas se DESACTIVAN, no se borran
 
 ## Seguridad (siempre, aunque el código sea simple)
