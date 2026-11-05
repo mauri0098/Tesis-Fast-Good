@@ -250,6 +250,38 @@ No hay funciones nuevas ni cambiadas: solo direcciones.
 | Direcciones viejas de estas 3 pantallas en el código | ninguna |
 | `/pantallas/cocina/cocinero.html` · `/pages/cocinero.html` | 200 · 404 |
 
+## F4: Pedidos y reparto (pedidos, envíos y armado) (05/11/2026)
+
+### Qué se movió
+| Antes | Ahora |
+|---|---|
+| pages/ConsultarPedidos.html, src/js/ListarPedidos.js, src/js/pagoPedido.js | pantallas/pedidos/ |
+| pages/Envios.html, src/js/Envios.js | pantallas/envios/ |
+| pages/armadoPedidos.html, src/css/armadoPedidos.css, src/js/armadoPedidos.js | pantallas/armado/ |
+
+ConsultarPedidos.css queda en compartido/, porque lo usa también Asignar Cocineros. Se resuelve en F9.
+
+### Qué direcciones cambiaron
+Fueron 18 cambios exactos, cada uno con la cantidad de veces esperada.
+- **En las 3 HTML movidas:** el logo pasó a `/src/assets/img/logo.webp` y sus CSS y JS a `/pantallas/<pantalla>/…`.
+- **roles.js:** las 3 rutas de la tabla de permisos, más las pantallas principales:
+  - rol 1 (Administrador) → `pantallas/pedidos/ConsultarPedidos.html`
+  - rol 3 (Repartidor) → `pantallas/envios/Envios.html`
+- **adminSidebar.js:** los 3 links del menú (grupos Pedidos y Reparto), más el ejemplo de un comentario.
+- **admin.html 74:** el link "Ver pedidos" del Inicio.
+- **El comentario de arriba de ConsultarPedidos.css y de ListarPedidos.js:** dice dónde está su pantalla.
+
+No hay funciones nuevas ni cambiadas: solo direcciones.
+
+### Pruebas
+| Control | Resultado |
+|---|---|
+| test heladera | 61/61 |
+| Rutas con requireAuth / públicas | 76 / 13 |
+| Archivos faltantes (16 HTML, 182 archivos, 46 direcciones de los JS) | 0 |
+| Direcciones viejas de estas 3 pantallas en el código | ninguna |
+| `/pantallas/pedidos/ConsultarPedidos.html` · `/pages/ConsultarPedidos.html` | 200 · 404 |
+
 ---
 
 ## Pendientes para DESPUÉS del MVC

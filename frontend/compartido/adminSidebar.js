@@ -32,9 +32,9 @@
   // Los nombres son los de siempre, sin el emoji.
   const MENU_PANEL = [
     { ruta: 'admin.html',                       grupo: '',               icono: 'icono-menu-inicio',      nombre: 'Inicio' },
-    { ruta: 'pages/ConsultarPedidos.html',      grupo: 'Pedidos',        icono: 'icono-menu-pedidos',     nombre: 'Consultar Pedidos' },
-    { ruta: 'pages/Envios.html',                grupo: 'Reparto',        icono: 'icono-menu-envios',      nombre: 'Envíos del Día' },
-    { ruta: 'pages/armadoPedidos.html',         grupo: 'Reparto',        icono: 'icono-menu-armado',      nombre: 'Armado de pedidos' },
+    { ruta: 'pantallas/pedidos/ConsultarPedidos.html',      grupo: 'Pedidos',        icono: 'icono-menu-pedidos',     nombre: 'Consultar Pedidos' },
+    { ruta: 'pantallas/envios/Envios.html',                grupo: 'Reparto',        icono: 'icono-menu-envios',      nombre: 'Envíos del Día' },
+    { ruta: 'pantallas/armado/armadoPedidos.html',         grupo: 'Reparto',        icono: 'icono-menu-armado',      nombre: 'Armado de pedidos' },
     { ruta: 'pantallas/cocina/cocinero.html',              grupo: 'Cocina',         icono: 'icono-menu-cocina',      nombre: 'Tareas de Cocina' },
     { ruta: 'pantallas/heladera/heladera.html',              grupo: 'Cocina',         icono: 'icono-menu-heladera',    nombre: 'Producción' },
     { ruta: 'pantallas/cocineros/AsignarCocinero.html',       grupo: 'Cocina',         icono: 'icono-menu-asignar',     nombre: 'Asignar Cocineros' },
@@ -72,7 +72,7 @@
     </svg>`;
 
   // Las pantallas del rol en un objeto { ruta: pantalla }, para buscarlas sin recorrer la lista cada vez.
-  // Ej: rol 3 (repartidor) → { 'pages/Envios.html': {…} }
+  // Ej: rol 3 (repartidor) → { 'pantallas/envios/Envios.html': {…} }
   const pantallasDelRol = {};
   FG_ROLES.pantallasDelRol(usuarioRol).forEach(pantalla => {
     pantallasDelRol[pantalla.ruta] = pantalla;

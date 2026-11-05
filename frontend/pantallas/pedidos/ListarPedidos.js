@@ -1,5 +1,5 @@
 // ============================================================================
-// ListarPedidos.js — Pantalla Consultar Pedidos (pages/ConsultarPedidos.html)
+// ListarPedidos.js — Pantalla Consultar Pedidos (pantallas/pedidos/ConsultarPedidos.html)
 //
 // Funciones:
 //   iniciarConsultarPedidos → al abrir: engancha el buscador, las fechas, los estados y las teclas, y carga estados y pedidos
