@@ -370,6 +370,45 @@ global.css ("las 11 pantallas de pages/") se corrige en F8.
 *Sobre el conteo:* son 90 rutas en total, pero `app.get('/')` (server.js 5132, que manda el index.html) no es de la API.
 Las 76/13 de siempre cuentan solo las que empiezan con `/api`.
 
+## F7: La tienda y el login (05/11/2026)
+
+### Qué se movió
+| Antes | Ahora |
+|---|---|
+| src/css/index.css y los 5 JS de la web: renderizadoCatalogo.js, carritoCombos.js, armarCombo.js, pedidoCombos.js, animaciones-index.js | pantallas/tienda/ |
+| src/css/login.css | pantallas/login/ |
+
+index.html y login.html **se quedan en la raíz**:
+- *index.html:* es la puerta de la web, y la base guarda las fotos con `./src/assets/img/…`, pensadas desde ahí.
+- *login.html:* es adonde mandan guard.js y api.js cuando no hay sesión (`/login.html`).
+
+En `src/` quedan solo las imágenes (`src/assets/img/`). `src/css/` y `src/js/` quedaron vacías: se borran en F8.
+
+### Qué direcciones cambiaron
+Fueron 7 cambios exactos, cada uno con la cantidad de veces esperada.
+- **index.html:** su CSS (`/pantallas/tienda/index.css`) y los 5 `<script>` de la web (`/pantallas/tienda/…`).
+- **login.html:** su CSS (`/pantallas/login/login.css`).
+
+No hay funciones nuevas ni cambiadas: solo direcciones.
+
+**Lo que se revisó y NO hizo falta cambiar:**
+- *Las imágenes de index.html y login.html (`./src/assets/img/…`):* las páginas no se movieron, así que siguen sirviendo.
+- *`IMAGEN_POR_DEFECTO` de renderizadoCatalogo.js (`'./src/assets/img/logo.webp'`) y las fotos de la base:* el navegador toma
+  una dirección relativa desde la PÁGINA (index.html), no desde el archivo JS. Como index.html no se movió, siguen sirviendo.
+- *Los CSS:* ninguno usa `url(…)` ni `@import`.
+
+### Pruebas
+| Control | Resultado |
+|---|---|
+| test heladera | 61/61 |
+| Rutas `/api` con requireAuth / públicas | 76 / 13 |
+| Archivos faltantes (16 HTML, 182 archivos, 46 direcciones de los JS) | 0 |
+| Direcciones `src/js` o `src/css` en el front, los tests y server.js | ninguna |
+| `/pantallas/tienda/index.css` · `/src/css/index.css` | 200 · 404 |
+| `/pantallas/login/login.css` · `/src/css/login.css` | 200 · 404 |
+| La raíz `/` manda el index nuevo · `/login.html` · `/api/v1/combos` | sí · 200 · 200 |
+| Fotos de las rutas públicas del catálogo, tomadas desde index.html | 2 fotos: 1 subida a Supabase y 1 local, que no carga: el `BANNER-AQUI.jpg` de antes (pendiente 5) |
+
 ---
 
 ## Pendientes para DESPUÉS del MVC
