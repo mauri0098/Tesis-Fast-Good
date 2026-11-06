@@ -6151,3 +6151,50 @@ if (precioInvalido) {
 - Con la base de verdad (copia en el 3001), un plato sin precio: 400, el siguiente código sigue en PRB3 y no se creó nada. Un plato con precio bien no se creó a propósito: ese caso se probó con la base de mentira.
 
 **Lo que no se cambió (leído en el código, no probado):** esta ruta tampoco revisa los insumos. Si uno viene mal, responde 500 y gasta el código. Si `insumos` no es una lista, el plato queda creado sin receta, porque el error salta después de guardarlo. Se llega solo con un pedido armado a mano, porque la pantalla arma bien la lista.
+
+## 5/11 — Envíos del Día: la lista "cambiar estado" de las tarjetas ya no sale vacía
+
+- **Archivo:** `frontend/src/js/Envios.js`, lo que corre al abrir la pantalla (`DOMContentLoaded`, renglón 220).
+- **Cómo se encontró:** la herramienta de fotos de la limpieza de CSS (rama mvc_fastgood, F9) sacaba Envíos distinta cada vez.
+- **El error:** al abrir Envíos, a veces el `<select>` "cambiar estado" de cada tarjeta salía **sin ninguna opción**.
+  Dependía de cuál de los dos pedidos contestaba primero el servidor.
+- **ENTRADA:** nada (corre sola al abrir la pantalla). **SALIDA:** la pantalla con las tarjetas del día, y cada tarjeta con su lista
+  de estados completa.
+
+| Al abrir la pantalla | ANTES | AHORA |
+|---|---|---|
+| Los estados llegan antes que los envíos | lista con los 6 estados | lista con los 6 estados |
+| Los envíos llegan antes que los estados | **lista vacía** en todas las tarjetas | lista con los 6 estados |
+
+```js
+// ANTES: los dos pedidos a la vez
+await Promise.all([cargarEstados(), buscarEnvios()]);
+
+// AHORA: primero los estados, después los envíos
+// ¿Están los estados antes de dibujar las tarjetas? SÍ: siempre, porque primero se espera cargarEstados.
+// NO pasa más: tarjetas dibujadas con la lista de estados vacía.
+// 1. Primero los estados (con ellos se arma la lista de cada tarjeta)
+await cargarEstados();
+// 2. Después los envíos, que dibujan las tarjetas
+await buscarEnvios();
+```
+
+- **`Promise.all([a(), b()])`:** arranca las dos cosas al mismo tiempo y espera a que terminen las dos. No espera a que `a` termine
+  antes de arrancar `b`. Ej: si `b` tarda 0,2 s y `a` 0,5 s, `b` termina primero.
+- **Por qué fallaba:** `buscarEnvios` dibuja las tarjetas apenas llegan los envíos. Cada tarjeta arma su lista con `todosEstados`
+  (en `buildCard`, renglón 395), que todavía estaba vacía si los estados no habían llegado.
+- **Por qué así:** es el cambio más chico: 2 `await` seguidos en vez de 1 `Promise.all`. Cuesta esperar el pedido de estados (chico,
+  6 renglones) antes de pedir los envíos.
+- **Con qué se conecta:** `cargarEstados` llama a `GET /api/estados` y guarda en `todosEstados`. `buscarEnvios` llama a
+  `GET /api/envios?fecha=…`, y con lo que llega `renderEnvios` → `buildCard` dibuja cada tarjeta. Al elegir un estado, la lista llama a
+  `cambiarEstado`, que no cambió. Las rutas del servidor no cambiaron.
+- **Qué protege:** no es un control de seguridad. El servidor sigue revisando cada cambio de estado.
+  Evita que quien reparte no pueda cambiar el estado desde la tarjeta.
+
+**Pruebas:**
+- Con Chrome de prueba contra la copia en el 3001 (los 12 envíos de la base, sin filtro de fecha). Se demoró a propósito 1,5 s una de las
+  dos respuestas:
+  - *Antes del arreglo, con los estados demorados:* **12 de 12 listas vacías**, las 3 veces.
+  - *Con el arreglo:* 15 aperturas, 5 con los estados demorados, 5 con los envíos demorados y 5 sin demora. **0 listas vacías**: las 12
+    tarjetas con sus 6 estados cada vez.
+- Test heladera: 61/61.

@@ -217,9 +217,16 @@ function toggleHojaRuta() {
 }
 
 // ── Inicialización ────────────────────────────────────────────
+// (05/11) Antes los estados y los envíos se pedían A LA VEZ (Promise.all). La lista "cambiar estado" de cada tarjeta
+// se arma con los estados (buildCard usa todosEstados): si los envíos llegaban primero, la lista salía vacía.
+// ¿Están los estados antes de dibujar las tarjetas? SÍ: siempre, porque primero se espera cargarEstados.
+// NO pasa más: tarjetas dibujadas con la lista de estados vacía.
 document.addEventListener('DOMContentLoaded', async () => {
   setFechaHoy();
-  await Promise.all([cargarEstados(), buscarEnvios()]);
+  // 1. Primero los estados (con ellos se arma la lista de cada tarjeta)
+  await cargarEstados();
+  // 2. Después los envíos, que dibujan las tarjetas
+  await buscarEnvios();
 });
 
 // Fecha LOCAL de hoy (toISOString() pasa a UTC y a las 21 h ya daba el día siguiente)
