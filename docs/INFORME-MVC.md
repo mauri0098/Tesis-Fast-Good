@@ -620,7 +620,7 @@ de después.
 **Las 2 hojas compartidas con nombre de una pantalla se partieron** (misma herramienta que en el paso 4):
 | Hoja vieja | Lo común (con nombre que dice qué es) | Lo de una sola pantalla | Se borró |
 |---|---|---|---|
-| `compartido/stock.css` (69 reglas, 423 renglones) | `compartido/tablasYVentanas.css`: las tablas, las ventanas y los botones de Stock, Combos y Planes (37 reglas) | `pantallas/stock/stock.css` (30) | `.btn-agregar` y `:hover`: no las usa ninguna pantalla |
+| `compartido/stock.css` (69 reglas, 423 renglones) | `compartido/tablasYVentanas.css`: las tablas, las ventanas y los botones de Stock, Combos y Planes (37 reglas) | `pantallas/stock/stock.css` (30) | `.btn-agregar` y `:hover`: no las usa ninguna de las 3 pantallas que cargan la hoja (Usuarios y Recetas tienen su propia regla) |
 | `compartido/combos.css` (33 reglas, 152 renglones) | `compartido/activarYAvisos.css`: la pastilla Activo / Inactivo, el botón Activar, los avisos y la nota de Combos y Planes (11) | `pantallas/combos/combos.css` (22) | nada |
 
 - **Cómo se partió:** cada regla se llevó con sus comentarios y sus espacios, tal cual. El comentario de fin de renglón quedó en su
@@ -676,6 +676,20 @@ de después.
 | Estilos de Recetas, compu y celu | 2 de 2 idénticas (2 elementos solo ganaron clase · el logo escondido) |
 | La fila de error y "Sin insumos registrados" (no aparecen al abrir), en su tabla real | idénticas |
 | 61/61 · faltantes · rutas | 61/61 · 0 · 76/13 |
+
+## Pasos 8, 9 y 10: Inicio, Armado y Compras — revisados, no había nada para limpiar (05/11/2026)
+| Pantalla | Qué se revisó | Resultado |
+|---|---|---|
+| Inicio (admin.css, 589 renglones) | reglas sin uso, repetidas de global.css, `<style>`, `style=""` | nada. El `barra.style.width = …%` de reportes.js (366 y 480) se queda: es un ancho que se calcula con los datos |
+| Armado (armadoPedidos.css, 921) | lo mismo | nada. `.aviso-armado--exito` y `--error` parecían sin uso, pero el JS las arma pegando texto (`'aviso-armado aviso-armado--' + tipo`, renglón 841), así que se quedan. El ancho de `barraProgreso` y el `style.display` de la ventana se quedan: el JS calcula uno y prende y apaga el otro (y el renglón 914 lee `style.display`) |
+| Compras (compras.css, 1277) | lo mismo | nada: ni reglas sin uso, ni repetidas, ni estilos sueltos en compras.js ni registrarCompra.js |
+
+- **Queda sin tocar, porque no está en lo aprobado:** armadoPedidos.css tiene el `:root` 2 veces (renglones 10 y 617), igual que Generar Receta.
+- **Arreglo de la herramienta:** buscaba las clases armadas por el JS solo si el pedazo estaba al principio del texto
+  (`'aviso-armado--' + tipo`). Ahora las encuentra en cualquier lugar (`'aviso-armado aviso-armado--' + tipo`).
+  - Se revisó lo único que se había borrado por "no lo usa nadie" (`.btn-agregar` de stock.css): estaba bien borrado.
+  - Se corrigió su comentario: la clase existe en Usuarios y Recetas, que no cargan esa hoja.
+- No cambió ningún archivo de estas 3 pantallas, así que no hizo falta comparar ni correr el test de nuevo.
 
 ---
 

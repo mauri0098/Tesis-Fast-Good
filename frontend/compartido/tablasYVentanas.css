@@ -1,6 +1,7 @@
 /* tablasYVentanas.css — Las tablas, las ventanas (modales) y los botones que comparten Gestión de Stock, Combos y Planes y categorías.
    F9 (05/11): antes estaban en compartido/stock.css, junto con lo propio de Stock (que pasó a pantallas/stock/stock.css).
-   Se borraron .btn-agregar y .btn-agregar:hover: no las usaba ninguna pantalla. */
+   Se borraron .btn-agregar y .btn-agregar:hover: no las usa ninguna de las 3 pantallas que cargan esta hoja
+   (Usuarios y Generar Receta tienen su propio .btn-agregar en su CSS). */
 
 /* =========================================
    VARIABLES & RESET
