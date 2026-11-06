@@ -562,6 +562,27 @@ desde ahí el servidor de prueba (la copia del 3001) se reinicia antes de cada c
 | Estilos del login, compu y celu (incluida la ventana "Recuperar contraseña", escondida) | 2 de 2 idénticas (12 elementos solo ganaron una clase) |
 | 61/61 · faltantes · rutas | 61/61 (con el servidor de prueba reiniciado) · 0 · 76/13 |
 
+## Paso 3: Envíos (05/11/2026)
+- **El `<style>` de 387 renglones** de Envios.html pasó a un CSS nuevo, `pantallas/envios/Envios.css`.
+  - Se copió tal cual, solo sin la sangría de 4 espacios.
+  - El `<link>` quedó en el mismo lugar del `<style>` (después de global.css), así no cambia qué regla le gana a cuál.
+  - Comparado solo la mudanza: idéntica.
+- **Envios.css:** se borró 1 declaración repetida de global.css (`width: 100%` en `.page-container`).
+  Se quedan 4 reglas que parecen sin uso (`.estado-3`, `.badge-estado-4`, …), porque el JS arma esos nombres con el número del estado.
+- **Envios.html:** el encabezado usa `titulo-con-logo` y se borró el `style` del logo escondido.
+- **Envios.js:** 3 `style=""` del HTML que arma pasaron a clases en Envios.css: `error-carga-envios` (265), `sin-platos` (426) y
+  `acciones-tarjeta` (443).
+- **Se queda:** `style="${pago.estilo}"` (441). El color sale del JS según el método de pago (`infoMetodoPago`); pasarlo a clase sería
+  cambiar esa lógica.
+- **La herramienta de fotos** ahora pide `/api/envios` sin fecha (los 12 envíos), así la foto tiene tarjetas cualquier día.
+- **Renglones:** Envios.html 492 → 104 · Envios.css nuevo, 399 · Envios.js 646 → 646.
+
+| Prueba | Resultado |
+|---|---|
+| Estilos de Envíos (12 tarjetas), compu y celu | 2 de 2 idénticas (26 elementos solo ganaron una clase · el logo escondido perdió su alto) |
+| "Error al conectar" y "Sin items" (no salen al abrir): el HTML viejo y el nuevo en la pantalla real | idénticos |
+| 61/61 · faltantes · rutas | 61/61 · 0 · 76/13 |
+
 ---
 
 ## Pendientes para DESPUÉS del MVC

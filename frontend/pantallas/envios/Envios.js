@@ -262,7 +262,7 @@ async function buscarEnvios() {
     renderEnvios(todosEnvios);
     renderHojaRuta(todosEnvios);
   } catch (e) {
-    contenido.innerHTML = `<div class="empty-state"><p style="color:#d32f2f;">Error al conectar con el servidor</p></div>`;
+    contenido.innerHTML = `<div class="empty-state"><p class="error-carga-envios">Error al conectar con el servidor</p></div>`;
   }
 }
 
@@ -423,7 +423,7 @@ function buildCard(p) {
         <hr class="card-sep" />
 
         <div class="card-items">
-          ${itemsHtml || '<em style="color:#999;">Sin items</em>'}
+          ${itemsHtml || '<em class="sin-platos">Sin items</em>'}
         </div>
 
         ${obsHtml}
@@ -440,7 +440,7 @@ function buildCard(p) {
           <span class="card-total">$${totalFmt}</span>
           <span class="badge-pago ${pago.clase}"${pago.estilo ? ` style="${pago.estilo}"` : ''}>${pago.label}</span>
         </div>
-        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.4rem;">
+        <div class="acciones-tarjeta">
           <button
             class="btn-pagado ${pagado ? 'pagado' : 'no-pagado'}"
             data-pagado="${pagado}"
