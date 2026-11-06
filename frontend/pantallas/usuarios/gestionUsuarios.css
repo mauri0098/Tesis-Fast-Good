@@ -146,12 +146,7 @@ body {
   font-family: 'Courier New', monospace;
 }
 
-/* El renglón "Error al conectar con el servidor" de la tabla (F9, 05/11: antes era un style="" en gestionUsuarios.js) */
-.standard-table tbody td.celda-error-carga {
-  color: red;
-  text-align: center;
-  padding: 2rem;
-}
+/* El renglón "Error al conectar con el servidor": la clase celda-error-carga está en global.css (la usa también Asignar Cocineros) */
 .standard-table tbody tr:hover         { background-color: #f1f8f3; }
 
 /* El centrado, la cursiva y el espacio del "Cargando..." están en global.css (F9, 05/11): acá queda solo el color */

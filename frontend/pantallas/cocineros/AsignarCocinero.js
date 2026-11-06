@@ -19,7 +19,7 @@ async function cargarDatos() {
     actualizarAviso();
   } catch (err) {
     console.error(err);
-    tbody.innerHTML = '<tr><td colspan="5" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="celda-error-carga">Error al conectar con el servidor</td></tr>';
   }
 }
 

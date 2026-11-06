@@ -5,10 +5,9 @@
    las tablas con su pie "Mostrando X de Y", la paginación y el menú que se abre) está en global.css,
    y el menú de la izquierda en menuPanel.css.
 
-   OJO: este archivo también lo carga Asignar Cocineros (AsignarCocinero.html). Por eso acá no
-   hay reglas para las clases que usa ella (.standard-table, .table-wrapper, .filtro-input,
-   .loading-text): esas están en global.css. Las de esta pantalla empiezan con su propia clase
-   (.tabla-pedidos, .tarjeta-pedidos, .barra-filtros…).
+   F9 (05/11): antes estaba en compartido/ porque también lo cargaba Asignar Cocineros. Ahora es solo de esta pantalla:
+   lo único que usaba Asignar (su tabla de 1000 px en el celu) se mudó a AsignarCocinero.css.
+   Las reglas de esta pantalla empiezan con su propia clase (.tabla-pedidos, .tarjeta-pedidos, .barra-filtros…).
 
    Secciones:
      0. Perillas de esta pantalla
@@ -1183,13 +1182,9 @@ table.tabla-pedidos .col-costo {
         background: var(--fila-personalizada-fondo);
     }
 
-    /* Asignar Cocineros (que también carga este archivo): en el celu su tabla no se aprieta, mantiene
-       1000 px y se mueve de costado, como antes. Queda acá hasta que se rediseñe esa pantalla */
-    .standard-table {
-        min-width: 1000px;
-    }
+    /* F9 (05/11): la regla de Asignar Cocineros (su tabla de 1000 px en el celu) se mudó a AsignarCocinero.css */
 
-    /* …y la tabla de pedidos sigue con su propio ancho mínimo (va después, así le gana a la regla de arriba) */
+    /* La tabla de pedidos, con su propio ancho mínimo */
     .tabla-pedidos {
         min-width: var(--tabla-ancho-minimo);
     }

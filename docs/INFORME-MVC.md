@@ -583,6 +583,39 @@ desde ahí el servidor de prueba (la copia del 3001) se reinicia antes de cada c
 | "Error al conectar" y "Sin items" (no salen al abrir): el HTML viejo y el nuevo en la pantalla real | idénticos |
 | 61/61 · faltantes · rutas | 61/61 · 0 · 76/13 |
 
+## Paso 4: Consultar Pedidos y Asignar Cocineros (05/11/2026)
+**Cómo se repartió `compartido/ConsultarPedidos.css`:** una herramienta miró cada una de sus 175 reglas y se fijó qué pantalla puede usarla
+(si todas sus clases aparecen en el HTML o en los JS de esa pantalla).
+- *Solo Consultar Pedidos:* 173.
+- *Las dos:* 2.
+  - El `:root`: tiene 52 variables, todas de Consultar Pedidos. Ninguna la usa Asignar (revisado en todo lo que carga).
+  - La regla de celu `.standard-table { min-width: 1000px }`, que según su comentario es de Asignar. En Consultar Pedidos le gana
+    `.tabla-pedidos`.
+- *Ninguna:* 0.
+- *Reglas que compiten y cambiarían de orden:* 0.
+
+Por eso **no hizo falta un archivo común**:
+- **ConsultarPedidos.css** se mudó a `pantallas/pedidos/`, con el mismo nombre, y se le sacó la regla de Asignar.
+- **Asignar Cocineros** dejó de cargarlo.
+  - Su `<style>` (42 renglones) pasó a `pantallas/cocineros/AsignarCocinero.css`, en el mismo lugar.
+  - La regla de celu va primera en ese archivo, en el mismo orden que antes.
+- **`celda-error-carga`:** Asignar arma la misma fila de error que Usuarios. La clase pasó **a global.css una sola vez** y salió de
+  gestionUsuarios.css. AsignarCocinero.js 22 la usa en vez del `style=""`.
+- **Asignar:** el encabezado usa `titulo-con-logo` y se borró el `style` del logo escondido.
+- **Comentarios:** se actualizaron el de arriba de ConsultarPedidos.css y el de global.css 821
+  ("Asignar Cocineros los reparte en AsignarCocinero.css").
+- **Se quedan, porque el JS los prende y apaga:** pagoPedido.js 242-243 y las ventanas de global.js.
+- **Renglones:** ConsultarPedidos.css 1204 → 1199 · AsignarCocinero.html 116 → 72 · AsignarCocinero.css nuevo, 53.
+
+| Prueba | Resultado |
+|---|---|
+| Estilos de las 15 páginas (global.css cambió) | Consultar Pedidos, Asignar y las otras 11: idénticas. Aparte, en Asignar: 14 elementos solo ganaron clase, el logo escondido, y las 52 variables que no usa dejaron de llegarle. **Producción y Movimientos dieron distinto por los datos**: la lista de movimientos cambió entre la foto de antes (de casi una hora) y la de después, por los pedidos que crea y anula el test. Probado aislado, con el global.css de antes y el de ahora y los mismos datos: **4 de 4 idénticas**. |
+| La fila de error de Asignar y la de Usuarios (ahora con la clase de global.css) | idénticas |
+| 61/61 · faltantes · rutas | 61/61 · 0 · 76/13 |
+
+Desde este paso, las fotos de antes de todas las páginas se sacan justo antes de cada cambio, y el test corre recién después de las fotos
+de después.
+
 ---
 
 ## Pendientes para DESPUÉS del MVC

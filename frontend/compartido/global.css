@@ -818,7 +818,7 @@ footer {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    table-layout: fixed;   /* los anchos de las columnas salen de los títulos (Asignar Cocineros los reparte en su <style>) */
+    table-layout: fixed;   /* los anchos de las columnas salen de los títulos (Asignar Cocineros los reparte en AsignarCocinero.css) */
 }
 
 /* Dónde va el texto: a la izquierda y al medio del alto. Son reglas "suaves": la pantalla que centra
@@ -882,6 +882,14 @@ table {
 table.standard-table tbody td,
 table.grilla-fg tbody td {
     color: var(--texto);
+}
+
+/* El renglón "Error al conectar con el servidor" de una tabla: rojo, centrado y con aire (Usuarios y Asignar Cocineros).
+   F9 (05/11): antes era un style="" en el HTML que arma cada JS. Ej: <td colspan="7" class="celda-error-carga"> */
+.standard-table tbody td.celda-error-carga {
+    color: red;
+    text-align: center;
+    padding: 2rem;
 }
 
 /* --- Una celda de hasta 2 renglones (24/10): si el texto no entra, el segundo renglón termina en "…"
