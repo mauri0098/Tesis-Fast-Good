@@ -583,7 +583,7 @@ function mostrarAviso(texto, esError) {
 
 // ── Al cargar la página ───────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  document.body.classList.add('cargada');   // muestra la página (ver planesCategorias.css)
+  document.body.classList.add('cargada');   // muestra la página (ver global.css)
   const ventanas = [document.getElementById('modalCategoria'), document.getElementById('modalPlan')];
 
   cargarDatos();

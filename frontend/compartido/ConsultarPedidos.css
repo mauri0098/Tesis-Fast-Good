@@ -106,18 +106,8 @@
 
 
 /* ===== 1. MOSTRAR LA PÁGINA CUANDO TERMINÓ DE CARGAR ===== */
-/* Antes estaba en un <style> del HTML. Evita ver la pantalla a medio armar: el body aparece cuando
+/* Está en global.css desde F9 (05/11): una sola vez para todo el panel. El body aparece cuando
    la página le pone la clase "cargada" (el <script> del final de ConsultarPedidos.html) */
-body {
-    visibility: hidden;
-    opacity: 0;
-    transition: opacity 0.15s ease-in;
-}
-
-body.cargada {
-    visibility: visible;
-    opacity: 1;
-}
 
 
 /* ===== 2. EL CONTENIDO DE LA PANTALLA ===== */

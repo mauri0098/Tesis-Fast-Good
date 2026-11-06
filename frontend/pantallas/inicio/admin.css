@@ -18,17 +18,7 @@
     --inicio-alto-grafico: 200px;        /* alto del gráfico de Evolución de Ventas */
 }
 
-/* Antes de mostrarse: el body escondido hasta que cargó (evita ver la pantalla sin estilos un instante) */
-body {
-    visibility: hidden;
-    opacity: 0;
-    transition: opacity 0.15s ease-in;
-}
-
-body.cargada {
-    visibility: visible;
-    opacity: 1;
-}
+/* Antes de mostrarse: el body escondido hasta que cargó. Está en global.css desde F9 (05/11): una sola vez para todo el panel */
 
 /* Los dibujitos (<symbol>): no ocupan lugar, se usan con <use href="#…"> */
 .iconos-inicio {

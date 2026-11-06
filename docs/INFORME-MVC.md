@@ -465,6 +465,65 @@ frontend/
 
 ---
 
+# F9: Limpieza de CSS, pantalla por pantalla
+
+**Decisiones del usuario (05/11):**
+1. La regla anti-parpadeo va UNA vez en global.css. Antes se controla que cada página que carga global.css le ponga "cargada" al body.
+2. Los `style=""` sueltos pasan a una clase. Los que el JS prende y apaga se quedan, y se dice cuáles.
+3. Lo que usa una sola pantalla va a su carpeta. Lo compartido queda en compartido/, con un nombre que diga qué es.
+4. El orden del plan.
+
+Las fotos tienen datos reales de clientes: quedan fuera del proyecto y se borran al terminar F9.
+
+**Cómo se compara antes y después.** Hay una herramienta con Chrome sin ventana, que entra con el usuario de prueba del .env:
+- Abre cada página en compu (1366 de ancho) y en celu (390, con la vista de teléfono).
+- Saca la foto entera.
+- Guarda el estilo final que calcula el navegador para cada elemento.
+- Anota si el body quedó visible, si tiene "cargada" y si hubo algo en rojo en la consola o la red.
+
+Antes y después tienen que dar idénticos.
+- *No cuentan:* los elementos que no se dibujan (`head`, `meta`, `link`, `style`, `script`) y los redondeos de menos de 0,1 px.
+- *Calibración:* dos tandas sin cambiar nada dieron 30 de 30 idénticas.
+- *Para lograrlo* se arreglaron dos cosas de la herramienta: Chrome lista las variables del CSS en distinto orden cada vez, y hay redondeos de 1/64 de píxel que no se ven.
+- *Un error de Envíos (pendiente 7):* daba distinto entre tandas. Para la foto, la herramienta demora `/api/envios` 1,5 s.
+
+## Paso 0: la regla anti-parpadeo, una sola vez (05/11/2026)
+
+**Qué es:** `body { visibility: hidden; opacity: 0; transition: opacity 0.15s ease-in; }` y `body.cargada { visibility: visible; opacity: 1; }`.
+Esconde la página hasta que termina de cargar.
+
+**El control previo:** las 15 páginas que cargan global.css (login.html y las 14 de pantallas/), revisadas leyendo el código y abiertas en Chrome.
+- *Todas le ponen "cargada" al body:* con el `<script>` del final de su HTML, o con planesCategorias.js en Planes y categorías.
+- *Menos Compras,* que no la ponía porque no se escondía.
+- *Ninguna otra regla* de ningún CSS toca `visibility`, `opacity` ni `transition` del body.
+
+### Qué cambió (17 cambios exactos)
+- **global.css:** la regla, una sola vez, abajo de la regla del `body`. Tiene un comentario que avisa que una página nueva
+  tiene que ponerle "cargada" al body, porque si no queda invisible.
+- **8 HTML** (login, Asignar Cocineros, Combos, Envíos, Movimientos, Generar Receta, Stock y Usuarios): se sacó su `<style>`.
+  Eran los mismos 5 renglones en los 8.
+- **5 CSS** (ConsultarPedidos.css, cocinero.css, heladera.css, admin.css y planesCategorias.css): se sacó la regla y quedó un comentario
+  que dice que está en global.css.
+- **compras.html:** se sumó el mismo `<script>` que tienen las demás, que pone "cargada" al cargar y, de respaldo, a los 2 s.
+- **planesCategorias.js:** solo comentarios y espacios.
+  - El comentario "(ver planesCategorias.css)" pasó a "(ver global.css)".
+  - Se corrigió un error de F5: el renglón 73 había quedado con un salto de renglón LF en un archivo CRLF.
+
+No cambió: index.css, que se queda con su copia porque el index no carga global.css. Tampoco el `<style>` grande de Envíos ni el de Asignar
+Cocineros, que van en sus pasos.
+
+### Pruebas
+| Control | Resultado |
+|---|---|
+| Las 15 páginas, en compu y celu: body visible, con "cargada" | 30 de 30 (antes, Compras no tenía "cargada") |
+| Estilos antes / después | 26 de 30 idénticas. Las 4 que no: Compras y Armado (compu y celu), **solo** el `body`: `transition` pasó de `all 0s ease` a `opacity 0.15s ease-in`. Es el fundido que ahora tienen igual que el resto, y era lo previsto. |
+| Algo en rojo en consola o red | lo mismo que antes: solo el 404 del banner en Planes y categorías (pendiente 5) |
+| test heladera | 61/61 |
+| Rutas `/api` con requireAuth / públicas | 76 / 13 |
+| Archivos faltantes | 0 |
+
+---
+
 ## Pendientes para DESPUÉS del MVC
 1. **CORS bloqueado responde 500 y debería ser 403.**
    - *Hoy:* un sitio no permitido recibe "Error interno del servidor" (500), porque el error de CORS cae en el manejador de errores.
@@ -485,3 +544,11 @@ frontend/
    - *Lo que sigue andando:* entrar por el login, porque lleva a la dirección nueva.
    - *Qué decidir:* avisar que vuelvan a guardar el acceso después de entrar por el login, o que server.js mande cada dirección
      vieja a la nueva. Eso es un cambio del servidor y va después del MVC.
+7. **Envíos: a veces la lista "cambiar estado" de cada tarjeta sale vacía.** Lo encontró la herramienta de fotos de F9 (05/11).
+   - *Por qué pasa:* `Envios.js` (renglón 222) pide a la vez los estados (`/api/estados`) y los envíos (`/api/envios`).
+     Cada tarjeta arma su lista con los estados que ya llegaron. Si los envíos llegan primero, la lista queda sin opciones.
+   - *Estaba antes de la mudanza.* El usuario decidió arreglarlo en la rama mejoras-fastgood y traerlo con merge.
+   - **ARREGLADO (05/11):** en mejoras-fastgood, commit `1152121`, que ya está en Rodriguez. Ahora se esperan primero los estados
+     y después los envíos. Se trajo a mvc_fastgood con merge (`1bbe4a8`): git reconoció solo que `src/js/Envios.js` ahora es
+     `pantallas/envios/Envios.js`. Prueba forzando que los envíos lleguen primero: antes 12 de 12 listas vacías, después 0.
+     El detalle está en INFORME-CAMBIOS-HELADERA.md.

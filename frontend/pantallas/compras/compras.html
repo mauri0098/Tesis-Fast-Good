@@ -259,6 +259,12 @@
     <script src="/pantallas/compras/compras.js"></script>
   </div>
   <!-- cierra admin-content -->
+
+<script>
+  // Muestra el body apenas están el HTML y el CSS (igual que las otras pantallas del panel; la regla que lo esconde está en global.css)
+  document.addEventListener('DOMContentLoaded', () => document.body.classList.add('cargada'));
+  setTimeout(() => document.body.classList.add('cargada'), 2000);
+</script>
 </body>
 
 </html>

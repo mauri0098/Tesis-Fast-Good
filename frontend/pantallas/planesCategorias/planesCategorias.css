@@ -4,9 +4,8 @@
    Acá va solo lo propio de esta pantalla.
    =================================================== */
 
-/* Evita el flash de contenido sin estilos: el body se muestra cuando la página terminó de cargar */
-body { visibility: hidden; opacity: 0; transition: opacity 0.15s ease-in; }
-body.cargada { visibility: visible; opacity: 1; }
+/* El body escondido hasta que la página terminó de cargar: está en global.css desde F9 (05/11).
+   Acá lo muestra planesCategorias.js, que le pone "cargada" al body */
 
 /* Encabezado: el logo y el título */
 .encabezado-pantalla {

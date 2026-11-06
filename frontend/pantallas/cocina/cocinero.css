@@ -130,17 +130,8 @@
 
 
 /* ===== 1. MOSTRAR LA PÁGINA CUANDO TERMINÓ DE CARGAR ===== */
-/* El body aparece cuando el <script> del final de cocinero.html le pone "cargada" (antes era un <style> en el HTML) */
-body {
-    visibility: hidden;
-    opacity: 0;
-    transition: opacity 0.15s ease-in;
-}
-
-body.cargada {
-    visibility: visible;
-    opacity: 1;
-}
+/* Está en global.css desde F9 (05/11): una sola vez para todo el panel.
+   El body aparece cuando el <script> del final de cocinero.html le pone "cargada" */
 
 
 /* ===== 2. PIEZAS GENERALES ===== */

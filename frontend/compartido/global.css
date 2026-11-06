@@ -195,6 +195,22 @@ body {
     -webkit-font-smoothing: antialiased;  /* la letra un poco más prolija en Mac */
 }
 
+/* Mostrar la página cuando terminó de cargar (anti-parpadeo). Una sola vez para el panel y el login (F9, 05/11):
+   antes estaba repetida en 8 <style> de los HTML y en 5 CSS.
+   El body arranca escondido y aparece cuando la página le pone la clase "cargada": lo hace el <script> del final
+   de cada HTML (en Planes y categorías, planesCategorias.js).
+   OJO: una página nueva que cargue global.css tiene que ponerle "cargada" al body. Si no, queda invisible. */
+body {
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.15s ease-in;
+}
+
+body.cargada {
+    visibility: visible;
+    opacity: 1;
+}
+
 /* El contenido ocupa el alto que sobra dentro de .admin-content (que es una columna) */
 main,
 .page-container {
