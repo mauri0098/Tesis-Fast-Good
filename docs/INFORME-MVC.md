@@ -649,6 +649,16 @@ de después.
 | La fila de error de Stock (no aparece al abrir) | idéntica |
 | 61/61 · faltantes · rutas | 61/61 · 0 · 76/13 |
 
+## Paso 6: Movimientos de Stock (05/11/2026)
+- **movimientosStockNuevo.css:** se borró 1 declaración repetida de global.css: `flex: none` en `.icono-boton`.
+  No tenía reglas sin uso, ni `<style>`, ni `style=""`. Sus JS (incluido stockCompartido.js) no ponen estilos sueltos.
+- **Renglones:** movimientosStockNuevo.css 726 → 725.
+
+| Prueba | Resultado |
+|---|---|
+| Estilos de Movimientos, compu y celu | 2 de 2 idénticas |
+| 61/61 · faltantes · rutas | 61/61 · 0 · 76/13 |
+
 ---
 
 ## Pendientes para DESPUÉS del MVC
