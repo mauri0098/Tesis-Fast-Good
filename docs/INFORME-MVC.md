@@ -691,6 +691,18 @@ de después.
   - Se corrigió su comentario: la clase existe en Usuarios y Recetas, que no cargan esa hoja.
 - No cambió ningún archivo de estas 3 pantallas, así que no hizo falta comparar ni correr el test de nuevo.
 
+## Paso 11: Cocina y Producción — revisados, solo se corrigió un comentario (05/11/2026)
+`compartido/pedidosCocina.css` se queda donde está: lo cargan las 2 pantallas y su nombre ya dice qué es (los pedidos a cocina).
+| Hoja | Resultado |
+|---|---|
+| cocinero.css (1150) · heladera.css (2488) · pedidosCocina.css (151) | Nada para borrar. Las clases que parecían sin uso las arma el JS pegando texto (`'pend-' +`, `'punto-plan-' +`…). No hay declaraciones repetidas de global.css. |
+| Variables que el analizador marcó "sin uso" | Se quedan. `--primary-green` y `--radius` (cocinero.css y heladera.css) las usa pedidosCocina.css. `--codigo-plato-alto: 18px` (heladera.css 522) achica la pastilla del código que dibuja global.css |
+| `style` | Ninguno en los HTML. Los de los JS se quedan: anchos de barras y posición del menú que se calculan, y ventanas que se prenden y apagan (heladera.js 203 lee `style.display`) |
+
+- **El único cambio:** el comentario de arriba de pedidosCocina.css decía que `--primary-green` y `--radius` "los definen stock.css y
+  cocinero.css". Ahora dice cocinero.css y heladera.css, que son las que cargan esa hoja.
+- 61/61 · faltantes · rutas: 61/61 · 0 · 76/13. Como cambió solo un comentario, no se compararon fotos.
+
 ---
 
 ## Pendientes para DESPUÉS del MVC

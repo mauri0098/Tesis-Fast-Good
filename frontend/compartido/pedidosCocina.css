@@ -1,7 +1,8 @@
 /* =========================================
    PENDIENTES DE COCINA — compartido por Producción (heladera.html)
    y Tareas de Cocina (cocinero.html). Lo dibuja pedidosCocina.js.
-   Usa --primary-green y --radius (los definen stock.css y cocinero.css).
+   Usa --primary-green y --radius: los definen cocinero.css y heladera.css, las 2 pantallas que cargan esta hoja
+   (F9, 05/11: antes decía stock.css, que esas pantallas nunca cargaron).
    ========================================= */
 
 .pend-resumen { margin: 0 0 1rem; color: #495057; font-size: 0.95rem; font-weight: 600; }
