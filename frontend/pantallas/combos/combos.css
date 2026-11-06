@@ -1,8 +1,6 @@
-/* ===================================================
-   COMBOS.CSS — Pantalla "Combos" del panel (pantallas/combos/combos.html)
-   La tabla, las ventanas y los botones salen de global.css y stock.css (como Insumos).
-   Acá va solo lo propio de esta pantalla.
-   =================================================== */
+/* COMBOS.CSS — Lo propio de la pantalla Combos (pantallas/combos/combos.html).
+   La tabla, las ventanas y los botones salen de global.css y compartido/tablasYVentanas.css (como Insumos).
+   F9 (05/11): antes estaba en compartido/combos.css. Lo que comparte con Planes y categorías está en compartido/activarYAvisos.css. */
 
 /* Anchos de las columnas: Nombre se queda con lo que sobra */
 .tabla-combos th:nth-child(2) { width: 15%; }   /* Plan */
@@ -12,20 +10,6 @@
 .tabla-combos th:nth-child(6) { width: 18%; }   /* Estado */
 .tabla-combos th:nth-child(7) { width: 250px; } /* Acciones: Editar · Menú · Activar/Desactivar */
 
-/* Etiqueta de estado: Activo (verde) / Inactivo (gris).
-   24/10: el alto y la letra son los de las pastillas de todas las tablas (global.css: --alto-pastilla-estado) */
-.estado-combo {
-  height: var(--alto-pastilla-estado);
-  display: inline-flex;
-  align-items: center;
-  padding: 0 10px;
-  border-radius: 50px;
-  font-size: var(--letra-pastilla-estado);
-  font-weight: 600;
-}
-.estado-combo--activo   { background: #d4edda; color: #155724; }
-.estado-combo--inactivo { background: #e2e3e5; color: #6c757d; }
-
 /* "no se ve en la web (sin platos)": debajo de la etiqueta, en ámbar */
 .no-se-ve {
   display: block;
@@ -33,49 +17,6 @@
   font-size: var(--letra-dato-chico);   /* 24/10: el texto chiquito de las tablas (11 px) */
   font-weight: 600;
   color: #b45309;
-}
-
-/* Botón Activar (el de Desactivar es .btn-borrar, rojo, de stock.css).
-   24/10: el alto, la letra y el aire son los de los botones de todas las tablas (global.css, sección 8) */
-.btn-activar {
-  background-color: #1565C0;
-  color: #fff;
-  border: none;
-  border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-.btn-activar:hover { background-color: #0D47A1; }
-
-/* Línea de avisos arriba de la tabla (vacía no ocupa lugar) */
-.aviso-combos {
-  margin: 0;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-.aviso-combos--exito { color: #155724; }
-.aviso-combos--error { color: #721c24; }
-
-/* Notas de la ventana: plan desactivado y cantidad bloqueada */
-.nota-combo {
-  margin-bottom: 0.8rem;
-  padding: 0.5rem 0.9rem;
-  border-radius: var(--radius);
-  background: #fff3cd;
-  color: #856404;
-  font-size: 0.82rem;
-}
-.nota-combo[hidden] {
-  display: none;
-}
-
-/* La cantidad bloqueada se ve gris */
-.modal-grid input:disabled {
-  background: #e9ecef;
-  color: #6c757d;
-  cursor: not-allowed;
 }
 
 /* Botón "Menú" de cada combo (naranja, como "Detalles" en Consultar Pedidos). 24/10: el tamaño, el del molde */

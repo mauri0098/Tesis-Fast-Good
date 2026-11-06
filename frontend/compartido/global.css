@@ -804,7 +804,7 @@ footer {
 /* ===== 8. TABLAS ===== */
 
 /* La tarjeta blanca que tiene la tabla (radio 12, borde finito). Si la tabla no entra, se mueve de costado solo adentro
-   de la tarjeta. Las pantallas que cargan stock.css (Gestión de Stock, Combos…) siguen con la tarjeta de su CSS */
+   de la tarjeta. Las pantallas que cargan tablasYVentanas.css (Gestión de Stock, Combos…) siguen con la tarjeta de su CSS */
 .table-wrapper {
     border: 1px solid var(--linea-tabla);
     border-radius: var(--radio-tarjeta);

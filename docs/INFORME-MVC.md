@@ -616,6 +616,39 @@ Por eso **no hizo falta un archivo común**:
 Desde este paso, las fotos de antes de todas las páginas se sacan justo antes de cada cambio, y el test corre recién después de las fotos
 de después.
 
+## Paso 5: Stock, Combos y Planes y categorías (05/11/2026)
+**Las 2 hojas compartidas con nombre de una pantalla se partieron** (misma herramienta que en el paso 4):
+| Hoja vieja | Lo común (con nombre que dice qué es) | Lo de una sola pantalla | Se borró |
+|---|---|---|---|
+| `compartido/stock.css` (69 reglas, 423 renglones) | `compartido/tablasYVentanas.css`: las tablas, las ventanas y los botones de Stock, Combos y Planes (37 reglas) | `pantallas/stock/stock.css` (30) | `.btn-agregar` y `:hover`: no las usa ninguna pantalla |
+| `compartido/combos.css` (33 reglas, 152 renglones) | `compartido/activarYAvisos.css`: la pastilla Activo / Inactivo, el botón Activar, los avisos y la nota de Combos y Planes (11) | `pantallas/combos/combos.css` (22) | nada |
+
+- **Cómo se partió:** cada regla se llevó con sus comentarios y sus espacios, tal cual. El comentario de fin de renglón quedó en su
+  renglón, ej: `{ width: 15%; }   /* Plan */`. Antes de escribir, la herramienta controla que juntando las piezas salga la hoja
+  exacta, y que ninguna regla que compite cambie de orden.
+- **Los `<link>`:** cada pantalla carga lo común y después lo suyo, en el mismo lugar que antes. Las hojas viejas se borraron.
+- **Se borraron 12 declaraciones repetidas de global.css:**
+  - `tablasYVentanas.css` (11): `width: 100%` de `.page-container`, `overflow-x` de `.table-wrapper`, la regla **entera** de
+    `.standard-table`, 2 de `.standard-table tbody td` y 3 de `.loading-text`.
+  - `pantallas/stock/stock.css` (1): `outline` de `.filtro-input:focus`.
+- **Stock y Combos:** el encabezado usa `titulo-con-logo` y se borró el `style` del logo escondido.
+- **stock.js:**
+  - La fila de error usa `celda-error-carga` (global.css).
+  - Las celdas del código y del stock usan `celda-codigo-insumo` y `celda-stock-actual`, en lugar de `style="font-weight…"`.
+- **Comentarios actualizados:** global.css 807, el de arriba de planesCategorias.css, y el de la letra Poppins en
+  planesCategorias.html.
+- **Se quedan, porque el JS los prende y apaga:** los `style.display` de las ventanas y los errores de stock.js, gestionCombos.js
+  y planesCategorias.js.
+- **Renglones:** stock.css 423 → tablasYVentanas 265 + stock 157 · combos.css 152 → activarYAvisos 59 + combos 93.
+  Las hojas nuevas suman sus comentarios de arriba.
+
+| Prueba | Resultado |
+|---|---|
+| Solo partir, las 15 páginas | 30 de 30 idénticas |
+| Después de limpiar, las 15 páginas | 30 de 30 idénticas (64 elementos solo ganaron clase · 4 logos escondidos perdieron su alto) |
+| La fila de error de Stock (no aparece al abrir) | idéntica |
+| 61/61 · faltantes · rutas | 61/61 · 0 · 76/13 |
+
 ---
 
 ## Pendientes para DESPUÉS del MVC

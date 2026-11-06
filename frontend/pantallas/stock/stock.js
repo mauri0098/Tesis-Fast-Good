@@ -27,7 +27,7 @@ async function fetchInsumos() {//Un fetch aclara lo que es un fetch
 
   } catch (error) {// si hay un error al traer los insumos, lo mostramos en consola y en la tabla
     console.error(error);
-    tbody.innerHTML = '<tr><td colspan="8" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="celda-error-carga">Error al conectar con el servidor</td></tr>';
   }
 }
 
@@ -101,9 +101,9 @@ function crearFilaInsumo(insumo) {// SE ARMA LA FILA DE UN INSUMO, LA PAGINACION
   if (esBajo) tr.classList.add('row-bajo');
 
   tr.innerHTML = `
-    <td style="font-weight:bold">${codigo}</td>
+    <td class="celda-codigo-insumo">${codigo}</td>
     <td><strong>${escHtml(nombre)}</strong></td>
-    <td style="font-weight:600">${stockActual}</td>
+    <td class="celda-stock-actual">${stockActual}</td>
     <td>${unidad}</td>
     <td>${categoria}</td>
     <td><span class="${claseFecha}">${fechaCaducidad}</span></td>

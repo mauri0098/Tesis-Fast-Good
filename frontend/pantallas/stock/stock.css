@@ -1,0 +1,157 @@
+/* stock.css — Lo propio de Gestión de Stock (pantallas/stock/stock.html).
+   F9 (05/11): antes estaba en compartido/stock.css. Lo que comparte con Combos y Planes está en compartido/tablasYVentanas.css. */
+
+/* =========================================
+   CABECERA (filtros + botón agregar)
+   ========================================= */
+.filtros-container {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filtro-input {
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.88rem;
+  background: #fff;
+  transition: border-color 0.2s;
+  width: 250px; /* Ancho cómodo para el buscador */
+}
+
+.filtro-input:focus {
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.15);
+}
+
+/* =========================================
+   TABLA
+   ========================================= */
+.standard-table tbody tr.row-bajo       { background-color: #fff5f5; }
+.standard-table tbody tr.row-bajo:hover { background-color: #ffe8e8; }
+
+/* Gestión de Stock (24/10): el ancho de cada columna EN PORCENTAJE (suman 100%). Antes no tenían ancho y medían todas
+   igual (Nombre lo mismo que Unidad). Lo largo (Nombre, Acciones) más ancho; lo corto (Código, Unidad) angosto.
+   ".tabla-stock-insumos" es solo de esta pantalla: Combos también carga este CSS y no cambia */
+.tabla-stock-insumos thead th:nth-child(1) { width: 8%; }    /* Código */
+.tabla-stock-insumos thead th:nth-child(2) { width: 18%; }   /* Nombre */
+.tabla-stock-insumos thead th:nth-child(3) { width: 11%; }   /* Stock actual */
+.tabla-stock-insumos thead th:nth-child(4) { width: 7%; }    /* Unidad */
+.tabla-stock-insumos thead th:nth-child(5) { width: 12%; }   /* Categoría */
+.tabla-stock-insumos thead th:nth-child(6) { width: 12%; }   /* Fecha caducidad */
+.tabla-stock-insumos thead th:nth-child(7) { width: 13%; }   /* Estado (la pastilla "BAJO MÍNIMO") */
+.tabla-stock-insumos thead th:nth-child(8) { width: 19%; }   /* Acciones (✎ Editar · 🗑 Eliminar: unos 200 px) */
+
+/* =========================================
+   BADGES DE ESTADO (Blindados contra cortes)
+   ========================================= */
+/* 24/10: el alto y la letra son los de las pastillas de todas las tablas (global.css: --alto-pastilla-estado) */
+.badge-estado {
+  height: var(--alto-pastilla-estado);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 50px;
+  font-size: var(--letra-pastilla-estado);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap; /* Evita que "BAJO MÍNIMO" se corte en dos renglones */
+  word-break: keep-all;
+}
+
+.badge-normal { background-color: #d4edda; color: #155724; }
+.badge-bajo { background-color: #f8d7da; color: #721c24; }
+/* 28/10: un insumo ya vencido (rojo oscuro, letra blanca) y uno que vence hoy (naranja). Tienen prioridad sobre "Bajo mínimo" */
+.badge-vencido { background-color: #8a1c14; color: #ffffff; }
+.badge-vence-hoy { background-color: #ffe3c7; color: #9a3412; }
+/* 28/10: la fecha de caducidad en rojo si ya venció o vence hoy */
+.fecha-vencida { color: #b42318; font-weight: 700; }
+
+/* =========================================
+   BOTÓN EDITAR (columna Acciones)
+   ========================================= */
+.acciones-grupo {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+/* =========================================
+   TOAST DE NOTIFICACIÓN (éxito / error)
+   ========================================= */
+.toast-stock {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.25s, transform 0.25s;
+  z-index: 10000;
+}
+
+.toast-stock.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast-stock.exito { background-color: var(--primary-green); }
+.toast-stock.error { background-color: #dc3545; }
+
+/* =========================================
+   NOTA INFORMATIVA — MODAL EDITAR INSUMO
+   ========================================= */
+.nota-unidad {
+  background: #eef5fb;
+  border: 1px solid #b6d4ea;
+  border-left: 4px solid #1565C0;
+  border-radius: var(--radius);
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+  color: #2c3e50;
+  line-height: 1.5;
+}
+
+.nota-unidad strong { color: #1565C0; }
+
+.nota-unidad ul {
+  margin: 0.4rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.nota-unidad li { margin-bottom: 0.2rem; }
+
+/* =========================================
+   RESPONSIVE — Mobile / Tablet
+   ========================================= */
+@media (max-width: 768px) {
+
+  .filtros-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtro-input {
+    width: 100%;
+  }
+}
+
+/* F9 (05/11): lo que antes eran style="" en las celdas que arma stock.js */
+/* El código del insumo, en negrita */
+.standard-table tbody td.celda-codigo-insumo { font-weight: bold; }
+/* El stock actual, un poco más fuerte que el resto */
+.standard-table tbody td.celda-stock-actual { font-weight: 600; }
