@@ -659,6 +659,24 @@ de después.
 | Estilos de Movimientos, compu y celu | 2 de 2 idénticas |
 | 61/61 · faltantes · rutas | 61/61 · 0 · 76/13 |
 
+## Paso 7: Generar Receta (05/11/2026)
+- **generarReceta.css:** se borraron 9 declaraciones repetidas de global.css. Son las mismas que en Usuarios, porque esta hoja era su
+  "espejo": `overflow-x` de `.table-wrapper`, `outline` de `.filtro-input:focus`, 4 de `.standard-table` y 3 de `.loading-text`.
+- **generarReceta.html:** el encabezado usa `titulo-con-logo` y se borró el `style` del logo escondido.
+  Se quedan los 3 `style="display:none;"` de `bloqueEditar`, `edImagenPreview` y `edImagenError`, porque el JS los prende y apaga.
+- **generarReceta.js:**
+  - Renglón 89: la fila de error usa `celda-error-carga` (global.css).
+  - Renglón 331: `td.style.textAlign = 'center'` pasó a `td.classList.add('celda-sin-insumos')`, con la clase en generarReceta.css.
+- **Queda sin tocar (no está en lo aprobado):** el `:root` aparece 2 veces en generarReceta.css (renglones 4 y 599).
+  Juntarlos es reordenar, y no se hizo.
+- **Renglones:** generarReceta.css 708 → 707 (salieron 9 y entró la clase con su comentario).
+
+| Prueba | Resultado |
+|---|---|
+| Estilos de Recetas, compu y celu | 2 de 2 idénticas (2 elementos solo ganaron clase · el logo escondido) |
+| La fila de error y "Sin insumos registrados" (no aparecen al abrir), en su tabla real | idénticas |
+| 61/61 · faltantes · rutas | 61/61 · 0 · 76/13 |
+
 ---
 
 ## Pendientes para DESPUÉS del MVC

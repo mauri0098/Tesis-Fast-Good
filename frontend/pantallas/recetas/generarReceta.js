@@ -86,7 +86,7 @@ async function fetchRecetas() {
 
   } catch (error) {
     console.error('Error al traer recetas:', error);
-    tbody.innerHTML = '<tr><td colspan="9" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="celda-error-carga">Error al conectar con el servidor</td></tr>';
   }
 }
 
@@ -328,7 +328,7 @@ function abrirModalDetalles(idProducto) {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
     td.colSpan = 3;
-    td.style.textAlign = 'center';
+    td.classList.add('celda-sin-insumos');   // centrado (generarReceta.css)
     td.textContent = 'Sin insumos registrados';
     tr.appendChild(td);
     tbody.appendChild(tr);

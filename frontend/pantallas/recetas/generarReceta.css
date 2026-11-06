@@ -34,7 +34,6 @@ body {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 1.2rem;
-  overflow-x: auto;
 }
 
 /* =========================================
@@ -67,7 +66,6 @@ body {
 }
 
 .filtro-input:focus {
-  outline: none;
   border-color: var(--primary-green);
   box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.15);
 }
@@ -94,13 +92,10 @@ body {
    TABLA PRINCIPAL
    ========================================= */
 /* 24/10: table-layout fixed (antes auto) = cada columna con el ancho de su título (los % de abajo), sin que una se estire
-   por lo que tiene adentro. Lo que sobra se reparte un poco entre todas. Más angosta que 900 px, se mueve de costado */
+   por lo que tiene adentro. Lo que sobra se reparte un poco entre todas. Más angosta que 900 px, se mueve de costado.
+   F9 (05/11): el ancho de 100 %, los bordes y table-layout: fixed ya están en global.css; acá queda solo el ancho mínimo */
 .standard-table {
-  width: 100%;
   min-width: 900px;
-  border-collapse: separate;
-  border-spacing: 0;
-  table-layout: fixed;
 }
 
 /* Encabezado, celdas, bordes y hover: clase compartida .grilla-fg (global.css) */
@@ -147,11 +142,9 @@ body {
   letter-spacing: 0.04em;
 }
 
+/* El centrado, la cursiva y el espacio del "Cargando..." están en global.css (F9, 05/11): acá queda solo el color */
 .loading-text {
-  text-align: center;
-  font-style: italic;
   color: var(--text-muted);
-  padding: 2rem;
 }
 
 /* =========================================
@@ -705,4 +698,10 @@ body {
 
 .btn-guardar-abreviatura:hover {
   background-color: #218838;
+}
+
+/* "Sin insumos registrados" en la tabla de la ventana Detalles, centrado
+   (F9, 05/11: antes lo centraba generarReceta.js con td.style.textAlign) */
+.table-insumos td.celda-sin-insumos {
+  text-align: center;
 }
