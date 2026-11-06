@@ -25,7 +25,7 @@ function leerToken(req) {
 }
 
 function requireAuth(req, res, next) {
-  const payload = leerToken(req);
+  const payload = leerToken(req); //payload = { id, rol, iat, exp } si el token es válido, o null (no corta el pedido).
   if (!payload) {
     return res.status(401).json({ error: 'No autorizado' });
   }
@@ -37,7 +37,7 @@ function requireAuth(req, res, next) {
 // Roles: 1 Administrador, 2 Cocinero, 3 Repartidor, 4 Consumidor final, 5 Dueño, 6 Administrador del sistema.
 function requireRol(...roles) {
   return (req, res, next) => {
-    if (!req.usuario || !roles.includes(Number(req.usuario.rol))) {
+    if (!req.usuario || !roles.includes(Number(req.usuario.rol))) {//si el usuario no tiene rol o su rol no está en la lista de roles permitidos
       return res.status(403).json({ error: 'No tenés permiso para esta acción' });
     }
     next();
