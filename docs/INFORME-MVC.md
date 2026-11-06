@@ -522,6 +522,29 @@ Cocineros, que van en sus pasos.
 | Rutas `/api` con requireAuth / públicas | 76 / 13 |
 | Archivos faltantes | 0 |
 
+## Paso 1: Usuarios (05/11/2026)
+**Aprobado por el usuario:** desde acá, F9 sigue de corrido, con un commit local por paso. Se frena solo si algo no da.
+
+- **gestionUsuarios.css:** se borraron 11 declaraciones que repetían global.css (mismo selector, mismo @media y mismo valor), en 5
+  reglas: `.table-wrapper`, `.filtro-input:focus`, `.standard-table`, `.standard-table tbody td` y `.loading-text`.
+- **global.css:** clase nueva `titulo-con-logo` (`display: flex; align-items: center; gap: 1rem`). Reemplaza al `style=""` del `<div>`
+  del encabezado, que está igual en 6 pantallas.
+- **gestionUsuarios.html:** el `<div>` del encabezado usa `titulo-con-logo`. Se borró el `style=""` del logo: global.css esconde todos
+  los logos del encabezado (`header img { display: none }`), así que no se veía.
+- **gestionUsuarios.js:**
+  - Renglón 63: la fila de error que arma con `innerHTML` usa `class="celda-error-carga"` en vez de `style=""`.
+  - Renglón 95: `tdUsername.style.fontFamily = …` pasó a `tdUsername.classList.add('celda-nombre-usuario')`.
+  - Las dos clases están en gestionUsuarios.css, con el selector `.standard-table tbody td.…`, para ganarle a la regla de las celdas.
+- **Se quedan, porque el JS los prende y apaga:** los `.style.display` de `modalCrear`, `modalEditar`, `uError`, `eError` y `mostrarError`,
+  y el `onerror` del logo.
+- **Renglones:** gestionUsuarios.css 388 → 392 (salieron 11, entraron 2 clases con su comentario) · global.css +8.
+
+| Prueba | Resultado |
+|---|---|
+| Estilos de las 15 páginas, compu y celu | 30 de 30 idénticas. Aparte: 36 elementos que solo ganaron una clase (todo igual) y el logo escondido, que perdió su alto |
+| La fila de error (no aparece al abrir): el HTML viejo y el nuevo dentro de la tabla real | idéntica |
+| 61/61 · faltantes · rutas | 61/61 · 0 · 76/13 |
+
 ---
 
 ## Pendientes para DESPUÉS del MVC

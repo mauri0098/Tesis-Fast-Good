@@ -257,6 +257,14 @@ header img {
     display: none;
 }
 
+/* El título de cada pantalla, en fila con el logo (que está escondido: queda solo el título).
+   F9 (05/11): antes era un style="" en el <div> del encabezado de cada pantalla. Ej: <div class="titulo-con-logo"> */
+.titulo-con-logo {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
 /* Los links del título (Contacto y Sucursales, en Inicio): gris, y verdes al pasar el mouse */
 header nav a {
     margin-left: 1.5rem;

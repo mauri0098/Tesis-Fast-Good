@@ -60,7 +60,7 @@ async function fetchUsuarios() {
 
   } catch (error) {
     console.error('Error al traer usuarios:', error);
-    tbody.innerHTML = '<tr><td colspan="7" style="color:red; text-align:center; padding:2rem;">Error al conectar con el servidor</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="celda-error-carga">Error al conectar con el servidor</td></tr>';
   }
 }
 
@@ -92,7 +92,7 @@ function renderizarUsuarios(usuarios) {
     // — Nombre de Usuario —
     const tdUsername = document.createElement('td');
     tdUsername.textContent = u.nombre_usuario || '-';
-    tdUsername.style.fontFamily = "'Courier New', monospace";
+    tdUsername.classList.add('celda-nombre-usuario');   // la letra de la columna Usuario (gestionUsuarios.css)
     // (25/10: sin fontSize propio: el tamaño es el de todas las tablas, global.css)
 
     // — Email — (25/10: en un <span class="dos-renglones">: si es largo, corta en 2 renglones con "…";
