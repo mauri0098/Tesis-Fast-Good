@@ -8,7 +8,7 @@
    24/10 (grilla más chica): el tamaño de TODAS las tablas del panel (títulos, celdas, pastillas y botones de las filas) sale
    de las perillas de "Tablas" (sección 0) y de la sección 8. Los CSS de cada pantalla ya no lo cambian: solo anchos y colores.
 
-   Cada pantalla tiene además su CSS propio (y algunas un <style> adentro). Lo de ellas le gana
+   Cada pantalla tiene además su CSS propio (F9, 05/11: ya ninguna tiene un <style> adentro). Lo de ellas le gana
    a esto, así que hay detalles que siguen como antes hasta que se rediseñe cada pantalla.
 
    Secciones:
@@ -1117,11 +1117,6 @@ table.grilla-fg tbody tr:hover {
     height: 24px;
     margin-right: 10px;
     vertical-align: middle;
-}
-
-/* El botón ☰ viejo del título de Inicio (ya estaba escondido): ahora tampoco ocupa lugar */
-.menu-btn {
-    display: none;
 }
 
 /* Menú lateral viejo (.sidebar): ninguna pantalla lo usa hoy (el menú lo arma adminSidebar.js) */

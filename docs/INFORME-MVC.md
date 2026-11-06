@@ -703,6 +703,32 @@ de después.
   cocinero.css". Ahora dice cocinero.css y heladera.css, que son las que cargan esa hoja.
 - 61/61 · faltantes · rutas: 61/61 · 0 · 76/13. Como cambió solo un comentario, no se compararon fotos.
 
+## Paso 12: global.css y menuPanel.css (05-06/11/2026)
+Como las cargan todas las pantallas del panel, una regla sobra solo si **ninguna** de las páginas que la cargan la usa: 15 para
+global.css (login.html y las 14 de pantallas/) y 14 para menuPanel.css.
+- **global.css:** se borró `.menu-btn { display: none; }`, "el botón ☰ viejo del título de Inicio". No aparece en ningún HTML ni JS
+  del proyecto. Se actualizó el comentario de arriba: ya ninguna pantalla tiene un `<style>` adentro.
+- **menuPanel.css:** nada para borrar.
+- **Se queda:** `header nav:not(.sidebar-nav):not(:first-of-type)`.
+  - *Por qué la marcó la herramienta:* porque la clase `sidebar-nav` no existe.
+  - *Por qué igual se queda:* `:not(.sidebar-nav)` quiere decir "un `nav` **sin** esa clase", así que que no exista no deja la regla
+    sin uso.
+  - *La herramienta, arreglada:* ahora no mira lo de adentro de un `:not(...)`.
+- **Ningún HTML tiene `<style>`:** los 3 que encuentra la búsqueda están escritos dentro de comentarios.
+- **Renglones:** global.css 1929 → 1924.
+
+| Prueba | Resultado |
+|---|---|
+| Estilos de las 15 páginas | 26 de 30 idénticas. **Armado y Cocina cambiaron por el día:** entre la foto de antes y la de después pasó la medianoche. Esas pantallas muestran lo de "hoy", y cambiaron las tarjetas de Armado y apareció la pestaña de otro día en Cocina. Probado aislado, con el global.css de antes y el de ahora y los mismos datos: **4 de 4 idénticas**. |
+| 61/61 · faltantes · rutas | 61/61 · 0 · 76/13 |
+
+## Paso 13: la tienda (index.css) — PENDIENTE: se limpia con el rediseño
+El usuario la va a rediseñar entera, así que **no se limpió en F9**. Lo que ya se sabe, para ese momento:
+- index.css no carga global.css, así que no tiene reglas "repetidas de global.css".
+- La medición del principio de F9 no encontró clases sin uso (0 de 228).
+- Falta revisar los `style=""` del HTML y de los JS de la web. Ahí entran los de `compartido/auth.js` (renglones 163-176), que dibujan
+  el botón de sesión del index. El `style="display:none"` del menú `auth-dropdown` tiene que quedarse, porque auth.js 190 lo lee.
+
 ---
 
 ## Pendientes para DESPUÉS del MVC
@@ -733,3 +759,6 @@ de después.
      y después los envíos. Se trajo a mvc_fastgood con merge (`1bbe4a8`): git reconoció solo que `src/js/Envios.js` ahora es
      `pantallas/envios/Envios.js`. Prueba forzando que los envíos lleguen primero: antes 12 de 12 listas vacías, después 0.
      El detalle está en INFORME-CAMBIOS-HELADERA.md.
+8. **La limpieza de CSS de la tienda (index.css) se hace con su rediseño** (F9, paso 13).
+9. **Dos hojas tienen el `:root` partido en dos:** generarReceta.css (renglones 4 y 599) y armadoPedidos.css (10 y 617).
+   Juntarlos no estaba en lo aprobado para F9.
