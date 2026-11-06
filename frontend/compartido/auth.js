@@ -204,6 +204,6 @@ function cerrarSesion() {
   localStorage.removeItem('usuario_telefono');
   localStorage.removeItem('usuario_direccion');
 
-  // '/' = la web (el servidor manda la raíz a index.html). Con 'index.html' suelto, desde /pages/ buscaba /pages/index.html
+  // '/' = la web (el servidor manda la raíz a index.html). Con 'index.html' suelto, desde /pantallas/stock/ buscaría /pantallas/stock/index.html
   window.location.href = '/';
 }

@@ -6,7 +6,7 @@
 //   renderizarCategorias     → dibuja la lista de categorías, con los planes que tiene cada una
 //   renderizarPlanesPanel    → dibuja la lista de planes, con el desplegable de categoría de cada uno
 //   armarFotoLista           → arma el HTML de la foto de una fila
-//   direccionDeFoto          → adapta la dirección de una foto para usarla desde pages/
+//   direccionDeFoto          → adapta la dirección de una foto para usarla desde cualquier pantalla
 //   abrirFormularioCategoria → abre la ventana para crear (null) o editar (con id) una categoría
 //   guardarCategoria         → controla los campos, pregunta y manda la categoría al servidor
 //   cambiarEstadoCategoria   → pregunta y activa o desactiva una categoría (nunca se borra)

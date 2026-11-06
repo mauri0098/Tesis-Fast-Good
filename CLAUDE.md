@@ -59,7 +59,7 @@
 
 ## Refactor de JavaScript (pantalla por pantalla)
 Cuando te diga "refactorizá este JS" (ej: generar receta), es ORDENARLO para que yo lo entienda, sin cambiar lo que hace.
-- SOLO cuando yo te lo pido, y de a UN archivo del front (frontend/src/js/). No refactorices JS por tu cuenta
+- SOLO cuando yo te lo pido, y de a UN archivo del front (frontend/pantallas/ o frontend/compartido/). No refactorices JS por tu cuenta
   mientras hacemos otra cosa (ni durante el MVC). Primero se termina el MVC del servidor, después los JS que yo elija.
 - POCAS FUNCIONES GRANDES, una por cada trabajo de la pantalla. Mejor 3 funciones que se entienden que 6 cortitas.
   La forma de casi toda pantalla:

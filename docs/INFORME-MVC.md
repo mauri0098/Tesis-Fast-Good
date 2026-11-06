@@ -409,6 +409,60 @@ No hay funciones nuevas ni cambiadas: solo direcciones.
 | La raíz `/` manda el index nuevo · `/login.html` · `/api/v1/combos` | sí · 200 · 200 |
 | Fotos de las rutas públicas del catálogo, tomadas desde index.html | 2 fotos: 1 subida a Supabase y 1 local, que no carga: el `BANNER-AQUI.jpg` de antes (pendiente 5) |
 
+## F8: Cierre de la mudanza (05/11/2026)
+
+### Qué se movió
+| Antes (en la raíz) | Ahora |
+|---|---|
+| EXPLICACION_COCINEROS_Y_STOCK.md, INFORME_TEST_E2E.md, REVISION_CODIGO.md | docs/ |
+| migracion_pago_mixto.sql | sql/ |
+
+CLAUDE.md **se queda en la raíz**: es donde lo lee Claude Code.
+Ningún código nombraba estos archivos, solo otros .md. INFORME_TEST_E2E.md nombra a REVISION_CODIGO.md, y ahora están en la misma carpeta.
+
+Se borraron las 3 carpetas que quedaron vacías: `frontend/pages/`, `frontend/src/css/` y `frontend/src/js/`.
+
+### Qué textos cambiaron
+Fueron 4 cambios exactos. Son comentarios y una regla del CLAUDE.md: no cambió código.
+- **CLAUDE.md 62** (Refactor de JavaScript): "de a UN archivo del front (frontend/src/js/)" → "(frontend/pantallas/ o frontend/compartido/)".
+- **global.css 3:** decía "La cargan admin.html, login.html y las 11 pantallas de pages/". Ahora dice "La cargan login.html y todas las
+  pantallas del panel (frontend/pantallas/)". No lleva número, así no vuelve a quedar viejo cuando se sume una pantalla.
+- **auth.js 207:** el ejemplo de por qué se sale a `/` pasó de `/pages/` a `/pantallas/stock/`.
+- **planesCategorias.js 9:** la lista de funciones de arriba decía que `direccionDeFoto` sirve "desde pages/".
+  Ahora dice "desde cualquier pantalla". Se había pasado en F5.
+
+**Lo que se dejó a propósito:** pedidoCombos.js 22 dice que el formulario viejo era `pages/formulario.html`, borrado el 17/10.
+Es historia y es cierta.
+
+### El control final del front
+| Qué se buscó en frontend/ | Resultado |
+|---|---|
+| `../` (direcciones relativas hacia atrás) | ninguna (solo coinciden bytes sueltos adentro de 2 fotos .jpg) |
+| `pages/` | solo el comentario histórico de pedidoCombos.js |
+| `src/js` o `src/css` | ninguna |
+| Direcciones a `src/` que no son imágenes | ninguna |
+
+### Cómo quedó el front
+```
+frontend/
+  index.html, login.html      ← se quedan en la raíz
+  compartido/                 ← lo que usan varias pantallas (17 archivos: roles, guard, api, escape, auth, fechas,
+                                 paginacion, global.js, adminSidebar, stockCompartido, pedidosCocina.js y 6 CSS)
+  pantallas/                  ← una carpeta por pantalla, con su HTML, su CSS y su JS
+    armado  cocina  cocineros  combos  compras  envios  heladera  inicio  login
+    movimientos  pedidos  planesCategorias  recetas  stock  tienda  usuarios
+  src/assets/img/             ← las imágenes (la base guarda './src/assets/img/…')
+```
+
+### Pruebas
+| Control | Resultado |
+|---|---|
+| test heladera | 61/61 |
+| Rutas `/api` con requireAuth / públicas | 76 / 13 |
+| Archivos faltantes (16 HTML, 182 archivos, 46 direcciones de los JS) | 0 |
+| Fotos del panel (`direccionDeFoto`) | 6 de 7 cargan (la que falta es el banner, pendiente 5) |
+| Fotos de la web | la única de la carpeta del proyecto es el mismo banner |
+
 ---
 
 ## Pendientes para DESPUÉS del MVC

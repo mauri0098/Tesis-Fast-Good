@@ -1,6 +1,6 @@
 /* ============================================================
    GLOBAL.CSS — Fast Good: lo común a todas las pantallas del panel (y al login)
-   La cargan admin.html, login.html y las 11 pantallas de pages/. El index NO la carga.
+   La cargan login.html y todas las pantallas del panel (frontend/pantallas/). El index NO la carga.
 
    Estilo nuevo (19/10/2026): el mismo del index. Letra Inter desde el 20/10 (el index sigue con Figtree), fondo blanco, los verdes del
    index, botones en forma de pastilla y tarjetas blancas con un borde finito.
