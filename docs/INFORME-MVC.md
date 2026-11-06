@@ -545,6 +545,23 @@ Cocineros, que van en sus pasos.
 | La fila de error (no aparece al abrir): el HTML viejo y el nuevo dentro de la tabla real | idéntica |
 | 61/61 · faltantes · rutas | 61/61 · 0 · 76/13 |
 
+**Sobre el test (desde Login):** el test crea pedidos por la ruta pública, que tiene un límite de 5 pedidos cada 10 minutos por IP.
+Corriéndolo en cada paso, el límite cortó con 429 (51/9 en el paso de Login). Ese límite vive en la memoria del servidor, así que
+desde ahí el servidor de prueba (la copia del 3001) se reinicia antes de cada corrida. No se cambió ningún código ni el límite de la web.
+
+## Paso 2: Login (05/11/2026)
+- **login.css:** nada para borrar. No hay reglas sin uso ni repetidas de global.css.
+- **login.html:** 6 `style=""` pasaron a clases nuevas en login.css: `zona-olvide-contrasena`, `ventana-recuperar`, `titulo-recuperar`,
+  `texto-recuperar`, `campo-email-recuperar` y `boton-enviar-recuperar`. Cada selector es un poco más fuerte que la regla de global.css
+  que compite (ej: `.modal-content h3.titulo-recuperar` le gana a `.modal-content h3`), porque el `style=""` les ganaba a todas.
+- **Se queda:** el `style="display: none;"` de `seccionRegistro`, porque el JS lo prende y apaga (login.html 156).
+- **Renglones:** login.css 242 → 277 (las 6 clases con su comentario) · login.html 231 → 231 (1 `style` en vez de 7).
+
+| Prueba | Resultado |
+|---|---|
+| Estilos del login, compu y celu (incluida la ventana "Recuperar contraseña", escondida) | 2 de 2 idénticas (12 elementos solo ganaron una clase) |
+| 61/61 · faltantes · rutas | 61/61 (con el servidor de prueba reiniciado) · 0 · 76/13 |
+
 ---
 
 ## Pendientes para DESPUÉS del MVC

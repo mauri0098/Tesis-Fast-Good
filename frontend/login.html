@@ -60,7 +60,7 @@
         <button type="submit" class="login-btn">Iniciar Sesión</button>
       </form>
 
-      <div style="text-align:center; margin-top:0.9rem;">
+      <div class="zona-olvide-contrasena">
         <button type="button" class="btn-olvide" onclick="abrirModalRecuperar()">
           ¿Olvidaste tu contraseña?
         </button>
@@ -112,14 +112,14 @@
 
   <!-- MODAL: Recuperar Contraseña -->
   <div id="modalRecuperar" class="modal">
-    <div class="modal-content" style="max-width:420px; margin:15% auto;">
+    <div class="modal-content ventana-recuperar">
       <span class="close" onclick="cerrarModalRecuperar()">&times;</span>
-      <h3 style="font-size:1.3rem; margin-bottom:0.5rem;">Recuperar contraseña</h3>
-      <p style="font-size:0.9rem; color:#666; margin-bottom:1.2rem;">
+      <h3 class="titulo-recuperar">Recuperar contraseña</h3>
+      <p class="texto-recuperar">
         Ingresá tu email y te enviaremos una contraseña temporal.
       </p>
 
-      <div class="form-group" style="margin-bottom:1rem;">
+      <div class="form-group campo-email-recuperar">
         <label for="recuperarEmail">📧 Email registrado</label>
         <input type="email" id="recuperarEmail" placeholder="tu@email.com" autocomplete="off" />
       </div>
@@ -128,8 +128,8 @@
       <div class="success-message" id="recuperarExito"></div>
       <div class="loading"         id="recuperarLoading">Enviando...</div>
 
-      <button type="button" class="login-btn" id="btnEnviarRecuperar"
-              onclick="enviarRecuperacion()" style="margin-top:0.5rem;">
+      <button type="button" class="login-btn boton-enviar-recuperar" id="btnEnviarRecuperar"
+              onclick="enviarRecuperacion()">
         Enviar contraseña temporal
       </button>
     </div>
