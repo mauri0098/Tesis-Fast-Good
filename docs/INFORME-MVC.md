@@ -326,6 +326,50 @@ Se corrigen cuando el usuario haga esos módulos.
 - *Por qué no la rompió la mudanza:* el archivo no existe ni existió nunca en git, y con la función vieja daba el mismo 404.
 - *Qué se ve hoy:* esa tarjeta muestra el logo en vez de la foto. Quedó como pendiente.
 
+## F6: Usuarios e Inicio (05/11/2026)
+
+### Qué se movió
+| Antes | Ahora |
+|---|---|
+| pages/gestionUsuarios.html, src/css/gestionUsuarios.css, src/js/gestionUsuarios.js | pantallas/usuarios/ |
+| admin.html (estaba en la raíz), src/css/admin.css, src/js/reportes.js | pantallas/inicio/ |
+
+`pages/` quedó vacía: se borra en F8. En `src/` quedan solo las piezas de la tienda y del login (van en F7) y las imágenes.
+
+### Qué direcciones cambiaron
+Fueron 13 cambios exactos, cada uno con la cantidad de veces esperada.
+- **En las 2 HTML movidas:** el logo pasó a `/src/assets/img/logo.webp` y sus CSS y JS a `/pantallas/<pantalla>/…`.
+  admin.html usaba direcciones desde la raíz (`./src/…` y `src/js/…`). Ahora son absolutas como las demás.
+- **roles.js:** las 2 rutas de la tabla de permisos, más la pantalla principal de los roles 6 (Administrador del sistema)
+  y 5 (Dueño) → `pantallas/inicio/admin.html`.
+- **adminSidebar.js:** los links "Inicio" y "Gestión de Usuarios" del menú.
+- **El comentario de arriba de admin.css y de reportes.js:** dice dónde está su pantalla.
+
+No hay funciones nuevas ni cambiadas: solo direcciones.
+
+**Lo que se revisó y NO hizo falta cambiar:**
+- *guard.js y el resaltado del menú:* reconocen la pantalla solo por el nombre del archivo (`admin.html`). La carpeta no les importa.
+- *El salto al Inicio después del login (auth.js) y desde el index (si ya tenía sesión):* ponen la dirección de roles.js
+  delante de la raíz (`login.html` e `index.html` están ahí). Por eso dan `/pantallas/inicio/admin.html`.
+- *Los links de admin.html y reportes.js a otras pantallas:* ya eran absolutos desde F2–F4.
+- *Los CSS:* ninguno usa `url(…)` ni `@import`, así que moverlos no rompe nada adentro.
+
+Quedan 2 comentarios que nombran `admin.html` sin carpeta: el de adminSidebar.js (renglón 242) sigue siendo cierto. El de
+global.css ("las 11 pantallas de pages/") se corrige en F8.
+
+### Pruebas
+| Control | Resultado |
+|---|---|
+| test heladera | 61/61 |
+| Rutas `/api` con requireAuth / públicas | 76 / 13 |
+| Archivos faltantes (16 HTML, 182 archivos, 46 direcciones de los JS) | 0 |
+| Direcciones viejas de estas 2 pantallas en el front, los tests y server.js | ninguna |
+| `/pantallas/inicio/admin.html` · `/admin.html` | 200 · 404 |
+| `/pantallas/usuarios/gestionUsuarios.html` · `/pages/gestionUsuarios.html` | 200 · 404 |
+
+*Sobre el conteo:* son 90 rutas en total, pero `app.get('/')` (server.js 5132, que manda el index.html) no es de la API.
+Las 76/13 de siempre cuentan solo las que empiezan con `/api`.
+
 ---
 
 ## Pendientes para DESPUÉS del MVC
@@ -335,10 +379,16 @@ Se corrigen cuando el usuario haga esos módulos.
    - *Después:* responder 403 "Origen no permitido", que dice la verdad y no parece una falla del servidor.
 2. **`GET /api/v1/productos/:id` es pública y no tiene límite por IP.** Solo `/api/v1/combos` lo tiene, y la regla del CLAUDE.md
    dice que las públicas lo llevan.
-4. **El test heladera tendría que crear sus propias viandas al arrancar.** Hoy depende de lo que haya en la heladera:
+3. **El test heladera tendría que crear sus propias viandas al arrancar.** Hoy depende de lo que haya en la heladera:
    el 05/11 dio 2 de 3 porque faltaban "PRUEBA fideos", y hubo que hacer a mano el pedido a cocina #35.
+4. **El código mudado tiene cosas que la regla de estilo prohíbe:** `||`, `?.`, `if` de una línea y un `if` adentro de otro.
+   Se copiaron igual; ordenarlas es otro paso.
 5. **La foto de la categoría "Viandas Saludables" no existe.** En la base dice `./src/assets/img/BANNER-AQUI.jpg`, que es el nombre
    de ejemplo del SQL. Hay que copiar el banner real a `frontend/src/assets/img/` y cambiar ese dato en la base (lo corre el usuario),
    o subir la foto desde la pantalla Planes y categorías.
-3. **El código mudado tiene cosas que la regla de estilo prohíbe:** `||`, `?.`, `if` de una línea y un `if` adentro de otro.
-   Se copiaron igual; ordenarlas es otro paso.
+6. **Las direcciones viejas de las pantallas dan 404 cuando esto llegue a producción.**
+   - *El problema:* si alguien guardó un acceso directo (ej: el cocinero, `/pages/cocinero.html` en el celu, o la dueña,
+     `/admin.html`), va a ver "Cannot GET".
+   - *Lo que sigue andando:* entrar por el login, porque lleva a la dirección nueva.
+   - *Qué decidir:* avisar que vuelvan a guardar el acceso después de entrar por el login, o que server.js mande cada dirección
+     vieja a la nueva. Eso es un cambio del servidor y va después del MVC.

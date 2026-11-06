@@ -28,7 +28,7 @@ var FG_ROLES = (function () {
 
   // Pantallas internas, en el orden del menú. ruta = desde la raíz de frontend/.
   var PANTALLAS = [
-    { ruta: 'admin.html',                   menu: '🏠 Inicio',               roles: [6, 5] },          // Reportes
+    { ruta: 'pantallas/inicio/admin.html',                   menu: '🏠 Inicio',               roles: [6, 5] },          // Reportes
     { ruta: 'pantallas/pedidos/ConsultarPedidos.html',  menu: '🧾 Consultar Pedidos',    roles: [6, 5, 1] },
     { ruta: 'pantallas/cocina/cocinero.html',          menu: '🥗 Tareas de Cocina',     roles: [2, 6, 5, 1] },    // 6, 5 y 1 solo para ver
     { ruta: 'pantallas/stock/stock.html',   menu: '📦 Gestión de Stock',     roles: [6, 5, 1] },
@@ -41,13 +41,13 @@ var FG_ROLES = (function () {
     { ruta: 'pantallas/cocineros/AsignarCocinero.html',   menu: '👨‍🍳 Asignar Cocineros',   roles: [6, 5] },
     { ruta: 'pantallas/envios/Envios.html',            menu: '🚗 Envíos del Día',       roles: [6, 5, 1, 3] },
     { ruta: 'pantallas/armado/armadoPedidos.html',     menu: '🧺 Armado de pedidos',    roles: [6, 5, 1, 3] },  // 26/10: los mismos de Envíos
-    { ruta: 'pages/gestionUsuarios.html',   menu: '👥 Gestión de Usuarios',  roles: [6, 5] }
+    { ruta: 'pantallas/usuarios/gestionUsuarios.html',   menu: '👥 Gestión de Usuarios',  roles: [6, 5] }
   ];
 
   // Pantalla a la que va cada rol al loguearse (o si entra a una que no le corresponde)
   var PRINCIPAL = {
-    6: 'admin.html',
-    5: 'admin.html',
+    6: 'pantallas/inicio/admin.html',
+    5: 'pantallas/inicio/admin.html',
     1: 'pantallas/pedidos/ConsultarPedidos.html',
     2: 'pantallas/cocina/cocinero.html',
     3: 'pantallas/envios/Envios.html',

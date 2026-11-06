@@ -1,5 +1,5 @@
 // ============================================================================
-// reportes.js — El Inicio (admin.html): cómo viene el día, con datos reales (27/10, rediseño)
+// reportes.js — El Inicio (pantallas/inicio/admin.html): cómo viene el día, con datos reales (27/10, rediseño)
 //
 // Cada tarjeta se carga sola: si una falla, las demás se ven igual. Todo lo que se pide al servidor es de SOLO LECTURA
 // y usa rutas que ya existían (no hay rutas nuevas):

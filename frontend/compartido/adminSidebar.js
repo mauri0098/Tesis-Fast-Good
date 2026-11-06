@@ -31,7 +31,7 @@
   // Los grupos ya no llevan título: solo se separan con un poco de aire.
   // Los nombres son los de siempre, sin el emoji.
   const MENU_PANEL = [
-    { ruta: 'admin.html',                       grupo: '',               icono: 'icono-menu-inicio',      nombre: 'Inicio' },
+    { ruta: 'pantallas/inicio/admin.html',                       grupo: '',               icono: 'icono-menu-inicio',      nombre: 'Inicio' },
     { ruta: 'pantallas/pedidos/ConsultarPedidos.html',      grupo: 'Pedidos',        icono: 'icono-menu-pedidos',     nombre: 'Consultar Pedidos' },
     { ruta: 'pantallas/envios/Envios.html',                grupo: 'Reparto',        icono: 'icono-menu-envios',      nombre: 'Envíos del Día' },
     { ruta: 'pantallas/armado/armadoPedidos.html',         grupo: 'Reparto',        icono: 'icono-menu-armado',      nombre: 'Armado de pedidos' },
@@ -44,7 +44,7 @@
     { ruta: 'pantallas/combos/combos.html',                grupo: 'Catálogo',       icono: 'icono-menu-combos',      nombre: 'Combos' },
     { ruta: 'pantallas/planesCategorias/planesCategorias.html',      grupo: 'Catálogo',       icono: 'icono-menu-planes',      nombre: 'Planes y categorías' },
     { ruta: 'pantallas/recetas/generarReceta.html',         grupo: 'Catálogo',       icono: 'icono-menu-receta',      nombre: 'Generar Receta' },
-    { ruta: 'pages/gestionUsuarios.html',       grupo: 'Administración', icono: 'icono-menu-usuarios',    nombre: 'Gestión de Usuarios' },
+    { ruta: 'pantallas/usuarios/gestionUsuarios.html',       grupo: 'Administración', icono: 'icono-menu-usuarios',    nombre: 'Gestión de Usuarios' },
   ];
 
   // Para la fecha de la barra de arriba ("Martes 27 de octubre"): getDay() da 0 para el domingo y getMonth() da 0 para enero
