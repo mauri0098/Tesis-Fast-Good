@@ -34,6 +34,7 @@ var FG_ROLES = (function () {
     { ruta: 'pantallas/stock/stock.html',   menu: '📦 Gestión de Stock',     roles: [6, 5, 1] },
     { ruta: 'pantallas/heladera/heladera.html',          menu: '🍳 Producción',           roles: [6, 5, 1, 2] },
     { ruta: 'pantallas/recetas/generarReceta.html',     menu: '📝 Generar Receta',       roles: [6, 5] },
+    { ruta: 'pantallas/catalogo/catalogo.html',        menu: '🗂️ Catálogo',             roles: [6, 5] },          // (11/11) categorías, planes y combos en una sola pantalla
     { ruta: 'pantallas/combos/combos.html',            menu: '🍱 Combos',               roles: [6, 5] },          // armar los combos y su menú
     { ruta: 'pantallas/planesCategorias/planesCategorias.html',  menu: '🗂️ Planes y categorías',  roles: [6, 5] },          // crear, editar, agrupar y desactivar
     { ruta: 'pantallas/movimientos/MovimientosStockNuevo.html', menu: '📋 Movimientos de Stock', roles: [6, 5, 1] },  // insumos y viandas, todo junto (H8)

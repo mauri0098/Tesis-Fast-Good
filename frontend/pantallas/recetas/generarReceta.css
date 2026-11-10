@@ -13,7 +13,7 @@
 }
 
 body {
-  background-color: var(--bg-color);
+  background-color: var(--fondo);   /* (11/11) el blanco general del panel (global.css), como Consultar Pedidos */
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -59,7 +59,7 @@ body {
   padding: 0.55rem 0.9rem;
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.88rem;
   background: #fff;
   transition: border-color 0.2s;
@@ -76,7 +76,7 @@ body {
   color: #fff;
   border: none;
   border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
@@ -275,7 +275,7 @@ body {
 }
 
 .imagen-upload-controles input[type="file"] {
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.8rem;
 }
 
@@ -292,7 +292,7 @@ body {
   padding: 0.5rem 0.8rem;
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.85rem;
   width: 100%;
   transition: border-color 0.2s;
@@ -311,7 +311,7 @@ body {
   padding: 0.5rem 0.8rem;
   border: 1px dashed var(--border-light);
   border-radius: var(--radius);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.85rem;
   width: 100%;
   background-color: #f8f9fa;
@@ -382,7 +382,7 @@ body {
   padding: 0.5rem 0.8rem;
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.85rem;
   width: 100%;
   transition: border-color 0.2s;
@@ -436,21 +436,29 @@ body {
 
 /* Inputs y selects dentro de la tabla editable */
 .table-insumos tbody td select,
-.table-insumos tbody td input[type="number"] {
+.table-insumos tbody td input[type="number"],
+.table-insumos tbody td .ed-insumo-buscar {
   padding: 0.4rem 0.6rem;
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.82rem;
   width: 100%;
   transition: border-color 0.2s;
 }
 
 .table-insumos tbody td select:focus,
-.table-insumos tbody td input[type="number"]:focus {
+.table-insumos tbody td input[type="number"]:focus,
+.table-insumos tbody td .ed-insumo-buscar:focus {
   outline: none;
   border-color: var(--primary-green);
   box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.15);
+}
+
+/* (11/11) La lista vieja de insumos: escondida. Se elige escribiendo en .ed-insumo-buscar (generarReceta.js),
+   y esta lista solo guarda el número del insumo para guardarReceta */
+.table-insumos tbody td select.ed-insumo-oculto {
+  display: none;
 }
 
 /* "Eliminar" de cada insumo de la receta. 24/10: el tamaño, el de los botones de todas las tablas (global.css) */
@@ -459,7 +467,7 @@ body {
   color: #721c24;
   border: 1px solid #f5c6cb;
   border-radius: var(--radius);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -481,7 +489,7 @@ body {
   color: var(--primary-green);
   border: 1px solid var(--primary-green);
   border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
@@ -516,7 +524,7 @@ body {
   color: var(--text-dark);
   border: none;
   border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
@@ -531,7 +539,7 @@ body {
   color: #fff;
   border: none;
   border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
@@ -621,7 +629,7 @@ body {
   border-radius: 50px;
   background: var(--white);
   color: var(--primary-green);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.9rem;
   font-weight: 600;
   white-space: nowrap;

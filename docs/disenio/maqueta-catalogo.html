@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<!-- MAQUETA (solo diseño) de la pantalla nueva "Catálogo": une "Planes y categorías" y "Combos" en UNA pantalla
+     con 3 pestañas, como Tareas de Cocina: ① Categorías · ② Planes · ③ Combos.
+     Es una maqueta: los datos están escritos a mano y los botones (salvo las pestañas) no hacen nada.
+     Abrila con doble clic en el navegador. Claude Code la usa como referencia VISUAL para la pantalla real. -->
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maqueta · Catálogo (categorías, planes y combos)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* Colores y medidas de la maqueta */
+    :root {
+      --verde: #12893a;          /* botón principal y pestaña elegida */
+      --verde-hover: #0f7330;
+      --fondo: #f3f5f7;
+      --tarjeta: #ffffff;
+      --borde: #e3e8ee;
+      --linea: #edf0f3;
+      --texto: #1f2937;
+      --titulo: #111827;
+      --suave: #4b5563;
+      --rojo: #b42318;
+      --pastilla-activo-fondo: #e3f3e7;
+      --pastilla-activo-letra: #1b6e33;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--fondo); font-family: Inter, system-ui, sans-serif; color: var(--texto); }
+    button, select { font-family: inherit; }
+    .pagina { max-width: 1100px; margin: 0 auto; padding: 32px 24px; display: flex; flex-direction: column; gap: 20px; }
+    h1 { margin: 0; font-size: 26px; font-weight: 700; color: var(--titulo); }
+    .bajada { margin: 6px 0 0; font-size: 14px; color: var(--suave); }
+
+    /* Pestañas (como Tareas de Cocina) */
+    .pestanas { display: flex; flex-wrap: wrap; gap: 10px; }
+    .pestana { display: inline-flex; align-items: center; gap: 10px; height: 46px; padding: 0 18px 0 8px;
+               border: 1px solid #d5dbe1; border-radius: 999px; background: #fff; color: var(--texto);
+               font-size: 15px; font-weight: 600; cursor: pointer; }
+    .pestana-numero { width: 30px; height: 30px; border-radius: 999px; background: #eef1f4; color: #374151;
+                      display: inline-flex; align-items: center; justify-content: center; font-size: 13px; }
+    .pestana--elegida { background: var(--verde); border-color: var(--verde); color: #fff; }
+    .pestana--elegida .pestana-numero { background: #fff; color: var(--verde); }
+
+    /* Tarjeta con la tabla */
+    .tarjeta { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; overflow: hidden; }
+    .tarjeta-cabecera { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+                        padding: 18px 20px; border-bottom: 1px solid var(--linea); }
+    .tarjeta-cabecera h2 { margin: 0; font-size: 18px; font-weight: 700; color: var(--titulo); }
+    .tarjeta-cabecera p { margin: 4px 0 0; font-size: 13px; color: var(--suave); }
+    .herramientas { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .filtro { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--suave); }
+    .filtro select { height: 38px; padding: 0 10px; border: 1px solid #d5dbe1; border-radius: 10px; background: #fff; font-size: 14px; }
+
+    .boton { height: 32px; padding: 0 12px; border-radius: 999px; background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .boton-principal { height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--verde); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .boton-principal:hover { background: var(--verde-hover); }
+    .boton-menu { border: 1px solid var(--verde); color: var(--verde); }
+    .boton-editar { border: 1px solid #d5dbe1; color: var(--texto); }
+    .boton-desactivar { border: 1px solid #f1c4c0; color: var(--rojo); }
+    .boton-siguiente { height: 42px; padding: 0 20px; border: 1px solid var(--verde); border-radius: 999px; background: #fff; color: var(--verde); font-size: 14px; font-weight: 600; cursor: pointer; }
+
+    .tabla-caja { overflow-x: auto; }   /* en el celu, la tabla se mueve de costado */
+    table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 14px; }
+    th { padding: 10px 20px; background: #f8fafb; font-size: 12px; font-weight: 600; letter-spacing: .05em;
+         text-transform: uppercase; color: var(--suave); text-align: left; }
+    td { padding: 12px 20px; border-top: 1px solid var(--linea); color: #374151; }
+    td:first-child { font-weight: 600; color: var(--titulo); }
+    .celda-acciones { text-align: right; white-space: nowrap; }
+    .celda-acciones .boton + .boton { margin-left: 8px; }
+    .pastilla-activo { padding: 3px 10px; border-radius: 999px; background: var(--pastilla-activo-fondo);
+                       color: var(--pastilla-activo-letra); font-size: 12px; font-weight: 600; }
+    .pie { display: flex; justify-content: flex-end; }
+  </style>
+</head>
+<body>
+  <main class="pagina">
+    <div>
+      <h1>Catálogo</h1>
+      <p class="bajada">Primero las categorías, después los planes y por último los combos.</p>
+    </div>
+
+    <!-- Las 3 pestañas. La elegida va en verde. Sin números de cantidad. -->
+    <div class="pestanas" role="tablist">
+      <button type="button" class="pestana pestana--elegida" data-pestana="categorias" aria-pressed="true"><span class="pestana-numero">1</span>Categorías</button>
+      <button type="button" class="pestana" data-pestana="planes" aria-pressed="false"><span class="pestana-numero">2</span>Planes</button>
+      <button type="button" class="pestana" data-pestana="combos" aria-pressed="false"><span class="pestana-numero">3</span>Combos</button>
+    </div>
+
+    <!-- ① CATEGORÍAS -->
+    <section class="tarjeta" data-panel="categorias">
+      <div class="tarjeta-cabecera">
+        <div><h2>Categorías</h2><p>Una categoría junta varios planes en una sola tarjeta de la web.</p></div>
+        <div class="herramientas"><button type="button" class="boton-principal">+ Nueva categoría</button></div>
+      </div>
+      <div class="tabla-caja">
+        <table>
+          <thead><tr><th>Nombre</th><th>Planes adentro</th><th>Foto</th><th>Estado</th><th class="celda-acciones">Acciones</th></tr></thead>
+          <tbody>
+            <tr><td>Viandas Saludables</td><td>Sin planes</td><td>Con foto</td><td><span class="pastilla-activo">Activa</span></td><td class="celda-acciones"><button type="button" class="boton boton-editar">Editar</button><button type="button" class="boton boton-desactivar">Desactivar</button></td></tr>
+            <tr><td>Viandas Sin Gluten</td><td>Sin planes</td><td>Sin foto</td><td><span class="pastilla-activo">Activa</span></td><td class="celda-acciones"><button type="button" class="boton boton-editar">Editar</button><button type="button" class="boton boton-desactivar">Desactivar</button></td></tr>
+            <tr><td>Pastelería Saludable</td><td>PLAN DEPORTIVO, ANTOJOS SALUDABLES, PRUEBA</td><td>Sin foto</td><td><span class="pastilla-activo">Activa</span></td><td class="celda-acciones"><button type="button" class="boton boton-editar">Editar</button><button type="button" class="boton boton-desactivar">Desactivar</button></td></tr>
+            <tr><td>Combo saludable</td><td>PROMO SEMANAL</td><td>Sin foto</td><td><span class="pastilla-activo">Activa</span></td><td class="celda-acciones"><button type="button" class="boton boton-editar">Editar</button><button type="button" class="boton boton-desactivar">Desactivar</button></td></tr>
+            <tr><td>Descenso de peso</td><td>PLAN DESCENSO DE PESO</td><td>Sin foto</td><td><span class="pastilla-activo">Activa</span></td><td class="celda-acciones"><button type="button" class="boton boton-editar">Editar</button><button type="button" class="boton boton-desactivar">Desactivar</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ② PLANES -->
+    <section class="tarjeta" data-panel="planes" hidden>
+      <div class="tarjeta-cabecera">
+        <div><h2>Planes</h2><p>Cada plan va en una categoría, o en "Sin categoría" si tiene su propia tarjeta.</p></div>
+        <div class="herramientas">
+          <label class="filtro">Categoría: <select><option>Todas</option><option>Descenso de peso</option><option>Pastelería Saludable</option><option>Sin categoría</option></select></label>
+          <button type="button" class="boton-principal">+ Nuevo plan</button>
+        </div>
+      </div>
+      <div class="tabla-caja">
+        <table>
+          <thead><tr><th>Nombre</th><th>Categoría</th><th>Abreviatura</th><th>Estado</th><th class="celda-acciones">Acciones</th></tr></thead>
+          <tbody>
+            <tr><td>PLAN DESCENSO DE PESO</td><td>Descenso de peso</td><td>K</td><td><span class="pastilla-activo">Activo</span></td><td class="celda-acciones"><button type="button" class="boton boton-editar">Editar</button><button type="button" class="boton boton-desactivar">Desactivar</button></td></tr>
+            <tr><td>MANTENIMIENTO</td><td>Sin categoría</td><td>F</td><td><span class="pastilla-activo">Activo</span></td><td class="celda-acciones"><button type="button" class="boton boton-editar">Editar</button><button type="button" class="boton boton-desactivar">Desactivar</button></td></tr>
+            <tr><td>PLAN DEPORTIVO</td><td>Pastelería Saludable</td><td>D</td><td><span class="pastilla-activo">Activo</span></td><td class="celda-acciones"><button type="button" class="boton boton-editar">Editar</button><button type="button" class="boton boton-desactivar">Desactivar</button></td></tr>
+            <tr><td>PRUEBA</td><td>Pastelería Saludable</td><td>PRB</td><td><span class="pastilla-activo">Activo</span></td><td class="celda-acciones"><button type="button" class="boton boton-editar">Editar</button><button type="button" class="boton boton-desactivar">Desactivar</button></td></tr>
+            <tr><td>PLAN VEGGIE</td><td>Sin categoría</td><td>V</td><td><span class="pastilla-activo">Activo</span></td><td class="celda-acciones"><button type="button" class="boton boton-editar">Editar</button><button type="button" class="boton boton-desactivar">Desactivar</button></td></tr>
+            <tr><td>PLAN KIDS</td><td>Sin categoría</td><td>KI</td><td><span class="pastilla-activo">Activo</span></td><td class="celda-acciones"><button type="button" class="boton boton-editar">Editar</button><button type="button" class="boton boton-desactivar">Desactivar</button></td></tr>
+            <tr><td>SIN TACC</td><td>Sin categoría</td><td>SG</td><td><span class="pastilla-activo">Activo</span></td><td class="celda-acciones"><button type="button" class="boton boton-editar">Editar</button><button type="button" class="boton boton-desactivar">Desactivar</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ③ COMBOS -->
+    <section class="tarjeta" data-panel="combos" hidden>
+      <div class="tarjeta-cabecera">
+        <div><h2>Combos</h2><p>Cada combo es de un plan: cantidad de viandas, precio y su menú de platos.</p></div>
+        <div class="herramientas">
+          <label class="filtro">Plan: <select><option>Todos</option><option>MANTENIMIENTO</option><option>PRUEBA</option></select></label>
+          <button type="button" class="boton-principal">+ Nuevo combo</button>
+        </div>
+      </div>
+      <div class="tabla-caja">
+        <table>
+          <thead><tr><th>Nombre</th><th>Plan</th><th>Viandas · Precio</th><th>Estado</th><th class="celda-acciones">Acciones</th></tr></thead>
+          <tbody>
+            <tr><td>Mantenimiento x10</td><td>MANTENIMIENTO</td><td>10 · $ 137.000</td><td><span class="pastilla-activo">Activo</span></td><td class="celda-acciones"><button type="button" class="boton boton-menu">Menú</button><button type="button" class="boton boton-editar">Editar</button><button type="button" class="boton boton-desactivar">Desactivar</button></td></tr>
+            <tr><td>PRUEBA fideos x3</td><td>PRUEBA</td><td>3 · $ 3.000</td><td><span class="pastilla-activo">Activo</span></td><td class="celda-acciones"><button type="button" class="boton boton-menu">Menú</button><button type="button" class="boton boton-editar">Editar</button><button type="button" class="boton boton-desactivar">Desactivar</button></td></tr>
+            <tr><td>PRUEBA fideos x5</td><td>PRUEBA</td><td>5 · $ 5.000</td><td><span class="pastilla-activo">Activo</span></td><td class="celda-acciones"><button type="button" class="boton boton-menu">Menú</button><button type="button" class="boton boton-editar">Editar</button><button type="button" class="boton boton-desactivar">Desactivar</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- "Siguiente": aparece en Categorías y Planes, lleva a la pestaña que sigue -->
+    <div class="pie"><button type="button" class="boton-siguiente" id="botonSiguiente">Siguiente: los planes →</button></div>
+  </main>
+
+  <script>
+    // Solo para la maqueta: cambiar de pestaña. En la pantalla real lo hace el JS de la pantalla.
+    const SIGUIENTE = { categorias: 'planes', planes: 'combos', combos: '' };
+    const TEXTO_SIGUIENTE = { categorias: 'Siguiente: los planes →', planes: 'Siguiente: los combos →', combos: '' };
+    const botonSiguiente = document.getElementById('botonSiguiente');
+
+    function mostrarPestana(nombre) {
+      document.querySelectorAll('[data-pestana]').forEach((boton) => {
+        const elegida = boton.dataset.pestana === nombre;
+        boton.classList.remove('pestana--elegida');
+        if (elegida) { boton.classList.add('pestana--elegida'); }
+        boton.setAttribute('aria-pressed', String(elegida));
+      });
+      document.querySelectorAll('[data-panel]').forEach((panel) => {
+        panel.hidden = panel.dataset.panel !== nombre;
+      });
+      botonSiguiente.textContent = TEXTO_SIGUIENTE[nombre];
+      botonSiguiente.hidden = SIGUIENTE[nombre] === '';
+      botonSiguiente.dataset.ir = SIGUIENTE[nombre];
+    }
+
+    document.querySelectorAll('[data-pestana]').forEach((boton) => {
+      boton.addEventListener('click', () => mostrarPestana(boton.dataset.pestana));
+    });
+    botonSiguiente.addEventListener('click', () => mostrarPestana(botonSiguiente.dataset.ir));
+    mostrarPestana('categorias');
+  </script>
+</body>
+</html>

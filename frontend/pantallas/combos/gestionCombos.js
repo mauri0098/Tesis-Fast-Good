@@ -4,10 +4,12 @@
 // Funciones:
 //   cargarCombos         → trae los combos y los planes del servidor y dibuja la tabla
 //   renderizarCombos     → dibuja la tabla: precio, platos del menú, estado (con "no se ve en la web") y botones
+//                          (11/11: solo los combos que cumplen los filtros de arriba: nombre y plan)
 //   abrirFormularioCombo → abre la ventana para crear (sin id) o editar (con id) un combo
 //   guardarCombo         → controla los campos y manda el combo nuevo o editado al servidor
 //   cambiarEstadoCombo   → pregunta y activa o desactiva un combo (nunca se borra)
 //   abrirMenuCombo       → trae el menú de un combo y dibuja su ventana (platos con "Sacar" + lista para agregar)
+//   filtrarPlatosDelMenu → (11/11) dibuja la lista "Agregar" del menú con el buscador y el filtro de plan
 //   agregarPlatoAlMenu   → agrega al menú el plato elegido en la lista (o lo reactiva si ya había estado)
 //   quitarPlatoDelMenu   → pregunta y saca un plato del menú (se desactiva su renglón, nunca se borra)
 //
@@ -30,6 +32,7 @@ let comboEditando = null;
 // Id del combo cuyo menú está abierto en la ventana "Menú" (null = cerrada) y los platos de ese menú
 let idComboDelMenu = null;
 let platosDelMenuAbierto = [];
+let platosDisponibles = [];   // (11/11) los platos que se pueden agregar a ese menú (los filtra filtrarPlatosDelMenu)
 
 // ── Trae los combos y los planes, y dibuja la tabla ───────────────────────
 async function cargarCombos() {
@@ -41,11 +44,36 @@ async function cargarCombos() {
     const respuestaPlanes = await apiFetch('/api/planes');
     if (!respuestaPlanes.ok) throw new Error('HTTP ' + respuestaPlanes.status);
     planesActivos = await respuestaPlanes.json();
+
+    // (11/11) El filtro "Todos los planes": los planes de los combos, sin repetir y por nombre.
+    //         yaEsta = { 'KETO': true } (un objeto para no repetir, en vez de recorrer la lista dos veces)
+    const filtroPlan = document.getElementById('filtroPlanCombo');
+    const planElegido = filtroPlan.value;                         // el que estaba elegido, para no perderlo al recargar
+    const yaEsta = {};
+    const nombresDePlanes = [];
+    combosDelPanel.forEach(combo => {
+      const saltear = !combo.plan || yaEsta[combo.plan] === true;
+      if (saltear) { // ¿no tiene plan o ya está anotado? SÍ: el 2º combo KETO → saltear · NO: el 1º → se anota
+        return;
+      }
+      yaEsta[combo.plan] = true;
+      nombresDePlanes.push(combo.plan);
+    });
+    // sort: por nombre como el diccionario. Ej: 'KETO' vs 'MANTENIMIENTO' → negativo → KETO va primero
+    nombresDePlanes.sort((a, b) => a.localeCompare(b, 'es'));
+    filtroPlan.innerHTML = '<option value="">Todos los planes</option>';
+    nombresDePlanes.forEach(nombre => {
+      const opcion = document.createElement('option');
+      opcion.value = nombre;
+      opcion.textContent = nombre;   // textContent: se muestra como texto, nunca como HTML
+      filtroPlan.appendChild(opcion);
+    });
+    filtroPlan.value = planElegido;
   } catch (error) {
     // Mensaje simple en la pantalla; el detalle queda en la consola
     console.error('Error al cargar los combos:', error);
     document.getElementById('combosBody').innerHTML =
-      '<tr><td colspan="7" class="loading-text">No pudimos cargar los combos. Probá de nuevo en un momento.</td></tr>';
+      '<tr><td colspan="6" class="loading-text">No pudimos cargar los combos. Probá de nuevo en un momento.</td></tr>';
     return;
   }
 
@@ -57,12 +85,26 @@ function renderizarCombos() {
   const tbody = document.getElementById('combosBody');
 
   if (combosDelPanel.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="loading-text">Todavía no hay combos. Creá el primero con "+ Nuevo combo".</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="loading-text">Todavía no hay combos. Creá el primero con "+ Nuevo combo".</td></tr>';
+    return;
+  }
+
+  // (11/11) Los filtros de arriba: por nombre y por plan. filter = se queda con los combos que cumplen los dos.
+  //         Ej: "keto" → "10 Viandas Keto" y "Keto x5" · plan MANTENIMIENTO → solo los combos de ese plan
+  const textoBuscado = document.getElementById('filtroNombreCombo').value.trim().toLowerCase();
+  const planElegido = document.getElementById('filtroPlanCombo').value;   // '' = todos los planes
+  const combosVisibles = combosDelPanel.filter(combo => {
+    const coincideNombre = String(combo.nombre).toLowerCase().includes(textoBuscado);   // includes = "contiene"
+    const coincidePlan = planElegido === '' || combo.plan === planElegido;
+    return coincideNombre && coincidePlan;
+  });
+  if (combosVisibles.length === 0) { // ¿ninguno cumple los filtros? SÍ: "pizza" → no hay · NO: hay al menos uno
+    tbody.innerHTML = '<tr><td colspan="6" class="loading-text">Ningún combo coincide con la búsqueda.</td></tr>';
     return;
   }
 
   let html = '';
-  combosDelPanel.forEach(combo => {
+  combosVisibles.forEach(combo => {
     const idCombo = Number(combo.id);
     const precio = Number(combo.precio).toLocaleString('es-AR');
 
@@ -91,18 +133,26 @@ function renderizarCombos() {
     }
 
     // Todo lo que viene de la base pasa por escHtml
+    // (11/11) El orden de la maqueta de Catálogo: Nombre (y abajo, chiquito, los platos del menú) · Plan ·
+    //         Viandas · Precio · Estado · Acciones (Menú, Editar y Desactivar, en fila)
+    const nombreSeguro = escHtml(combo.nombre);
+    const menuSeguro = escHtml(textoMenu);
+    const planSeguro = escHtml(plan);
+    const cantidadSegura = escHtml(combo.cantidad);
+    const precioSeguro = escHtml(precio);
     html += `
       <tr>
-        <td>${escHtml(combo.nombre)}</td>
-        <td>${escHtml(plan)}</td>
-        <td>${escHtml(combo.cantidad)}</td>
-        <td>$ ${escHtml(precio)}</td>
-        <td>${escHtml(textoMenu)}</td>
+        <td><span class="dato-principal">${nombreSeguro}</span><span class="dato-chico">${menuSeguro}</span></td>
+        <td>${planSeguro}</td>
+        <td>${cantidadSegura}</td>
+        <td>$ ${precioSeguro}</td>
         <td>${estado}</td>
         <td class="td-acciones">
-          <button class="btn-editar" onclick="abrirFormularioCombo(${idCombo})">Editar</button>
-          <button class="btn-menu" onclick="abrirMenuCombo(${idCombo})">Menú</button>
-          ${botonEstado}
+          <div class="botones-fila-catalogo">
+            <button class="btn-menu" onclick="abrirMenuCombo(${idCombo})">Menú</button>
+            <button class="btn-editar" onclick="abrirFormularioCombo(${idCombo})">Editar</button>
+            ${botonEstado}
+          </div>
         </td>
       </tr>`;
   });
@@ -354,28 +404,92 @@ async function abrirMenuCombo(idCombo) {
   // Aviso de menú vacío: el combo no se ve en la web
   document.getElementById('mmVacio').hidden = datos.menu.length > 0;
 
-  // 4. La lista para agregar: platos activos de cualquier plan que no están en el menú
+  // 4. La lista para agregar: platos activos de cualquier plan que no están en el menú.
+  //    (11/11) Se guardan y los dibuja filtrarPlatosDelMenu, con lo que diga el buscador y el filtro de plan.
+  platosDisponibles = datos.disponibles;
+  document.getElementById('mmBuscar').value = '';                 // cada menú arranca sin búsqueda
+
+  //    El filtro de plan: los planes de los platos disponibles, sin repetir y por nombre
+  const filtroPlan = document.getElementById('mmPlanFiltro');
+  const yaEsta = {};
+  const nombresDePlanes = [];
+  platosDisponibles.forEach(plato => {
+    const saltear = !plato.plan || yaEsta[plato.plan] === true;
+    if (saltear) { // ¿no tiene plan o ya está anotado? SÍ → saltear · NO → se anota
+      return;
+    }
+    yaEsta[plato.plan] = true;
+    nombresDePlanes.push(plato.plan);
+  });
+  nombresDePlanes.sort((a, b) => a.localeCompare(b, 'es'));      // por nombre, como el diccionario
+  filtroPlan.innerHTML = '<option value="">Todos los planes</option>';
+  nombresDePlanes.forEach(nombre => {
+    const opcion = document.createElement('option');
+    opcion.value = nombre;
+    opcion.textContent = nombre;
+    filtroPlan.appendChild(opcion);
+  });
+
+  filtrarPlatosDelMenu();
+  document.getElementById('modalMenu').style.display = 'block';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// filtrarPlatosDelMenu → (11/11) dibuja la lista "Agregar" de la ventana del menú, con los filtros de arriba
+// ENTRADA: nada (lee platosDisponibles, el buscador y el filtro de plan)
+// SALIDA:  nada. Llena la lista con los platos que cumplen; si no hay ninguno, la apaga con un aviso.
+// Ej: "tar" + plan SIN TACC → "SG3 · Tarta de verdura — SIN TACC" · "pizza" → "Ningún plato coincide con la búsqueda"
+// La llaman abrirMenuCombo y los dos filtros (mientras se escribe o se elige un plan).
+// ─────────────────────────────────────────────────────────────────────────────
+function filtrarPlatosDelMenu() {
   const lista = document.getElementById('mmDisponibles');
   const botonAgregar = document.getElementById('mmAgregar');
-  if (datos.disponibles.length === 0) {
-    lista.innerHTML = '<option value="">No hay más platos activos para agregar</option>';
+  const textoBuscado = document.getElementById('mmBuscar').value.trim().toLowerCase();
+  const planElegido = document.getElementById('mmPlanFiltro').value;   // '' = todos
+
+  // 1. Los que cumplen: el nombre (o el código) contiene lo escrito, y son del plan elegido
+  const visibles = platosDisponibles.filter(plato => {
+    const textoDelPlato = (String(plato.nombre) + ' ' + String(plato.codigo)).toLowerCase();   // ej: "tarta de verdura sg3"
+    const coincideTexto = textoDelPlato.includes(textoBuscado);
+    const coincidePlan = planElegido === '' || plato.plan === planElegido;
+    return coincideTexto && coincidePlan;
+  });
+
+  // 2. Sin platos para agregar (o ninguno que cumpla): la lista y el botón se apagan con un aviso
+  let avisoVacio = '';
+  if (platosDisponibles.length === 0) { // ¿el menú ya tiene todos los platos? SÍ → no hay más · NO → sigue
+    avisoVacio = 'No hay más platos activos para agregar';
+  } else if (visibles.length === 0) {    // ¿ninguno cumple los filtros? SÍ: "pizza" · NO: hay al menos uno
+    avisoVacio = 'Ningún plato coincide con la búsqueda';
+  }
+  if (avisoVacio !== '') { // ¿hay que avisar? SÍ: no hay qué agregar → se apaga · NO: se dibuja la lista
+    lista.innerHTML = `<option value="">${avisoVacio}</option>`;
     lista.disabled = true;
     botonAgregar.disabled = true;
-  } else {
-    let opciones = '<option value="">Elegí un plato...</option>';
-    datos.disponibles.forEach(plato => {
-      // Ej: "F3 · arroz — MANTENIMIENTO" (28/10: el código primero; una opción de lista no puede llevar la pastillita)
-      let texto = plato.nombre;
-      if (plato.codigo) texto = plato.codigo + ' · ' + texto;
-      if (plato.plan) texto = texto + ' — ' + plato.plan;
-      opciones += `<option value="${Number(plato.id)}">${escHtml(texto)}</option>`;
-    });
-    lista.innerHTML = opciones;
-    lista.disabled = false;
-    botonAgregar.disabled = false;
+    return;
   }
 
-  document.getElementById('modalMenu').style.display = 'block';
+  // 3. La lista. Ej: "F3 · arroz — MANTENIMIENTO" (el código primero; una opción de lista no puede llevar la pastillita)
+  let opciones = '<option value="">Elegí un plato...</option>';
+  visibles.forEach(plato => {
+    let texto = plato.nombre;
+    if (plato.codigo) { // ¿tiene código? SÍ: "F3 · arroz" · NO: "arroz"
+      texto = plato.codigo + ' · ' + texto;
+    }
+    if (plato.plan) { // ¿tiene plan? SÍ: "… — MANTENIMIENTO" · NO: sin plan
+      texto = texto + ' — ' + plato.plan;
+    }
+    const textoSeguro = escHtml(texto);   // viene de la base: escHtml antes del innerHTML
+    const idPlato = Number(plato.id);
+    opciones += `<option value="${idPlato}">${textoSeguro}</option>`;
+  });
+  lista.innerHTML = opciones;
+  // Si quedó uno solo, se elige solo (así "tarta" + Agregar es un solo clic)
+  if (visibles.length === 1) { // ¿quedó uno solo? SÍ: se elige · NO: tiene que elegir
+    lista.value = String(Number(visibles[0].id));
+  }
+  lista.disabled = false;
+  botonAgregar.disabled = false;
 }
 
 // ── Agrega al menú el plato elegido en la lista ───────────────────────────
@@ -469,6 +583,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const ventanas = [document.getElementById('modalCombo'), document.getElementById('modalMenu')];
 
   cargarCombos();
+
+  // (11/11) Los filtros: la tabla se vuelve a dibujar mientras se escribe o al elegir un plan (con lo que ya trajo)
+  document.getElementById('filtroNombreCombo').addEventListener('input', renderizarCombos);
+  document.getElementById('filtroPlanCombo').addEventListener('change', renderizarCombos);
+  // Y en la ventana del menú, la lista "Agregar"
+  document.getElementById('mmBuscar').addEventListener('input', filtrarPlatosDelMenu);
+  document.getElementById('mmPlanFiltro').addEventListener('change', filtrarPlatosDelMenu);
 
   // Cerrar cada ventana: con la ✕, "Cancelar"/"Cerrar" o un clic en el fondo oscuro
   ventanas.forEach(ventana => {

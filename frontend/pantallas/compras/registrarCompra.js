@@ -9,7 +9,8 @@
 //   calcularVencimiento    → fecha de compra + días de duración
 //   renderizarInsumosModal → un renglón por insumo en la lista de la ventana
 //   recalcularVencimientos → recalcula los vencimientos al cambiar la fecha de compra
-//   filtrarRenglonesCompra → muestra u oculta renglones por categoría y "Solo los bajos"
+//   filtrarRenglonesCompra → muestra u oculta renglones por nombre (11/11: "Buscar insumo"), categoría y "Solo los bajos"
+//   mostrarResumenCompra   → (11/11) la ventana "Resumen de la compra": lo cargado, para revisar antes de guardar
 //   llenarCategorias       → llena el select de categorías
 //   juntarItemsCompra      → los renglones con cantidad escrita
 //   guardarCompra          → manda la compra (POST /api/compras), cierra la ventana y recarga la pantalla
@@ -31,6 +32,7 @@ const botonCerrarCompra = document.getElementById("botonCerrarCompra");   // (05
 const compraFecha = document.getElementById("compraFecha");               // fecha de la compra
 const compraCategoria = document.getElementById("compraCategoria");       // select de categoría
 const compraSoloBajos = document.getElementById("compraSoloBajos");       // checkbox "Solo los bajos"
+const compraBuscar = document.getElementById("compraBuscar");             // (11/11) "Buscar insumo"
 const btnGuardarCompra = document.getElementById("btnGuardarCompra");         // botón "Guardar compra"
 const compraProveedor = document.getElementById("compraProveedor");                     // input de proveedor (texto)
 const compraError = document.getElementById("compraError");                           // div de error
@@ -60,6 +62,19 @@ compraFecha.addEventListener("change", recalcularVencimientos);
 // Si cambian la categoría o "Solo los bajos", se filtran los renglones
 compraCategoria.addEventListener("change", filtrarRenglonesCompra);
 compraSoloBajos.addEventListener("change", filtrarRenglonesCompra);
+compraBuscar.addEventListener("input", filtrarRenglonesCompra);   // (11/11) se filtra mientras escribe
+
+// (11/11) "Resumen" abre la lista de lo cargado; "Volver" (o tocar lo oscuro de afuera) la cierra
+document.getElementById("btnResumenCompra").addEventListener("click", mostrarResumenCompra);
+document.getElementById("btnVolverResumen").addEventListener("click", () => {
+  document.getElementById("modalResumenCompra").hidden = true;
+});
+document.getElementById("modalResumenCompra").addEventListener("click", (evento) => {
+  // ¿tocó lo oscuro de afuera? SÍ → se cierra · NO: tocó adentro de la ventana → sigue abierta
+  if (evento.target.id === "modalResumenCompra") {
+    document.getElementById("modalResumenCompra").hidden = true;
+  }
+});
 
 // 3. Cuando tocan "Cancelar" o la X (05/11: la X es nueva del diseño y hace lo mismo que "Cancelar")...
 // Escape y tocar afuera NO la cierran, igual que antes: así no se pierden las cantidades ya escritas
@@ -103,6 +118,7 @@ function renderizarInsumosModal(insumos) {
     tr.className = "renglon-compra";           // las 6 columnas de la grilla (CSS)
     tr.setAttribute("role", "row");            // para el lector de pantalla: un renglón de la tabla
     tr.dataset.id = insumo.id;                 // data-id: de qué insumo es este renglón
+    tr.dataset.nombre = String(insumo.nombre).toLowerCase();   // (11/11) data-nombre: en minúsculas, lo usa el buscador
 
     // data-categoria: de qué categoría es este renglón (lo usa el filtro)
     // 05/11: y el texto que va abajo del nombre (sin categoría, no va nada)
@@ -166,24 +182,67 @@ function recalcularVencimientos() {
   });
 }
 
-// Muestra u oculta renglones según la categoría y "Solo los bajos".
+// Muestra u oculta renglones según lo escrito en "Buscar insumo", la categoría y "Solo los bajos".
 // No redibuja la tabla: así no se borran las cantidades que ya escribió.
 function filtrarRenglonesCompra() {
+  const texto = compraBuscar.value.trim().toLowerCase();   // (11/11) lo escrito en el buscador, en minúsculas ("" = todos)
   const categoria = compraCategoria.value;   // lo elegido en el select ("" = Todas)
   const soloBajos = compraSoloBajos.checked; // true si está tildado
 
   const filas = document.querySelectorAll("#comprasItemsBody .renglon-compra[data-id]"); // todos los renglones
 
   filas.forEach((tr) => {
+    // (11/11) ¿El nombre tiene lo escrito? includes = "contiene". Ej: "ajo" → "Ajo" sí · "Ajo morado" sí · "Papa" no
+    const coincideNombre = tr.dataset.nombre.includes(texto);
+
     // ¿Eligió "Todas" O la categoría del renglón es la elegida?
     const coincideCategoria = categoria === "" || tr.dataset.categoria === categoria;
 
     // ¿NO tildó "Solo los bajos" O el renglón está bajo (tiene la clase fila-baja)?
     const pasaBajos = !soloBajos || tr.classList.contains("fila-baja");
 
-    // Se ve solo si cumple las dos. Si no, se oculta
-    tr.hidden = !(coincideCategoria && pasaBajos);
+    // Se ve solo si cumple las tres. Si no, se oculta
+    tr.hidden = !(coincideNombre && coincideCategoria && pasaBajos);
   });
+}
+
+// ----------------------------------------------------------------------------
+// mostrarResumenCompra → (11/11) abre la ventana "Resumen de la compra" con lo que se cargó
+// ENTRADA: nada (lee los renglones con cantidad) · SALIDA: nada (llena la lista y muestra la ventana)
+// Ej: 2 kg de Papa y 500 g de Ajo → "Papa · 2 kg · vence 14/11" y "Ajo · 500 g · sin vencimiento"
+// Sirve para revisar antes de "Guardar compra". No cambia nada: es solo para mirar.
+// ----------------------------------------------------------------------------
+function mostrarResumenCompra() {
+  const lista = document.getElementById("resumenCompraLista");
+  const filas = document.querySelectorAll("#comprasItemsBody .renglon-compra[data-id]");
+
+  // 1. Un renglón del resumen por cada insumo con cantidad (los ocultos por el buscador también cuentan)
+  let html = "";
+  let cargados = 0;
+  filas.forEach((tr) => {
+    const cantidad = Number(tr.querySelector(".compra-cantidad").value);
+    if (!cantidad) { // ¿no tiene cantidad? SÍ: vacío o 0 → no va al resumen · NO: 2 → va
+      return;        // (return = saltear este y seguir con el siguiente)
+    }
+    cargados = cargados + 1;
+    // El nombre sale de la base: escHtml antes de ir al innerHTML. La unidad es la elegida en su select
+    const nombre = escHtml(tr.querySelector(".renglon-compra-nombre").firstChild.textContent);
+    const unidad = escHtml(tr.querySelector(".compra-unidad").value);
+    const vence = tr.querySelector(".compra-vence").value;   // 'AAAA-MM-DD' o vacío
+    let textoVence = "sin vencimiento";
+    if (vence) { // ¿tiene vencimiento? SÍ: '2026-11-14' → "vence 14/11/2026" · NO: "sin vencimiento"
+      textoVence = "vence " + fechaDDMMAAAA(parseFechaLocal(vence));
+    }
+    html = html + `<div class="renglon-resumen-compra"><span class="nombre-resumen-compra">${nombre}</span>`
+      + `<span>${cantidad} ${unidad}</span><span class="vence-resumen-compra">${textoVence}</span></div>`;
+  });
+
+  // 2. Sin nada cargado, se avisa
+  if (cargados === 0) { // ¿no cargó ninguno? SÍ: todo vacío · NO: hay al menos uno
+    html = '<p class="vacio-resumen-compra">Todavía no cargaste ningún insumo.</p>';
+  }
+  lista.innerHTML = html;
+  document.getElementById("modalResumenCompra").hidden = false;
 }
 
 // Llena el select de categorías con las categorías de los insumos (sin repetir)

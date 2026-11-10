@@ -2,13 +2,14 @@
    La tabla, las ventanas y los botones salen de global.css y compartido/tablasYVentanas.css (como Insumos).
    F9 (05/11): antes estaba en compartido/combos.css. Lo que comparte con Planes y categorías está en compartido/activarYAvisos.css. */
 
-/* Anchos de las columnas: Nombre se queda con lo que sobra */
+/* Anchos de las columnas: Nombre se queda con lo que sobra.
+   (11/11) Sin la columna Menú: los platos del menú van abajo del nombre, chiquitos (renderizarCombos) */
+.tabla-combos { min-width: 760px; }             /* en el celu, la tabla se mueve de costado */
 .tabla-combos th:nth-child(2) { width: 15%; }   /* Plan */
 .tabla-combos th:nth-child(3) { width: 80px; }  /* Viandas */
 .tabla-combos th:nth-child(4) { width: 110px; } /* Precio */
-.tabla-combos th:nth-child(5) { width: 100px; } /* Menú */
-.tabla-combos th:nth-child(6) { width: 18%; }   /* Estado */
-.tabla-combos th:nth-child(7) { width: 250px; } /* Acciones: Editar · Menú · Activar/Desactivar */
+.tabla-combos th:nth-child(5) { width: 18%; }   /* Estado */
+.tabla-combos th:nth-child(6) { width: 260px; } /* Acciones: Menú · Editar · Activar/Desactivar */
 
 /* "no se ve en la web (sin platos)": debajo de la etiqueta, en ámbar */
 .no-se-ve {
@@ -25,7 +26,7 @@
   color: #fff;
   border: none;
   border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -83,9 +84,31 @@
   padding: 0.5rem 0.8rem;
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.85rem;
 }
+/* (11/11) La fila de los filtros del menú (buscar plato + plan), arriba de "Agregar": mismo casillero que la lista */
+.filtros-menu input[type="search"] {
+  flex: 1;
+  min-width: 180px;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
+  font-size: 0.85rem;
+}
+
+.filtros-menu select {
+  flex: 0 1 220px;
+  min-width: 160px;
+}
+
+.filtros-menu input[type="search"]:focus,
+.fila-agregar select:focus {
+  outline: none;
+  border-color: var(--primary-green);
+}
+
 .fila-agregar button:disabled,
 .tabla-menu button:disabled {
   opacity: 0.5;

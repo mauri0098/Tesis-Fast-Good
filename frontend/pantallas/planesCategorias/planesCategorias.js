@@ -5,6 +5,7 @@
 //   cargarDatos              → trae las categorías y los planes del servidor y dibuja las dos listas
 //   renderizarCategorias     → dibuja la lista de categorías, con los planes que tiene cada una
 //   renderizarPlanesPanel    → dibuja la lista de planes, con el desplegable de categoría de cada uno
+//                              (11/11: en la pantalla Catálogo, solo los de la categoría elegida en su filtro)
 //   armarFotoLista           → arma el HTML de la foto de una fila
 //   direccionDeFoto          → adapta la dirección de una foto para usarla desde cualquier pantalla
 //   abrirFormularioCategoria → abre la ventana para crear (null) o editar (con id) una categoría
@@ -59,7 +60,7 @@ async function cargarDatos() {
     // Mensaje simple en la pantalla; el detalle queda en la consola
     console.error('Error al cargar planes y categorías:', error);
     document.getElementById('categoriasBody').innerHTML = '<tr><td colspan="5" class="loading-text">No pudimos cargar las categorías. Probá de nuevo en un momento.</td></tr>';
-    document.getElementById('planesBody').innerHTML = '<tr><td colspan="7" class="loading-text">No pudimos cargar los planes. Probá de nuevo en un momento.</td></tr>';
+    document.getElementById('planesBody').innerHTML = '<tr><td colspan="5" class="loading-text">No pudimos cargar los planes. Probá de nuevo en un momento.</td></tr>';
     return;
   }
 
@@ -110,8 +111,23 @@ function renderizarCategorias() {
     planesPorCategoria[plan.id_categoria] = nombresDeLaCategoria;
   });
 
+  // (11/11) El buscador por nombre. Solo existe en la pantalla Catálogo: en la vieja no está y se ven todas.
+  //         Ej: "saludable" → Viandas Saludables, Pastelería Saludable, Combo saludable
+  const buscadorCategoria = document.getElementById('buscarCategoria');
+  let textoBuscado = '';
+  if (buscadorCategoria) { // ¿está el buscador? SÍ: pantalla Catálogo → se lee · NO: pantalla vieja → todas
+    textoBuscado = buscadorCategoria.value.trim().toLowerCase();
+  }
+  const categoriasVisibles = categoriasDelPanel.filter(categoria => {
+    return String(categoria.nombre).toLowerCase().includes(textoBuscado);   // includes = "contiene"
+  });
+  if (categoriasVisibles.length === 0) { // ¿ninguna coincide? SÍ: "pizza" · NO: hay al menos una
+    tbody.innerHTML = '<tr><td colspan="5" class="loading-text">No hay categorías con esa búsqueda.</td></tr>';
+    return;
+  }
+
   let html = '';
-  categoriasDelPanel.forEach(categoria => {
+  categoriasVisibles.forEach(categoria => {
     const idCategoria = Number(categoria.id);
     const planesAdentro = planesPorCategoria[categoria.id] || [];
     const textoPlanes = planesAdentro.join(', ') || 'Sin planes';   // join: ['Veggie', 'Kids'] → 'Veggie, Kids'
@@ -126,13 +142,17 @@ function renderizarCategorias() {
     const botones = categoria.activo ? botonesActiva : botonesDesactivada;
 
     // Todo lo que viene de la base pasa por escHtml (armarFotoLista también)
+    // (11/11) El orden de la maqueta de Catálogo: Nombre · Planes adentro · Foto · Estado · Acciones (en fila)
+    const nombreSeguro = escHtml(categoria.nombre);
+    const planesSeguros = escHtml(textoPlanes);
+    const foto = armarFotoLista(categoria.imagen, categoria.nombre);
     html += `
       <tr>
-        <td>${armarFotoLista(categoria.imagen, categoria.nombre)}</td>
-        <td>${escHtml(categoria.nombre)}</td>
-        <td>${escHtml(textoPlanes)}</td>
+        <td class="dato-principal">${nombreSeguro}</td>
+        <td>${planesSeguros}</td>
+        <td>${foto}</td>
         <td>${estado}</td>
-        <td class="td-acciones">${botones}</td>
+        <td class="td-acciones"><div class="botones-fila-catalogo">${botones}</div></td>
       </tr>`;
   });
 
@@ -148,23 +168,59 @@ function renderizarPlanesPanel() {
   const tbody = document.getElementById('planesBody');
 
   if (planesDelPanel.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="loading-text">Todavía no hay planes. Creá el primero con "+ Nuevo plan".</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="loading-text">Todavía no hay planes. Creá el primero con "+ Nuevo plan".</td></tr>';
     return;
   }
 
   // Las opciones del desplegable se arman una sola vez, y los nombres de categoría quedan en { id: nombre }
   // para no recorrer las categorías adentro de los planes. Ej: [{ id: 1, nombre: 'Viandas Saludables' }] → { 1: 'Viandas Saludables' }
   let opciones = '<option value="">Sin categoría</option>';
+  // (11/11) Las opciones del filtro "Categoría:" de la pantalla Catálogo: todas las categorías (activas o no),
+  //         armadas en la misma pasada
+  let opcionesFiltro = '<option value="">Todas</option><option value="sin">Sin categoría</option>';
   const nombresDeCategoria = {};
   categoriasDelPanel.forEach(categoria => {
     nombresDeCategoria[categoria.id] = categoria.nombre;
+    const idCategoria = Number(categoria.id);
+    const nombreSeguro = escHtml(categoria.nombre);
+    opcionesFiltro += `<option value="${idCategoria}">${nombreSeguro}</option>`;
     // Una categoría desactivada no sale en el desplegable: return = saltear esta y seguir con la siguiente
     if (!categoria.activo) return;
-    opciones += `<option value="${Number(categoria.id)}">${escHtml(categoria.nombre)}</option>`;
+    opciones += `<option value="${idCategoria}">${nombreSeguro}</option>`;
   });
 
+  // (11/11) El filtro por categoría. Solo existe en la pantalla Catálogo: en la vieja (planesCategorias.html) no
+  //         está y se ven todos, como siempre. Valor: '' = todas · 'sin' = sin categoría · '3' = la categoría 3
+  const filtroCategoria = document.getElementById('filtroCategoriaPlan');
+  let categoriaElegida = '';
+  if (filtroCategoria) { // ¿está el filtro? SÍ: pantalla Catálogo → se llena y se lee · NO: pantalla vieja → todos
+    categoriaElegida = filtroCategoria.value;                     // la que estaba elegida, para no perderla
+    filtroCategoria.innerHTML = opcionesFiltro;
+    filtroCategoria.value = categoriaElegida;
+  }
+  // filter = se queda con los planes de la categoría elegida. Ej: 'sin' → MANTENIMIENTO, PLAN VEGGIE…
+  // (11/11) Y el buscador por nombre (también solo en Catálogo). Ej: "descenso" → PLAN DESCENSO DE PESO
+  const buscadorPlan = document.getElementById('buscarPlan');
+  let textoBuscado = '';
+  if (buscadorPlan) { // ¿está el buscador? SÍ: pantalla Catálogo → se lee · NO: pantalla vieja → sin búsqueda
+    textoBuscado = buscadorPlan.value.trim().toLowerCase();
+  }
+  const planesVisibles = planesDelPanel.filter(plan => {
+    const sinCategoria = !plan.id_categoria;
+    const pidioTodas = categoriaElegida === '';
+    const pidioSinCategoria = categoriaElegida === 'sin' && sinCategoria;
+    const pidioLaSuya = String(plan.id_categoria) === categoriaElegida;
+    const coincideCategoria = pidioTodas || pidioSinCategoria || pidioLaSuya;
+    const coincideNombre = String(plan.nombre).toLowerCase().includes(textoBuscado);   // includes = "contiene"
+    return coincideCategoria && coincideNombre;
+  });
+  if (planesVisibles.length === 0) { // ¿ninguno cumple? SÍ: categoría vacía o "pizza" · NO: hay al menos uno
+    tbody.innerHTML = '<tr><td colspan="5" class="loading-text">No hay planes con esa búsqueda.</td></tr>';
+    return;
+  }
+
   let html = '';
-  planesDelPanel.forEach(plan => {
+  planesVisibles.forEach(plan => {
     const idPlan = Number(plan.id);
     const textoCategoria = nombresDeCategoria[plan.id_categoria] || 'Sin categoría';
 
@@ -180,16 +236,22 @@ function renderizarPlanesPanel() {
     const estado = plan.activo ? estadoActivo : estadoDesactivado;
     const botones = plan.activo ? botonesActivo : botonesDesactivado;
 
-    // Todo lo que viene de la base pasa por escHtml (armarFotoLista también)
+    // Todo lo que viene de la base pasa por escHtml
+    // (11/11) El orden de la maqueta de Catálogo: Nombre · Categoría · Abreviatura · Estado · Acciones (en fila).
+    //         La foto y la frase ya no van en la grilla: se ven y se cambian en "Editar"
+    const nombreSeguro = escHtml(plan.nombre);
+    let abreviatura = '—';
+    if (plan.codigo_plan) { // ¿tiene abreviatura? SÍ: 'KE' · NO: '—'
+      abreviatura = plan.codigo_plan;
+    }
+    const abreviaturaSegura = escHtml(abreviatura);
     html += `
       <tr>
-        <td>${armarFotoLista(plan.imagen, plan.nombre)}</td>
-        <td>${escHtml(plan.nombre)}</td>
-        <td>${escHtml(plan.codigo_plan || '—')}</td>
+        <td class="dato-principal">${nombreSeguro}</td>
         <td>${celdaCategoria}</td>
-        <td>${escHtml(plan.descripcion || '—')}</td>
+        <td>${abreviaturaSegura}</td>
         <td>${estado}</td>
-        <td class="td-acciones">${botones}</td>
+        <td class="td-acciones"><div class="botones-fila-catalogo">${botones}</div></td>
       </tr>`;
   });
 

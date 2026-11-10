@@ -1,0 +1,428 @@
+/* ===================================================
+   catalogo.css — (11/11) La pantalla Catálogo (pages/catalogo.html): Categorías · Planes · Combos en pestañas.
+   Diseño: docs/disenio/maqueta-catalogo.html.
+   Las tablas, las ventanas, las fotos y las etiquetas de estado siguen saliendo de global.css, stock.css,
+   combos.css y planesCategorias.css (las mismas de las dos pantallas de antes). Acá va solo lo nuevo:
+     1. Perillas (colores y medidas de la maqueta)
+     2. Título y bajada
+     3. Las pestañas
+     4. Las tarjetas (una por pestaña) y su cabecera
+     5. Filtros y botones de arriba
+     6. Los botones de las filas (pastillas con borde)
+     7. "Siguiente"
+     8. Celular
+   =================================================== */
+
+
+/* ===== 1. PERILLAS ===== */
+.pagina-catalogo {
+  --catalogo-verde: #12893a;          /* botón principal y pestaña elegida */
+  --catalogo-verde-hover: #0f7330;
+  --catalogo-borde: #e3e8ee;          /* borde de las tarjetas */
+  --catalogo-borde-boton: #d5dbe1;    /* borde de las pestañas, filtros y botones blancos */
+  --catalogo-linea: #edf0f3;          /* las rayitas de adentro de la tarjeta */
+  --catalogo-titulo: #111827;
+  --catalogo-suave: #4b5563;          /* las bajadas y los títulos de las columnas */
+  --catalogo-rojo: #b42318;           /* Desactivar */
+
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+
+/* ===== 2. TÍTULO Y BAJADA ===== */
+.titulo-catalogo {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--catalogo-titulo);
+}
+
+.bajada-catalogo {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--catalogo-suave);
+}
+
+
+/* ===== 3. LAS PESTAÑAS (como Tareas de Cocina): pastillas blancas con su número; la elegida, verde ===== */
+.pestanas-catalogo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pestana-catalogo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 18px 0 8px;
+  border: 1px solid var(--catalogo-borde-boton);
+  border-radius: 999px;
+  background: #fff;
+  color: #1f2937;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.pestana-catalogo:hover {
+  border-color: var(--catalogo-verde);
+}
+
+/* El circulito con el número (1, 2, 3) */
+.pestana-numero {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #eef1f4;
+  color: #374151;
+  font-size: 13px;
+}
+
+/* La elegida: verde con letra blanca, y el circulito blanco con el número verde */
+.pestana-catalogo--elegida {
+  border-color: var(--catalogo-verde);
+  background: var(--catalogo-verde);
+  color: #fff;
+}
+
+.pestana-catalogo--elegida .pestana-numero {
+  background: #fff;
+  color: var(--catalogo-verde);
+}
+
+
+/* ===== 4. LAS TARJETAS: blancas, con el borde finito y la sombra suave de la grilla de Consultar Pedidos ===== */
+.tarjeta-catalogo {
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radio-tarjeta);
+  background: var(--blanco);
+  box-shadow: var(--sombra-tarjeta-panel);
+}
+
+/* La tarjeta escondida (hidden lo pone catalogo.js): que ningún display de otro CSS la muestre */
+.tarjeta-catalogo[hidden] {
+  display: none;
+}
+
+/* Arriba: el título y su frase a la izquierda; los filtros y el botón a la derecha */
+.cabecera-tarjeta-catalogo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--catalogo-linea);
+}
+
+.titulo-tarjeta-catalogo {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--catalogo-titulo);
+}
+
+.nota-tarjeta-catalogo {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--catalogo-suave);
+}
+
+/* El aviso de Combos, adentro de su tarjeta (vacío no ocupa lugar) */
+.aviso-tarjeta-catalogo {
+  margin: 12px 20px 0;
+}
+
+.aviso-tarjeta-catalogo:empty {
+  display: none;
+}
+
+/* LA GRILLA: la del panel (global.css: "grilla-fg", la de Generar Receta y Consultar Pedidos). Las letras, el alto de
+   las filas, el aire y las rayitas salen de ahí. Acá solo se le saca el verde que le pone stock.css a los títulos
+   (con los colores generales de global.css) y se le da aire a los costados para que quede alineada con la tarjeta */
+.pagina-catalogo table.grilla-fg {
+  margin: 0;
+}
+
+.pagina-catalogo table.grilla-fg thead th {
+  background-color: var(--fondo-titulos-tabla);
+  color: var(--color-titulos-tabla);
+  border-bottom: 1px solid var(--linea-titulos-tabla);
+  border-radius: 0;
+}
+
+.pagina-catalogo table.grilla-fg thead th:first-child,
+.pagina-catalogo table.grilla-fg tbody td:first-child {
+  padding-left: 20px;
+}
+
+.pagina-catalogo table.grilla-fg thead th:last-child,
+.pagina-catalogo table.grilla-fg tbody td:last-child {
+  padding-right: 20px;
+}
+
+/* Acciones: a la derecha (el título y los botones) */
+.pagina-catalogo .titulo-acciones-catalogo {
+  text-align: right;
+}
+
+/* (11/11) Planes: Nombre y Categoría más juntos. Nombre ya no se queda con todo lo que sobra: tiene su ancho fijo,
+   y lo que sobra se lo lleva Acciones (que igual va pegada a la derecha). Ej: antes el desplegable quedaba lejísimos */
+.pagina-catalogo .tabla-planes th:nth-child(1) { width: 300px; }   /* Nombre */
+.pagina-catalogo .tabla-planes th:nth-child(5) { width: auto; }    /* Acciones: lo que sobra */
+
+
+/* ===== 5. FILTROS Y BOTONES DE ARRIBA ===== */
+/* (11/11) En compu, el título a la izquierda y las herramientas SIEMPRE a la derecha, en la misma fila
+   (en Planes son más anchas y bajaban de renglón). El título se achica y su frase baja de renglón si hace falta */
+.cabecera-tarjeta-catalogo {
+  flex-wrap: nowrap;
+}
+
+.cabecera-tarjeta-catalogo > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.herramientas-catalogo {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* "Categoría:" / "Plan:" con su lista */
+.filtro-catalogo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--catalogo-suave);
+}
+
+.filtro-catalogo select,
+.casillero-catalogo {
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--catalogo-borde-boton);
+  border-radius: 10px;
+  background: #fff;
+  color: #1f2937;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.casillero-catalogo {
+  width: 220px;
+}
+
+.filtro-catalogo select:focus,
+.casillero-catalogo:focus {
+  outline: none;
+  border-color: var(--catalogo-verde);
+  box-shadow: 0 0 0 3px rgba(18, 137, 58, 0.15);
+}
+
+/* "+ Nueva categoría", "+ Nuevo plan", "+ Nuevo combo": el principal, verde */
+.boton-nuevo-catalogo {
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--catalogo-verde);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.boton-nuevo-catalogo:hover {
+  background: var(--catalogo-verde-hover);
+}
+
+
+/* ===== 6. LOS BOTONES DE LAS FILAS: uno al lado del otro, pastillas blancas con borde (como la maqueta) =====
+   El alto, la letra y el aire son los de los botones de TODAS las tablas (global.css). Acá solo la forma y el color.
+   ".pagina-catalogo" adelante: le gana al color de stock.css y combos.css SOLO en esta pantalla */
+.botones-fila-catalogo {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+
+.pagina-catalogo .tarjeta-catalogo table .btn-editar,
+.pagina-catalogo .tarjeta-catalogo table .btn-borrar,
+.pagina-catalogo .tarjeta-catalogo table .btn-activar,
+.pagina-catalogo .tarjeta-catalogo table .btn-menu {
+  margin: 0;
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+/* Editar: borde gris */
+.pagina-catalogo .tarjeta-catalogo table .btn-editar {
+  border: 1px solid var(--catalogo-borde-boton);
+  color: #1f2937;
+}
+
+.pagina-catalogo .tarjeta-catalogo table .btn-editar:hover {
+  background: #f3f5f7;
+}
+
+/* Desactivar: borde y letra rojos */
+.pagina-catalogo .tarjeta-catalogo table .btn-borrar {
+  border: 1px solid #f1c4c0;
+  color: var(--catalogo-rojo);
+}
+
+.pagina-catalogo .tarjeta-catalogo table .btn-borrar:hover {
+  background: #fdeceb;
+}
+
+/* Menú y Activar: borde y letra verdes */
+.pagina-catalogo .tarjeta-catalogo table .btn-menu,
+.pagina-catalogo .tarjeta-catalogo table .btn-activar {
+  border: 1px solid var(--catalogo-verde);
+  color: var(--catalogo-verde);
+}
+
+.pagina-catalogo .tarjeta-catalogo table .btn-menu:hover,
+.pagina-catalogo .tarjeta-catalogo table .btn-activar:hover {
+  background: #e3f3e7;
+}
+
+
+/* ===== 7. "SIGUIENTE": abajo a la derecha, verde con borde ===== */
+.pie-catalogo {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.boton-siguiente-catalogo {
+  height: 42px;
+  padding: 0 20px;
+  border: 1px solid var(--catalogo-verde);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--catalogo-verde);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.boton-siguiente-catalogo:hover {
+  background: #e3f3e7;
+}
+
+.boton-siguiente-catalogo[hidden] {
+  display: none;
+}
+
+
+/* ===== 8. CELULAR: pestañas y herramientas de todo el ancho; la tabla se mueve de costado ===== */
+@media (max-width: 768px) {
+  .pestana-catalogo {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .cabecera-tarjeta-catalogo {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .herramientas-catalogo {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtro-catalogo select,
+  .casillero-catalogo {
+    flex: 1;
+    width: 100%;
+  }
+
+  .boton-nuevo-catalogo,
+  .boton-siguiente-catalogo {
+    width: 100%;
+  }
+}
+
+
+/* ===== 9. (11/11) LA VENTANA DEL MENÚ DE UN COMBO: más grande, arriba buscar y agregar, abajo los platos ===== */
+/* Más ancha y más arriba (la de siempre medía 680 px y arrancaba al 10% de la pantalla) */
+.modal-content.ventana-menu-catalogo {
+  width: 92%;
+  max-width: 900px;
+  margin: 4vh auto;
+  padding: 28px 30px;
+}
+
+/* Los dos títulos chicos: "Agregar un plato" y "Platos del menú" */
+.titulo-seccion-menu {
+  margin: 0 0 0.6rem;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+/* La caja de arriba: buscar y agregar, en un recuadro gris clarito para que se distinga de la lista */
+.caja-agregar-catalogo {
+  margin-bottom: 1.4rem;
+  padding: 16px 18px 6px;
+  border: 1px solid #e3e8ee;
+  border-radius: 12px;
+  background: #f8fafb;
+}
+
+/* La lista para elegir el plato ocupa todo el ancho que deja el botón Agregar */
+.caja-agregar-catalogo #mmDisponibles {
+  flex: 1;
+}
+
+/* La tabla de los platos del menú: si son muchos, se mueve sola (la ventana no crece de más) */
+.tabla-menu-catalogo {
+  max-height: 45vh;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+  border: 1px solid #edf0f3;
+  border-radius: 12px;
+}
+
+.tabla-menu-catalogo .tabla-menu {
+  margin-bottom: 0;
+}
+
+
+@media (max-width: 768px) {
+  .modal-content.ventana-menu-catalogo {
+    width: 96%;
+    margin: 2vh auto;
+    padding: 20px 16px;
+  }
+}

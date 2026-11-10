@@ -6,9 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fast Good — Planes y categorías</title>
   <link rel="icon" href="/src/assets/img/logo.webp" type="image/webp"/>
-  <!-- Letra: Inter, la del panel. Poppins queda porque tablasYVentanas.css y activarYAvisos.css todavía la usan -->
+  <!-- Letra: Inter, la del panel (11/11: Poppins ya no se usa en ninguna pantalla) -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/compartido/global.css">
   <!-- Mismo estilo que Gestión de Stock y Combos (tablas, ventanas, botones y etiquetas de estado) -->
   <link rel="stylesheet" href="/compartido/tablasYVentanas.css">
@@ -50,12 +49,12 @@
       <p class="nota-lista">Una categoría junta varios planes en una sola tarjeta de la web.</p>
 
       <div class="tabla-con-desplazamiento">
-        <table class="standard-table tabla-categorias">
+        <table class="standard-table grilla-fg tabla-categorias">
           <thead>
             <tr>
-              <th>Foto</th>
               <th>Nombre</th>
               <th>Planes adentro</th>
+              <th>Foto</th>
               <th>Estado</th>
               <th>Acciones</th>
             </tr>
@@ -78,21 +77,19 @@
       <p class="nota-lista">Para agrupar planes, elegí la misma categoría en su desplegable. Con "Sin categoría", el plan tiene su propia tarjeta.</p>
 
       <div class="tabla-con-desplazamiento">
-        <table class="standard-table tabla-planes">
+        <table class="standard-table grilla-fg tabla-planes">
           <thead>
             <tr>
-              <th>Foto</th>
               <th>Nombre</th>
-              <th>Abreviatura</th>
               <th>Categoría</th>
-              <th>Frase</th>
+              <th>Abreviatura</th>
               <th>Estado</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody id="planesBody">
             <tr>
-              <td colspan="7" class="loading-text">Cargando planes...</td>
+              <td colspan="5" class="loading-text">Cargando planes...</td>
             </tr>
           </tbody>
         </table>

@@ -94,11 +94,12 @@
     --envio-retira: #6b3fbf;               /* "Retira": violeta */
     --pago-a-cobrar: #a35f00;              /* "A cobrar": naranja (el "✓ Cobrado" usa el verde de los textos chicos) */
 
-    /* (05/11) Un pedido con algún plato personalizado: la fila entera en ámbar suave, con una línea naranja a la izquierda
-       (el mismo naranja de "⚠ sin sal" en Detalles) */
-    --fila-personalizada-fondo: #fff8eb;
-    --fila-personalizada-encima: #fff1d6;  /* …y un poco más fuerte al pasar el mouse */
-    --fila-personalizada-linea: #e09a1a;
+    /* (05/11) Un pedido con algún plato personalizado: la fila entera en un color suave, con una línea a la izquierda.
+       (11/11) Antes era ámbar y se confundía con "En preparación" (naranja). Ahora es ROSA FRAMBUESA: no lo usa
+       ningún estado (azul, naranja, celeste, verdes y rojo) */
+    --fila-personalizada-fondo: #fdf1f6;
+    --fila-personalizada-encima: #fae2ed;  /* …y un poco más fuerte al pasar el mouse */
+    --fila-personalizada-linea: #d6336c;
 
     /* Las variables de las ventanas de Detalle están en global.css */
 }
@@ -160,10 +161,25 @@
 }
 
 .parte-entrega,
-.parte-estado {
+.parte-estado,
+.parte-personalizados {
     width: var(--ancho-parte-filtro);
     flex: none;
     border-left: 1px solid var(--linea-tabla);
+}
+
+/* (11/11) 4. Personalizados: la lista ocupa todo el ancho de la parte (así se toca en cualquier lado);
+   sin la flechita propia del navegador: la ▾ es la de la barra, igual que en Entrega y Estado */
+.parte-personalizados {
+    cursor: pointer;
+}
+
+.barra-filtros .select-personalizados {
+    flex: 1;
+    appearance: none;
+    -webkit-appearance: none;
+    font-weight: 600;
+    cursor: pointer;
 }
 
 /* 1. Buscar: se queda con lo que sobra */
@@ -1111,14 +1127,15 @@ table.tabla-pedidos .col-costo {
     }
 
     .parte-entrega,
-    .parte-estado {
+    .parte-estado,
+    .parte-personalizados {
         width: auto;
         border-left: 0;
         border-top: 1px solid var(--linea-tabla);
     }
 
-    /* Estado es el último renglón: sus esquinas redondeadas van abajo */
-    .parte-estado {
+    /* (11/11) Personalizados es el último renglón: sus esquinas redondeadas van abajo */
+    .parte-personalizados {
         border-radius: 0 0 var(--radio-barra-filtros) var(--radio-barra-filtros);
     }
 

@@ -867,6 +867,47 @@ p.texto-confirmar {
     background: var(--verde-hondo);
 }
 
+/* (11/11) "Sí, eliminar" de la ventana Eliminar producción: rojo, con la misma forma que el verde */
+.boton-confirmar-eliminar {
+    height: 40px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 10px;
+    background: #dc3545;
+    color: var(--blanco);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+.boton-confirmar-eliminar:hover {
+    background: #b02a37;
+}
+
+/* (11/11) "Eliminar" de cada fila de Para stock (solo la administración): blanco con borde y letra roja */
+.boton-eliminar-produccion {
+    height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--blanco);
+    box-shadow: inset 0 0 0 1px #f1aeb5;
+    color: #b02a37;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+.boton-eliminar-produccion:hover {
+    background: #fdecee;
+}
+
 .boton-listo-detalles[hidden] {
     display: none;
 }

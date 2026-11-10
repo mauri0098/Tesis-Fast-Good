@@ -707,6 +707,56 @@ function agregarFilaInsumo(insumoExistente) {
     selectInsumo.value = insumoExistente.id_insumo;
   }
 
+  // (11/11) ELEGIR ESCRIBIENDO: en vez de buscar en la lista desplegable, se escribe ("aj") y aparecen sugerencias
+  //         (Ajo, Ají molido…). La lista de antes (select .ed-insumo) queda ESCONDIDA y sigue guardando el número del
+  //         insumo: así guardarReceta no cambia. Las sugerencias son un <datalist> (una lista que el navegador muestra
+  //         abajo del campo) compartido por todos los renglones: se crea una vez y se actualiza en cada renglón nuevo.
+  let sugerencias = document.getElementById('sugerenciasIngredientes');
+  if (!sugerencias) { // ¿todavía no existe? SÍ: el primer renglón la crea · NO: ya está, se reusa
+    sugerencias = document.createElement('datalist');
+    sugerencias.id = 'sugerenciasIngredientes';
+    document.body.appendChild(sugerencias);
+  }
+  sugerencias.innerHTML = '';
+  todosInsumos.forEach(function (ins) {
+    const opcion = document.createElement('option');
+    opcion.value = ins.nombre;          // value: lo que se escribe en el campo al elegirla (no es HTML: no hace falta escHtml)
+    sugerencias.appendChild(opcion);
+  });
+
+  const inputIngrediente = document.createElement('input');
+  inputIngrediente.type         = 'text';
+  inputIngrediente.className    = 'ed-insumo-buscar';
+  inputIngrediente.placeholder  = 'Escribí el ingrediente... (ej: ajo)';
+  inputIngrediente.autocomplete = 'off';
+  inputIngrediente.setAttribute('list', 'sugerenciasIngredientes');
+  inputIngrediente.setAttribute('aria-label', 'Ingrediente');
+  selectInsumo.classList.add('ed-insumo-oculto');   // la lista vieja: escondida (CSS), pero sigue guardando el número
+
+  // En edición, el campo arranca con el nombre del insumo que ya tenía la receta
+  if (insumoExistente && insumoExistente.id_insumo) {
+    const yaElegido = todosInsumos.find(function (i) { return String(i.id) === String(insumoExistente.id_insumo); });
+    if (yaElegido) { // ¿el insumo sigue existiendo? SÍ: se escribe su nombre · NO: queda vacío (hay que elegir otro)
+      inputIngrediente.value = yaElegido.nombre;
+    }
+  }
+
+  // Cada vez que cambia lo escrito: si coincide con un insumo (sin importar mayúsculas), se elige en la lista
+  // escondida y se avisa a su "change" (que completa la unidad). Si no coincide, la lista queda vacía y al guardar
+  // aparece el error de siempre ("completá los insumos").
+  // Ej: "ajo" → elige Ajo (id 12) y la unidad pasa a "g" · "ajx" → nada elegido
+  inputIngrediente.addEventListener('input', function () {
+    const escrito = inputIngrediente.value.trim().toLowerCase();
+    const encontrado = todosInsumos.find(function (i) { return String(i.nombre).toLowerCase() === escrito; });
+    let idElegido = '';
+    if (encontrado) { // ¿lo escrito es un insumo? SÍ: "Ajo" → su número · NO: todavía escribiendo → vacío
+      idElegido = String(encontrado.id);
+    }
+    selectInsumo.value = idElegido;
+    selectInsumo.dispatchEvent(new Event('change'));   // dispara el "change" de abajo: actualiza la unidad
+  });
+
+  tdInsumo.appendChild(inputIngrediente);
   tdInsumo.appendChild(selectInsumo);
 
   // — Celda: cantidad —

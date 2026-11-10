@@ -124,19 +124,35 @@ function crearFilaInsumo(insumo) {// SE ARMA LA FILA DE UN INSUMO, LA PAGINACION
 // ==========================================
 
 
-function cargarCategoriasEnFiltro() {
+// ----------------------------------------------------------------------------
+// cargarCategoriasEnFiltro → llena el filtro "Todas las categorías" con TODAS las categorías de la base
+// ENTRADA: nada · SALIDA: nada (llena el select y deja elegida la que estaba)
+// (11/11) Antes armaba la lista con las categorías de los insumos cargados: una categoría nueva sin
+// insumos (ej: "Trigo") no aparecía. Ahora las pide al servidor, como el modal de Incorporar.
+// ----------------------------------------------------------------------------
+async function cargarCategoriasEnFiltro() {
   const select = document.getElementById('filtroCategoria');
-  select.innerHTML = '<option value="">Todas las categorías</option>';
+  const elegida = select.value;   // la que estaba elegida, para no perderla al recargar
 
-  
-  const cats = [...new Set(todosInsumos.map(i => i.categorias_insumos?.nombre).filter(Boolean))].sort();
+  try {
+    const res = await apiFetch('/api/categorias-insumos');
+    if (!res.ok) { // ¿el servidor respondió mal? SÍ: 500 → va al catch · NO: 200 → sigue
+      throw new Error('HTTP ' + res.status);
+    }
+    const categorias = await res.json();   // ya vienen ordenadas por nombre
 
-  cats.forEach(c => {
-    const option = document.createElement('option');
-    option.value = c;
-    option.textContent = c;
-    select.appendChild(option);
-  });
+    select.innerHTML = '<option value="">Todas las categorías</option>';
+    categorias.forEach(categoria => {
+      const option = document.createElement('option');
+      option.value = categoria.nombre;        // el filtro compara por nombre (ver aplicarFiltros)
+      option.textContent = categoria.nombre;  // textContent: se muestra como texto, nunca como HTML
+      select.appendChild(option);
+    });
+    select.value = elegida;
+  } catch {
+    // Si falla, queda solo "Todas las categorías": la tabla se sigue viendo entera
+    select.innerHTML = '<option value="">Todas las categorías</option>';
+  }
 }
 
 function iniciarFiltros() {
@@ -269,7 +285,154 @@ async function confirmarNuevoInsumo() {
 window.addEventListener('click', (e) => {
   if (e.target === document.getElementById('modalNuevoInsumo')) cerrarModalNuevoInsumo();
   if (e.target === document.getElementById('modalEditarInsumo')) cerrarModalEditarInsumo();
+  // ¿tocó afuera del modal de categoría? SÍ: el fondo oscuro → se cierra · NO: adentro del cuadro → sigue abierto
+  if (e.target === document.getElementById('modalNuevaCategoria')) {
+    cerrarModalNuevaCategoria();
+  }
 });
+
+// ==========================================
+// MODAL CATEGORÍAS DE INSUMOS (11/11): agregar y eliminar
+// ==========================================
+
+// ----------------------------------------------------------------------------
+// abrirModalNuevaCategoria → abre el modal y llena la lista "Eliminar una categoría"
+// ENTRADA: nada (la llama el botón "+ Nueva categoría", y eliminarCategoriaInsumo para refrescar)
+// SALIDA:  nada. El campo "Agregar" queda vacío y la lista con todas las categorías.
+// Ej: hay "Carnes" y "Trigo" → la lista dice: Elegí una categoría… · Carnes · Trigo
+// ----------------------------------------------------------------------------
+async function abrirModalNuevaCategoria() {
+  const select = document.getElementById('ncEliminar');
+
+  // 1. El modal se abre limpio
+  document.getElementById('ncNombre').value = '';
+  document.getElementById('ncError').style.display = 'none';
+  select.innerHTML = '<option value="">Cargando categorías...</option>';
+  document.getElementById('modalNuevaCategoria').style.display = 'block';
+  document.getElementById('ncNombre').focus();
+
+  // 2. Se piden las categorías y se ponen en la lista (value = el número, texto = el nombre).
+  //    textContent: el nombre viene de la base y se muestra como texto, nunca como HTML.
+  try {
+    const res = await apiFetch('/api/categorias-insumos');
+    if (!res.ok) { // ¿el servidor respondió mal? SÍ: 500 → va al catch · NO: 200 → sigue
+      throw new Error('HTTP ' + res.status);
+    }
+    const categorias = await res.json();
+
+    select.innerHTML = '<option value="">Elegí una categoría...</option>';
+    categorias.forEach(categoria => {
+      const option = document.createElement('option');
+      option.value = categoria.id;
+      option.textContent = categoria.nombre;
+      select.appendChild(option);
+    });
+  } catch {
+    select.innerHTML = '<option value="">No pudimos cargar las categorías</option>';
+  }
+}
+
+// ----------------------------------------------------------------------------
+// guardarCategoriaInsumo → manda el nombre nuevo al servidor (POST /api/categorias-insumos)
+// ENTRADA: nada (lee el campo "Nombre" del modal)
+// SALIDA:  nada. Si sale bien, cierra el modal y avisa. Si no, muestra el error en rojo y el modal queda abierto.
+// Ej: "Verduras" → se guarda · "verduras" (ya existe "Verduras") → 'Ya existe la categoría "Verduras"'
+// El servidor vuelve a controlar todo (vacío, largo, repetida): acá solo se avisa antes lo más común.
+// ----------------------------------------------------------------------------
+async function guardarCategoriaInsumo() {
+  const errorEl = document.getElementById('ncError');
+  const nombre = document.getElementById('ncNombre').value.trim();
+
+  // 1. Si no escribió nada, se avisa sin ir al servidor
+  if (nombre === '') { // ¿está vacío? SÍ: '' o '   ' · NO: 'Verduras'
+    errorEl.textContent = 'Escribí el nombre de la categoría.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  // 2. Se manda al servidor. textContent muestra el mensaje como texto, nunca como HTML.
+  try {
+    const res = await apiFetch('/api/categorias-insumos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre: nombre })
+    });
+    const respuesta = await res.json();
+
+    if (!res.ok) { // ¿el servidor dijo que no? SÍ: 400 (vacío o largo) o 409 (repetida) → su mensaje · NO: 200 → sigue
+      errorEl.textContent = respuesta.error;
+      errorEl.style.display = 'block';
+      return;
+    }
+
+    // 3. Salió bien: se cierra, se recarga el filtro y se avisa. Los selects de Incorporar y Editar piden
+    //    las categorías cada vez que se abren, así que la nueva ya aparece ahí.
+    cerrarModalNuevaCategoria();
+    await cargarCategoriasEnFiltro();   // la nueva aparece también en el filtro de arriba
+    alert(`Categoría "${respuesta.categoria.nombre}" creada.`);
+  } catch {
+    errorEl.textContent = 'Error al guardar. Intentá de nuevo.';
+    errorEl.style.display = 'block';
+  }
+}
+
+// ----------------------------------------------------------------------------
+// eliminarCategoriaInsumo → borra la categoría elegida en la lista (DELETE /api/categorias-insumos/:id)
+// ENTRADA: nada (lee la lista "Eliminar una categoría"; la llama el botón Eliminar)
+// SALIDA:  nada. Si sale bien, avisa con el nombre y vuelve a llenar la lista y el filtro.
+//          Si la categoría tiene insumos, muestra el mensaje del servidor en rojo y no borra nada.
+// Ej: elige "Trigo" (sin insumos) → "¿Eliminar la categoría Trigo?" → 'Categoría "Trigo" eliminada'
+//     elige "Carnes" (5 insumos)  → 'La categoría tiene 5 insumos: cambiales la categoría antes de eliminarla'
+// ----------------------------------------------------------------------------
+async function eliminarCategoriaInsumo() {
+  const errorEl = document.getElementById('ncError');
+  const select = document.getElementById('ncEliminar');
+  const idCategoria = select.value;
+
+  // 1. Tiene que haber elegido una
+  if (idCategoria === '') { // ¿no eligió ninguna? SÍ: quedó en "Elegí una categoría…" · NO: eligió "Trigo"
+    errorEl.textContent = 'Elegí la categoría que querés eliminar.';
+    errorEl.style.display = 'block';
+    return;
+  }
+  // El nombre de la elegida, para la pregunta y el aviso. selectedIndex = cuál está elegida en la lista
+  const nombre = select.options[select.selectedIndex].textContent;
+
+  // 2. Se pregunta antes de borrar
+  const confirmo = confirm(`¿Eliminar la categoría "${nombre}"?`);
+  if (!confirmo) { // ¿dijo que no? SÍ: Cancelar → no se borra · NO: Aceptar → sigue
+    return;
+  }
+
+  // 3. Se manda al servidor (él controla que no tenga insumos)
+  try {
+    const res = await apiFetch(`/api/categorias-insumos/${idCategoria}`, { method: 'DELETE' });
+    const respuesta = await res.json();
+
+    if (!res.ok) { // ¿el servidor dijo que no? SÍ: 409 (tiene insumos) o 404 → su mensaje · NO: 200 → sigue
+      errorEl.textContent = respuesta.error;
+      errorEl.style.display = 'block';
+      return;
+    }
+
+    // 4. Salió bien: se vuelve a llenar la lista del modal y el filtro de arriba, y se avisa con el nombre
+    await abrirModalNuevaCategoria();
+    await cargarCategoriasEnFiltro();
+    alert(respuesta.mensaje);   // ej: 'Categoría "Trigo" eliminada'
+  } catch {
+    errorEl.textContent = 'Error al eliminar. Intentá de nuevo.';
+    errorEl.style.display = 'block';
+  }
+}
+
+// ----------------------------------------------------------------------------
+// cerrarModalNuevaCategoria → cierra el modal de categoría
+// ENTRADA: nada · SALIDA: nada (el modal se oculta)
+// La usan la ×, el botón Cerrar, el clic afuera y guardarCategoriaInsumo (igual que los otros modales).
+// ----------------------------------------------------------------------------
+function cerrarModalNuevaCategoria() {
+  document.getElementById('modalNuevaCategoria').style.display = 'none';
+}
 
 // ==========================================
 // ELIMINAR INSUMO

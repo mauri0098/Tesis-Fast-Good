@@ -53,20 +53,22 @@
   overflow-x: auto;
 }
 .tabla-categorias {
-  min-width: 720px;
+  min-width: 680px;
 }
 .tabla-planes {
-  min-width: 980px;
+  min-width: 760px;   /* 11/11: sin Foto ni Frase, entra en menos */
 }
 
-/* Anchos de las columnas: Nombre y Planes adentro o Frase se quedan con lo que sobra */
-.tabla-categorias th:nth-child(1), .tabla-planes th:nth-child(1) { width: 76px; }   /* Foto */
-.tabla-categorias th:nth-child(4) { width: 120px; }  /* Estado */
-.tabla-categorias th:nth-child(5) { width: 190px; }  /* Acciones */
-.tabla-planes th:nth-child(3) { width: 110px; }      /* Abreviatura */
-.tabla-planes th:nth-child(4) { width: 190px; }      /* Categoría */
-.tabla-planes th:nth-child(6) { width: 120px; }      /* Estado */
-.tabla-planes th:nth-child(7) { width: 190px; }      /* Acciones */
+/* Anchos de las columnas (11/11: el orden nuevo, el de la maqueta de Catálogo). Nombre y Planes adentro se quedan
+   con lo que sobra.  Categorías: Nombre · Planes adentro · Foto · Estado · Acciones
+                      Planes:     Nombre · Categoría · Abreviatura · Estado · Acciones */
+.tabla-categorias th:nth-child(3) { width: 90px; }   /* Foto */
+.tabla-categorias th:nth-child(4) { width: 130px; }  /* Estado */
+.tabla-categorias th:nth-child(5) { width: 210px; }  /* Acciones */
+.tabla-planes th:nth-child(2) { width: 220px; }      /* Categoría */
+.tabla-planes th:nth-child(3) { width: 120px; }      /* Abreviatura */
+.tabla-planes th:nth-child(4) { width: 130px; }      /* Estado */
+.tabla-planes th:nth-child(5) { width: 210px; }      /* Acciones */
 
 /* La foto de cada fila de las listas */
 .foto-lista {

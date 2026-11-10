@@ -6,9 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fast Good — Stock</title>
   <link rel="icon" href="/src/assets/img/logo.webp" type="image/webp"/>
-  <!-- Letra: Inter, la del panel (20/10; el index sigue con Figtree). Poppins queda porque el CSS propio de esta pantalla todavía la usa -->
+  <!-- Letra: Inter, la del panel (11/11: Poppins ya no se usa en ninguna pantalla) -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/compartido/global.css">
   <link rel="stylesheet" href="/compartido/tablasYVentanas.css">
   <link rel="stylesheet" href="/pantallas/stock/stock.css">
@@ -47,7 +46,11 @@
             <option value="Bajo mínimo">Bajo mínimo</option>
           </select>
         </div>
-        <button class="btn-nuevo-insumo" onclick="abrirModalNuevoInsumo()">+ Incorporar nuevo insumo</button>
+        <!-- botones-stock (11/11): los dos botones de arriba juntos -->
+        <div class="botones-stock">
+          <button class="btn-nueva-categoria" onclick="abrirModalNuevaCategoria()">+ Nueva categoría</button>
+          <button class="btn-nuevo-insumo" onclick="abrirModalNuevoInsumo()">+ Incorporar nuevo insumo</button>
+        </div>
       </div>
 
       <!-- tabla-stock-insumos (24/10): solo para darle a cada columna su ancho en % (stock.css); el JS no la usa -->
@@ -152,6 +155,36 @@
       <div class="modal-actions">
         <button class="btn-cancelar" onclick="cerrarModalEditarInsumo()">Cancelar</button>
         <button class="btn-confirmar" onclick="confirmarEditarInsumo()">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Categorías de insumos (11/11). Arriba se agrega una; abajo se elige una y se elimina -->
+  <div id="modalNuevaCategoria" class="modal">
+    <div class="modal-content modal-stock">
+      <span class="close" onclick="cerrarModalNuevaCategoria()">&times;</span>
+      <h3>Categorías de insumos</h3>
+
+      <!-- Agregar -->
+      <p class="categorias-titulo">Agregar una categoría</p>
+      <div class="fila-categoria">
+        <input id="ncNombre" type="text" maxlength="50" placeholder="Ej: Verduras">
+        <button class="btn-confirmar" onclick="guardarCategoriaInsumo()">Guardar</button>
+      </div>
+
+      <!-- Eliminar -->
+      <p class="categorias-titulo">Eliminar una categoría (solo si no tiene insumos)</p>
+      <div class="fila-categoria">
+        <select id="ncEliminar">
+          <option value="">Cargando categorías...</option>
+        </select>
+        <button class="boton-eliminar-categoria" onclick="eliminarCategoriaInsumo()">Eliminar</button>
+      </div>
+
+      <div id="ncError" class="modal-error"></div>
+
+      <div class="modal-actions">
+        <button class="btn-cancelar" onclick="cerrarModalNuevaCategoria()">Cerrar</button>
       </div>
     </div>
   </div>
