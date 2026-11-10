@@ -2206,6 +2206,119 @@ app.get('/api/categorias-insumos', requireAuth, requireRol(6, 5, 1), async (req,
   if (error) return errorInterno(res, error);
   res.json(data);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/categorias-insumos → agrega una categoría de insumos (botón "+ Nueva categoría" de Gestión de Stock)
+// ENTRADA: body { nombre } (texto, de 1 a 50 letras, sin espacios de más)
+// SALIDA:  200 { mensaje, categoria: { id, nombre } } · 400 nombre vacío o muy largo · 409 ya existe · 500
+// Ej: { nombre: ' Verduras ' } → { mensaje: 'Categoría creada', categoria: { id: 7, nombre: 'Verduras' } }
+//     { nombre: 'verduras' } (ya está "Verduras") → 409 'Ya existe la categoría "Verduras"'
+// Mismos roles que crean insumos (6 y 5). Solo AGREGA: las categorías no se borran ni se renombran acá.
+// ─────────────────────────────────────────────────────────────────────────────
+const LARGO_MAXIMO_CATEGORIA_INSUMO = 50;
+
+app.post('/api/categorias-insumos', requireAuth, requireRol(6, 5), async (req, res) => {
+  // 1. El nombre que mandó la pantalla (si no vino cuerpo, queda vacío y el control de abajo responde 400)
+  let nombre = '';
+  const vinoNombreDeTexto = Boolean(req.body) && typeof req.body.nombre === 'string';
+  if (vinoNombreDeTexto) { // ¿vino un nombre de texto? SÍ: { nombre: 'Verduras' } · NO: sin cuerpo, o { nombre: 5 }
+    nombre = req.body.nombre.trim();   // sin espacios en las puntas: ' Verduras ' → 'Verduras'
+  }
+
+  // 2. Tiene que tener algo escrito y no ser muy largo
+  if (nombre === '') { // ¿quedó vacío? SÍ: '', '   ', sin nombre · NO: 'Verduras'
+    return res.status(400).json({ error: 'Escribí el nombre de la categoría' });
+  }
+  if (nombre.length > LARGO_MAXIMO_CATEGORIA_INSUMO) { // ¿pasa de 50 letras? SÍ: 51 · NO: 'Verduras' (8)
+    return res.status(400).json({ error: `El nombre admite hasta ${LARGO_MAXIMO_CATEGORIA_INSUMO} caracteres` });
+  }
+
+  try {
+    // 3. No puede estar repetida (sin importar mayúsculas). Se traen todas (son pocas) y se compara acá,
+    //    así no se arma ningún filtro de la base con el texto que escribió el usuario.
+    const { data: categorias, error: errLectura } = await supabase
+      .from('categorias_insumos')
+      .select('id, nombre');
+    if (errLectura) { // ¿falló la base? SÍ: se cayó Supabase → 500 · NO: trajo la lista
+      return errorInterno(res, errLectura);
+    }
+    const nombreEnMinusculas = nombre.toLowerCase();
+    // find = la primera que se llama igual (o undefined). Ej: 'verduras' vs 'Verduras' → la encuentra
+    const repetida = categorias.find(categoria => String(categoria.nombre).toLowerCase() === nombreEnMinusculas);
+    if (repetida) { // ¿ya existe? SÍ: 'verduras' y está 'Verduras' · NO: 'Lácteos' nueva
+      return res.status(409).json({ error: `Ya existe la categoría "${repetida.nombre}"` });
+    }
+
+    // 4. Se guarda
+    const { data, error } = await supabase
+      .from('categorias_insumos')
+      .insert({ nombre: nombre })
+      .select('id, nombre')
+      .single();
+    if (error) { // ¿falló la base? SÍ: 500 · NO: la guardó
+      return errorInterno(res, error);
+    }
+
+    res.json({ mensaje: 'Categoría creada', categoria: data });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /api/categorias-insumos/:id → borra una categoría de insumos, SOLO si ningún insumo la usa
+// ENTRADA: el número de la categoría en la dirección
+// SALIDA:  200 { mensaje, categoria: { id, nombre } } · 400 número inválido · 404 no existe
+//          · 409 si algún insumo la usa (hay que cambiarles la categoría primero) · 500
+// Ej: DELETE /api/categorias-insumos/9 ("Trigo", sin insumos) → { mensaje: 'Categoría "Trigo" eliminada', … }
+//     DELETE /api/categorias-insumos/3 ("Carnes", con 5 insumos) → 409 'La categoría tiene 5 insumos: …'
+// (11/11) Con el OK de Mauri: una categoría vacía no la usa nadie, así que borrarla no rompe ningún insumo.
+// ─────────────────────────────────────────────────────────────────────────────
+app.delete('/api/categorias-insumos/:id', requireAuth, requireRol(6, 5), async (req, res) => {
+  // 1. El número de la categoría: entero, mayor a 0 y que entre en la base
+  const idCategoria = Number(req.params.id);
+  const idInvalido = !Number.isInteger(idCategoria) || idCategoria <= 0 || idCategoria > ENTERO_MAXIMO_BASE;
+  if (idInvalido) { // ¿el número no sirve? SÍ: 'abc', '-3' · NO: '9'
+    return res.status(400).json({ error: 'Categoría inválida' });
+  }
+
+  try {
+    // 2. ¿Cuántos insumos la usan? (activos o no). { count: 'exact', head: true } = solo la cuenta, sin traer filas
+    const { count, error: errCuenta } = await supabase
+      .from('insumos')
+      .select('id', { count: 'exact', head: true })
+      .eq('id_categoria_insumo', idCategoria);
+    if (errCuenta) { // ¿falló la base? SÍ: 500 · NO: trajo la cuenta
+      return errorInterno(res, errCuenta);
+    }
+    // Cómo se dice la cantidad: "1 insumo" o "5 insumos"
+    let cantidadInsumos = `${count} insumos`;
+    if (count === 1) { // ¿es uno solo? SÍ: 1 → "1 insumo" · NO: 5 → "5 insumos"
+      cantidadInsumos = '1 insumo';
+    }
+    if (count > 0) { // ¿algún insumo la usa? SÍ: "Carnes" con 5 → no se borra · NO: "Trigo" con 0 → sigue
+      return res.status(409).json({ error: `La categoría tiene ${cantidadInsumos}: cambiales la categoría antes de eliminarla` });
+    }
+
+    // 3. Se borra y vuelve la fila borrada (si no existía, data viene vacío)
+    const { data, error } = await supabase
+      .from('categorias_insumos')
+      .delete()
+      .eq('id', idCategoria)
+      .select('id, nombre')
+      .maybeSingle();
+    if (error) { // ¿falló la base? SÍ: 500 · NO: la borró (o no existía)
+      return errorInterno(res, error);
+    }
+    if (!data) { // ¿no borró nada? SÍ: la categoría 999999 no existe · NO: borró "Trigo"
+      return res.status(404).json({ error: 'La categoría no existe' });
+    }
+
+    res.json({ mensaje: `Categoría "${data.nombre}" eliminada`, categoria: data });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
 /* ======================================================
    API RECETAS
    ====================================================== */
@@ -3215,6 +3328,65 @@ app.post('/api/ordenes-produccion/detalles/:id/hecho', requireAuth, requireRol(.
     // 4. Listo: cuántas hay ahora y los avisos (si faltó un insumo o el plato no tiene receta)
     const avisos = Array.isArray(data.avisos) ? data.avisos : [];  // la lista de avisos (vacía si no vino)
     res.json({ mensaje: 'Plato marcado como hecho', stock_heladera: data.stock_heladera, avisos: avisos });
+  } catch (e) {
+    errorInterno(res, e);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /api/ordenes-produccion/detalles/:id → borra un plato de un pedido a cocina que TODAVÍA NO SE HIZO
+//                                              (botón "Eliminar" de Tareas de Cocina → Para stock, solo el admin)
+// ENTRADA: el número del renglón en la dirección
+// SALIDA:  200 { mensaje, renglon: { id, cantidad, fecha_para… } } · 400 número inválido · 404 no existe
+//          · 409 si ya se cocinó ("Hecho") · 500
+// Ej: DELETE /api/ordenes-produccion/detalles/21 (50 fideos para mañana, sin hacer) → { mensaje: 'Producción eliminada' }
+//     el mismo, ya marcado Hecho → 409 'Ya se cocinó: no se puede eliminar'
+// (11/11, con el OK de Mauri) Se BORRA porque, sin hacer, el renglón no tocó nada: la heladera no sumó viandas
+// y no se gastaron insumos. Uno hecho NO se borra nunca (eso sí cambió la heladera y los insumos).
+// Solo borra el renglón (una tabla). Si el pedido a cocina queda sin platos, su cabecera queda vacía: no se ve en ninguna pantalla.
+// ─────────────────────────────────────────────────────────────────────────────
+app.delete('/api/ordenes-produccion/detalles/:id', requireAuth, requireRol(...ROLES_PIDEN_COCINA), async (req, res) => {
+  // 1. El renglón: entero, mayor a 0 y que entre en la base
+  const idDetalle = Number(req.params.id);
+  const idInvalido = !Number.isInteger(idDetalle) || idDetalle <= 0 || idDetalle > ENTERO_MAXIMO_BASE;
+  if (idInvalido) { // ¿el número no sirve? SÍ: 'abc', '-3' · NO: '21'
+    return res.status(400).json({ error: 'Número de producción inválido' });
+  }
+
+  try {
+    // 2. El renglón tiene que existir y NO estar hecho
+    const { data: renglon, error: errLectura } = await supabase
+      .from('orden_produccion_detalles')
+      .select('id, hecho')
+      .eq('id', idDetalle)
+      .maybeSingle();
+    if (errLectura) { // ¿falló la base? SÍ: 500 · NO: sigue
+      return errorInterno(res, errLectura);
+    }
+    if (!renglon) { // ¿no existe? SÍ: el 999999 · NO: el 21
+      return res.status(404).json({ error: 'La producción no existe' });
+    }
+    if (renglon.hecho) { // ¿ya se cocinó? SÍ: tocaron "Hecho" → no se borra · NO: sin hacer → sigue
+      return res.status(409).json({ error: 'Ya se cocinó: no se puede eliminar' });
+    }
+
+    // 3. Se borra, SOLO si sigue sin hacer (.eq('hecho', false)): si justo la cocina tocó "Hecho" en el medio,
+    //    no se borra nada y se avisa
+    const { data: borrado, error } = await supabase
+      .from('orden_produccion_detalles')
+      .delete()
+      .eq('id', idDetalle)
+      .eq('hecho', false)
+      .select('id, cantidad')
+      .maybeSingle();
+    if (error) { // ¿falló la base? SÍ: 500 · NO: sigue
+      return errorInterno(res, error);
+    }
+    if (!borrado) { // ¿no borró nada? SÍ: lo marcaron Hecho justo ahora · NO: se borró
+      return res.status(409).json({ error: 'Ya se cocinó: no se puede eliminar' });
+    }
+
+    res.json({ mensaje: 'Producción eliminada', renglon: borrado });
   } catch (e) {
     errorInterno(res, e);
   }

@@ -89,6 +89,18 @@
             <button type="button" class="boton-estado" data-estado="5" data-nombre="Cancelado" aria-pressed="false"><span class="punto-estado punto-cancelado" aria-hidden="true"></span>Cancelado <span class="cantidad-estado">0</span></button>
           </div>
         </div>
+
+        <!-- 4. (11/11) Personalizados: todos, solo los que tienen algún plato personalizado, o solo los que no.
+             Filtra al elegir (lo usa renderizarPedidos, ListarPedidos.js) -->
+        <label class="parte-filtro parte-personalizados">
+          <span class="nombre-parte">Personalizados:</span>
+          <select id="filtroPersonalizados" class="filtro-input select-personalizados" aria-label="Filtrar por personalizados">
+            <option value="todos">Todos</option>
+            <option value="con">Con personalizado</option>
+            <option value="sin">Sin personalizado</option>
+          </select>
+          <svg class="flecha-parte" aria-hidden="true"><use href="#icono-flecha-abajo"></use></svg>
+        </label>
       </div>
       <button type="button" id="btnAplicarFechas" class="btn-filtro btn-filtro-aplicar boton-principal">Aplicar</button>
       <button type="button" id="btnVerTodos"      class="btn-filtro btn-filtro-todos boton-secundario">Ver todos</button>

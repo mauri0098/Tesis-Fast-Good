@@ -11,9 +11,8 @@
     body { visibility: hidden; opacity: 0; transition: opacity 0.15s ease-in; }
     body.cargada { visibility: visible; opacity: 1; }
   </style>
-  <!-- Letra: Inter, la del panel (20/10; el index sigue con Figtree). Poppins queda porque el CSS propio de esta pantalla todavía la usa -->
+  <!-- Letra: Inter, la del panel (11/11: Poppins ya no se usa en ninguna pantalla) -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../src/css/global.css">
   <!-- Mismo estilo que Gestión de Stock (tabla, ventanas y botones), sin cambiarlo -->
   <link rel="stylesheet" href="../src/css/stock.css">
@@ -44,26 +43,32 @@
     <div class="table-wrapper">
 
       <div class="tabla-header">
+        <!-- (11/11) Filtros: por nombre ("keto") y por plan. Los aplica renderizarCombos (gestionCombos.js) -->
+        <div class="filtros-container">
+          <input type="search" id="filtroNombreCombo" class="filtro-input" placeholder="Buscar combo... (ej: keto)" autocomplete="off">
+          <select id="filtroPlanCombo" class="filtro-input">
+            <option value="">Todos los planes</option>
+          </select>
+        </div>
         <!-- Avisos de la pantalla (combo creado, error al guardar…): los escribe gestionCombos.js -->
         <p id="avisoCombos" class="aviso-combos" role="status"></p>
         <button class="btn-nuevo-insumo" onclick="abrirFormularioCombo(null)">+ Nuevo combo</button>
       </div>
 
-      <table class="standard-table tabla-combos">
+      <table class="standard-table grilla-fg tabla-combos">
         <thead>
           <tr>
             <th>Nombre</th>
             <th>Plan</th>
             <th>Viandas</th>
             <th>Precio</th>
-            <th>Menú</th>
             <th>Estado</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody id="combosBody">
           <tr>
-            <td colspan="7" class="loading-text">Cargando combos...</td>
+            <td colspan="6" class="loading-text">Cargando combos...</td>
           </tr>
         </tbody>
       </table>
@@ -129,6 +134,14 @@
         </thead>
         <tbody id="mmPlatos"></tbody>
       </table>
+
+      <!-- (11/11) Para encontrar rápido el plato a agregar: por nombre y por plan (filtrarPlatosDelMenu) -->
+      <div class="fila-agregar filtros-menu">
+        <input type="search" id="mmBuscar" placeholder="Buscar plato... (ej: tarta)" autocomplete="off" aria-label="Buscar plato">
+        <select id="mmPlanFiltro" aria-label="Filtrar por plan">
+          <option value="">Todos los planes</option>
+        </select>
+      </div>
 
       <!-- Agregar un plato (de cualquier plan) -->
       <div class="fila-agregar">

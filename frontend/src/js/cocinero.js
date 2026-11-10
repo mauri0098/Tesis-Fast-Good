@@ -5,6 +5,7 @@
 //   describirDia          → de una fecha 'AAAA-MM-DD' saca "25/10", si es hoy / mañana / atrasada / más adelante
 //                           y el nombre de su pestaña ("Hoy", "Mañana", "Martes")
 //   cargarParaStock       → pide los pedidos a cocina sin hacer (GET /api/ordenes-produccion/pendientes) y dibuja "Para stock"
+//                           (11/11: el cocinero ve solo lo de hoy y lo atrasado; el admin, todo. Igual en "Pedidos de clientes")
 //   dibujarTabla          → dibuja una de las dos tablas: las pestañas de días, el filtro (día + buscador) y las páginas.
 //                           24/10, Pedidos de clientes: una pestaña por DÍA DE COCINA ("Lunes 26", con HOY; los días
 //                           pasados en rojo con "· quedó N"), abre sola en hoy y el pie "Mostrando N viandas para cocinar hoy".
@@ -18,6 +19,8 @@
 //   abrirPedidoCocina     → ventana "Detalles" de un pedido a cocina (GET /api/ordenes-produccion/:id, solo lee)
 //   abrirDetallesPedido   → ventana "Detalles" de un pedido de cliente (con lo que ya tiene la pantalla)
 //   cerrarDetallesPedido, cerrarModalListo, cerrarVentanaCocina → cierran las ventanas
+//   abrirEliminarProduccion / confirmarEliminarProduccion → (11/11) "Eliminar" una producción sin hacer (solo la
+//                           administración): pregunta y DELETE /api/ordenes-produccion/detalles/:id
 //   marcarListo / confirmarListo → "✓ Cocinado": pregunta y PUT /api/pedidos/:id/listo-cocinero (05/11: el pedido pasa al
 //                           Armado; "Listo para entregar" lo pone el Armado)
 //   quitarPedidoDeLaTabla → saca de la tabla y del resumen un pedido que ya quedó listo
@@ -140,6 +143,14 @@ async function cargarParaStock() {
     document.getElementById('cuerpoParaStock').innerHTML =
       '<tr><td colspan="6" class="loading-text texto-error">Error al cargar los pendientes de cocina</td></tr>';
     return;
+  }
+
+  // 1b. (11/11) El cocinero ve solo lo que es para HOY o ya está atrasado (fecha_para de hoy o anterior).
+  //     El administrador y el dueño ven todos los pedidos a cocina, de cualquier día.
+  //     "AAAA-MM-DD" se compara como texto. Ej (hoy 11/11): '2026-11-11' → sí · '2026-11-10' → sí (atrasado) · '2026-11-12' → no
+  if (esCocinero) { // ¿es el cocinero? SÍ: rol 2 → solo hoy y lo atrasado · NO: admin o dueño → todos
+    const hoy = fechaLocalISO(new Date());
+    pendientes = pendientes.filter(plato => plato.fecha_para <= hoy);
   }
 
   // 2. A cada plato se le agrega su día y el texto donde busca el buscador; y se guardan por número
@@ -326,6 +337,11 @@ function crearFilaStock(plato) {
   const botonHecho = esCocinero
     ? '<button type="button" class="btn-hecho boton-hecho" data-id="' + Number(plato.id) + '">✓ Hecho</button>'
     : '';
+  // (11/11) "Eliminar" (por si se pidió mal): solo la administración. El cocinero no lo ve (y el servidor tampoco lo deja)
+  let botonEliminar = '';
+  if (!esCocinero) { // ¿es la administración? SÍ: admin o dueño → ve "Eliminar" · NO: el cocinero → no
+    botonEliminar = '<button type="button" class="boton-eliminar-produccion" onclick="abrirEliminarProduccion(' + Number(plato.id) + ')">Eliminar</button>';
+  }
   // (27/10) Si le faltan insumos para cocinarlo: "⚠ faltan 700 g de Carne" en rojo, debajo del plato (marcaFaltantes,
   // de pedidosCocina.js). Es solo un aviso: "✓ Hecho" pregunta "¿Las cocinaste igual?" antes de marcar
   const faltan = marcaFaltantes(plato.faltantes);
@@ -339,7 +355,7 @@ function crearFilaStock(plato) {
     <td><span class="pastilla-fecha fecha-${plato.dia.tipo}">${escHtml(plato.dia.diaMes)}</span></td>
     <td class="celda-botones">
       <div class="botones-fila">
-        <button type="button" class="boton-detalles-cocina" onclick="abrirPedidoCocina(${idOrden})">Detalles</button>${botonHecho}
+        <button type="button" class="boton-detalles-cocina" onclick="abrirPedidoCocina(${idOrden})">Detalles</button>${botonHecho}${botonEliminar}
       </div>
     </td>`;
   return tr;
@@ -605,6 +621,63 @@ function cerrarVentanaCocina(idVentana, evento) {
   ventana.style.display = 'none';
 }
 
+// ── (11/11) Eliminar una producción sin hacer (Para stock, solo la administración) ──────────────────────
+let _idProduccionAEliminar = null;   // el renglón que se está por eliminar, mientras la ventana está abierta
+
+// ─────────────────────────────────────────────────────────────────────────────
+// abrirEliminarProduccion → abre la ventana "¿Seguro que querés eliminar esta producción?" con el detalle
+// ENTRADA: idDetalle = el número del renglón (lo pone el botón "Eliminar" de la fila)
+// SALIDA:  nada. Escribe la pregunta y muestra la ventana.
+// Ej: 21 → "¿Seguro que querés eliminar esta producción? 50 viandas de PRUEBA fideos para el 12/11 (Cocina #112)."
+// ─────────────────────────────────────────────────────────────────────────────
+function abrirEliminarProduccion(idDetalle) {
+  // find = el plato de la lista que tiene ese número (o undefined si ya no está)
+  const plato = _platosParaStock.find(p => Number(p.id) === Number(idDetalle));
+  if (!plato) { // ¿ya no está en la lista? SÍ: alguien la tocó y se recargó · NO: está → sigue
+    return;
+  }
+  _idProduccionAEliminar = Number(idDetalle);
+
+  // La pregunta, armada antes (textContent: se muestra como texto, nunca como HTML)
+  const cantidad = Number(plato.cantidad);
+  let palabraViandas = 'viandas';
+  if (cantidad === 1) { // ¿es una sola? SÍ: "1 vianda" · NO: "50 viandas"
+    palabraViandas = 'vianda';
+  }
+  const numero = numeroPedido(plato.id_orden, 'cocina');           // ej: "Cocina #112"
+  document.getElementById('textoEliminarProduccion').textContent =
+    `¿Seguro que querés eliminar esta producción? ${cantidad} ${palabraViandas} de ${plato.plato} para el ${plato.dia.diaMes} (${numero}). Como todavía no se cocinó, no cambia la heladera ni los insumos.`;
+  document.getElementById('modalEliminarProduccion').style.display = 'block';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// confirmarEliminarProduccion → el "Sí, eliminar": la borra en el servidor y recarga "Para stock"
+// ENTRADA: nada (usa _idProduccionAEliminar) · SALIDA: nada. Avisa arriba a la derecha cómo salió.
+// Ej: 200 → "Producción eliminada" y la fila desaparece · 409 → "Ya se cocinó: no se puede eliminar"
+// ─────────────────────────────────────────────────────────────────────────────
+async function confirmarEliminarProduccion() {
+  const idDetalle = _idProduccionAEliminar;
+  cerrarVentanaCocina('modalEliminarProduccion');
+  _idProduccionAEliminar = null;
+  if (idDetalle === null) { // ¿no hay ninguna elegida? SÍ: (no debería pasar) · NO: sigue
+    return;
+  }
+
+  try {
+    const respuesta = await apiFetch(`/api/ordenes-produccion/detalles/${idDetalle}`, { method: 'DELETE' });
+    const datos = await respuesta.json();
+    if (!respuesta.ok) { // ¿el servidor dijo que no? SÍ: 409 (ya se cocinó) o 404 → su mensaje · NO: 200 → sigue
+      mostrarAviso('error', datos.error);
+      await cargarParaStock();                                    // por si cambió: así se ve como está de verdad
+      return;
+    }
+    mostrarAviso('exito', 'Producción eliminada.');
+    await cargarParaStock();                                      // la fila desaparece
+  } catch (error) {
+    mostrarAviso('error', 'No se pudo conectar con el servidor.');
+  }
+}
+
 
 // ── DOMContentLoaded ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -707,10 +780,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   //        Ej (hoy martes 04/11): entrega jueves 06/11 → se cocina el miércoles 05/11 → todavía no aparece
   //            (hoy miércoles) → aparece en Hoy · (hoy jueves, sin cocinar) → aparece en rojo, atrasado
   //            entrega lunes 10/11 → se cocina el viernes 07/11 (no se cocina sábado ni domingo)
-  enPrep = enPrep.filter(pedido => {
-    const yaHayQueCocinarlo = pedido.dia.tipo === 'hoy' || pedido.dia.tipo === 'atrasado' || pedido.dia_cocina === '';
-    return yaHayQueCocinarlo;
-  });
+  //        (11/11) Este filtro es SOLO para el cocinero. El administrador y el dueño ven TODO lo que hay por cocinar
+  //        (hoy, mañana y el resto de la semana), cada día en su pestaña, para organizarse.
+  if (esCocinero) { // ¿es el cocinero? SÍ: rol 2 → solo hoy y lo atrasado · NO: admin o dueño → ve todos los días
+    enPrep = enPrep.filter(pedido => {
+      const yaHayQueCocinarlo = pedido.dia.tipo === 'hoy' || pedido.dia.tipo === 'atrasado' || pedido.dia_cocina === '';
+      return yaHayQueCocinarlo;
+    });
+  }
 
   // ── 3. Ordenar por día de cocina (y número) ──
   // sort compara de a dos: negativo = a va antes. "AAAA-MM-DD" se compara como texto; sin fecha, al final.

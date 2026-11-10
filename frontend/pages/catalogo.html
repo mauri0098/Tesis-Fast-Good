@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fast Good — Catálogo</title>
+  <link rel="icon" href="../src/assets/img/logo.webp" type="image/webp"/>
+  <!-- Letra: Inter, la del panel (11/11: Poppins ya no se usa en ninguna pantalla) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../src/css/global.css">
+  <!-- Los estilos de las dos pantallas que se juntan acá (tablas, ventanas, botones, fotos, estados): sin cambios -->
+  <link rel="stylesheet" href="../src/css/stock.css">
+  <link rel="stylesheet" href="../src/css/combos.css">
+  <link rel="stylesheet" href="../src/css/planesCategorias.css">
+  <!-- Lo propio de Catálogo (11/11): las pestañas, las tarjetas y los botones de la maqueta -->
+  <link rel="stylesheet" href="../src/css/catalogo.css">
+</head>
+
+<!-- ============================================================================
+     catalogo.html — (11/11) Una sola pantalla que JUNTA "Planes y categorías" y "Combos", con 3 pestañas:
+     ① Categorías · ② Planes · ③ Combos. Diseño: docs/disenio/maqueta-catalogo.html.
+     Funciona EXACTAMENTE igual que las dos pantallas de antes: usa los mismos JS (planesCategorias.js y
+     gestionCombos.js, sin cambios) y por eso los ids de acá son los mismos de antes.
+     Las pestañas y "Siguiente" los maneja catalogo.js.
+     ============================================================================ -->
+<body>
+<!-- Permisos de la pantalla (roles 6 y 5), menú lateral y llamadas con sesión -->
+<script src="../src/js/roles.js"></script>
+<script src="../src/js/guard.js"></script>
+<script src="../src/js/api.js"></script>
+<script src="../src/js/escape.js"></script>
+<script src="../src/js/adminSidebar.js"></script>
+
+<div class="admin-content">
+
+  <main class="page-container pagina-catalogo">
+
+    <!-- Título y bajada -->
+    <div class="encabezado-catalogo">
+      <h1 class="titulo-catalogo">Catálogo</h1>
+      <p class="bajada-catalogo">Primero las categorías, después los planes y por último los combos.</p>
+    </div>
+
+    <!-- Las 3 pestañas (como Tareas de Cocina). La elegida va en verde. data-pestana = qué tarjeta muestra -->
+    <div class="pestanas-catalogo" role="tablist" aria-label="Partes del catálogo">
+      <button type="button" class="pestana-catalogo pestana-catalogo--elegida" data-pestana="categorias" aria-pressed="true"><span class="pestana-numero">1</span>Categorías</button>
+      <button type="button" class="pestana-catalogo" data-pestana="planes" aria-pressed="false"><span class="pestana-numero">2</span>Planes</button>
+      <button type="button" class="pestana-catalogo" data-pestana="combos" aria-pressed="false"><span class="pestana-numero">3</span>Combos</button>
+    </div>
+
+    <!-- Avisos de Categorías y Planes (guardado, error al guardar…): los escribe planesCategorias.js -->
+    <p id="avisoPlanes" class="aviso-combos aviso-planes" role="status"></p>
+
+    <!-- ① CATEGORÍAS (lo maneja planesCategorias.js) -->
+    <section class="tarjeta-catalogo" data-panel="categorias">
+      <div class="cabecera-tarjeta-catalogo">
+        <div>
+          <h2 class="titulo-tarjeta-catalogo">Categorías</h2>
+          <p class="nota-tarjeta-catalogo">Una categoría junta varios planes en una sola tarjeta de la web.</p>
+        </div>
+        <div class="herramientas-catalogo">
+          <!-- (11/11) Buscador por nombre: lo aplica renderizarCategorias (planesCategorias.js) -->
+          <input type="search" id="buscarCategoria" class="casillero-catalogo" placeholder="Buscar categoría... (ej: saludable)" autocomplete="off" aria-label="Buscar categoría">
+          <button type="button" class="boton-nuevo-catalogo" onclick="abrirFormularioCategoria(null)">+ Nueva categoría</button>
+        </div>
+      </div>
+      <div class="tabla-con-desplazamiento">
+        <table class="standard-table grilla-fg tabla-categorias">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Planes adentro</th>
+              <th>Foto</th>
+              <th>Estado</th>
+              <th class="titulo-acciones-catalogo">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="categoriasBody">
+            <tr>
+              <td colspan="5" class="loading-text">Cargando categorías...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ② PLANES (lo maneja planesCategorias.js) -->
+    <section class="tarjeta-catalogo" data-panel="planes" hidden>
+      <div class="cabecera-tarjeta-catalogo">
+        <div>
+          <h2 class="titulo-tarjeta-catalogo">Planes</h2>
+          <p class="nota-tarjeta-catalogo">Cada plan va en una categoría (elegila en su desplegable), o en "Sin categoría" si tiene su propia tarjeta.</p>
+        </div>
+        <div class="herramientas-catalogo">
+          <!-- (11/11) Buscador por nombre y filtro por categoría: los aplica renderizarPlanesPanel (planesCategorias.js) -->
+          <input type="search" id="buscarPlan" class="casillero-catalogo" placeholder="Buscar plan... (ej: descenso)" autocomplete="off" aria-label="Buscar plan">
+          <label class="filtro-catalogo">Categoría:
+            <select id="filtroCategoriaPlan">
+              <option value="">Todas</option>
+            </select>
+          </label>
+          <button type="button" class="boton-nuevo-catalogo" onclick="abrirFormularioPlan(null)">+ Nuevo plan</button>
+        </div>
+      </div>
+      <div class="tabla-con-desplazamiento">
+        <table class="standard-table grilla-fg tabla-planes">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Categoría</th>
+              <th>Abreviatura</th>
+              <th>Estado</th>
+              <th class="titulo-acciones-catalogo">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="planesBody">
+            <tr>
+              <td colspan="5" class="loading-text">Cargando planes...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ③ COMBOS (lo maneja gestionCombos.js) -->
+    <section class="tarjeta-catalogo" data-panel="combos" hidden>
+      <div class="cabecera-tarjeta-catalogo">
+        <div>
+          <h2 class="titulo-tarjeta-catalogo">Combos</h2>
+          <p class="nota-tarjeta-catalogo">Cada combo es de un plan: cantidad de viandas, precio y su menú de platos.</p>
+        </div>
+        <div class="herramientas-catalogo">
+          <!-- Filtros: por nombre ("keto") y por plan. Los aplica renderizarCombos (gestionCombos.js) -->
+          <input type="search" id="filtroNombreCombo" class="casillero-catalogo" placeholder="Buscar combo... (ej: keto)" autocomplete="off" aria-label="Buscar combo">
+          <label class="filtro-catalogo">Plan:
+            <select id="filtroPlanCombo">
+              <option value="">Todos los planes</option>
+            </select>
+          </label>
+          <button type="button" class="boton-nuevo-catalogo" onclick="abrirFormularioCombo(null)">+ Nuevo combo</button>
+        </div>
+      </div>
+      <!-- Avisos de Combos (combo creado, error al guardar…): los escribe gestionCombos.js -->
+      <p id="avisoCombos" class="aviso-combos aviso-tarjeta-catalogo" role="status"></p>
+      <div class="tabla-con-desplazamiento">
+        <table class="standard-table grilla-fg tabla-combos">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Plan</th>
+              <th>Viandas</th>
+              <th>Precio</th>
+              <th>Estado</th>
+              <th class="titulo-acciones-catalogo">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="combosBody">
+            <tr>
+              <td colspan="6" class="loading-text">Cargando combos...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- "Siguiente": en Categorías y Planes, lleva a la pestaña que sigue (catalogo.js) -->
+    <div class="pie-catalogo">
+      <button type="button" class="boton-siguiente-catalogo" id="botonSiguienteCatalogo">Siguiente: los planes →</button>
+    </div>
+
+  </main>
+
+  <!-- ============== LAS VENTANAS (iguales a las de antes, con los mismos ids) ============== -->
+
+  <!-- VENTANA: Nueva categoría / Editar categoría (la maneja planesCategorias.js) -->
+  <div id="modalCategoria" class="modal">
+    <div class="modal-content modal-stock">
+      <span class="close" data-accion="cerrar">&times;</span>
+      <h3 id="fcTitulo">Nueva categoría</h3>
+
+      <div class="modal-grid">
+        <label for="fcNombre">Nombre *</label>
+        <input id="fcNombre" type="text" maxlength="100" placeholder="Ej: Viandas Saludables">
+
+        <label for="fcFrase">Frase</label>
+        <input id="fcFrase" type="text" maxlength="200" placeholder="Opcional. Va debajo del nombre, en la tarjeta">
+
+        <label for="fcFotoInput">Foto</label>
+        <input id="fcFotoInput" type="file" accept="image/png, image/jpeg, image/webp" onchange="elegirFoto(event, 'fc')">
+      </div>
+
+      <!-- La foto actual o la recién elegida. Se sube después de guardar los datos -->
+      <div class="foto-ventana">
+        <img id="fcFotoVista" class="foto-ventana-imagen" alt="Vista previa de la foto" hidden>
+        <span id="fcFotoVacia" class="sin-foto">Sin foto</span>
+      </div>
+      <p class="nota-foto">JPG, PNG o WebP, hasta 2 MB. Sin foto, la tarjeta usa la del primer plato con foto.</p>
+
+      <div id="fcError" class="modal-error"></div>
+
+      <div class="modal-actions">
+        <button class="btn-cancelar" data-accion="cerrar">Cancelar</button>
+        <button class="btn-confirmar" id="fcGuardar" onclick="guardarCategoria()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VENTANA: Nuevo plan / Editar plan (la maneja planesCategorias.js) -->
+  <div id="modalPlan" class="modal">
+    <div class="modal-content modal-stock">
+      <span class="close" data-accion="cerrar">&times;</span>
+      <h3 id="fpTitulo">Nuevo plan</h3>
+
+      <div class="modal-grid">
+        <label for="fpNombre">Nombre *</label>
+        <input id="fpNombre" type="text" maxlength="100" placeholder="Ej: PLAN KETO">
+
+        <label for="fpAbreviatura">Abreviatura *</label>
+        <input id="fpAbreviatura" class="casillero-abreviatura-plan" type="text" maxlength="4" placeholder="Ej: KE">
+
+        <label for="fpCategoria">Categoría</label>
+        <select id="fpCategoria"></select>
+
+        <label for="fpFrase">Frase</label>
+        <input id="fpFrase" type="text" maxlength="200" placeholder="Opcional. Va debajo del nombre, en la tarjeta">
+
+        <label for="fpFotoInput">Foto</label>
+        <input id="fpFotoInput" type="file" accept="image/png, image/jpeg, image/webp" onchange="elegirFoto(event, 'fp')">
+      </div>
+
+      <!-- Al editar: la abreviatura se cambia en otra ventana, porque también cambia el código de los platos -->
+      <p id="fpNotaAbreviatura" class="nota-combo" hidden>La abreviatura se cambia en Generar Receta → "Abreviaturas de los planes", porque también cambia el código de sus platos.</p>
+
+      <!-- La foto actual o la recién elegida. Se sube después de guardar los datos -->
+      <div class="foto-ventana">
+        <img id="fpFotoVista" class="foto-ventana-imagen" alt="Vista previa de la foto" hidden>
+        <span id="fpFotoVacia" class="sin-foto">Sin foto</span>
+      </div>
+      <p class="nota-foto">JPG, PNG o WebP, hasta 2 MB. Sin foto, la tarjeta usa la del primer plato con foto.</p>
+
+      <div id="fpError" class="modal-error"></div>
+
+      <div class="modal-actions">
+        <button class="btn-cancelar" data-accion="cerrar">Cancelar</button>
+        <button class="btn-confirmar" id="fpGuardar" onclick="guardarPlan()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VENTANA: Nuevo combo / Editar combo (la maneja gestionCombos.js) -->
+  <div id="modalCombo" class="modal">
+    <div class="modal-content modal-stock">
+      <span class="close" data-accion="cerrar">&times;</span>
+      <h3 id="mcTitulo">Nuevo combo</h3>
+
+      <div class="modal-grid">
+        <label for="mcNombre">Nombre *</label>
+        <input id="mcNombre" type="text" maxlength="100" placeholder="Ej: Keto x10">
+
+        <label for="mcPlan">Plan *</label>
+        <select id="mcPlan">
+          <option value="">Elegí un plan...</option>
+        </select>
+
+        <label for="mcCantidad">Viandas *</label>
+        <input id="mcCantidad" type="number" min="1" max="100" step="1" placeholder="Ej: 10">
+
+        <label for="mcPrecio">Precio *</label>
+        <input id="mcPrecio" type="number" min="0" max="9999999" step="0.01" placeholder="Ej: 137000">
+      </div>
+
+      <!-- Avisos del formulario: plan desactivado y cantidad bloqueada (si el combo ya se vendió) -->
+      <p id="mcNotaPlan" class="nota-combo" hidden></p>
+      <p id="mcNotaVendido" class="nota-combo" hidden></p>
+
+      <div id="mcError" class="modal-error"></div>
+
+      <div class="modal-actions">
+        <button class="btn-cancelar" data-accion="cerrar">Cancelar</button>
+        <button class="btn-confirmar" id="mcGuardar" onclick="guardarCombo()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VENTANA: Menú de un combo (la maneja gestionCombos.js: abrirMenuCombo, agregarPlatoAlMenu, quitarPlatoDelMenu) -->
+  <div id="modalMenu" class="modal">
+    <!-- (11/11) ventana-menu-catalogo: más ancha (catalogo.css). Arriba buscar y agregar; abajo los platos que ya tiene -->
+    <div class="modal-content modal-stock modal-menu ventana-menu-catalogo">
+      <span class="close" data-accion="cerrar">&times;</span>
+      <h3 id="mmTitulo">Menú del combo</h3>
+
+      <!-- Avisos de la ventana (plato agregado, sacado o error) -->
+      <p id="mmAviso" class="aviso-combos" role="status"></p>
+
+      <!-- ARRIBA: buscar el plato (por nombre y por plan: filtrarPlatosDelMenu) y agregarlo -->
+      <div class="caja-agregar-catalogo">
+        <p class="titulo-seccion-menu">Agregar un plato</p>
+        <div class="fila-agregar filtros-menu">
+          <input type="search" id="mmBuscar" placeholder="Buscar plato... (ej: tarta)" autocomplete="off" aria-label="Buscar plato">
+          <select id="mmPlanFiltro" aria-label="Filtrar por plan">
+            <option value="">Todos los planes</option>
+          </select>
+        </div>
+        <div class="fila-agregar">
+          <select id="mmDisponibles" aria-label="Plato para agregar"></select>
+          <button class="btn-confirmar" id="mmAgregar" onclick="agregarPlatoAlMenu()">Agregar</button>
+        </div>
+      </div>
+
+      <!-- ABAJO: los platos que ya están en el menú, cada uno con "Sacar" -->
+      <p class="titulo-seccion-menu">Platos del menú</p>
+
+      <!-- Si el menú queda vacío, el combo no se ve en la web -->
+      <p id="mmVacio" class="nota-combo" hidden>Sin platos: el combo no se ve en la web. Agregá al menos uno.</p>
+
+      <div class="tabla-menu-catalogo">
+        <table class="tabla-menu">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Plato</th>
+              <th>Plan</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="mmPlatos"></tbody>
+        </table>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-cancelar" data-accion="cerrar">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Los JS de siempre (sin cambios de funcionamiento) y el de las pestañas -->
+  <script src="../src/js/planesCategorias.js"></script>
+  <script src="../src/js/gestionCombos.js"></script>
+  <script src="../src/js/catalogo.js"></script>
+
+</div> <!-- /.admin-content -->
+</body>
+
+</html>

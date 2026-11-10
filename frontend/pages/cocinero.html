@@ -208,6 +208,23 @@
   </div>
 </div>
 
+<!-- VENTANA (11/11): confirmar "Eliminar" de una producción sin hacer (Para stock, solo la administración).
+     La abre abrirEliminarProduccion y el botón rojo llama a confirmarEliminarProduccion (cocinero.js) -->
+<div id="modalEliminarProduccion" class="modal" onclick="cerrarVentanaCocina('modalEliminarProduccion', event)">
+  <div class="modal-content ventana-panel ventana-cocina modal-listo">
+    <div class="cabecera-detalles">
+      <h3>Eliminar producción</h3>
+    </div>
+    <div class="cuerpo-detalles">
+      <p id="textoEliminarProduccion" class="texto-confirmar"></p>
+    </div>
+    <div class="pie-detalles modal-listo-acciones">
+      <button type="button" class="boton-cerrar-detalles" onclick="cerrarVentanaCocina('modalEliminarProduccion')">Cancelar</button>
+      <button type="button" id="botonConfirmarEliminar" class="boton-confirmar-eliminar" onclick="confirmarEliminarProduccion()">Sí, eliminar</button>
+    </div>
+  </div>
+</div>
+
 <!-- VENTANA: Detalles de un pedido de cliente (lo abre "Detalles"; lo llena abrirDetallesPedido en cocinero.js) -->
 <div id="modalPlatos" class="modal" onclick="cerrarDetallesPedido(event)">
   <div class="modal-content ventana-panel ventana-cocina modal-platos">

@@ -15,6 +15,7 @@
 //   mostrarVentas           → la tarjeta Ventas, según el selector (Hoy / Ayer / Esta semana)
 //   mostrarPedidosDeHoy     → la tarjeta Pedidos de hoy: los que se ENTREGAN hoy, entregados y pendientes
 //   cargarViandasACocinar   → la tarjeta Viandas a cocinar: lo pedido a cocina sin hacer + los personalizados sin listo
+//                             (11/11: solo lo de HOY o atrasado; lo de mañana no cuenta)
 //   mostrarEvolucion        → el gráfico de Evolución de Ventas y el total, según el selector (y los combos del período)
 //   dibujarCombos           → los 3 combos más vendidos del período, con su mini barra
 //   cargarInsumosCriticos   → los insumos por debajo de su mínimo (la regla de Producción), con en qué platos se usan
@@ -201,14 +202,33 @@ async function cargarViandasACocinar() {
       fetchJSON('/api/cocina/tareas')                             // los pedidos de clientes en 2, con sus platos
     ]);
 
-    // 1. Para stock: las viandas de los pedidos a cocina sin hacer
-    let paraStock = 0;
-    (pendientes || []).forEach(plato => { paraStock = paraStock + (Number(plato.cantidad) || 0); });
+    // (11/11) Solo cuenta lo que la cocina tiene que hacer HOY (o ya está atrasado): lo de mañana no.
+    //        Es la misma regla que ve el cocinero en Tareas de Cocina. "AAAA-MM-DD" se compara como texto.
 
-    // 2. Personalizadas: los platos personalizados sin listo. Primero todos los platos en una sola lista
-    //    (concat los junta). Ej: [{ pedido_detalles: [a, b] }, { pedido_detalles: [c] }] → [a, b, c]
+    // 1. Para stock: las viandas de los pedidos a cocina sin hacer, para hoy o atrasados
+    //    Ej (hoy 11/11): para el 11/11 → cuenta · para el 10/11 → cuenta (atrasado) · para el 12/11 → no
+    let paraStock = 0;
+    (pendientes || []).forEach(plato => {
+      if (plato.fecha_para > hoyISO) { // ¿es para más adelante? SÍ: para mañana → no cuenta · NO: hoy o atrasado → cuenta
+        return;                        // (return = saltear este y seguir con el siguiente)
+      }
+      paraStock = paraStock + (Number(plato.cantidad) || 0);
+    });
+
+    // 2. Personalizadas: los platos personalizados sin listo de los pedidos que se COCINAN hoy (o atrasados).
+    //    El día de cocina es el día hábil anterior a la entrega. Ej: entrega jueves 12/11 → se cocina el miércoles 11/11.
+    //    Primero todos los platos en una sola lista (concat los junta). Ej: [{ pedido_detalles: [a, b] }, { pedido_detalles: [c] }] → [a, b, c]
     let detalles = [];
-    (tareas || []).forEach(pedido => { detalles = detalles.concat(pedido.pedido_detalles || []); });
+    (tareas || []).forEach(pedido => {
+      let diaCocina = '';
+      if (pedido.fecha_entrega) { // ¿tiene fecha de entrega? SÍ: '2026-11-12' → se cocina el '2026-11-11' · NO: (no debería pasar) cuenta igual
+        diaCocina = fechaLocalISO(diaHabilAnterior(parseFechaLocal(pedido.fecha_entrega)));
+      }
+      if (diaCocina > hoyISO) { // ¿se cocina más adelante? SÍ: mañana → no cuenta · NO: hoy, atrasado o sin fecha → cuenta
+        return;                 // (return = saltear este pedido y seguir con el siguiente)
+      }
+      detalles = detalles.concat(pedido.pedido_detalles || []);
+    });
     let personalizadas = 0;
     detalles.forEach(detalle => {
       const sinHacer = detalle.personalizado === true && !detalle.listo;

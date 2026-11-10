@@ -31,19 +31,21 @@
   // El menú, en orden: a qué grupo va cada pantalla, con qué ícono y con qué nombre ('' = sin grupo, arriba de todo).
   // Los grupos ya no llevan título: solo se separan con un poco de aire.
   // Los nombres son los de siempre, sin el emoji.
+  // (11/11) El orden sigue el CAMINO DE UN PEDIDO: se consulta (1 → 2) → la cocina lo cocina (→ 6) → se arma (→ 3)
+  //         → se envía (→ 4). Después lo que lo hace posible: la heladera, los insumos y lo que se vende.
   const MENU_PANEL = [
     { ruta: 'admin.html',                       grupo: '',               icono: 'icono-menu-inicio',      nombre: 'Inicio' },
-    { ruta: 'pages/ConsultarPedidos.html',      grupo: 'Pedidos',        icono: 'icono-menu-pedidos',     nombre: 'Consultar Pedidos' },
-    { ruta: 'pages/Envios.html',                grupo: 'Reparto',        icono: 'icono-menu-envios',      nombre: 'Envíos del Día' },
-    { ruta: 'pages/armadoPedidos.html',         grupo: 'Reparto',        icono: 'icono-menu-armado',      nombre: 'Armado de pedidos' },
-    { ruta: 'pages/cocinero.html',              grupo: 'Cocina',         icono: 'icono-menu-cocina',      nombre: 'Tareas de Cocina' },
+    { ruta: 'pages/ConsultarPedidos.html',      grupo: 'Pedido',         icono: 'icono-menu-pedidos',     nombre: 'Consultar Pedidos' },
+    { ruta: 'pages/cocinero.html',              grupo: 'Pedido',         icono: 'icono-menu-cocina',      nombre: 'Tareas de Cocina' },
+    { ruta: 'pages/armadoPedidos.html',         grupo: 'Pedido',         icono: 'icono-menu-armado',      nombre: 'Armado de pedidos' },
+    { ruta: 'pages/Envios.html',                grupo: 'Pedido',         icono: 'icono-menu-envios',      nombre: 'Envíos del Día' },
     { ruta: 'pages/heladera.html',              grupo: 'Cocina',         icono: 'icono-menu-heladera',    nombre: 'Producción' },
     { ruta: 'pages/AsignarCocinero.html',       grupo: 'Cocina',         icono: 'icono-menu-asignar',     nombre: 'Asignar Cocineros' },
-    { ruta: 'pages/MovimientosStockNuevo.html', grupo: 'Stock',          icono: 'icono-menu-movimientos', nombre: 'Movimientos de Stock' },
-    { ruta: 'pages/compras.html',               grupo: 'Stock',          icono: 'icono-menu-compras',     nombre: 'Compras' },
     { ruta: 'pages/stock.html',                 grupo: 'Stock',          icono: 'icono-menu-stock',       nombre: 'Gestión de Stock' },
-    { ruta: 'pages/combos.html',                grupo: 'Catálogo',       icono: 'icono-menu-combos',      nombre: 'Combos' },
-    { ruta: 'pages/planesCategorias.html',      grupo: 'Catálogo',       icono: 'icono-menu-planes',      nombre: 'Planes y categorías' },
+    { ruta: 'pages/compras.html',               grupo: 'Stock',          icono: 'icono-menu-compras',     nombre: 'Compras' },
+    { ruta: 'pages/MovimientosStockNuevo.html', grupo: 'Stock',          icono: 'icono-menu-movimientos', nombre: 'Movimientos de Stock' },
+    // (11/11) Categorías, planes y combos, juntos en una sola pantalla (antes: "Combos" y "Planes y categorías")
+    { ruta: 'pages/catalogo.html',              grupo: 'Catálogo',       icono: 'icono-menu-combos',      nombre: 'Catálogo' },
     { ruta: 'pages/generarReceta.html',         grupo: 'Catálogo',       icono: 'icono-menu-receta',      nombre: 'Generar Receta' },
     { ruta: 'pages/gestionUsuarios.html',       grupo: 'Administración', icono: 'icono-menu-usuarios',    nombre: 'Gestión de Usuarios' },
   ];

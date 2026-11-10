@@ -89,6 +89,8 @@ document.addEventListener('DOMContentLoaded', iniciarConsultarPedidos);  // cuan
 async function iniciarConsultarPedidos() {
   // 1. El buscador: al escribir se filtra y se vuelve a la página 1
   document.getElementById('CampoBusqueda').addEventListener('input', () => renderizarPedidos(1));
+  // 1b. (11/11) Personalizados: al elegir, se filtra y se vuelve a la página 1
+  document.getElementById('filtroPersonalizados').addEventListener('change', () => renderizarPedidos(1));
 
   // 2. Al abrir: los pedidos que se ENTREGAN HOY (28/10: antes, los del próximo día hábil, que eran los que se cocinan
   //    hoy; eso ahora lo muestra el Inicio). Hoy es el día de Argentina (ZONA_ARGENTINA, de fechas.js), sin importar la
@@ -164,9 +166,11 @@ function renderizarPedidos(pagina) {
   const desde = filtroFechas.desde;                                // 'AAAA-MM-DD' o ''
   const hasta = filtroFechas.hasta;                                // 'AAAA-MM-DD' o ''
 
-  // 1. Los pedidos que se ven: por fecha de entrega (según el modo) y por nombre del cliente o número de pedido
+  // 1. Los pedidos que se ven: por fecha de entrega (según el modo), por personalizados (11/11) y por nombre del
+  //    cliente o número de pedido
   const textoBuscado = document.getElementById('CampoBusqueda').value;  // lo escrito en el buscador
   const texto = textoBuscado.toLowerCase();                        // en minúsculas, para comparar
+  const filtroPersonalizados = document.getElementById('filtroPersonalizados').value;   // 'todos', 'con' o 'sin'
   const visibles = todosPedidos.filter(pedido => {                 // filter = arma una lista nueva con los que cumplen
     const entrega   = pedido.fecha_entrega || '';                  // 'AAAA-MM-DD' se compara como texto
     const conFechas = modo !== 'todos';
@@ -174,6 +178,15 @@ function renderizarPedidos(pagina) {
     if (conFechas && desde && entrega < desde) return false;                   // antes de "desde": no
     if (conFechas && hasta && entrega > hasta) return false;                   // después de "hasta": no
     if (modo === 'hoy' && pedido.id_estado === ESTADO_CANCELADO) return false; // hoy no muestra anulados
+    // (11/11) Personalizados: ¿tiene algún plato personalizado? find = el primero que lo es (o undefined).
+    //         Ej: [3 fideos, 2 fideos "sin sal"] → tiene · [10 fideos] → no tiene
+    const platoPersonalizado = (pedido.pedido_detalles || []).find(detalle => detalle.personalizado === true);
+    const tienePersonalizado = platoPersonalizado !== undefined;
+    const sobraPorCon = filtroPersonalizados === 'con' && !tienePersonalizado;   // pidió "Con" y no tiene
+    const sobraPorSin = filtroPersonalizados === 'sin' && tienePersonalizado;    // pidió "Sin" y tiene
+    if (sobraPorCon || sobraPorSin) { // ¿no es lo que pidió? SÍ: "Con" y es todo de heladera → no se ve · NO: se ve
+      return false;
+    }
     const nombre = (pedido.cliente_nombre || '').toLowerCase();
     return nombre.includes(texto) || String(pedido.id).includes(texto);        // coincide el nombre o el número
   });

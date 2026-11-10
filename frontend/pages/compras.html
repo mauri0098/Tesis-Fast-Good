@@ -191,6 +191,11 @@
 
           <!-- Filtros: categoría y solo los bajos (el tilde se ve como un interruptor) -->
           <div class="compra-filtros">
+            <!-- (11/11) Buscar un insumo por su nombre: lo usa filtrarRenglonesCompra (registrarCompra.js) -->
+            <label>
+              Buscar insumo
+              <input type="search" id="compraBuscar" placeholder="Ej: ajo" autocomplete="off" />
+            </label>
             <label>
               Categoría
               <select id="compraCategoria">
@@ -235,6 +240,8 @@
           <!-- Botones -->
           <div class="botones-compra">
             <button type="button" id="btnCancelarCompra" class="boton-cancelar-compra">Cancelar</button>
+            <!-- (11/11) Resumen: la lista de lo cargado, para revisar antes de guardar (mostrarResumenCompra) -->
+            <button type="button" id="btnResumenCompra" class="boton-resumen-compra">Resumen</button>
             <button type="button" id="btnGuardarCompra" class="boton-guardar-compra">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><path d="M17 21v-8H7v8M7 3v5h8"></path></svg>
               Guardar compra
@@ -247,6 +254,18 @@
       <!-- cierra ventana-compra -->
     </div>
     <!-- cierra modalCompra -->
+
+    <!-- (11/11) VENTANA "Resumen de la compra": lo que se cargó, para revisar antes de guardar.
+         Va arriba de la ventana de compra. La llena mostrarResumenCompra (registrarCompra.js) -->
+    <div id="modalResumenCompra" class="modal-fondo fondo-ventana-compra fondo-resumen-compra" hidden>
+      <div class="ventana-resumen-compra" role="dialog" aria-modal="true" aria-labelledby="resumenCompraTitulo">
+        <h3 id="resumenCompraTitulo" class="titulo-resumen-compra">Resumen de la compra</h3>
+        <div id="resumenCompraLista" class="lista-resumen-compra"></div>
+        <div class="pie-resumen-compra">
+          <button type="button" id="btnVolverResumen" class="boton-cancelar-compra">Volver</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Abajo: buscan elementos de la página, así que van cuando ya está todo armado -->
     <script src="../src/js/fechas.js"></script>

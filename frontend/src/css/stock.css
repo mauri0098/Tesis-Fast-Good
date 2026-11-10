@@ -13,8 +13,8 @@
 }
 
 body {
-  font-family: 'Poppins', sans-serif;
-  background-color: var(--bg-color);
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
+  background-color: var(--fondo);   /* (11/11) el blanco general del panel (global.css), como Consultar Pedidos */
   color: var(--text-dark);
   margin: 0;
   display: flex;
@@ -49,21 +49,29 @@ body {
   align-items: center;
   margin-bottom: 1.2rem;
   gap: 1rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;   /* (11/11) filtros a la izquierda y botones a la derecha, en la misma fila (en el celu, columna: ver abajo) */
 }
 
 .filtros-container {
   display: flex;
   gap: 0.75rem;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;   /* (11/11) los 3 filtros siempre en la misma fila, uno al lado del otro */
+  flex: 1;             /* usan el lugar que dejan los botones... */
+  min-width: 0;        /* ...y se achican si no entran (ver .filtro-input) */
+}
+
+/* (11/11) Cada filtro: hasta 250 px y se achica parejo si falta lugar (nunca menos de 140 px) */
+.filtros-container .filtro-input {
+  flex: 0 1 250px;
+  min-width: 140px;
 }
 
 .filtro-input {
   padding: 0.55rem 0.9rem;
   border: 1px solid var(--border-light);
   border-radius: 8px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.88rem;
   background: #fff;
   transition: border-color 0.2s;
@@ -82,7 +90,7 @@ body {
   color: #fff;
   border: none;
   border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
@@ -210,7 +218,7 @@ body {
   padding: 0.5rem 0.8rem;
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.85rem;
   width: 100%;
   transition: border-color 0.2s;
@@ -246,7 +254,7 @@ body {
   color: var(--text-dark);
   border: none;
   border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
@@ -261,7 +269,7 @@ body {
   color: #fff;
   border: none;
   border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
@@ -276,7 +284,7 @@ body {
   color: #fff;
   border: none;
   border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
@@ -289,6 +297,89 @@ body {
 }
 
 /* =========================================
+   NUEVA CATEGORÍA DE INSUMOS (11/11)
+   ========================================= */
+/* Los dos botones de arriba (Nueva categoría + Incorporar insumo), uno al lado del otro */
+.botones-stock {
+  display: flex;
+  gap: 0.6rem;
+  flex-shrink: 0;      /* los botones no se achican: siempre se leen enteros, a la derecha */
+}
+
+/* El botón "+ Nueva categoría": misma forma que el de insumo, pero con borde (es la acción secundaria) */
+.btn-nueva-categoria {
+  padding: 0.55rem 1.4rem;
+  background-color: #fff;
+  color: #1565C0;
+  border: 2px solid #1565C0;
+  border-radius: 50px;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.btn-nueva-categoria:hover {
+  background-color: #E3F2FD;
+}
+
+/* Los títulos del modal: "Agregar una categoría" y "Eliminar una categoría" */
+.categorias-titulo {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 0.4rem;
+}
+
+/* Cada fila del modal: el campo (o la lista) ocupa el lugar y el botón queda a la derecha */
+.fila-categoria {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  margin-bottom: 1.2rem;
+}
+
+.fila-categoria input,
+.fila-categoria select {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
+  font-size: 0.88rem;
+  background: #fff;
+}
+
+.fila-categoria input:focus,
+.fila-categoria select:focus {
+  outline: none;
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.15);
+}
+
+/* El botón Eliminar de la categoría: rojo, del mismo tamaño que Guardar */
+.boton-eliminar-categoria {
+  padding: 0.55rem 1.4rem;
+  background-color: #dc3545;
+  color: #fff;
+  border: none;
+  border-radius: 50px;   /* redondo, igual que Guardar (.btn-confirmar) */
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.boton-eliminar-categoria:hover {
+  background-color: #c82333;
+}
+
+/* =========================================
    BOTÓN EDITAR (columna Acciones)
    ========================================= */
 /* 24/10: el alto, la letra y el aire de Editar y Eliminar son los de los botones de todas las tablas (global.css, sección 8) */
@@ -297,7 +388,7 @@ body {
   color: #fff;
   border: none;
   border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -310,7 +401,7 @@ body {
   color: #fff;
   border: none;
   border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -336,7 +427,7 @@ body {
   right: 24px;
   padding: 0.75rem 1.25rem;
   border-radius: var(--radius);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.88rem;
   font-weight: 600;
   color: #fff;
@@ -401,7 +492,23 @@ body {
     width: 100%;
   }
 
+  /* (11/11) En columna, "flex: 0 1 250px" sería el ALTO: se vuelve al tamaño normal */
+  .filtros-container .filtro-input {
+    flex: none;
+    min-width: 0;
+  }
+
   .btn-nuevo-insumo {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* (11/11) En el celu, los dos botones de arriba uno abajo del otro y de todo el ancho */
+  .botones-stock {
+    flex-direction: column;
+  }
+
+  .btn-nueva-categoria {
     width: 100%;
     text-align: center;
   }

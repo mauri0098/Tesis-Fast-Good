@@ -13,7 +13,7 @@
 }
 
 body {
-  background-color: var(--bg-color);
+  background-color: var(--fondo);   /* (11/11) el blanco general del panel (global.css), como Consultar Pedidos */
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -61,7 +61,7 @@ body {
   padding: 0.55rem 0.9rem;
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.88rem;
   background: #fff;
   transition: border-color 0.2s;
@@ -79,7 +79,7 @@ body {
   color: #fff;
   border: none;
   border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
@@ -226,7 +226,7 @@ body {
   color: #fff;
   border: none;
   border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -239,7 +239,7 @@ body {
   color: #fff;
   border: none;
   border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -291,7 +291,7 @@ body {
   padding: 0.5rem 0.8rem;
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.85rem;
   background: #fff;
   transition: border-color 0.2s;
@@ -330,7 +330,7 @@ body {
   color: var(--text-dark);
   border: none;
   border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
@@ -345,7 +345,7 @@ body {
   color: #fff;
   border: none;
   border-radius: 50px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
