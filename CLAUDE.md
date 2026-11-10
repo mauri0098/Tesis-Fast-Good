@@ -39,7 +39,9 @@
 - Si una condición mezcla varias cosas, primero se guarda en una variable con nombre claro
   (const faltaEfectivo = a && !b;) y después el if.
 - PROHIBIDO (difícil de leer): Math.min(...lista) y Math.max(...lista), new Set, flatMap, some, reduce,
-  ?. , ?? , || para valores por defecto, classList.toggle con condición, if de una sola línea sin llaves.
+  ?? , || para valores por defecto, classList.toggle con condición, if de una sola línea sin llaves.
+- PERMITIDO: ?. (encadenamiento opcional) para leer un dato que puede no venir. Ej: item.productos?.activo
+  → si productos no vino, da undefined en vez de romper. Con un comentario la primera vez que aparece en el archivo.
   En su lugar: un forEach con una variable que se va guardando (let masBajo = ...; if (precio < masBajo) { masBajo = precio; }),
   if / else con llaves, classList.add / classList.remove.
 - .sort se puede usar, con un comentario en palabras y un ejemplo
@@ -76,6 +78,12 @@ Cuando te diga "refactorizá este JS" (ej: generar receta), es ORDENARLO para qu
 - ANTES de tocar: el PLAN con la lista de funciones de HOY → la lista NUEVA (qué se junta con qué y por qué), y FRENÁ.
 - DESPUÉS: las mismas pruebas que antes tienen que dar lo mismo, y el recorrido a mano de esa pantalla.
 - Todas las reglas de "Estilo" de arriba siguen valiendo (sin if adentro de if, sin trucos, comentario SÍ/NO en cada if).
+- Cuando terminamos el módulo de una pantalla, Claude SIEMPRE me pregunta: "¿Estás conforme con el JS de la pantalla <X>?".
+  Si digo que SÍ, ese JS queda como está y se anota abajo. Si digo que NO, lo vemos juntos (con el PLAN de arriba).
+- JS que ya revisé y quedan COMO ESTÁN (no se refactorizan):
+    · frontend/pantallas/combos/gestionCombos.js (lo entiendo y me gustan sus funciones)
+- Informes de pantalla (docs/pantallas/Pantalla-<Nombre>.docx): SOLO cuando yo los pida. Son un registro para mí,
+  no parte de cada cambio. Misma estructura que Pantalla-Combos.docx.
 
 ## MVC del servidor (rama mvc_fastgood)
 server.js se parte por MÓDULO, con la forma de mi proyecto viejo. La carpeta del servidor se llama backend/
@@ -101,16 +109,22 @@ server.js se parte por MÓDULO, con la forma de mi proyecto viejo. La carpeta de
 
 ### Quién hace qué en el MVC
 - Claude hace SOLO la base común: backend/config/, backend/middlewares/ y backend/utils/ (con plan antes y freno).
-- Los MÓDULOS (backend/modulos/: rutas, controlador y modelo) los escribo YO a mano, todos.
-  Claude NO escribe ni corrige código en backend/modulos/.
+- Los MÓDULOS (backend/modulos/: rutas, controlador y modelo) los escribo YO a mano, PRIMERO yo, todos.
+  Claude NO los escribe de cero.
 - Para cada módulo, ANTES de que yo lo haga, Claude me da una GUÍA (sin escribirme el código):
   · cada ruta de server.js con su número de línea, y qué parte va a rutas, cuál a controlador y cuál a modelo;
   · los require que van arriba de cada uno de los 3 archivos.
-- DESPUÉS de que yo lo paso, Claude lo REVISA y me dice qué está mal, sin arreglarlo:
+- DESPUÉS de que yo lo paso ("ya está listo"), Claude lo REVISA:
   · que cada ruta responda igual que antes y que no falte ningún requireAuth / requireRol / límite;
-  · corre node tests/test_e2e.js heladera (61/61) y cuenta las rutas (76 con requireAuth y 13 públicas,
-    sumando server.js y backend/modulos/*/rutas.*.js).
-  Si algo falla, me dice qué y dónde, y yo lo arreglo.
+  · cuenta las rutas (76 con requireAuth y 13 públicas, sumando server.js y backend/modulos/*/rutas.*.js).
+- Las pruebas dependen de lo que toca el cambio. Se prueba SOLO lo que ese cambio afecta: la respuesta de esa ruta
+  antes y después, su patovica (401/403), el conteo 76/13 y que la pantalla abra igual. El test heladera (61) se corre
+  SOLO cuando el cambio toca pedidos, stock, heladera, cocina o armado, o al terminar un módulo entero.
+- Al terminar cada cambio, Claude me PREGUNTA si hacemos la prueba en la web (el recorrido a mano de esa pantalla).
+- Si algo está mal (una coma, un require, un error mal manejado, algo que falta), Claude me dice QUÉ y DÓNDE
+  y me PREGUNTA "¿lo agrego?". Con mi SÍ, lo corrige Claude: solo eso, sin tocar lo demás (mis nombres y mis comentarios quedan).
+- server.js lo edita Claude, pero ANTES me muestra qué saca y qué pone (con números de línea), y frena para mi OK.
+- Los JS del front los refactoriza Claude cuando yo se lo pido, mostrándome el antes y el después para que yo lo vea.
 
 ## Cambios de pantalla: SOLO lo visual
 - En un cambio de pantalla se toca SOLO: el HTML, el CSS y las animaciones. Si un JS arma HTML (innerHTML),
@@ -123,7 +137,8 @@ server.js se parte por MÓDULO, con la forma de mi proyecto viejo. La carpeta de
   (ej: "tarjeta-combo", no "oferta"; "boton-anular", no "btn-x").
 - CSS siempre en su archivo .css: nada de <style> en el HTML ni style="" sueltos.
 - Si para el diseño hace falta cambiar algo del JS o un nombre, PREGUNTAME antes.
-- Al terminar: node tests/test_e2e.js heladera tiene que dar 61/61, y me pasás el recorrido a mano (celu y compu).
+- Al terminar: las pruebas de lo que toca el cambio (la regla de pruebas de "Quién hace qué en el MVC"; el heladera 61/61
+  solo si toca pedidos, stock, heladera, cocina o armado), y me pasás el recorrido a mano (celu y compu).
 - En los cambios de DISEÑO (pantallas nuevas): NO actualizar docs/INFORME-CAMBIOS-HELADERA.md ni docs/HELADERA-AVANCE.md,
   y no sacar capturas salvo que las pida. Al terminar, solo un resumen corto en el chat: qué archivos tocaste,
   las funciones nuevas con ENTRADA/SALIDA en una línea cada una, el test y el recorrido a mano.
