@@ -82,6 +82,7 @@ Cuando te diga "refactorizá este JS" (ej: generar receta), es ORDENARLO para qu
   Si digo que SÍ, ese JS queda como está y se anota abajo. Si digo que NO, lo vemos juntos (con el PLAN de arriba).
 - JS que ya revisé y quedan COMO ESTÁN (no se refactorizan):
     · frontend/pantallas/combos/gestionCombos.js (lo entiendo y me gustan sus funciones)
+    · frontend/pantallas/compras/compras.js (refactorizado: índice de recorrido arriba y "← viene de" en lo de otros archivos)
 - Informes de pantalla (docs/pantallas/Pantalla-<Nombre>.docx): SOLO cuando yo los pida. Son un registro para mí,
   no parte de cada cambio. Misma estructura que Pantalla-Combos.docx.
 
