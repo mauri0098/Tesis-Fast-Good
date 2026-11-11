@@ -59,17 +59,96 @@
 - Nada calculado adentro de los template strings (`...`): se calcula antes, en una variable, con if / else.
   Ej: let claseElegido = ''; if (cantidad > 0) { claseElegido = ' plato--elegido'; }
 
+## El JavaScript de una pantalla, a mi manera
+Leer SIEMPRE antes de escribir o reordenar un JS de frontend/pantallas/. El modelo está en docs/modelos/modelo-pantalla.js:
+abrilo y copiá su forma.
+Yo me pierdo cuando no veo DE DÓNDE sale un dato ni A DÓNDE va. Todo lo de abajo es para que eso se vea leyendo.
+Esta sección manda sobre "Pocas funciones" cuando se trata del JS de una pantalla: las 5 clases de abajo NO son
+"funcioncitas de ayuda", son los trabajos de la pantalla. Lo demás de "Estilo" sigue valiendo igual.
+
+### Cada función es de UNA sola clase, y su nombre empieza con esa palabra
+- traer<Algo>()                          → SOLO pide al servidor (un apiFetch) y DEVUELVE el arreglo con return.
+                                           Si falla: console.error y devuelve []. No dibuja, no toca el HTML,
+                                           no guarda en ninguna variable de afuera.
+- filtrar<Algo>(arreglo, …)              → SOLO elige. Devuelve un arreglo NUEVO con los que cumplen. No dibuja.
+- armar<Algo>(arreglo, …)                → SOLO prepara. Cuando para dibujar hay que agrupar, contar o sumar, devuelve un
+                                           arreglo NUEVO "listo para dibujar": un elemento = una tarjeta o un renglón.
+- renderizar<Algo>(arreglo, contenedor)  → SOLO dibuja lo que le pasan. No pide nada al servidor, no filtra,
+                                           no agrupa, no hace cuentas.
+- guardar<Algo>(…)                       → SOLO manda al servidor (POST / PUT / DELETE) y DEVUELVE { ok: true }
+                                           o { ok: false, error: "mensaje" }. No dibuja ni vuelve a traer.
+Si una función hace dos de estas cosas (ej: agrupa Y dibuja), se parte en dos. Si creés que hace falta una función
+que no entra en ninguna clase, PREGUNTAME antes.
+
+### Los datos entran por PARÁMETRO y salen por RETURN
+- Una función usa lo que le pasan entre paréntesis. No lee los arreglos de afuera: así, en la línea que la llama,
+  se ve qué dato recibe. Ej: renderizarProductos(productosFiltrados, contenedorProductos).
+- El parámetro puede llamarse igual que el arreglo de arriba (arregloProductos). Adentro se usa SIEMPRE el parámetro.
+- Lo único que una función puede leer de afuera: los elementos del HTML (parte 2 del archivo), apiFetch, escHtml
+  y las funciones de los archivos compartidos.
+
+### Dónde viven los datos
+- Los arreglos de la pantalla se declaran TODOS juntos, arriba, en "1. LOS ARREGLOS". Cada uno con su comentario:
+  qué guarda, cómo es UN elemento (un ejemplo con datos), qué función lo LLENA (y con qué ruta) y cuál lo DIBUJA.
+- Se llenan en UN solo lugar: la parte 7 (LOS EVENTOS), con  arregloX = await traerX();
+- Nombres: arreglo<Algo> (arregloProductos) · <algo>Filtrados · contenedor<Algo> · contenidoHTML.
+- Una variable, UN solo significado: nunca una variable que a veces es un plan y a veces una categoría.
+  Si dos cosas se dibujan distinto, van en dos arreglos (y, si hace falta, en dos funciones renderizar).
+- Si la pantalla necesita más de 3 arreglos de afuera, PREGUNTAME antes, mostrándome la lista.
+
+### renderizar, siempre con la misma forma
+  function renderizarProductos(arregloProductos, contenedorProductos) {
+    // (si puede venir vacío: un if arriba que escribe el aviso y hace return)
+    let contenidoHTML = "";
+    arregloProductos.forEach((producto) => {
+      // lo que va en el HTML se calcula ANTES, en variables, con escHtml y con if
+      contenidoHTML += `…`;
+    });
+    contenedorProductos.innerHTML = contenidoHTML;   // se dibuja una sola vez, al final
+  }
+- El número de cada cosa viaja en el HTML con un data-id-<algo> (ej: data-id-producto="7").
+- Los botones de las tarjetas o renglones se escuchan con UN escuchador en el contenedor
+  (evento.target.closest("[data-id-producto]")), no con un addEventListener por cada uno.
+
+### El archivo: siempre estas 7 partes, en este orden, con estos títulos
+  Cabecera: EL RECORRIDO y LAS FUNCIONES (ver abajo)
+  1. LOS ARREGLOS · 2. LOS ELEMENTOS DEL HTML · 3. TRAER · 4. FILTRAR Y ARMAR · 5. RENDERIZAR · 6. GUARDAR · 7. LOS EVENTOS
+- La parte 7 es el ÚNICO lugar donde se encadenan las funciones. Cada escuchador se lee como una lista de pasos,
+  con su número al costado:
+    arregloProductos = await traerProductos();                     // 1. se trae y se guarda
+    renderizarProductos(arregloProductos, contenedorProductos);    // 2. se dibuja
+  Una función de las partes 3 a 6 no llama a otra de otra clase (renderizar no llama a traer, guardar no llama a renderizar).
+
+### La cabecera: EL RECORRIDO, con flechas
+Una línea por cada cosa que puede pasar en la pantalla, de punta a punta:
+  // Al abrir la página → traerProductos() → GET /api/v1/productos → tabla productos
+  //                    → arregloProductos → renderizarProductos(arregloProductos, contenedorProductos)
+  // Escribir en Buscar → filtrarProductos(arregloProductos, texto) → productosFiltrados → renderizarProductos(…)
+  // Tocar "Guardar"    → guardarProducto(datos) → POST /api/productos → tabla productos → traerProductos() → renderizarProductos(…)
+Y abajo LAS FUNCIONES: la lista con la clase de cada una (TRAER, FILTRAR, ARMAR, RENDERIZAR, GUARDAR) y una línea.
+
+### Si la pantalla es NUEVA: que el servidor mande los datos ya armados
+- La ruta tiene que devolver el arreglo con la forma que la pantalla dibuja: un elemento = una tarjeta o un renglón.
+- Si para dibujar habría que agrupar, contar o sumar en el navegador, FRENÁ y preguntame si lo hacemos en la ruta
+  (las cuentas las hace el servidor). armar<Algo> es para cuando la ruta ya existe y no se puede tocar.
+
+### Lo que NO va sin explicarme antes el problema, con un ejemplo, y esperar mi OK
+- Contadores para descartar respuestas viejas (numeroDeCarga), Promise.all, history.pushState, { capture: true }.
+- Pasar una función como dato a otra (funcionRenderFila) o una función que devuelve otra función.
+- Tablas de configuración (DATOS_DE_SALIDA, ASPECTO_ORIGEN): si hacen falta, con un ejemplo de uso arriba.
+
+### Al entregar el JS de una pantalla
+- La tabla del recorrido: qué se toca → función → ruta → tabla de la base → qué se vuelve a dibujar.
+- De cada forEach que no sea obvio, "la vuelta, con números": una fila por vuelta, con el valor de cada variable.
+- Los JS que ya revisé y quedan como están (gestionCombos.js, compras.js) NO se reescriben con esta forma.
+  Esto vale para las pantallas nuevas y para las que yo pida reordenar.
+
 ## Refactor de JavaScript (pantalla por pantalla)
 Cuando te diga "refactorizá este JS" (ej: generar receta), es ORDENARLO para que yo lo entienda, sin cambiar lo que hace.
 - SOLO cuando yo te lo pido, y de a UN archivo del front (frontend/pantallas/ o frontend/compartido/). No refactorices JS por tu cuenta
   mientras hacemos otra cosa (ni durante el MVC). Primero se termina el MVC del servidor, después los JS que yo elija.
-- POCAS FUNCIONES GRANDES, una por cada trabajo de la pantalla. Mejor 3 funciones que se entienden que 6 cortitas.
-  La forma de casi toda pantalla:
-    · cargar<Algo>     → pide los datos al servidor (fetch) y los guarda          Ej: cargarReceta
-    · renderizar<Algo> → dibuja la pantalla con esos datos (innerHTML + escHtml)  Ej: renderizarReceta
-    · guardar<Algo>    → junta lo que cargó el usuario, lo manda y vuelve a cargar Ej: guardarReceta
-  Más los escuchadores (addEventListener) abajo de todo, en una sección "LOS BOTONES".
-  Si la pantalla necesita más de 5 funciones, PREGUNTAME antes, mostrándome la lista.
+- La forma del archivo es la de "El JavaScript de una pantalla, a mi manera" (más arriba): las 5 clases de función
+  y las 7 partes. Antes de tocar, mostrame la lista de funciones de HOY → la lista NUEVA con la clase de cada una.
 - Una función grande se lee por PARTES NUMERADAS, cada una con su comentario: // 1. Lo que se pide · // 2. Se dibuja…
   Así es grande pero se lee de arriba a abajo, como compras.js.
 - Si un pedazo se usa en varias pantallas, va a un archivo compartido (como stockCompartido.js). Preguntame antes.
@@ -108,6 +187,33 @@ server.js se parte por MÓDULO, con la forma de mi proyecto viejo. La carpeta de
 - Seguir con require o import, el que ya use server.js. No mezclar.
 - La carpeta frontend/ no se toca en el MVC.
 
+### Cómo se escribe un módulo, a mi manera (4 pasos)
+SIEMPRE que escribas, reescribas o revises un módulo de backend/modulos/, usá esta forma. El ejemplo completo
+(rutas, modelo y controlador) está en docs/modelos/modelo-mvc.js: abrilo y copiá esa forma exacta.
+Es mi forma del front aplicada al back:
+  FRONT:  traerProductos()  →  arregloProductos  →  renderizarProductos(arreglo, contenedor)
+  BACK:   modelo.traerX()   →  { data, error }   →  res.json(data)
+- RUTAS: solo la dirección entera + requireAuth/requireRol/límite + la función del controlador. Nada más.
+- MODELO: una función por consulta, con nombre terminado en BD (traerProductosBD). Solo supabase.from / supabase.rpc.
+  Devuelve { data, error } tal cual (return await supabase…). No conoce req ni res. Es mi "traer" del front.
+- CONTROLADOR: cada función SIEMPRE con estos 4 pasos, numerados y con este título en el comentario:
+    // 1. LEER      → req.params, req.body, req.usuario (el usuario NUNCA del body)
+    // 2. REVISAR   → cada control en una variable con nombre (const idInvalido = …), su if con
+    //                comentario "¿…? SÍ: ejemplo · NO: ejemplo", y corta con return res.status(400)…
+    // 3. PEDIR     → const { data, error } = await modelo.<algo>BD(…)
+    // 4. RESPONDER → if (error) errorInterno · if (!data) 404 · res.json(…)
+  · Si un paso no hace nada, igual va el comentario ("// 1. LEER: nada").
+  · Si la función pide dos cosas al modelo, se repiten los pasos 3 y 4 (3a, 4a, 3b, 4b), nunca mezclados.
+  · Si hay que acomodar los datos antes de responder (agrupar, contar), va como paso aparte:
+      // 4. ARMAR → un forEach que arma el arreglo nuevo · // 5. RESPONDER
+- Arriba de cada función: qué ruta atiende, ENTRADA, SALIDA con todos los códigos posibles y un Ej.
+- Las reglas de "Estilo" valen todas (sin if adentro de if, sin reduce, sin ??, forEach, etc.).
+- LA REGLA DE ORO: cada ruta responde EXACTAMENTE lo mismo que antes (mismos códigos, mismos mensajes, mismo JSON).
+- Al REVISAR un módulo que escribí yo: decime qué función no respeta los 4 pasos (y dónde), sin tocar nada,
+  y preguntame "¿lo cambio?". Si reescribís uno: primero el PLAN (ruta → función del controlador → funciones del
+  modelo, los 4 pasos de cada función en una línea, lo que no entra en los 4 pasos) y FRENÁ para mi OK.
+  El prompt completo está en docs/modelos/PROMPT-MVC.md.
+
 ### Quién hace qué en el MVC
 - Claude hace SOLO la base común: backend/config/, backend/middlewares/ y backend/utils/ (con plan antes y freno).
 - Los MÓDULOS (backend/modulos/: rutas, controlador y modelo) los escribo YO a mano, PRIMERO yo, todos.
@@ -117,9 +223,9 @@ server.js se parte por MÓDULO, con la forma de mi proyecto viejo. La carpeta de
   · los require que van arriba de cada uno de los 3 archivos.
 - DESPUÉS de que yo lo paso ("ya está listo"), Claude lo REVISA:
   · que cada ruta responda igual que antes y que no falte ningún requireAuth / requireRol / límite;
-  · cuenta las rutas (76 con requireAuth y 13 públicas, sumando server.js y backend/modulos/*/rutas.*.js).
+  · cuenta las rutas (79 con requireAuth y 7 públicas, sumando server.js y backend/modulos/*/rutas.*.js).
 - Las pruebas dependen de lo que toca el cambio. Se prueba SOLO lo que ese cambio afecta: la respuesta de esa ruta
-  antes y después, su patovica (401/403), el conteo 76/13 y que la pantalla abra igual. El test heladera (61) se corre
+  antes y después, su patovica (401/403), el conteo 79/7 y que la pantalla abra igual. El test heladera (61) se corre
   SOLO cuando el cambio toca pedidos, stock, heladera, cocina o armado, o al terminar un módulo entero.
 - Al terminar cada cambio, Claude me PREGUNTA si hacemos la prueba en la web (el recorrido a mano de esa pantalla).
 - Si algo está mal (una coma, un require, un error mal manejado, algo que falta), Claude me dice QUÉ y DÓNDE

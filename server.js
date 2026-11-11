@@ -35,7 +35,7 @@ const crypto     = require('crypto');                  // Comparación segura de
 const fechas     = require('./frontend/compartido/fechas.js'); // Días hábiles y feriados (el mismo archivo que usa el frontend)
 
 // La base común del servidor (backend/): se mudó de este archivo en el paso 2 del MVC
-const { limiteLogin, limiteRegistro, limiteRecuperarPassword, limiteAnular, limitePedidos, limiteCatalogo } = require('./backend/middlewares/limites');
+const { limiteLogin, limiteRegistro, limiteRecuperarPassword, limiteAnular, limitePedidos } = require('./backend/middlewares/limites');
 const { leerToken, requireAuth, requireRol } = require('./backend/middlewares/auth');
 const { manejadorErrores } = require('./backend/middlewares/manejadorErrores');
 const { MENSAJE_ERROR_INTERNO, mensajeInterno, errorInterno } = require('./backend/utils/errores');
@@ -47,6 +47,7 @@ const { nombreDeUsuario, origenDeRenglonStock, armarMovimientos } = require('./b
 
 // Los MÓDULOS del MVC (backend/modulos/): cada uno trae sus rutas, controlador y modelo
 const rutasCombos = require('./backend/modulos/combos/rutas.combos');
+const rutasCatalogo = require('./backend/modulos/catalogo/rutas.catalogo');
 
 /* ======================================================
    INSUMOS DE LOS PEDIDOS (solo lo que cocina la cocina: cantidad − cantidad_de_heladera)
@@ -383,205 +384,6 @@ app.post('/api/register', limiteRegistro, async (req, res) => {
     console.error('Error en registro:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });
   }
-});
-
-/* ======================================================
-   API v1 — CATÁLOGO (Categorías → Planes → Productos)
-   ====================================================== */
-
-// GET /api/v1/catalogo → árbol completo en una sola consulta (performance)
-app.get('/api/v1/catalogo', async (req, res) => {
-  const { data, error } = await supabase
-    .from('categorias')
-    .select(`
-      id,
-      nombre,
-      imagen,
-      descripcion,
-      planes (
-        id,
-        nombre,
-        descripcion_nutricional,
-        activo,
-        productos (
-          id,
-          nombre,
-          descripcion,
-          imagen,
-          precio,
-          descuento,
-          activo
-        )
-      )
-    `);
-
-  if (error) return errorInterno(res, error);
-
-  // Filtrar planes y productos activos en el servidor
-  const catalogo = (data || []).map(cat => ({
-    id:          cat.id,
-    nombre:      cat.nombre,
-    imagen:      cat.imagen,        // la dirección de su foto, o null
-    descripcion: cat.descripcion,   // su frase corta, o null
-    planes: (cat.planes || [])
-      .filter(p => p.activo)
-      .map(plan => ({
-        id:     plan.id,
-        nombre: plan.nombre,
-        descripcion_nutricional: plan.descripcion_nutricional,
-        productos: (plan.productos || []).filter(prod => prod.activo)
-      }))
-  }));
-
-  res.json(catalogo);
-});
-
-// GET /api/v1/categorias → todas las categorías (con su foto y su frase corta, o null si no tienen)
-app.get('/api/v1/categorias', async (req, res) => {
-  const { data, error } = await supabase
-    .from('categorias')
-    .select('id, nombre, imagen, descripcion');
-  if (error) return errorInterno(res, error);
-  res.json(data);
-});
-
-// GET /api/v1/categorias/:id/planes → planes activos de una categoría
-app.get('/api/v1/categorias/:id/planes', async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) return res.status(400).json({ error: 'ID de categoría inválido' });
-  const { data, error } = await supabase
-    .from('planes')
-    .select('id, nombre, descripcion_nutricional')
-    .eq('id_categoria', id)
-    .eq('activo', true);
-  if (error) return errorInterno(res, error);
-  if (!data || data.length === 0) return res.status(404).json({ error: 'No se encontraron planes para esta categoría' });
-  res.json(data);
-});
-
-// GET /api/v1/planes/:id/productos → productos activos de un plan
-app.get('/api/v1/planes/:id/productos', async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) return res.status(400).json({ error: 'ID de plan inválido' });
-  const { data, error } = await supabase
-    .from('productos')
-    .select('id, nombre, descripcion, imagen, precio')
-    .eq('id_plan', id)
-    .eq('activo', true);
-  if (error) return errorInterno(res, error);
-  if (!data || data.length === 0) return res.status(404).json({ error: 'No se encontraron productos para este plan' });
-  res.json(data);
-});
-
-// GET /api/v1/productos → todos los productos activos
-app.get('/api/v1/productos', async (req, res) => {
-  const { data, error } = await supabase
-    .from('productos')
-    .select('id, nombre, descripcion, imagen, precio')
-    .eq('activo', true);
-  if (error) return errorInterno(res, error);
-  res.json(data);
-});
-
-// GET /api/v1/productos/:id → producto por ID
-app.get('/api/v1/productos/:id', async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) return res.status(400).json({ error: 'ID de producto inválido' });
-  const { data, error } = await supabase
-    .from('productos')
-    .select('id, nombre, descripcion, imagen, precio')
-    .eq('id', id)
-    .eq('activo', true)
-    .single();
-  if (error) {
-    if (error.code === 'PGRST116') return res.status(404).json({ error: 'Producto no encontrado' });
-    return errorInterno(res, error);
-  }
-  res.json(data);
-});
-
-// GET /api/v1/combos → combos activos con su plan, la categoría del plan y su menú (lo usa index-combos.html).
-// 28/10 (código de plato): cada plato del menú trae también su codigo_plato (ej: "F3").
-// Es pública, como el catálogo: solo manda lo que la web necesita mostrar.
-// De cada plato del menú manda "disponibles": las viandas que hay en la heladera, con un tope igual a
-// la cantidad del combo (así no se muestra el stock real completo). Lo personalizado no tiene tope:
-// no sale de la heladera.
-// De cada combo manda también id_plan, plan_imagen y plan_descripcion (null si no tiene): con eso la web muestra
-// una tarjeta por plan. Ej: { plan: 'MANTENIMIENTO', id_plan: 2, plan_imagen: './src/assets/img/combo-mantenimiento-1200.jpg', plan_descripcion: null }
-app.get('/api/v1/combos', limiteCatalogo, async (req, res) => {
-  // 1. Combos activos con su plan (y la categoría del plan) y su menú, en una sola consulta
-  const { data, error } = await supabase
-    .from('combos')
-    .select(`
-      id,
-      nombre,
-      cantidad,
-      precio,
-      destacado,
-      planes (
-        id,
-        nombre,
-        activo,
-        imagen,
-        descripcion,
-        categorias ( id, nombre, imagen, descripcion )
-      ),
-      combo_productos (
-        activo,
-        productos ( id, nombre, codigo_plato, descripcion, imagen, activo, stock_heladera )
-      )
-    `)
-    .eq('activo', true)
-    .order('nombre', { ascending: true });
-
-  if (error) return errorInterno(res, error);
-
-  const combos = [];
-
-  for (const combo of data || []) {
-    // 2. Un combo sin plan o de un plan inactivo no se muestra
-    if (!combo.planes || !combo.planes.activo) continue;
-
-    // 3. Menú: solo los renglones activos cuyo plato también está activo
-    const menu = [];
-    for (const renglon of combo.combo_productos || []) {
-      const plato = renglon.productos;
-      if (!renglon.activo || !plato || !plato.activo) continue;
-
-      // Viandas que se pueden elegir de la heladera: las que hay, sin pasar la cantidad del combo
-      const enHeladera = Number(plato.stock_heladera) || 0;
-      menu.push({
-        id:          plato.id,
-        nombre:      plato.nombre,
-        codigo_plato: plato.codigo_plato || null,   // su código (ej: "F3"; 28/10). La web lo muestra si no está ya en el nombre
-        descripcion: plato.descripcion,
-        imagen:      plato.imagen,
-        disponibles: Math.min(enHeladera, combo.cantidad)
-      });
-    }
-
-    // 4. Un combo sin ningún plato para elegir no se muestra
-    if (menu.length === 0) continue;
-
-    // Los platos, por nombre (como en un menú)
-    menu.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'));
-
-    combos.push({
-      id:        combo.id,
-      nombre:    combo.nombre,
-      cantidad:  combo.cantidad,
-      precio:    Number(combo.precio),
-      destacado: combo.destacado === true,  // true = lleva "Más elegido" (sin el dato, false)
-      plan:      combo.planes.nombre,
-      id_plan:          combo.planes.id,            // el número del plan: la web agrupa las tarjetas con esto
-      plan_imagen:      combo.planes.imagen,        // la dirección de la foto del plan, o null
-      plan_descripcion: combo.planes.descripcion,   // la frase del plan, o null
-      categoria: combo.planes.categorias, // { id, nombre, imagen, descripcion }, o null si el plan no tiene categoría
-      menu
-    });
-  }
-
-  res.json(combos);
 });
 
 /* ======================================================
@@ -4910,6 +4712,7 @@ app.delete('/api/usuarios/:id', requireAuth, requireRol(6, 5), async (req, res) 
    Van ANTES de los archivos estáticos.
    ====================================================== */
 app.use(rutasCombos);   // las 7 rutas de la pantalla Combos (/api/combos...)
+app.use(rutasCatalogo); // la ruta de la web del cliente (/api/v1/combos). (12/11) Las 6 viejas de /api/v1 se borraron
 
 /* ======================================================
    SERVIR FRONTEND (ESTÁTICO)

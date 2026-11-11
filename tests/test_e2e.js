@@ -157,44 +157,32 @@ async function testLogin() {
 }
 
 async function testCatalogo() {
-  console.log('\n══════ 2. CATÁLOGO (categorías, planes, productos) ══════');
+  console.log('\n══════ 2. CATÁLOGO (la web del cliente: GET /api/v1/combos) ══════');
 
-  // 2a. Categorías
-  const r1 = await get('/api/v1/categorias');
-  if (r1.status === 200 && Array.isArray(r1.data) && r1.data.length > 0) {
-    ok('GET /api/v1/categorias', `${r1.data.length} categorías`);
-  } else if (r1.status === 200 && Array.isArray(r1.data)) {
-    warn('GET /api/v1/categorias', 'Responde OK pero vacío (tabla sin datos)');
-  } else {
-    fail('GET /api/v1/categorias', `status=${r1.status} data=${JSON.stringify(r1.data)}`);
-  }
-
-  // 2b. Catálogo completo (árbol)
-  const r2 = await get('/api/v1/catalogo');
-  if (r2.status === 200 && Array.isArray(r2.data)) {
-    const totalPlanes = r2.data.reduce((s, c) => s + (c.planes?.length || 0), 0);
-    ok('GET /api/v1/catalogo (árbol completo)', `${r2.data.length} cats, ${totalPlanes} planes`);
-  } else {
-    fail('GET /api/v1/catalogo', `status=${r2.status}`);
-  }
-
-  // 2c. Planes de una categoría
-  if (r1.data?.length > 0) {
-    const catId = r1.data[0].id;
-    const r3 = await get(`/api/v1/categorias/${catId}/planes`);
-    if (r3.status === 200 || r3.status === 404) {
-      ok(`GET planes de categoría #${catId}`, `status=${r3.status} planes=${r3.data?.length || 0}`);
+  // 2a. Combos de la tienda: es la única ruta del catálogo (12/11: las 6 viejas de /api/v1 se borraron).
+  //     Cada combo trae su plan, la categoría del plan (o null) y su menú con "disponibles".
+  const r1 = await get('/api/v1/combos');
+  const vinoUnaLista = r1.status === 200 && Array.isArray(r1.data);
+  if (vinoUnaLista && r1.data.length > 0) {
+    const combo = r1.data[0];
+    const tieneLaForma = typeof combo.id === 'number' && typeof combo.precio === 'number' && Array.isArray(combo.menu) && 'categoria' in combo;
+    if (tieneLaForma) {
+      ok('GET /api/v1/combos', `${r1.data.length} combos · el primero: ${combo.nombre} (${combo.menu.length} platos en el menú)`);
     } else {
-      fail(`GET planes de categoría #${catId}`, `status=${r3.status}`);
+      fail('GET /api/v1/combos', 'Los combos no traen id, precio, menu y categoria');
     }
+  } else if (vinoUnaLista) {
+    warn('GET /api/v1/combos', 'Responde OK pero vacío (no hay combos activos con menú)');
+  } else {
+    fail('GET /api/v1/combos', `status=${r1.status} data=${JSON.stringify(r1.data)}`);
   }
 
-  // 2d. Productos activos
-  const r4 = await get('/api/v1/productos');
-  if (r4.status === 200 && Array.isArray(r4.data)) {
-    ok('GET /api/v1/productos', `${r4.data.length} productos activos`);
+  // 2b. Las rutas viejas ya no existen (las borramos): tienen que dar 404
+  const r2 = await get('/api/v1/catalogo');
+  if (r2.status === 404) {
+    ok('GET /api/v1/catalogo ya no existe', 'status=404');
   } else {
-    fail('GET /api/v1/productos', `status=${r4.status}`);
+    fail('GET /api/v1/catalogo ya no existe', `status=${r2.status} (tendría que ser 404)`);
   }
 
   // 2e. Planes
