@@ -1,47 +1,31 @@
-// armarCombo.js — La ventana donde el cliente elige los platos de UN combo.
-//
-// Lo que hace el cliente          → la función
-//   Toca "¡Lo quiero!"            → abrirVentanaCombo      (abre la ventana)
-//   (después de cada toque)       → renderizarVentanaCombo (dibuja los platos y el "3 de 10")
-//   Toca − o +                    → cambiarCantidad        (suma o resta 1 plato)
-//   Toca "Armalo por mí"          → armarloPorMi           (completa el combo solo)
-//   Toca "Agregar al pedido"      → confirmarCombo         (manda el combo al carrito)
-
-// El combo que se está armando
+// armarCombo.js — La ventana donde el cliente elige los platos de un combo
 let comboEnArmado = null;
 
-// Los platos que va eligiendo. Ej: [ { idPlato: 5, nombre: "Fideos", texto: "", cantidad: 3 } ]
+// EL ARRAY de los platos que va eligiendo el cliente
 let platosElegidos = [];
 
-// Cuántos platos lleva elegidos en total
 let totalElegido = 0;
-// El plato que tiene abierto el campo "Personalizar"
 let platoPersonalizando = null;
-// Cuántos se pueden elegir de cada plato
 let topePorPlato = {};
 
 const LARGO_MAXIMO_PERSONALIZADO = 150;
 
-// Tablas: eligen un texto según sí (true) o no (false). Ej: ATRIBUTO_APAGADO[false] → el botón queda apagado
 const ATRIBUTO_APAGADO = { true: '', false: 'disabled' };
 const CLASE_PLATO_ELEGIDO = { true: ' plato-elegido', false: '' };
 const AVISO_SIN_STOCK = { true: '<p class="plato-quedan plato-sin-stock">Sin stock · podés pedirlo personalizado</p>', false: '' };
 
-// Los elementos de la página
 const ventanaCombo = document.getElementById('modal-combo');
 const listaPlatosCombo = document.getElementById('lista-platos');
 const botonAgregarCombo = document.getElementById('boton-agregar-combo');
 const botonArmarPorMi = document.getElementById('boton-armar-por-mi');
 const avisoSalir = document.getElementById('aviso-salir');
 
-// ABRE la ventana de un combo, con todo en 0.
 function abrirVentanaCombo(combo) {
   comboEnArmado = combo;
   platosElegidos = [];
   totalElegido = 0;
   platoPersonalizando = null;
 
-  // Cuántos de cada plato ya están en el carrito
   const enCarritoPorPlato = {};
   combo.menu.forEach((plato) => {
     enCarritoPorPlato[plato.id] = 0;
@@ -57,7 +41,6 @@ function abrirVentanaCombo(combo) {
     }
   });
 
-  // Cuántos se pueden elegir de cada plato (lo que queda en la heladera)
   topePorPlato = {};
   combo.menu.forEach((plato) => {
     let tope = plato.disponibles;
@@ -67,7 +50,6 @@ function abrirVentanaCombo(combo) {
     topePorPlato[plato.id] = tope;
   });
 
-  // El título y la foto de arriba
   let encabezado = combo.plan;
   if (combo.categoria) {
     encabezado = combo.categoria.nombre + ' · ' + combo.plan;
@@ -85,13 +67,11 @@ function abrirVentanaCombo(combo) {
   ventanaCombo.showModal();
 }
 
-// DIBUJA la ventana: los platos, el "3 de 10", la barra y los botones.
 function renderizarVentanaCombo() {
   const cantidadDelCombo = comboEnArmado.cantidad;
   const completo = totalElegido === cantidadDelCombo;
   const apagadoSiCompleto = ATRIBUTO_APAGADO[!completo];
 
-  // Cuántos lleva elegidos de cada plato, y sus personalizados
   const cantidadPorPlato = {};
   const personalizadosPorPlato = {};
   comboEnArmado.menu.forEach((plato) => {
@@ -122,7 +102,6 @@ function renderizarVentanaCombo() {
     }
   });
 
-  // Un renglón por cada plato del menú
   let contenidoHTML = '';
   comboEnArmado.menu.forEach((plato) => {
     const cantidad = cantidadPorPlato[plato.id];
@@ -187,6 +166,7 @@ function renderizarVentanaCombo() {
       <li class="nota">
         Los platos personalizados se cocinan aparte: hay un día de producción en el medio (si pedís un martes, se cocina el miércoles y te llega desde el jueves).
       </li>`, false: '' }[hayPersonalizados];
+  // ACÁ SE RENDERIZAN los platos del combo
   listaPlatosCombo.innerHTML = contenidoHTML;
 
   const campoTexto = document.getElementById('texto-personalizado');
@@ -194,7 +174,6 @@ function renderizarVentanaCombo() {
     campoTexto.focus();
   }
 
-  // El "3 de 10", el texto del botón y la barra
   const faltan = cantidadDelCombo - totalElegido;
   const esCelu = window.matchMedia('(max-width: 767px)').matches;
   const palabraPlatos = { true: 'plato', false: 'platos' }[faltan === 1];
@@ -226,19 +205,14 @@ function renderizarVentanaCombo() {
   botonArmarPorMi.disabled = completo;
 }
 
-// SUMA o RESTA 1 plato (cambio = 1 o -1). texto vacío = de la heladera · texto "sin sal" = personalizado.
-// Devuelve true si cambió algo, false si no se podía.
 function cambiarCantidad(idPlato, cambio, texto) {
-  // Busca el plato en el menú, y si ya lo había elegido antes
   const plato = comboEnArmado.menu.find((p) => p.id === idPlato);
   let renglon = platosElegidos.find((r) => r.idPlato === idPlato && r.texto.toLowerCase() === texto.toLowerCase());
   const esNuevo = renglon === undefined;
-  // Si es la primera vez que elige ese plato, arranca en 0
   if (esNuevo) {
     renglon = { idPlato: idPlato, nombre: plato?.nombre, texto: texto, cantidad: 0 };
   }
 
-  // ¿Se puede? (no menos de 0, no más de lo que queda, no más que el combo)
   const nuevaCantidad = renglon.cantidad + cambio;
   const noEstaEnElMenu = plato === undefined;
   const quedariaNegativo = nuevaCantidad < 0;
@@ -249,8 +223,8 @@ function cambiarCantidad(idPlato, cambio, texto) {
     return false;
   }
 
-  // Se cambia la cantidad (uno nuevo se agrega a la lista; el que queda en 0 se saca)
   if (esNuevo) {
+    // ACÁ SE PUSHEA: el plato elegido se agrega al array platosElegidos
     platosElegidos.push(renglon);
   }
   renglon.cantidad = nuevaCantidad;
@@ -259,7 +233,6 @@ function cambiarCantidad(idPlato, cambio, texto) {
   return true;
 }
 
-// COMPLETA el combo solo: reparte de a 1 plato por vuelta hasta llenarlo.
 function armarloPorMi() {
   if (comboEnArmado === null) {
     return false;
@@ -275,14 +248,12 @@ function armarloPorMi() {
   return true;
 }
 
-// MANDA el combo armado al carrito y cierra la ventana.
 function confirmarCombo() {
   const comboCompleto = comboEnArmado !== null && totalElegido === comboEnArmado.cantidad;
   if (!comboCompleto) {
     return;
   }
 
-  // Los platos elegidos: primero los de heladera, después los personalizados
   const platos = [];
   comboEnArmado.menu.forEach((plato) => {
     const renglon = platosElegidos.find((r) => r.idPlato === plato.id && r.texto === '');
@@ -296,6 +267,7 @@ function confirmarCombo() {
     platos.push({ producto_id: renglon.idPlato, nombre: renglon.nombre, cantidad: renglon.cantidad, personalizado: renglon.texto });
   });
 
+  // ACÁ SE PASA AL CARRITO (carritoCombos.js)
   agregarAlCarrito({
     id_combo: comboEnArmado.id,
     nombre:   comboEnArmado.nombre,
@@ -306,7 +278,6 @@ function confirmarCombo() {
   cerrarVentanaCombo(true);
 }
 
-// Lo que escribió en "Personalizar": si el texto sirve, suma 1 plato personalizado.
 function agregarPersonalizado(idPlato, textoEscrito) {
   const textoLimpio = String(textoEscrito).trim();
   const textoNoSirve = textoLimpio === '' || textoLimpio.length > LARGO_MAXIMO_PERSONALIZADO;
@@ -321,7 +292,6 @@ function agregarPersonalizado(idPlato, textoEscrito) {
   return seAgrego;
 }
 
-// CIERRA la ventana. Si ya eligió platos, antes pregunta "¿Salir?".
 function cerrarVentanaCombo(forzar) {
   const hayQuePreguntar = !forzar && totalElegido > 0;
   if (hayQuePreguntar) {
@@ -340,7 +310,6 @@ function cerrarVentanaCombo(forzar) {
   platoPersonalizando = null;
 }
 
-// Qué hace cada botón de la ventana cuando lo tocan.
 const BOTONES_DE_LA_VENTANA = {
   'sumar':                  (boton) => cambiarCantidad(Number(boton.dataset.idPlato), 1, ''),
   'restar':                 (boton) => cambiarCantidad(Number(boton.dataset.idPlato), -1, ''),
@@ -356,7 +325,6 @@ const BOTONES_DE_LA_VENTANA = {
   'combo-seguir':           () => { avisoSalir.hidden = true; botonAgregarCombo.hidden = false; return false; }
 };
 
-// El − y el + de un plato personalizado.
 function cambiarPersonalizado(indice, cambio) {
   const renglon = platosElegidos.filter((r) => r.texto !== '')[indice];
   if (renglon === undefined) {
@@ -365,8 +333,8 @@ function cambiarPersonalizado(indice, cambio) {
   return cambiarCantidad(renglon.idPlato, cambio, renglon.texto);
 }
 
-// Quién escucha los clics.
 document.addEventListener('DOMContentLoaded', () => {
+  // ACÁ SE ABRE LA VENTANA: tocaron "¡Lo quiero!" (los platos ya vienen en combo.menu)
   document.getElementById('combos').addEventListener('click', (evento) => {
     const boton = evento.target.closest('[data-accion="armar-combo"]');
     if (!boton) {

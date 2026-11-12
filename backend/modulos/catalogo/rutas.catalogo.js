@@ -13,3 +13,7 @@ const controlador = require('./controlador.catalogo');
 router.get('/api/v1/combos', limiteCatalogo, controlador.listarCombos);   // los combos con su menú (lo usa la tienda)
 
 module.exports = router;
+
+
+
+
