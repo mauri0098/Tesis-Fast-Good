@@ -1,3 +1,10 @@
+// renderizadoCatalogo.js — El catálogo de la tienda.
+//
+// Lo que ve el cliente                         → la función
+//   Al entrar: categorías y planes sin categoría → renderizarCategoriasYPlanes
+//   Tocó una categoría: sus planes             → renderizarPlanesDeLaCategoria
+//   Tocó un plan: sus combos                   → renderizarCombosDelPlan
+
 let combosDisponibles = [];
 
 let idCategoriaElegida = null;
@@ -12,6 +19,7 @@ const contenedorCombos = document.getElementById('combos');
 const avisoCombosDesde = document.getElementById('combos-desde');
 const precioCombosDesde = document.getElementById('combos-desde-precio');
 
+// TRAE todos los combos de una vez (cada uno con su plan, su categoría y su menú).
 async function traerCombos() {
   try {
     const respuesta = await fetch('/api/v1/combos');
@@ -26,15 +34,18 @@ async function traerCombos() {
   }
 }
 
-function renderizarInicio(combos) {
+// DIBUJA las tarjetas de entrada: una por cada categoría y una por cada plan sin categoría.
+function renderizarCategoriasYPlanes(combos) {
   const categorias = {};
   const planesSueltos = {};
   const tarjetas = [];
 
+  // ACÁ SE RECORREN TODOS LOS COMBOS para armar las tarjetas de entrada
   combos.forEach((combo) => {
     const precio = Number(combo.precio);
     const precioPorVianda = Math.round(precio / combo.cantidad);
 
+    // ACÁ ESTÁ EL PLAN SOLO: arranca como plan sin categoría, con su propia tarjeta (si tiene categoría, el if de abajo lo cambia)
     let lista = planesSueltos;
     let id = combo.id_plan;
     let nombre = combo.plan;
@@ -46,8 +57,10 @@ function renderizarInicio(combos) {
     let textoBoton = 'Ver combos';
     let atributoId = 'data-id-plan';
 
+    // ACÁ ESTÁ EL FILTRO que pregunta si el plan tiene categoría. SÍ → se suma a la tarjeta de su categoría · NO → queda como plan solo
     const tieneCategoria = combo.categoria !== null;
     if (tieneCategoria) {
+      // SÍ tiene categoría → ACÁ SE SUMA el plan a la tarjeta de su categoría
       lista = categorias;
       id = combo.categoria.id;
       nombre = combo.categoria.nombre;
@@ -128,13 +141,16 @@ function renderizarInicio(combos) {
   contenedorTarjetasDelIndex.innerHTML = `<div class="grilla-tarjetas-del-index">${contenidoHTML}</div>`;
 }
 
-function renderizarPlanes(combos, idCategoria) {
+// DIBUJA los planes de una categoría (cuando el cliente toca una categoría).
+function renderizarPlanesDeLaCategoria(combos, idCategoria) {
+  // ACÁ ESTÁ EL FILTRO que busca los combos de la categoría que tocó
   const combosDeLaCategoria = combos.filter((combo) => {
     const esDeLaCategoria = combo.categoria !== null && combo.categoria.id === idCategoria;
     return esDeLaCategoria;
   });
   const categoria = combosDeLaCategoria[0].categoria;
 
+  // ACÁ ESTÁ EL FILTRO que compara la categoría con sus planes: junta los combos de cada plan en una tarjeta
   const planesPorId = {};
   const planes = [];
   combosDeLaCategoria.forEach((combo) => {
@@ -188,7 +204,9 @@ function renderizarPlanes(combos, idCategoria) {
     <div class="grilla-planes-categoria">${contenidoHTML}</div>`;
 }
 
-function renderizarCombos(combos, idPlan, vieneDeUnaCategoria) {
+// DIBUJA los combos de un plan (cuando el cliente toca un plan).
+function renderizarCombosDelPlan(combos, idPlan, vieneDeUnaCategoria) {
+  // ACÁ ESTÁ EL FILTRO que busca los combos del plan que tocó
   const combosDelPlan = combos.filter((combo) => combo.id_plan === idPlan);
   // ACÁ QUEDA EL ARRAY FINAL: combosDelPlan (los combos de ese plan)
   const nombrePlan = combosDelPlan[0].plan;
@@ -254,6 +272,7 @@ function renderizarCombos(combos, idPlan, vieneDeUnaCategoria) {
     <div class="grilla-combos">${contenidoHTML}</div>`;
 }
 
+// Arma el HTML de la foto de una tarjeta (lo usa también armarCombo.js).
 function armarFotoTarjeta(combos, fotoPropia, textoAlternativo) {
   let foto = fotoPropia;
 
@@ -273,6 +292,7 @@ function armarFotoTarjeta(combos, fotoPropia, textoAlternativo) {
                onerror="this.onerror = null; this.src = '${IMAGEN_POR_DEFECTO}'; this.classList.add('foto-logo');">`;
 }
 
+// TRAE los combos y dibuja las tarjetas de entrada (lo llama también pedidoCombos.js).
 async function cargarCombos() {
   const combosTraidos = await traerCombos();
 
@@ -298,10 +318,11 @@ async function cargarCombos() {
   precioCombosDesde.textContent = '$ ' + precioMasBajo.toLocaleString('es-AR');
   avisoCombosDesde.hidden = false;
 
-  renderizarInicio(combosDisponibles);
+  renderizarCategoriasYPlanes(combosDisponibles);
   mostrarNivelElegido();
 }
 
+// MUESTRA lo que eligió el cliente: los planes de una categoría o los combos de un plan.
 function mostrarNivelElegido() {
   let idCategoriaDelPaso = null;
   let idPlanDelPaso = null;
@@ -326,22 +347,25 @@ function mostrarNivelElegido() {
   seccionCatalogo.classList.remove('mostrando-planes');
   seccionCatalogo.classList.remove('mostrando-combos');
 
+  // ACÁ SE ELIGE qué dibujar: ¿tocó una categoría? → sus planes · ¿tocó un plan? → sus combos
   if (idCategoriaElegida !== null) {
     seccionCatalogo.classList.add('mostrando-planes');
-    renderizarPlanes(combosDisponibles, idCategoriaElegida);
+    renderizarPlanesDeLaCategoria(combosDisponibles, idCategoriaElegida);
   }
   if (idPlanElegido !== null) {
     seccionCatalogo.classList.add('mostrando-combos');
     const vieneDeUnaCategoria = idCategoriaElegida !== null;
-    renderizarCombos(combosDisponibles, idPlanElegido, vieneDeUnaCategoria);
+    renderizarCombosDelPlan(combosDisponibles, idPlanElegido, vieneDeUnaCategoria);
   }
 }
 
+// VUELVE a las tarjetas de entrada (lo llama pedidoCombos.js al confirmar el pedido).
 function volverAPlanes() {
   history.replaceState(null, '');
   mostrarNivelElegido();
 }
 
+// Quién escucha los clics.
 document.addEventListener('DOMContentLoaded', () => {
   cargarCombos();
 

@@ -76,7 +76,7 @@
   --fondo: #ffffff;             /* fondo de TODA la página: portada, secciones y pie (blanco desde el 18/10) */
   --fondo-encabezado: #ffffff;  /* fondo del encabezado, en compu y en el celu (blanco desde el 19/10) */
   --encabezado-linea: #e3e9e1;  /* la línea finita debajo del encabezado */
-  --tinte: var(--verde-claro);  /* recuadros chicos en verde clarito (notas, resumen, barrio, botón ✕): el mismo verde clarito */
+  --tinte: var(--verde-claro);  /* recuadros chicos en verde clarito (notas, resumen, botón ✕): el mismo verde clarito */
   --blanco: #ffffff;
   --texto: #16201a;             /* texto común */
   --titulo: #2b352f;            /* gris oscuro de nombres de platos y ventanas */
@@ -1285,7 +1285,7 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 .opcional { font-weight: 500; color: var(--texto-suave); }
 /* Nombre y Apellido lado a lado */
 .campos-lado-a-lado { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-/* Casillero: donde se escribe o se elige (inputs, el select del barrio y el de observaciones) */
+/* Casillero: donde se escribe o se elige (inputs y el de observaciones) */
 .casillero {
   width: 100%; min-height: 46px; padding: 10px 14px;
   font: inherit; font-size: 1rem; color: var(--texto); caret-color: var(--verde-fuerte);
@@ -1300,8 +1300,6 @@ textarea.casillero { resize: vertical; min-height: 96px; }
 .campo-error { font-size: .875rem; font-weight: 600; color: var(--error); }
 .campo-error:empty { display: none; }
 .campo-error::before { content: "! "; font-weight: 800; }
-.grupo-barrio { display: grid; gap: 14px; padding: 16px; border-radius: 16px; background: var(--tinte); }
-.grupo-barrio[hidden] { display: none; }
 
 /* Opciones tipo tarjeta (Envío / Retiro, Efectivo / Transferencia): el radio de verdad está escondido
    y se pinta la tarjeta de al lado (opcion-tarjeta) cuando está elegido */
@@ -1381,7 +1379,6 @@ textarea.casillero { resize: vertical; min-height: 96px; }
   .modal-finalizar .casillero { min-height: 50px; padding: 0 14px; border-width: 1.5px; font-size: 16px; }
   .modal-finalizar textarea.casillero { padding: 12px 14px; }
   .modal-finalizar .casillero:focus { border-color: var(--verde); box-shadow: 0 0 0 4px color-mix(in srgb, var(--verde) 15%, transparent); }
-  .grupo-barrio { padding: 12px; }
 
   /* Botones partidos: las dos opciones en una franja gris; la elegida, blanca con letra verde.
      El radio de verdad sigue escondido adentro (opcion-radio): el valor que se manda es el mismo */
