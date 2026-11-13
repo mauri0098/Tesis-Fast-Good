@@ -361,7 +361,7 @@ function renderizarCombosDelPlan(idPlan) {
 
     // acá se dibuja una tarjeta por cada combo de idPlan
     // (13/11, diseño v2) igual a la tarjeta del nivel 1: la foto sola (solo lleva el sello "Más elegido");
-    // debajo el nombre, "10 viandas" y la fila con el precio por vianda y "¡Lo quiero!"
+    // debajo el nombre (que ya dice cuántas viandas son) y la fila con el precio por vianda y "¡Lo quiero!"
     htmlCombos += `
       <button type="button" class="tarjeta-combo tarjeta-combo-del-plan revelar${claseDestacada}" data-accion="armar-combo" data-id-combo="${escHtml(combo.id)}">
         <span class="tarjeta-combo-foto">
@@ -369,7 +369,6 @@ function renderizarCombosDelPlan(idPlan) {
           ${selloHtml}
         </span>
         <span class="tarjeta-combo-nombre">${escHtml(combo.nombre)}</span>
-        <span class="tarjeta-combo-descripcion">${escHtml(combo.cantidad)} viandas</span>
         <span class="tarjeta-combo-datos">
           <span class="tarjeta-combo-precios">
             <span class="tarjeta-combo-precio">$ ${escHtml(textoPorVianda)}</span>
