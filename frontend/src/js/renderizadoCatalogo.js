@@ -347,7 +347,12 @@ function renderizarCombosDelPlan(idPlan) {
 
   let htmlCombos = '';
   combosDelPlan.forEach(combo => {
-    const fotoHtml = armarFotoTarjeta([combo], combo.plan_imagen, 'Combo ' + combo.plan);
+    // (13/11) La foto: la del combo; si no tiene, la del plan (y si tampoco, armarFotoTarjeta usa la de un plato)
+    let fotoDelCombo = combo.plan_imagen;
+    if (combo.imagen) { // ¿el combo tiene foto propia? SÍ: va esa · NO: la del plan
+      fotoDelCombo = combo.imagen;
+    }
+    const fotoHtml = armarFotoTarjeta([combo], fotoDelCombo, 'Combo ' + combo.nombre);
     const precio = Number(combo.precio);
     const textoPorVianda = Math.round(precio / combo.cantidad).toLocaleString('es-AR');
 

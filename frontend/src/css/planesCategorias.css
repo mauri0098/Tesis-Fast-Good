@@ -68,8 +68,9 @@ body.cargada { visibility: visible; opacity: 1; }
 .tabla-categorias th:nth-child(5) { width: 210px; }  /* Acciones */
 .tabla-planes th:nth-child(2) { width: 220px; }      /* Categoría */
 .tabla-planes th:nth-child(3) { width: 120px; }      /* Abreviatura */
-.tabla-planes th:nth-child(4) { width: 130px; }      /* Estado */
-.tabla-planes th:nth-child(5) { width: 210px; }      /* Acciones */
+.tabla-planes th:nth-child(4) { width: 90px; }       /* Foto (13/11) */
+.tabla-planes th:nth-child(5) { width: 130px; }      /* Estado */
+.tabla-planes th:nth-child(6) { width: 210px; }      /* Acciones */
 
 /* La foto de cada fila de las listas */
 .foto-lista {

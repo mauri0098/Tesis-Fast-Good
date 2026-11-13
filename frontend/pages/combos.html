@@ -62,13 +62,14 @@
             <th>Plan</th>
             <th>Viandas</th>
             <th>Precio</th>
+            <th>Foto</th>
             <th>Estado</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody id="combosBody">
           <tr>
-            <td colspan="6" class="loading-text">Cargando combos...</td>
+            <td colspan="7" class="loading-text">Cargando combos...</td>
           </tr>
         </tbody>
       </table>
@@ -115,6 +116,8 @@
   <div id="modalMenu" class="modal">
     <div class="modal-content modal-stock modal-menu">
       <span class="close" data-accion="cerrar">&times;</span>
+      <!-- (13/11) Arriba, chiquito: "MENÚ DEL COMBO"; abajo, grande, el nombre del combo (lo escribe abrirMenuCombo) -->
+      <p class="ventana-antetitulo">Menú del combo</p>
       <h3 id="mmTitulo">Menú del combo</h3>
 
       <!-- Avisos de la ventana (plato agregado, sacado o error) -->
@@ -148,6 +151,16 @@
         <label for="mmDisponibles">Agregar:</label>
         <select id="mmDisponibles"></select>
         <button class="btn-confirmar" id="mmAgregar" onclick="agregarPlatoAlMenu()">Agregar</button>
+      </div>
+
+      <!-- (13/11) Aviso amarillo: el plato elegido es de otro plan (lo muestra agregarPlatoAlMenu). Se puede agregar igual.
+           "Cancelar" solo esconde el aviso -->
+      <div id="mmAvisoPlan" class="aviso-otro-plan" role="alert" hidden>
+        <p id="mmAvisoPlanTexto"></p>
+        <div class="aviso-otro-plan-botones">
+          <button type="button" class="btn-confirmar" onclick="agregarPlatoAlMenu(true)">Agregar igual</button>
+          <button type="button" class="btn-cancelar" onclick="document.getElementById('mmAvisoPlan').hidden = true">Cancelar</button>
+        </div>
       </div>
 
       <div class="modal-actions">

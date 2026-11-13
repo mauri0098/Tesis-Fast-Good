@@ -7,10 +7,12 @@
 //                          (11/11: solo los combos que cumplen los filtros de arriba: nombre y plan)
 //   abrirFormularioCombo → abre la ventana para crear (sin id) o editar (con id) un combo
 //   guardarCombo         → controla los campos y manda el combo nuevo o editado al servidor
+//                          (13/11: en Catálogo también sube la foto del combo, si se eligió una)
 //   cambiarEstadoCombo   → pregunta y activa o desactiva un combo (nunca se borra)
 //   abrirMenuCombo       → trae el menú de un combo y dibuja su ventana (platos con "Sacar" + lista para agregar)
 //   filtrarPlatosDelMenu → (11/11) dibuja la lista "Agregar" del menú con el buscador y el filtro de plan
-//   agregarPlatoAlMenu   → agrega al menú el plato elegido en la lista (o lo reactiva si ya había estado)
+//   agregarPlatoAlMenu   → agrega al menú el plato elegido en la lista (o lo reactiva si ya había estado).
+//                          (13/11) Si el plato es de otro plan, primero avisa; con "Agregar igual" lo agrega
 //   quitarPlatoDelMenu   → pregunta y saca un plato del menú (se desactiva su renglón, nunca se borra)
 //
 // Necesita antes: api.js (apiFetch) y escape.js (escHtml).
@@ -33,6 +35,7 @@ let comboEditando = null;
 let idComboDelMenu = null;
 let platosDelMenuAbierto = [];
 let platosDisponibles = [];   // (11/11) los platos que se pueden agregar a ese menú (los filtra filtrarPlatosDelMenu)
+let comboDelMenu = null;      // (13/11) el combo de la ventana abierta: { id_plan, plan_nombre, … } (para avisar si el plato es de otro plan)
 
 // ── Trae los combos y los planes, y dibuja la tabla ───────────────────────
 async function cargarCombos() {
@@ -73,7 +76,7 @@ async function cargarCombos() {
     // Mensaje simple en la pantalla; el detalle queda en la consola
     console.error('Error al cargar los combos:', error);
     document.getElementById('combosBody').innerHTML =
-      '<tr><td colspan="6" class="loading-text">No pudimos cargar los combos. Probá de nuevo en un momento.</td></tr>';
+      '<tr><td colspan="7" class="loading-text">No pudimos cargar los combos. Probá de nuevo en un momento.</td></tr>';
     return;
   }
 
@@ -85,7 +88,7 @@ function renderizarCombos() {
   const tbody = document.getElementById('combosBody');
 
   if (combosDelPanel.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="loading-text">Todavía no hay combos. Creá el primero con "+ Nuevo combo".</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="loading-text">Todavía no hay combos. Creá el primero con "+ Nuevo combo".</td></tr>';
     return;
   }
 
@@ -99,7 +102,7 @@ function renderizarCombos() {
     return coincideNombre && coincidePlan;
   });
   if (combosVisibles.length === 0) { // ¿ninguno cumple los filtros? SÍ: "pizza" → no hay · NO: hay al menos uno
-    tbody.innerHTML = '<tr><td colspan="6" class="loading-text">Ningún combo coincide con la búsqueda.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="loading-text">Ningún combo coincide con la búsqueda.</td></tr>';
     return;
   }
 
@@ -134,18 +137,25 @@ function renderizarCombos() {
 
     // Todo lo que viene de la base pasa por escHtml
     // (11/11) El orden de la maqueta de Catálogo: Nombre (y abajo, chiquito, los platos del menú) · Plan ·
-    //         Viandas · Precio · Estado · Acciones (Menú, Editar y Desactivar, en fila)
+    //         Viandas · Precio · Foto (13/11) · Estado · Acciones (Menú, Editar y Desactivar, en fila)
     const nombreSeguro = escHtml(combo.nombre);
     const menuSeguro = escHtml(textoMenu);
     const planSeguro = escHtml(plan);
     const cantidadSegura = escHtml(combo.cantidad);
     const precioSeguro = escHtml(precio);
+    // (13/11) La foto del combo: la fotito o "Sin foto" (como en Categorías y Planes). Si no carga, el logo
+    let foto = '<span class="sin-foto">Sin foto</span>';
+    if (combo.imagen) { // ¿el combo tiene foto propia? SÍ: la fotito · NO: "Sin foto" (en la web usa la del plan)
+      foto = `<img class="foto-lista" src="${escHtml(combo.imagen)}" alt="${nombreSeguro}" loading="lazy"
+               onerror="this.onerror = null; this.src = '../src/assets/img/logo.webp';">`;
+    }
     html += `
       <tr>
         <td><span class="dato-principal">${nombreSeguro}</span><span class="dato-chico">${menuSeguro}</span></td>
         <td>${planSeguro}</td>
         <td>${cantidadSegura}</td>
         <td>$ ${precioSeguro}</td>
+        <td>${foto}</td>
         <td>${estado}</td>
         <td class="td-acciones">
           <div class="botones-fila-catalogo">
@@ -223,6 +233,20 @@ function abrirFormularioCombo(idCombo) {
     }
   }
 
+  // (13/11) La foto del combo: solo en Catálogo (la ventana de Combos no tiene ese renglón).
+  // Al editar se ve la que tiene; si no tiene (o es nuevo), "Sin foto".
+  let direccionFoto = '';
+  const tieneFoto = comboEditando !== null && Boolean(comboEditando.imagen);
+  if (tieneFoto) { // ¿el combo ya tiene foto? SÍ: se muestra · NO: "Sin foto"
+    direccionFoto = comboEditando.imagen;
+  }
+  const campoFoto = document.getElementById('mcFotoInput');
+  if (campoFoto) { // ¿la ventana tiene el renglón Foto? SÍ: Catálogo · NO: la pantalla vieja de Combos
+    campoFoto.value = '';
+    fotoElegida = null;   // (variable de planesCategorias.js: la foto elegida, o null)
+    mostrarFotoEnVentana('mc', direccionDeFoto(direccionFoto));
+  }
+
   document.getElementById('modalCombo').style.display = 'block';
   campoNombre.focus();
 }
@@ -291,11 +315,23 @@ async function guardarCombo() {
       return;
     }
 
-    // Guardado: se cierra la ventana, se avisa y se recarga la tabla
+    // (13/11) Guardado: en Catálogo se sube la foto, si se eligió una (subirFoto, de planesCategorias.js:
+    // devuelve '' si salió bien o si no había foto, o el texto del error)
+    let errorFoto = '';
+    const hayRenglonFoto = document.getElementById('mcFotoInput') !== null;
+    if (hayRenglonFoto) { // ¿es la ventana de Catálogo? SÍ: sube la foto · NO: la pantalla vieja de Combos no tiene foto
+      errorFoto = await subirFoto('/api/combos/' + Number(cuerpo.combo.id) + '/imagen');
+    }
+
+    // Se cierra la ventana, se avisa y se recarga la tabla
     document.getElementById('modalCombo').style.display = 'none';
     const aviso = document.getElementById('avisoCombos');
     aviso.textContent = avisoExito;
     aviso.className = 'aviso-combos aviso-combos--exito';
+    if (errorFoto !== '') { // ¿falló la foto? SÍ: el combo se guardó, pero se avisa · NO: todo bien
+      aviso.textContent = avisoExito + ', pero no se pudo subir la foto: ' + errorFoto;
+      aviso.className = 'aviso-combos aviso-combos--error';
+    }
     await cargarCombos();
   } catch (e) {
     console.error('Error al guardar el combo:', e);
@@ -370,10 +406,13 @@ async function abrirMenuCombo(idCombo) {
     return;
   }
   platosDelMenuAbierto = datos.menu;
+  comboDelMenu = datos.combo;
 
   // 2. Título (textContent: el nombre se muestra tal cual, nunca como HTML)
-  document.getElementById('mmTitulo').textContent =
-    `Menú de «${datos.combo.nombre}» · ${datos.combo.cantidad} viandas`;
+  // (13/11) Solo el nombre del combo (arriba ya dice "MENÚ DEL COMBO"). Ej: "10 Viandas Mantenimiento"
+  document.getElementById('mmTitulo').textContent = datos.combo.nombre;
+  // (13/11) El aviso amarillo de "otro plan" arranca escondido cada vez que se abre (o se redibuja) la ventana
+  document.getElementById('mmAvisoPlan').hidden = true;
 
   // 3. Los platos del menú, cada uno con "Sacar". Todo lo que viene de la base pasa por escHtml.
   let filas = '';
@@ -392,7 +431,7 @@ async function abrirMenuCombo(idCombo) {
       <tr>
         <td>${codigo}</td>
         <td>${nombre}</td>
-        <td>${escHtml(plan)}</td>
+        <td><span class="pastilla-plan">${escHtml(plan)}</span></td>
         <td><button class="btn-borrar" onclick="quitarPlatoDelMenu(${Number(plato.id_producto)})">Sacar</button></td>
       </tr>`;
   });
@@ -493,7 +532,8 @@ function filtrarPlatosDelMenu() {
 }
 
 // ── Agrega al menú el plato elegido en la lista ───────────────────────────
-async function agregarPlatoAlMenu() {
+// ENTRADA: agregarIgual = true cuando se tocó "Agregar igual" en el aviso amarillo (si no, viene vacío)
+async function agregarPlatoAlMenu(agregarIgual) {
   const avisoMenu = document.getElementById('mmAviso');
   const idProducto = Number(document.getElementById('mmDisponibles').value);
 
@@ -503,6 +543,20 @@ async function agregarPlatoAlMenu() {
     avisoMenu.className = 'aviso-combos aviso-combos--error';
     return;
   }
+
+  // (13/11) Si el plato es de otro plan, primero se avisa (aviso amarillo) y no se manda.
+  // Con "Agregar igual" (agregarIgual = true) se manda igual. Ej: Bondiola (SIN TACC) en un combo de MANTENIMIENTO
+  const platoElegido = platosDisponibles.find(plato => Number(plato.id) === idProducto);
+  const esDeOtroPlan = platoElegido !== undefined && platoElegido.id_plan !== comboDelMenu.id_plan;
+  const hayQueAvisar = esDeOtroPlan && agregarIgual !== true;
+  if (hayQueAvisar) { // ¿es de otro plan y todavía no dijo "Agregar igual"? SÍ: avisa · NO: se agrega
+    document.getElementById('mmAvisoPlanTexto').textContent =
+      `⚠ «${platoElegido.nombre}» es del plan ${platoElegido.plan}, y este combo es de ${comboDelMenu.plan_nombre}. ` +
+      `Lo normal es que vaya en un combo de ${platoElegido.plan}. ¿Lo agregás igual?`;
+    document.getElementById('mmAvisoPlan').hidden = false;
+    return;
+  }
+  document.getElementById('mmAvisoPlan').hidden = true;   // si estaba abierto, se cierra
 
   // El botón se apaga mientras se guarda (doble clic)
   document.getElementById('mmAgregar').disabled = true;

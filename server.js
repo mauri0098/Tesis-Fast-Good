@@ -43,7 +43,8 @@ app.use(cors({
 // Tamaño máximo del cuerpo: 6 MB solo para subir imágenes de recetas (base64, máx. 2MB + overhead); el resto, 100 KB
 app.use('/api/productos/:id/imagen', express.json({ limit: '6mb' }));
 app.use('/api/planes/:id/imagen', express.json({ limit: '6mb' }));       // la foto de un plan (Planes y categorías)
-app.use('/api/categorias/:id/imagen', express.json({ limit: '6mb' }));   // la foto de una categoría (Planes y categorías)
+app.use('/api/categorias/:id/imagen', express.json({ limit: '6mb' }));
+app.use('/api/combos/:id/imagen', express.json({ limit: '6mb' }));       // (13/11) la foto de un combo (Catálogo)   // la foto de una categoría (Planes y categorías)
 app.use(express.json({ limit: '100kb' }));
 
 const supabase   = require('./config/supabaseClient');// Cliente de Supabase para interactuar con la base de datos
@@ -664,6 +665,7 @@ app.get('/api/v1/combos', limiteCatalogo, async (req, res) => {
       cantidad,
       precio,
       destacado,
+      imagen,
       planes (
         id,
         nombre,
@@ -718,6 +720,7 @@ app.get('/api/v1/combos', limiteCatalogo, async (req, res) => {
       cantidad:  combo.cantidad,
       precio:    Number(combo.precio),
       destacado: combo.destacado === true,  // true = lleva "Más elegido" (sin el dato, false)
+      imagen:    combo.imagen,              // (13/11) la foto del combo, o null (la web usa entonces la del plan)
       plan:      combo.planes.nombre,
       id_plan:          combo.planes.id,            // el número del plan: la web agrupa las tarjetas con esto
       plan_imagen:      combo.planes.imagen,        // la dirección de la foto del plan, o null
@@ -5060,6 +5063,10 @@ app.put('/api/planes/:id/activo', requireAuth, requireRol(6, 5), async (req, res
 // POST /api/planes/:id/imagen → la foto de un plan. Ver subirFotoCatalogo
 app.post('/api/planes/:id/imagen', requireAuth, requireRol(6, 5), (req, res) => subirFotoCatalogo(req, res, 'planes', 'planes'));
 
+// POST /api/combos/:id/imagen → (13/11) la foto de un combo. Ver subirFotoCatalogo (la misma de planes y categorías:
+// JPG, PNG o WebP, hasta 2 MB; queda en combos/ID.ext y su dirección en combos.imagen)
+app.post('/api/combos/:id/imagen', requireAuth, requireRol(6, 5), (req, res) => subirFotoCatalogo(req, res, 'combos', 'combos'));
+
 // POST /api/productos/con-receta → crea producto nuevo + receta de forma atómica
 // Body: { nombre, id_plan, precio, insumos: [{ id_insumo, cantidad_necesaria, unidad_medida }] }
 // (05/11) Sin precio válido → 400, antes de pedir el código del plato: con ese dato mal no se gasta ningún código.
@@ -5243,6 +5250,7 @@ app.get('/api/combos', requireAuth, requireRol(6, 5), async (req, res) => {
       precio,
       activo,
       destacado,
+      imagen,
       planes ( nombre, activo ),
       combo_productos ( activo, productos ( activo ) ),
       pedido_combos ( count )
@@ -5280,6 +5288,7 @@ app.get('/api/combos', requireAuth, requireRol(6, 5), async (req, res) => {
       precio:         Number(combo.precio),
       activo:         combo.activo,
       destacado:      combo.destacado === true,   // "Más elegido" (por ahora se marca desde Supabase)
+      imagen:         combo.imagen,               // (13/11) la foto del combo, o null
       platos_en_menu: platosEnMenu,
       veces_vendido:  vecesVendido
     };
@@ -5413,7 +5422,9 @@ app.put('/api/combos/:id/activo', requireAuth, requireRol(6, 5), async (req, res
 
 // GET /api/combos/:id/menu → el combo, los platos de su menú y los platos que se pueden agregar.
 // menu: renglones activos. Si un plato se desactivó después (Generar Receta) aparece con
-// plato_activo: false, para poder sacarlo. disponibles: platos activos de CUALQUIER plan que no están en el menú.
+// plato_activo: false, para poder sacarlo. disponibles: platos activos de CUALQUIER plan que no están en el menú
+// (13/11: con su id_plan; la pantalla avisa si se elige uno de otro plan, y POST .../menu no lo deja agregar).
+// combo: también su id_plan y el nombre de su plan (plan_nombre), para el renglón "Este combo es del plan …".
 app.get('/api/combos/:id/menu', requireAuth, requireRol(6, 5), async (req, res) => {
   const idCombo = Number(req.params.id);
   if (!Number.isInteger(idCombo) || idCombo <= 0 || idCombo > ENTERO_MAXIMO_BASE) {
@@ -5424,11 +5435,16 @@ app.get('/api/combos/:id/menu', requireAuth, requireRol(6, 5), async (req, res) 
     // 1. El combo
     const { data: combo, error: errorCombo } = await supabase
       .from('combos')
-      .select('id, nombre, cantidad, destacado')
+      .select('id, nombre, cantidad, destacado, id_plan, planes ( nombre )')
       .eq('id', idCombo)
       .maybeSingle();
     if (errorCombo) return errorInterno(res, errorCombo);
     if (!combo) return res.status(404).json({ error: 'El combo no existe' });
+    // El nombre del plan del combo, plano (ej: 'SIN TACC'), o null si no tiene
+    let planDelCombo = null;
+    if (combo.planes) { // ¿el combo tiene plan? SÍ: 'SIN TACC' · NO: null
+      planDelCombo = combo.planes.nombre;
+    }
 
     // 2. Los renglones activos de su menú, con el plato y el plan del plato
     const { data: renglones, error: errorMenu } = await supabase
@@ -5441,7 +5457,7 @@ app.get('/api/combos/:id/menu', requireAuth, requireRol(6, 5), async (req, res) 
     // 3. Todos los platos activos (para elegir cuáles agregar)
     const { data: platos, error: errorPlatos } = await supabase
       .from('productos')
-      .select('id, nombre, codigo_plato, planes ( nombre )')
+      .select('id, nombre, codigo_plato, id_plan, planes ( nombre )')
       .eq('activo', true)
       .order('nombre', { ascending: true });
     if (errorPlatos) return errorInterno(res, errorPlatos);
@@ -5474,10 +5490,14 @@ app.get('/api/combos/:id/menu', requireAuth, requireRol(6, 5), async (req, res) 
       .map(plato => {
         let plan = null;
         if (plato.planes) plan = plato.planes.nombre;
-        return { id: plato.id, nombre: plato.nombre, codigo: plato.codigo_plato, plan: plan };
+        return { id: plato.id, nombre: plato.nombre, codigo: plato.codigo_plato, plan: plan, id_plan: plato.id_plan };
       });
 
-    res.json({ combo: combo, menu: menu, disponibles: disponibles });
+    const comboParaLaPantalla = {
+      id: combo.id, nombre: combo.nombre, cantidad: combo.cantidad, destacado: combo.destacado,
+      id_plan: combo.id_plan, plan_nombre: planDelCombo
+    };
+    res.json({ combo: comboParaLaPantalla, menu: menu, disponibles: disponibles });
   } catch (e) {
     errorInterno(res, e);
   }
@@ -5485,6 +5505,7 @@ app.get('/api/combos/:id/menu', requireAuth, requireRol(6, 5), async (req, res) 
 
 // POST /api/combos/:id/menu → agrega un plato al menú (o lo vuelve a activar si ya había estado).
 // Body: { id_producto }. El plato tiene que existir y estar activo; puede ser de cualquier plan.
+// (13/11) Si es de otro plan, la pantalla avisa antes ("Lo normal es que vaya en un combo de…") y deja agregarlo igual.
 app.post('/api/combos/:id/menu', requireAuth, requireRol(6, 5), async (req, res) => {
   const idCombo = Number(req.params.id);
   if (!Number.isInteger(idCombo) || idCombo <= 0 || idCombo > ENTERO_MAXIMO_BASE) {

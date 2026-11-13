@@ -60,7 +60,7 @@ async function cargarDatos() {
     // Mensaje simple en la pantalla; el detalle queda en la consola
     console.error('Error al cargar planes y categorías:', error);
     document.getElementById('categoriasBody').innerHTML = '<tr><td colspan="5" class="loading-text">No pudimos cargar las categorías. Probá de nuevo en un momento.</td></tr>';
-    document.getElementById('planesBody').innerHTML = '<tr><td colspan="5" class="loading-text">No pudimos cargar los planes. Probá de nuevo en un momento.</td></tr>';
+    document.getElementById('planesBody').innerHTML = '<tr><td colspan="6" class="loading-text">No pudimos cargar los planes. Probá de nuevo en un momento.</td></tr>';
     return;
   }
 
@@ -167,7 +167,7 @@ function renderizarPlanesPanel() {
   const tbody = document.getElementById('planesBody');
 
   if (planesDelPanel.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" class="loading-text">Todavía no hay planes. Creá el primero con "+ Nuevo plan".</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="loading-text">Todavía no hay planes. Creá el primero con "+ Nuevo plan".</td></tr>';
     return;
   }
 
@@ -214,7 +214,7 @@ function renderizarPlanesPanel() {
     return coincideCategoria && coincideNombre;
   });
   if (planesVisibles.length === 0) { // ¿ninguno cumple? SÍ: categoría vacía o "pizza" · NO: hay al menos uno
-    tbody.innerHTML = '<tr><td colspan="5" class="loading-text">No hay planes con esa búsqueda.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="loading-text">No hay planes con esa búsqueda.</td></tr>';
     return;
   }
 
@@ -236,19 +236,21 @@ function renderizarPlanesPanel() {
     const botones = plan.activo ? botonesActivo : botonesDesactivado;
 
     // Todo lo que viene de la base pasa por escHtml
-    // (11/11) El orden de la maqueta de Catálogo: Nombre · Categoría · Abreviatura · Estado · Acciones (en fila).
-    //         La foto y la frase ya no van en la grilla: se ven y se cambian en "Editar"
+    // (11/11) El orden de la maqueta de Catálogo: Nombre · Categoría · Abreviatura · Foto · Estado · Acciones (en fila).
+    //         (13/11) La foto volvió a la grilla (la fotito o "Sin foto", como en Categorías). La frase se ve en "Editar"
     const nombreSeguro = escHtml(plan.nombre);
     let abreviatura = '—';
     if (plan.codigo_plan) { // ¿tiene abreviatura? SÍ: 'KE' · NO: '—'
       abreviatura = plan.codigo_plan;
     }
     const abreviaturaSegura = escHtml(abreviatura);
+    const foto = armarFotoLista(plan.imagen, plan.nombre);   // la fotito o "Sin foto" (ya pasa por escHtml)
     html += `
       <tr>
         <td class="dato-principal">${nombreSeguro}</td>
         <td>${celdaCategoria}</td>
         <td>${abreviaturaSegura}</td>
+        <td>${foto}</td>
         <td>${estado}</td>
         <td class="td-acciones"><div class="botones-fila-catalogo">${botones}</div></td>
       </tr>`;

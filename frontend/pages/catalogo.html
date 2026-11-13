@@ -110,13 +110,14 @@
               <th>Nombre</th>
               <th>Categoría</th>
               <th>Abreviatura</th>
+              <th>Foto</th>
               <th>Estado</th>
               <th class="titulo-acciones-catalogo">Acciones</th>
             </tr>
           </thead>
           <tbody id="planesBody">
             <tr>
-              <td colspan="5" class="loading-text">Cargando planes...</td>
+              <td colspan="6" class="loading-text">Cargando planes...</td>
             </tr>
           </tbody>
         </table>
@@ -151,13 +152,14 @@
               <th>Plan</th>
               <th>Viandas</th>
               <th>Precio</th>
+              <th>Foto</th>
               <th>Estado</th>
               <th class="titulo-acciones-catalogo">Acciones</th>
             </tr>
           </thead>
           <tbody id="combosBody">
             <tr>
-              <td colspan="6" class="loading-text">Cargando combos...</td>
+              <td colspan="7" class="loading-text">Cargando combos...</td>
             </tr>
           </tbody>
         </table>
@@ -175,7 +177,8 @@
 
   <!-- VENTANA: Nueva categoría / Editar categoría (la maneja planesCategorias.js) -->
   <div id="modalCategoria" class="modal">
-    <div class="modal-content modal-stock">
+    <!-- (13/11) ventana-catalogo: el estilo de las 4 ventanas de Catálogo (catalogo.css) -->
+    <div class="modal-content modal-stock ventana-catalogo">
       <span class="close" data-accion="cerrar">&times;</span>
       <h3 id="fcTitulo">Nueva categoría</h3>
 
@@ -208,7 +211,7 @@
 
   <!-- VENTANA: Nuevo plan / Editar plan (la maneja planesCategorias.js) -->
   <div id="modalPlan" class="modal">
-    <div class="modal-content modal-stock">
+    <div class="modal-content modal-stock ventana-catalogo">
       <span class="close" data-accion="cerrar">&times;</span>
       <h3 id="fpTitulo">Nuevo plan</h3>
 
@@ -250,7 +253,7 @@
 
   <!-- VENTANA: Nuevo combo / Editar combo (la maneja gestionCombos.js) -->
   <div id="modalCombo" class="modal">
-    <div class="modal-content modal-stock">
+    <div class="modal-content modal-stock ventana-catalogo">
       <span class="close" data-accion="cerrar">&times;</span>
       <h3 id="mcTitulo">Nuevo combo</h3>
 
@@ -268,11 +271,22 @@
 
         <label for="mcPrecio">Precio *</label>
         <input id="mcPrecio" type="number" min="0" max="9999999" step="0.01" placeholder="Ej: 137000">
+
+        <!-- (13/11) La foto del combo (elegirFoto y subirFoto, de planesCategorias.js, como en Plan y Categoría) -->
+        <label for="mcFotoInput">Foto</label>
+        <input id="mcFotoInput" type="file" accept="image/png, image/jpeg, image/webp" onchange="elegirFoto(event, 'mc')">
       </div>
 
       <!-- Avisos del formulario: plan desactivado y cantidad bloqueada (si el combo ya se vendió) -->
       <p id="mcNotaPlan" class="nota-combo" hidden></p>
       <p id="mcNotaVendido" class="nota-combo" hidden></p>
+
+      <!-- (13/11) La foto actual o la recién elegida. Se sube después de guardar los datos -->
+      <div class="foto-ventana">
+        <img id="mcFotoVista" class="foto-ventana-imagen" alt="Vista previa de la foto" hidden>
+        <span id="mcFotoVacia" class="sin-foto">Sin foto</span>
+      </div>
+      <p class="nota-foto">JPG, PNG o WebP, hasta 2 MB. Sin foto, la tarjeta usa la del plan (o la del primer plato con foto).</p>
 
       <div id="mcError" class="modal-error"></div>
 
@@ -286,8 +300,10 @@
   <!-- VENTANA: Menú de un combo (la maneja gestionCombos.js: abrirMenuCombo, agregarPlatoAlMenu, quitarPlatoDelMenu) -->
   <div id="modalMenu" class="modal">
     <!-- (11/11) ventana-menu-catalogo: más ancha (catalogo.css). Arriba buscar y agregar; abajo los platos que ya tiene -->
-    <div class="modal-content modal-stock modal-menu ventana-menu-catalogo">
+    <div class="modal-content modal-stock modal-menu ventana-menu-catalogo ventana-catalogo">
       <span class="close" data-accion="cerrar">&times;</span>
+      <!-- (13/11) Arriba, chiquito: "MENÚ DEL COMBO"; abajo, grande, el nombre del combo (lo escribe abrirMenuCombo) -->
+      <p class="ventana-antetitulo">Menú del combo</p>
       <h3 id="mmTitulo">Menú del combo</h3>
 
       <!-- Avisos de la ventana (plato agregado, sacado o error) -->
@@ -305,6 +321,16 @@
         <div class="fila-agregar">
           <select id="mmDisponibles" aria-label="Plato para agregar"></select>
           <button class="btn-confirmar" id="mmAgregar" onclick="agregarPlatoAlMenu()">Agregar</button>
+        </div>
+
+        <!-- (13/11) Aviso amarillo: el plato elegido es de otro plan (lo muestra agregarPlatoAlMenu). Se puede agregar igual.
+             "Cancelar" solo esconde el aviso -->
+        <div id="mmAvisoPlan" class="aviso-otro-plan" role="alert" hidden>
+          <p id="mmAvisoPlanTexto"></p>
+          <div class="aviso-otro-plan-botones">
+            <button type="button" class="btn-confirmar" onclick="agregarPlatoAlMenu(true)">Agregar igual</button>
+            <button type="button" class="btn-cancelar" onclick="document.getElementById('mmAvisoPlan').hidden = true">Cancelar</button>
+          </div>
         </div>
       </div>
 

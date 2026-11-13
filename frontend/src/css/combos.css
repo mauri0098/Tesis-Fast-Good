@@ -6,12 +6,27 @@
 
 /* Anchos de las columnas: Nombre se queda con lo que sobra.
    (11/11) Sin la columna Menú: los platos del menú van abajo del nombre, chiquitos (renderizarCombos) */
-.tabla-combos { min-width: 760px; }             /* en el celu, la tabla se mueve de costado */
+.tabla-combos { min-width: 850px; }             /* en el celu, la tabla se mueve de costado (13/11: +90 por la Foto) */
 .tabla-combos th:nth-child(2) { width: 15%; }   /* Plan */
 .tabla-combos th:nth-child(3) { width: 80px; }  /* Viandas */
 .tabla-combos th:nth-child(4) { width: 110px; } /* Precio */
-.tabla-combos th:nth-child(5) { width: 18%; }   /* Estado */
-.tabla-combos th:nth-child(6) { width: 260px; } /* Acciones: Menú · Editar · Activar/Desactivar */
+.tabla-combos th:nth-child(5) { width: 90px; }  /* Foto (13/11) */
+.tabla-combos th:nth-child(6) { width: 18%; }   /* Estado */
+.tabla-combos th:nth-child(7) { width: 260px; } /* Acciones: Menú · Editar · Activar/Desactivar */
+
+/* (13/11) La fotito de la columna Foto (la misma de Categorías y Planes, de planesCategorias.css: la pantalla
+   vieja de Combos no carga ese archivo, por eso va también acá, solo para esta tabla) */
+.tabla-combos .foto-lista {
+  display: block;
+  width: 56px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.tabla-combos .sin-foto {
+  color: #6c757d;
+  font-size: 0.75rem;
+}
 
 /* Etiqueta de estado: Activo (verde) / Inactivo (gris).
    24/10: el alto y la letra son los de las pastillas de todas las tablas (global.css: --alto-pastilla-estado) */
@@ -70,6 +85,30 @@
 }
 .nota-combo[hidden] {
   display: none;
+}
+
+/* (13/11) Aviso amarillo dentro de "Agregar" del menú: el plato elegido es de otro plan, con "Agregar igual" y "Cancelar"
+   (el mismo amarillo que .nota-combo; lo usan las ventanas del menú de Combos y de Catálogo) */
+.aviso-otro-plan {
+  margin: 0.2rem 0 0.9rem;
+  padding: 0.75rem 0.95rem;
+  border: 1px solid #ffe08a;
+  border-radius: 10px;
+  background: #fff3cd;
+  color: #856404;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  text-align: left;
+}
+.aviso-otro-plan[hidden] {
+  display: none;
+}
+.aviso-otro-plan p {
+  margin: 0 0 0.6rem;
+}
+.aviso-otro-plan-botones {
+  display: flex;
+  gap: 0.5rem;
 }
 
 /* La cantidad bloqueada se ve gris */
@@ -172,4 +211,26 @@
 .tabla-menu button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* (13/11) El renglón chiquito arriba del título de la ventana del menú: "MENÚ DEL COMBO" (Combos y Catálogo) */
+.ventana-antetitulo {
+  margin: 0 0 0.2rem;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+/* El plan de cada plato en la tabla del menú: una pastillita gris (la arma abrirMenuCombo) */
+.pastilla-plan {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #eef1f4;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }

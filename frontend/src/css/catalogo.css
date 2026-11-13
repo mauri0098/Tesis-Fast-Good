@@ -180,7 +180,7 @@
 /* (11/11) Planes: Nombre y Categoría más juntos. Nombre ya no se queda con todo lo que sobra: tiene su ancho fijo,
    y lo que sobra se lo lleva Acciones (que igual va pegada a la derecha). Ej: antes el desplegable quedaba lejísimos */
 .pagina-catalogo .tabla-planes th:nth-child(1) { width: 300px; }   /* Nombre */
-.pagina-catalogo .tabla-planes th:nth-child(5) { width: auto; }    /* Acciones: lo que sobra */
+.pagina-catalogo .tabla-planes th:nth-child(6) { width: auto; }    /* Acciones: lo que sobra (13/11: la 6, por la columna Foto) */
 
 
 /* ===== 5. FILTROS Y BOTONES DE ARRIBA ===== */
@@ -426,3 +426,240 @@
     padding: 20px 16px;
   }
 }
+
+
+/* ===== 10. (13/11) LAS 4 VENTANAS DE CATÁLOGO, MÁS LINDAS (Categoría, Plan, Combo y Menú) =====
+   Mismo formato de siempre (la etiqueta a la izquierda de su casillero, la foto abajo y los botones al final),
+   pero con más aire, letras más claras y casilleros más altos. Todo lleva .ventana-catalogo adelante: así las
+   ventanas de Stock (que usan las mismas clases modal-stock y modal-grid) no cambian. */
+
+/* La caja: más redondeada, con más aire y una sombra suave */
+.modal-content.ventana-catalogo {
+  max-width: 580px;
+  margin: 6vh auto;
+  padding: 28px 32px 24px;
+  border-radius: 20px;
+  box-shadow: 0 24px 60px -20px rgb(16 24 20 / 0.35), 0 2px 6px rgb(16 24 20 / 0.06);
+}
+.modal-content.ventana-catalogo.ventana-menu-catalogo {
+  max-width: 900px;
+}
+
+/* El título: más grande, con una línea finita debajo que lo separa del formulario */
+.ventana-catalogo > h3 {
+  margin: 0 0 22px;
+  padding: 4px 0 18px;
+  border-bottom: 1px solid #eef1f3;
+  color: #111827;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+/* En el menú, el título va pegado a "MENÚ DEL COMBO" (el renglón chiquito de arriba) */
+.ventana-catalogo > .ventana-antetitulo {
+  padding-top: 6px;
+}
+.ventana-catalogo > .ventana-antetitulo + h3 {
+  padding-top: 0;
+}
+
+/* La × de cerrar, un poquito más arriba para quedar alineada con el título */
+.ventana-catalogo > .close {
+  margin: -2px -6px 0 12px;
+}
+
+/* El formulario: etiquetas más claras y casilleros de 44 px */
+.ventana-catalogo .modal-grid {
+  grid-template-columns: 130px 1fr;
+  gap: 14px 18px;
+  margin-bottom: 18px;
+}
+.ventana-catalogo .modal-grid label {
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+}
+.ventana-catalogo .modal-grid input,
+.ventana-catalogo .modal-grid select {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1.5px solid #dfe5ea;
+  border-radius: 10px;
+  background-color: #fff;
+  color: #111827;
+  font-size: 15px;
+}
+.ventana-catalogo .modal-grid input::placeholder {
+  color: #9aa3ad;
+}
+.ventana-catalogo .modal-grid input:focus,
+.ventana-catalogo .modal-grid select:focus {
+  border-color: #26b04f;
+  box-shadow: 0 0 0 4px rgb(38 176 79 / 0.14);
+}
+/* Casillero que no se puede tocar (ej: la abreviatura al editar un plan) */
+.ventana-catalogo .modal-grid input:disabled {
+  border-color: #e5e9ed;
+  background: #f1f4f6;
+  color: #6b7280;
+}
+
+/* "Elegir archivo" de la foto: el botón del navegador pasa a ser una pastilla con borde verde */
+.ventana-catalogo .modal-grid input[type="file"] {
+  padding: 5px 6px;
+  color: #6b7280;
+  font-size: 14px;
+  cursor: pointer;
+}
+.ventana-catalogo .modal-grid input[type="file"]::file-selector-button {
+  margin-right: 12px;
+  padding: 7px 16px;
+  border: 1.5px solid #12893a;
+  border-radius: 999px;
+  background: #fff;
+  color: #12893a;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.ventana-catalogo .modal-grid input[type="file"]::file-selector-button:hover {
+  background: #eaf7ee;
+}
+
+/* La foto: más alta y redondeada. "Sin foto" con un dibujito de imagen arriba */
+.ventana-catalogo .foto-ventana {
+  height: 170px;
+  margin-bottom: 8px;
+  border: 1.5px dashed #d5dde3;
+  border-radius: 14px;
+  background: #f8fafb;
+}
+.ventana-catalogo .sin-foto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #9aa3ad;
+  font-size: 14px;
+  font-weight: 600;
+}
+.ventana-catalogo .sin-foto::before {
+  content: "";
+  width: 34px;
+  height: 34px;
+  background-color: #c3cbd2;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='3'/%3E%3Ccircle cx='9' cy='9' r='2'/%3E%3Cpath d='m21 15-5-5L5 21'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='3'/%3E%3Ccircle cx='9' cy='9' r='2'/%3E%3Cpath d='m21 15-5-5L5 21'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.ventana-catalogo .sin-foto[hidden] {
+  display: none;
+}
+.ventana-catalogo .nota-foto {
+  margin: 0 0 16px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+/* Los avisos amarillos (abreviatura, plan desactivado, "Sin platos…"): redondeados y con una ⓘ adelante */
+.ventana-catalogo .nota-combo {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #ffe08a;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: left;
+}
+.ventana-catalogo .nota-combo::before {
+  content: "i";
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: #b7791f;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  font-style: italic;
+}
+.ventana-catalogo .nota-combo[hidden] {
+  display: none;
+}
+/* El error (rojo), también redondeado */
+.ventana-catalogo .modal-error {
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+}
+
+/* Los botones de abajo: separados por una línea finita, de 44 px y en forma de pastilla */
+.ventana-catalogo .modal-actions {
+  margin-top: 6px;
+  padding-top: 18px;
+  border-top: 1px solid #eef1f3;
+}
+.ventana-catalogo .modal-actions .btn-cancelar,
+.ventana-catalogo .modal-actions .btn-confirmar {
+  min-height: 44px;
+  padding: 0 24px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* El menú: la tabla de los platos con renglones más altos */
+.ventana-catalogo .tabla-menu th {
+  padding: 10px 14px;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.ventana-catalogo .tabla-menu td {
+  padding: 12px 14px;
+  font-size: 14px;
+}
+
+/* En el celu: las etiquetas arriba de su casillero (como ya hacía stock.css) y menos aire */
+@media (max-width: 600px) {
+  .modal-content.ventana-catalogo {
+    margin: 3vh auto;
+    padding: 22px 18px 18px;
+  }
+  .ventana-catalogo .modal-grid {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .ventana-catalogo .modal-grid label {
+    text-align: left;
+  }
+}
+
+/* (13/11) "Sacar" en la tabla del menú: una pastilla con borde rojo (antes quedaba apretada) */
+.ventana-catalogo .tabla-menu .btn-borrar {
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1.5px solid #f1b5b5;
+  border-radius: 999px;
+  background: #fff;
+  color: #c0392b;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.ventana-catalogo .tabla-menu .btn-borrar:hover {
+  background: #fdecec;
+}
+.ventana-catalogo .tabla-menu .btn-borrar { white-space: nowrap; }   /* "Sacar" en un solo renglón */
+.ventana-catalogo .tabla-menu th:nth-child(4) { width: 100px; }     /* la columna del botón, un poco más ancha */
