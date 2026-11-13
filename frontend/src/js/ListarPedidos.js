@@ -166,6 +166,36 @@ function renderizarPedidos(pagina) {
   const desde = filtroFechas.desde;                                // 'AAAA-MM-DD' o ''
   const hasta = filtroFechas.hasta;                                // 'AAAA-MM-DD' o ''
 
+  // 0. (13/11) El cartel de arriba de la tabla: cuántos pedidos se entregan HOY y cuántos de esos son personalizados.
+  //    Cuenta sobre TODOS los pedidos (sin importar los filtros) y sin los anulados.
+  //    Ej: hoy 13/11, 8 pedidos y 2 con "sin sal" → "Hoy 13/11 · Pedidos para entregar: 8 · ⚠ Personalizados: 2"
+  const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_ARGENTINA }).format(new Date());  // ej: '2026-11-13'
+  let pedidosDeHoy = 0;
+  let personalizadosDeHoy = 0;
+  todosPedidos.forEach(pedido => {
+    const cuentaParaHoy = pedido.fecha_entrega === hoy && pedido.id_estado !== ESTADO_CANCELADO;
+    // ¿se entrega hoy y no está anulado? SÍ: entrega 13/11 registrado · NO: entrega 14/11, o uno anulado
+    if (!cuentaParaHoy) {
+      return;                                                      // return = saltear este y seguir con el siguiente
+    }
+    pedidosDeHoy = pedidosDeHoy + 1;
+    // find = el primer plato personalizado (o undefined si no tiene ninguno)
+    const platoPersonalizado = pedido.pedido_detalles.find(detalle => detalle.personalizado === true);
+    if (platoPersonalizado !== undefined) { // ¿tiene algún personalizado? SÍ: 2 "sin sal" · NO: todo de la heladera
+      personalizadosDeHoy = personalizadosDeHoy + 1;
+    }
+  });
+  const fechaHoyCorta = hoy.slice(8, 10) + '/' + hoy.slice(5, 7);  // '2026-11-13' → '13/11'
+  let partePersonalizados = '<span class="resumen-hoy-ninguno">Sin personalizados</span>';
+  if (personalizadosDeHoy > 0) { // ¿hay personalizados hoy? SÍ: 2 → en rosa, bien a la vista · NO: 0 → "Sin personalizados"
+    partePersonalizados = `<span class="resumen-hoy-personalizados">⚠ Personalizados: ${personalizadosDeHoy}
+      <small>pasarlos al día siguiente</small></span>`;
+  }
+  document.getElementById('resumenHoy').innerHTML = `
+    <span class="resumen-hoy-fecha">Hoy ${fechaHoyCorta}</span>
+    <span class="resumen-hoy-cantidad">Pedidos para entregar: <strong>${pedidosDeHoy}</strong></span>
+    ${partePersonalizados}`;
+
   // 1. Los pedidos que se ven: por fecha de entrega (según el modo), por personalizados (11/11) y por nombre del
   //    cliente o número de pedido
   const textoBuscado = document.getElementById('CampoBusqueda').value;  // lo escrito en el buscador
@@ -364,6 +394,15 @@ function crearFilaPedido(pedido) {
   const platosPersonalizados = pedido.pedido_detalles.filter(detalle => detalle.personalizado === true);
   const filaPersonalizada = platosPersonalizados.length > 0 && !anulado;
 
+  // e2. (13/11) Que se NOTE: "Hoy" en verde en la Entrega (el personalizado se marca arriba, en el cartel, y con la fila en rosa)
+  const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_ARGENTINA }).format(new Date());  // ej: '2026-11-13'
+  let entregaVisible = entrega;                                    // ej: "14/11"
+  let claseHoy = '';
+  if (pedido.fecha_entrega === hoy) { // ¿se entrega hoy? SÍ: entrega 13/11 (hoy) → "Hoy" en verde · NO: 14/11 → "14/11"
+    entregaVisible = 'Hoy';
+    claseHoy = ' entrega-hoy';
+  }
+
   // f. (05/11) La dirección y abajo el teléfono (la columna Teléfono se sacó). Ej: "Av. Colón 1250" / "351 555-0101"
   //    En el celu esto mismo va también abajo del número de pedido (lo único que se ve al lado de Acciones, que queda fija)
   let direccionConTelefono = direccion + ' · ' + telefono;
@@ -379,7 +418,7 @@ function crearFilaPedido(pedido) {
   const fila = document.createElement('tr');
   fila.innerHTML = `
     <td class="col-numero">${escHtml(numero)}<span class="dato-chico direccion-celu"></span></td>
-    <td class="col-entrega" title="Entrega: ${escHtml(entregaCompleta)}">${escHtml(entrega)}</td>
+    <td class="col-entrega${claseHoy}" title="Entrega: ${escHtml(entregaCompleta)}">${escHtml(entregaVisible)}</td>
     <td class="col-cliente"><span class="dos-renglones"></span></td>
     <td class="col-direccion"><span class="dos-renglones direccion-pedido${claseSinDireccion}"></span><span class="dato-chico telefono-pedido"></span></td>
     <td class="col-viandas">${escHtml(totalViandas)}</td>

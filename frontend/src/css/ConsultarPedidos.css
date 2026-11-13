@@ -1229,3 +1229,62 @@ table.tabla-pedidos .col-costo {
         max-width: none;
     }
 }
+
+
+/* ===== 10. (13/11) QUE SE NOTE "HOY" Y "PERSONALIZADO" ===== */
+
+/* El cartel de arriba de la tabla: "Hoy 13/11 · Pedidos para entregar: 8 · ⚠ Personalizados: 2".
+   Una tira blanca con 3 partes; lo llena renderizarPedidos (ListarPedidos.js) */
+.resumen-hoy {
+    display: flex;
+    flex-wrap: wrap;                       /* en el celu, si no entra, pasa al renglón de abajo */
+    align-items: center;
+    gap: 10px 18px;
+    padding: 12px 16px;
+    border-radius: var(--radio-barra-filtros);
+    background: var(--blanco);
+    box-shadow: inset 0 0 0 1px var(--borde-casillero), var(--sombra-chica);
+    font-size: 15px;
+    color: var(--texto);
+}
+
+/* "Hoy 13/11": la pastilla verde de la izquierda */
+.resumen-hoy-fecha {
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: var(--estado-entregado-fondo);
+    color: var(--estado-entregado-letra);
+    font-weight: 800;
+}
+
+/* "Pedidos para entregar: 8": el número grande */
+.resumen-hoy-cantidad strong {
+    font-size: 18px;
+}
+
+/* "⚠ Personalizados: 2": en rosa frambuesa (el mismo color de la fila personalizada), bien fuerte */
+.resumen-hoy-personalizados {
+    padding: 4px 12px;
+    border-radius: 12px;                   /* 12 y no 999: en el celu ocupa 2 renglones y queda prolijo */
+    background: var(--fila-personalizada-encima);
+    color: var(--fila-personalizada-linea);
+    font-weight: 800;
+}
+
+/* …y al lado, chiquito: "pasarlos al día siguiente" */
+.resumen-hoy-personalizados small {
+    margin-left: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+/* "Sin personalizados": en gris, que no llame la atención */
+.resumen-hoy-ninguno {
+    color: var(--texto-apagado);
+}
+
+/* "Hoy" en la columna Entrega: verde y en negrita */
+.tabla-pedidos tbody .col-entrega.entrega-hoy {
+    color: var(--estado-entregado-letra);
+    font-weight: 800;
+}

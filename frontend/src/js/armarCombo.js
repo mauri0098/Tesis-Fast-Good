@@ -125,10 +125,44 @@ function renderizarMenuCombo() {
   const cantidadDelCombo = comboEnArmado.cantidad;
   const completo = totalElegido === cantidadDelCombo;
 
-  // (12/11, diseño nuevo) Los personalizados ya no se dibujan: no hay renglones "⚠ sin sal", ni "✎ Personalizar",
-  // ni la nota del día de producción. Sus variables y funciones siguen en el archivo, sin usarse.
+  // (13/11) Vuelven los personalizados (opción A): "✎ Personalizar" debajo de cada plato, sus renglones "⚠ sin sal"
+  // con − / +, y la nota del día de producción al final.
 
-  // Un renglón por plato del menú
+  // Con el combo completo se apagan los botones que suman (el + de los personalizados, Agregar y Personalizar)
+  let apagadoSiCompleto = '';
+  if (completo) { // ¿ya eligió todos? SÍ: 10 de 10 → apagados · NO: 7 de 10 → prendidos
+    apagadoSiCompleto = 'disabled';
+  }
+
+  // 1. Los renglones personalizados ya dibujados, juntos por plato: { idPlato: html }.
+  //    Así no hace falta recorrer "personalizados" adentro del recorrido de los platos.
+  //    El índice es la posición del renglón en "personalizados" (lo usan sus botones − y +).
+  //    Ej: [{ idPlato: 5, texto: 'sin sal', cantidad: 2 }] → { 5: '<div class="renglon-personalizado">⚠ sin sal … 2 …</div>' }
+  const personalizadosPorPlato = {};
+  personalizados.forEach((renglon, indice) => {
+    let yaDibujados = '';                                         // los renglones de ese plato que ya se armaron
+    if (personalizadosPorPlato[renglon.idPlato]) { // ¿ese plato ya tiene otro renglón? SÍ: "sin sal" y ahora "sin ajo" · NO: el primero
+      yaDibujados = personalizadosPorPlato[renglon.idPlato];
+    }
+    // El texto lo escribió el cliente: pasa por escHtml (se muestra como texto, nunca se ejecuta)
+    personalizadosPorPlato[renglon.idPlato] = yaDibujados + `
+          <div class="renglon-personalizado">
+            <span class="renglon-personalizado-texto">⚠ ${escHtml(renglon.texto)}</span>
+            <div class="selector-cantidad">
+              <button type="button" class="boton-cantidad" data-accion="personalizado-restar" data-indice="${indice}"
+                      aria-label="Sacar una personalizada">
+                <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-menos"></use></svg>
+              </button>
+              <span class="numero-cantidad">${renglon.cantidad}</span>
+              <button type="button" class="boton-cantidad boton-sumar" data-accion="personalizado-sumar" data-indice="${indice}"
+                      aria-label="Sumar una personalizada" ${apagadoSiCompleto}>
+                <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-mas"></use></svg>
+              </button>
+            </div>
+          </div>`;
+  });
+
+  // 2. Un renglón por plato del menú
   let html = '';
   comboEnArmado.menu.forEach(plato => {
     const cantidad = cantidadesElegidas[plato.id] || 0;
@@ -147,7 +181,8 @@ function renderizarMenuCombo() {
     let avisoStock = '<p class="plato-quedan plato-hay-stock">Hay stock</p>';
     let claseAgotado = '';
     if (tope === 0) {                       // ¿no queda ninguna? SÍ: 0 · NO: 3
-      avisoStock = '<p class="plato-quedan plato-sin-stock">Sin stock</p>';
+      // (13/11) Personalizado no sale de la heladera: se puede pedir igual
+      avisoStock = '<p class="plato-quedan plato-sin-stock">Sin stock · podés pedirlo personalizado</p>';
       claseAgotado = ' plato-agotado';      // foto más clarita
     }
     const quedanPocas = tope > 0 && tope < cantidadDelCombo;
@@ -169,6 +204,27 @@ function renderizarMenuCombo() {
     // 28/10: el código del plato ("F3") adelante del nombre, salvo que el nombre ya lo traiga ("F3 - …"): pastillaCodigo
     const codigoPlato = pastillaCodigo(plato.codigo_plato, plato.nombre);
 
+    // (13/11) Debajo del plato: sus renglones personalizados (del paso 1, o nada) y, si es el que se está
+    // personalizando, el casillero para escribir cómo lo quiere; si no, el botón "✎ Personalizar" que lo abre
+    let personalizadosDelPlato = '';
+    if (personalizadosPorPlato[plato.id]) { // ¿tiene renglones personalizados? SÍ: fideos "sin sal" · NO: ninguno
+      personalizadosDelPlato = personalizadosPorPlato[plato.id];
+    }
+    let personalizar = `
+          <button type="button" class="boton-enlace" data-accion="personalizado-abrir"
+                  data-id-plato="${escHtml(plato.id)}" ${apagadoSiCompleto}>✎ Personalizar</button>`;
+    if (platoPersonalizando === plato.id) { // ¿es el plato que se está personalizando? SÍ: el casillero · NO: el botón
+      personalizar = `
+          <div class="personalizar-plato">
+            <input type="text" class="casillero" id="texto-personalizado"
+                   maxlength="${LARGO_MAXIMO_PERSONALIZADO}" placeholder="Ej: sin sal, sin cebolla"
+                   aria-label="Cómo querés ${escHtml(plato.nombre)}">
+            <button type="button" class="boton boton-principal" data-accion="personalizado-agregar"
+                    data-id-plato="${escHtml(plato.id)}" ${apagadoSiCompleto}>Agregar</button>
+            <button type="button" class="boton boton-secundario" data-accion="personalizado-cancelar">Cancelar</button>
+          </div>`;
+    }
+
     html += `
       <li class="plato${claseElegido}${claseAgotado}">
         ${fotoPlato}
@@ -187,9 +243,28 @@ function renderizarMenuCombo() {
             <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-mas"></use></svg>
           </button>
         </div>
+        <div class="plato-personalizados">
+          ${personalizadosDelPlato}
+          ${personalizar}
+        </div>
       </li>`;
   });
+
+  // 3. (13/11) La nota del día de producción: solo si hay algún plato personalizado (recuadro "nota", index.css)
+  if (personalizados.length > 0) { // ¿eligió algún personalizado? SÍ: 2 fideos "sin sal" · NO: todo de la heladera
+    html += `
+      <li class="nota">
+        Los platos personalizados se cocinan aparte: te llegan un día hábil más tarde
+        (si pedís un martes, se cocina el miércoles y te llega desde el jueves).
+      </li>`;
+  }
   lista.innerHTML = html;
+
+  // Si el casillero de "Personalizar" está abierto, el cursor va directo ahí
+  const campoTexto = document.getElementById('texto-personalizado');
+  if (campoTexto) { // ¿está abierto el casillero? SÍ: tocó "✎ Personalizar" · NO: no hay casillero
+    campoTexto.focus();
+  }
 
   // Progreso y botón (diseño nuevo, los mismos textos en compu y celu):
   // a la izquierda "Elegí 10 platos", a la derecha "7 de 10"; el botón dice "Elegí 3 platos más"

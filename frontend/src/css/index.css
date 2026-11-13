@@ -1264,6 +1264,19 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 .modal-armar .boton-sumar:disabled { opacity: 1; border-color: #e3e8e3; background: #e3e8e3; color: #6b7280; }
 .modal-armar .numero-cantidad { min-width: 24px; font-size: 15px; }
 
+/* (13/11) Personalizados (opción A), con el diseño nuevo:
+   "✎ Personalizar" chico debajo del plato · el renglón "⚠ sin sal" en rosa (el color de "personalizado" del panel) */
+.modal-armar .plato-personalizados { gap: 6px; }
+.modal-armar .boton-enlace {
+  min-height: 32px; color: #993556; font-size: 13px; font-weight: 700; text-decoration: none;
+}
+.modal-armar .boton-enlace:hover:not(:disabled) { text-decoration: underline; }
+.modal-armar .renglon-personalizado { background: #fbeaf0; padding: 6px 6px 6px 12px; }
+.modal-armar .renglon-personalizado-texto { color: #72243e; font-size: 14px; }
+.modal-armar .renglon-personalizado .selector-cantidad { background: none; }
+.modal-armar .personalizar-plato .casillero { min-height: 40px; }
+.modal-armar .personalizar-plato .boton { min-height: 40px; padding: 0 14px; }
+
 /* Abajo: "Armalo por mí" (blanco con borde) y al lado el botón grande (gris apagado o verde) */
 .modal-armar .pie-armar-combo {
   order: 3; display: flex; flex-wrap: wrap; gap: 10px;
