@@ -357,11 +357,13 @@
         </span>
       </div>
       <p class="rotulo armar-rotulo" id="armar-combo-rotulo"></p>
-      <button class="boton-armar-por-mi" type="button" id="boton-armar-por-mi" data-accion="armar-por-mi">✨ Armalo por mí</button>
       <ul class="lista-platos" id="lista-platos"></ul>
     </div>
 
-    <div class="modal-pie">
+    <!-- Abajo (diseño nuevo): "Armalo por mí" (completa el combo solo: armarloPorMi, de armarCombo.js) y al lado el botón
+         grande ("Elegí 3 platos más" o "Agregar al pedido · $ …") -->
+    <div class="modal-pie pie-armar-combo">
+      <button class="boton-armar-por-mi" type="button" id="boton-armar-por-mi" data-accion="armar-por-mi">Armalo por mí</button>
       <button class="boton boton-principal boton-ancho" type="button" id="boton-agregar-combo" data-accion="agregar-combo" disabled>Agregar al pedido</button>
       <!-- Se muestra en lugar del botón cuando se intenta salir con platos elegidos -->
       <div class="aviso-salir" id="aviso-salir" role="group" aria-labelledby="aviso-salir-texto" hidden>

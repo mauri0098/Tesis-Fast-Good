@@ -35,7 +35,7 @@
                                                            si la subís, la foto se funde con el blanco más despacio */
   --portada-fundido-abajo: 30px;                        /* alto del fundido blanco del borde de abajo de la foto: si la subís, la foto se
                                                            funde más abajo (más suave contra la sección de abajo) */
-  --titulo-portada-compu: 84px;                        /* "Fast & Good" en compu: si la subís, más grande (ojo: puede pisar la foto) */
+  --titulo-portada-compu: 84px;                      /* "Fast & Good" en compu: si la subís, más grande (ojo: puede pisar la foto) */
 
   /* ── PERILLAS: espacios ───────────────────────────────────────────────────────── */
   --seccion-espacio: 44px;                              /* aire arriba y abajo de cada sección en el celu: si la subís, las secciones quedan más separadas */
@@ -956,6 +956,44 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
   .tarjeta-combo-por-vianda { font-size: 12.5px; }
 }
 
+/* (12/11) DISEÑO NUEVO (docs/diseno-tienda). Cada regla va con la clase de SU tarjeta adelante,
+   así la tarjeta del plan y la del combo no se pisan (las dos usan las clases tarjeta-combo-*) */
+
+/* Tarjeta del plan / categoría (portada): foto de 260 px con el nombre y la descripción encima, y el botón grande abajo */
+.tarjeta-del-index .tarjeta-combo-foto { aspect-ratio: auto; height: 260px; }
+.tarjeta-del-index .tarjeta-combo-foto::after { background: linear-gradient(to top, rgb(0 0 0 / .78), rgb(0 0 0 / 0) 65%); }
+.tarjeta-del-index .tarjeta-combo-nombre { font-size: 22px; font-weight: 800; }
+.tarjeta-del-index .tarjeta-combo-descripcion { margin-top: 6px; font-size: 13px; font-weight: 500; line-height: 1.35; opacity: 1; }
+/* (13/11) Abajo de la foto, una fila: a la izquierda la cajita con el dato ("5, 10 o 20 viandas" / "2 planes"),
+   a la derecha el botón corto "Ver combos" con el diseño de "¡Lo quiero!" (.tarjeta-combo-boton y
+   .tarjeta-combo-flecha, que ya traen flex: none y nowrap: nunca se achica). Si el dato no entra, baja de línea */
+.tarjeta-del-index .tarjeta-combo-datos { padding: 12px 4px 2px; }
+.tarjeta-del-index .dato-tarjeta { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.tarjeta-del-index .icono-cajita { flex: none; width: 16px; height: 16px; color: #12893a; }
+.tarjeta-del-index .dato-tarjeta-texto { color: #374151; font-size: 14px; font-weight: 600; line-height: 1.3; }
+
+/* (13/11) COMPU: "Ver combos" y "¡Lo quiero!" más grandes (50 px de alto, letra 16 px, círculo de 38 px).
+   En el celu siguen de 44 px */
+@media (min-width: 768px) {
+  :root { --lo-quiero-alto: 50px; }
+  .tarjeta-combo-boton { font-size: 16px; }
+  .tarjeta-combo-flecha { width: 38px; height: 38px; }
+}
+
+/* Tarjeta del combo (adentro del plan): solo el precio por vianda, grande y verde, con "por vianda" al lado */
+.tarjeta-combo-del-plan .tarjeta-combo-precios { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.tarjeta-combo-del-plan .tarjeta-combo-precio { font-size: 22px; color: #12893a; }
+.tarjeta-combo-del-plan .tarjeta-combo-por-vianda { font-size: 13px; color: #4b5563; }
+/* "Más elegido": el sello sigue naranja, pero la tarjeta lleva un borde VERDE de 2px y su botón es verde como los demás */
+.tarjeta-combo-del-plan.tarjeta-combo-destacada, .tarjeta-combo-del-plan.tarjeta-combo-destacada:hover {
+  box-shadow: 0 0 0 2px #26b04f, 0 12px 28px -12px rgb(22 32 26 / .22);
+}
+.tarjeta-combo-del-plan.tarjeta-combo-destacada .tarjeta-combo-boton {
+  background: linear-gradient(135deg, var(--verde), var(--verde-fuerte));
+  box-shadow: 0 8px 18px -6px color-mix(in srgb, var(--verde-fuerte) 60%, transparent), inset 0 1px 0 rgb(255 255 255 / .25);
+}
+.tarjeta-combo-del-plan.tarjeta-combo-destacada .tarjeta-combo-flecha { color: var(--verde-fuerte); }
+
 /* ===================================================================================
    5. PANTALLAS DEL CELU (menos de 768 px), como la referencia:
    · Los combos de una categoría: una pantalla blanca que entra desde la derecha, con la barra "‹ Nombre" arriba.
@@ -1188,6 +1226,120 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
   .numero-cantidad { min-width: 24px; font-size: 15px; }
 }
 
+/* (12/11) DISEÑO NUEVO de la ventana para armar el combo (docs/diseno-tienda, imágenes 2, 3 y 4).
+   Igual en compu y celu: arriba "‹ MANTENIMIENTO / 10 viandas · $ 137.000", después "Elegí 10 platos ··· 7 de 10"
+   con la barra, los platos en renglones finitos y abajo "Armalo por mí" + el botón grande.
+   Va después de todo lo de arriba para ganarle (mismas reglas, escritas más tarde) */
+
+/* Encabezado: la "‹" a la izquierda (en todas las pantallas), el plan en gris chiquito y "10 viandas · $ …" */
+.modal-armar .modal-encabezado {
+  align-items: center; justify-content: flex-start; gap: 14px;
+  min-height: auto; padding: 14px 16px; border-bottom: 1px solid #e5e7eb;
+}
+.modal-armar .armar-titulos { display: block; }
+.modal-armar .armar-titulo-celu { display: none; }
+.modal-armar .modal-categoria {
+  margin: 0; color: #4b5563; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+}
+.modal-armar .modal-encabezado h2 { font-size: 18px; font-weight: 800; letter-spacing: -.01em; }
+.modal-armar .boton-cerrar { position: relative; order: -1; width: 40px; height: 40px; background: #f1f3f1; }
+.modal-armar .boton-cerrar::after { content: ""; position: absolute; inset: -4px; }   /* área para el dedo */
+.modal-armar .boton-cerrar .icono { display: none; }
+.modal-armar .boton-cerrar-flecha { display: block; padding-bottom: 2px; font-size: 22px; font-weight: 800; line-height: 1; }
+
+/* Progreso arriba de los platos: "Elegí 10 platos" a la izquierda y "7 de 10" a la derecha (verde con el combo completo) */
+.modal-armar .progreso { order: 0; padding: 12px 16px; border-top: 0; border-bottom: 0; box-shadow: none; }
+.modal-armar .progreso-texto { flex-direction: row-reverse; margin-bottom: 8px; }
+.modal-armar .progreso-texto span { color: #111827; font-size: 15px; font-weight: 700; }
+.modal-armar .progreso-texto strong { color: #4b5563; font-size: 15px; font-weight: 700; }
+.modal-armar .progreso.progreso-completo .progreso-texto span { color: #111827; }
+.modal-armar .progreso.progreso-completo .progreso-texto strong { color: #12893a; }
+.modal-armar .progreso-barra { height: 6px; background: #eef1ee; }
+.modal-armar .progreso-barra span { background: #26b04f; }
+
+/* Los platos: renglones finitos separados por una línea, sin recuadro ni descripción */
+.modal-armar .armar-contenido { order: 1; padding: 0 16px 16px; }
+.modal-armar .armar-resumen-combo, .modal-armar .armar-rotulo { display: none; }
+.modal-armar .lista-platos { gap: 0; }
+.modal-armar .plato {
+  grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  padding: 12px 0; border: 0; border-bottom: 1px solid #e5e7eb; border-radius: 0; background: none;
+}
+.modal-armar .plato.plato-elegido { background: none; }
+/* Foto de 44 px (la real llena el cuadrado; el logo de repuesto se ve entero) */
+.modal-armar .plato .foto, .modal-armar .plato > img {
+  grid-row: auto; width: 44px; height: 44px; padding: 0; border-radius: 10px; object-fit: cover;
+}
+.modal-armar .plato img.foto-logo { padding: 4px; object-fit: contain; }
+/* Sin foto: el cuadradito con el código ("F1") */
+.modal-armar .plato .foto-plato-codigo {
+  display: grid; place-items: center; background: #f3e8d8; color: #8a6a3b; font-size: 12px; font-weight: 700;
+}
+/* Sin stock: la foto más clarita */
+.modal-armar .plato.plato-agotado .foto { opacity: .45; }
+.modal-armar .plato h3 { font-size: 15px; font-weight: 600; line-height: 1.3; }
+/* El código adelante del nombre, en verde y con un "·": "F1 · Pollito…" */
+.modal-armar .plato .codigo-plato {
+  min-width: 0; height: auto; margin: 0; padding: 0; background: none;
+  color: #12893a; font-size: inherit; font-weight: 800; vertical-align: baseline;
+}
+.modal-armar .plato .codigo-plato::after { content: " · "; white-space: pre; color: #111827; font-weight: 600; }
+/* Aviso: "Hay stock" gris · "Quedan 4" verde · "Sin stock" rojo */
+.modal-armar .plato .plato-quedan { font-size: 13px; font-weight: 600; color: #12893a; }
+.modal-armar .plato .plato-hay-stock { color: #6b7280; }
+.modal-armar .plato .plato-sin-stock { color: var(--error); }
+
+/* − cantidad +: círculos de 36 px; el + verde lleno, y gris cuando no se puede sumar */
+.modal-armar .plato .selector-cantidad { grid-column: auto; justify-self: end; margin-top: 0; gap: 6px; padding: 0; background: none; }
+.modal-armar .boton-cantidad {
+  position: relative; width: 36px; height: 36px; border: 1.5px solid #d1d5db;
+  background: #fff; color: #111827; box-shadow: none;
+}
+.modal-armar .boton-cantidad::after { content: ""; position: absolute; inset: -4px; }   /* área para el dedo */
+.modal-armar .boton-sumar { border-color: #12893a; background: #12893a; color: #fff; }
+.modal-armar .boton-cantidad:disabled { opacity: .4; }
+.modal-armar .boton-sumar:disabled { opacity: 1; border-color: #e3e8e3; background: #e3e8e3; color: #6b7280; }
+.modal-armar .numero-cantidad { min-width: 24px; font-size: 15px; }
+
+/* Abajo: "Armalo por mí" (blanco con borde) y al lado el botón grande (gris apagado o verde) */
+.modal-armar .pie-armar-combo {
+  order: 3; display: flex; flex-wrap: wrap; gap: 10px;
+  padding: 12px 16px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid #e5e7eb;
+}
+.pie-armar-combo .boton-armar-por-mi {
+  flex: none; width: auto; min-height: 52px; margin: 0; padding: 0 20px;
+  border: 1.5px solid #d1d5db; border-radius: 999px; background: #fff; color: #111827; font-size: 15px;
+}
+.pie-armar-combo #boton-agregar-combo {
+  flex: 1 1 0; min-width: 0; width: auto; min-height: 52px; border-radius: 999px; background: #12893a; color: #fff;
+  font-size: 15px; font-weight: 800; line-height: 1.2;
+}
+.pie-armar-combo #boton-agregar-combo:disabled { opacity: 1; background: #e3e8e3; color: #4b5563; }
+/* Con el "¿Salir?" a la vista, ocupa todo el ancho y "Armalo por mí" no se muestra */
+.pie-armar-combo .aviso-salir { flex: 1 1 100%; }
+.pie-armar-combo:has(.aviso-salir:not([hidden])) .boton-armar-por-mi { display: none; }
+
+/* (13/11) Ventana de armar combo en COMPU: más grande, con el mismo renglón (foto · código + nombre · aviso · − n +).
+   En el celu (menos de 768 px) no cambia nada */
+@media (min-width: 768px) {
+  /* Ventana de 720 px (como mucho el 90 % del ancho) y hasta el 90 % del alto; la lista de platos se desliza */
+  .modal-armar { width: 720px; max-width: 90vw; max-height: 90dvh; }
+  /* Renglón con lugar para la foto de 80 px y más aire arriba y abajo */
+  .modal-armar .plato { grid-template-columns: 80px minmax(0, 1fr) auto; gap: 16px; padding: 14px 0; }
+  /* Foto de 80 px con esquinas de 14 px (el cuadradito con el código también es "foto": queda igual de grande) */
+  .modal-armar .plato .foto, .modal-armar .plato > img { width: 80px; height: 80px; border-radius: 14px; }
+  .modal-armar .plato .foto-plato-codigo { font-size: 15px; }
+  /* Nombre del plato un poco más grande */
+  .modal-armar .plato h3 { font-size: 16px; }
+  /* − y + de 40 px */
+  .modal-armar .boton-cantidad { width: 40px; height: 40px; }
+  /* (13/11) Los dos botones de abajo juntos a la derecha ("Armalo por mí" y después el principal, separados 10 px) */
+  .modal-armar .pie-armar-combo { justify-content: flex-end; }
+  /* El principal ya no se estira: mide lo que su texto, en una línea, igual de alto, redondo y con la misma letra
+     que "Armalo por mí" (los colores siguen: gris mientras falta, verde completo) */
+  .pie-armar-combo #boton-agregar-combo { flex: none; padding: 0 20px; font-size: 15px; white-space: nowrap; }
+}
+
 /* ===================================================================================
    7. MI PEDIDO Y FINALIZAR PEDIDO (con la confirmación)
    =================================================================================== */
@@ -1387,7 +1539,7 @@ textarea.casillero { resize: vertical; min-height: 96px; }
      El radio de verdad sigue escondido adentro (opcion-radio): el valor que se manda es el mismo */
   .opciones { grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 12px; background: var(--gris); }
   .opcion-tarjeta {
-    align-items: center; justify-content: center; gap: 0; min-height: 42px; padding: 4px 6px;
+    align-items: center; justify-content: center; gap: 0; min-height: 44px; padding: 4px 6px;   /* (13/11) 44 px: bien para el dedo */
     border: 0; border-radius: 9px; background: none; text-align: center;
     transition: background-color .2s, box-shadow .2s;
   }

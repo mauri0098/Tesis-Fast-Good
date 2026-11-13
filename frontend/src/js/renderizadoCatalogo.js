@@ -5,6 +5,7 @@
 //   cargarCombos                  → trae los combos y dibuja el nivel que corresponde (la llama también pedidoCombos.js)
 //   armarFotoTarjeta              → arma el HTML de la foto de una tarjeta (la usa también armarCombo.js)
 //   renderizarTarjetasDelIndex    → NIVEL 1: los planes sueltos y una tarjeta por categoría
+//   textoTamanios                 → los tamaños de los combos de un plan: "5, 10 o 20 viandas"
 //   renderizarPlanesDeLaCategoria → NIVEL 2: los planes de una categoría
 //   renderizarCombosDelPlan       → NIVEL 3: los combos de un plan
 //   mostrarNivelElegido           → lee el historial del navegador y muestra ese nivel
@@ -177,23 +178,31 @@ function renderizarTarjetasDelIndex() {
       descripcionHtml = `<small class="tarjeta-combo-descripcion">${escHtml(tarjeta.descripcion)}</small>`;
     }
 
+    // El dato de abajo: una categoría muestra sus planes ("2 planes") y un plan, sus tamaños ("5, 10 o 20 viandas")
+    let textoDato = textoCantidad;
+    const esPlan = tarjeta.atributoId === 'data-id-plan';
+    // ¿la tarjeta es de un plan? SÍ: MANTENIMIENTO · NO: Viandas Saludables (categoría)
+    if (esPlan) {
+      textoDato = textoTamanios(tarjeta.combos);
+    }
+
     const fotoHtml = armarFotoTarjeta(tarjeta.combos, tarjeta.imagen, 'Categoría ' + tarjeta.nombre);
-    const textoDesde = tarjeta.desde.toLocaleString('es-AR');
-    const textoPorVianda = tarjeta.desdePorVianda.toLocaleString('es-AR');
 
     // acá se dibuja la tarjeta de un plan suelto (data-id-plan) o de una categoría (data-id-categoria)
+    // (13/11, diseño nuevo) la foto con el nombre y la descripción encima; abajo la cajita con el dato y el botón chico
     html += `
       <button type="button" class="tarjeta-combo tarjeta-del-index revelar" ${tarjeta.atributoId}="${escHtml(tarjeta.id)}">
         <span class="tarjeta-combo-foto">
           ${fotoHtml}
-          <span class="tarjeta-combo-cantidad">${escHtml(textoCantidad)}</span>
           <span class="tarjeta-combo-nombre">${escHtml(tarjeta.nombre)}${descripcionHtml}</span>
         </span>
         <span class="tarjeta-combo-datos">
-          <span class="tarjeta-combo-precios">
-            <span class="tarjeta-desde">Desde</span>
-            <span class="tarjeta-combo-precio">$ ${escHtml(textoDesde)}</span>
-            <span class="tarjeta-combo-por-vianda">o <b>$ ${escHtml(textoPorVianda)}</b> por vianda</span>
+          <span class="dato-tarjeta">
+            <svg class="icono-cajita" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <path d="M21 8l-9-5-9 5v8l9 5 9-5z"></path><path d="M3 8l9 5 9-5"></path><path d="M12 13v8"></path>
+            </svg>
+            <span class="dato-tarjeta-texto">${escHtml(textoDato)}</span>
           </span>
           <span class="tarjeta-combo-boton" aria-hidden="true">${escHtml(tarjeta.textoBoton)}<span class="tarjeta-combo-flecha">→</span></span>
         </span>
@@ -202,6 +211,36 @@ function renderizarTarjetasDelIndex() {
 
   // acá se dibujan todas las tarjetas del nivel 1 en #tarjetas-del-index
   document.getElementById('tarjetas-del-index').innerHTML = `<div class="grilla-tarjetas-del-index">${html}</div>`;
+}
+
+// ── Los tamaños de los combos de un plan, en una frase (para la tarjeta del nivel 1) ──
+// ENTRADA: combos = los combos del plan
+// SALIDA:  el texto. Ej: combos x10, x5, x20 y x10 → "5, 10 o 20 viandas" · uno solo x7 → "7 viandas"
+function textoTamanios(combos) {
+  // acá se recorren los combos y se pushea cada cantidad UNA vez (vistas = las que ya están: { 10: true })
+  const cantidades = [];
+  const vistas = {};
+  combos.forEach(combo => {
+    const esNueva = vistas[combo.cantidad] === undefined;
+    // ¿esta cantidad todavía no está? SÍ: el primer x10 · NO: el segundo x10
+    if (esNueva) {
+      vistas[combo.cantidad] = true;
+      cantidades.push(combo.cantidad);
+    }
+  });
+
+  // De menor a mayor. Ej: 10 − 5 = 5 → positivo → el 5 va primero
+  cantidades.sort((cantidadA, cantidadB) => cantidadA - cantidadB);
+
+  // ¿hay un solo tamaño? SÍ: [7] · NO: [5, 10, 20]
+  if (cantidades.length === 1) {
+    return cantidades[0] + ' viandas';
+  }
+
+  // Todas menos la última con ", " y la última con " o ". Ej: [5, 10, 20] → "5, 10" + " o 20 viandas"
+  const ultima = cantidades[cantidades.length - 1];
+  const primeras = cantidades.slice(0, cantidades.length - 1);
+  return primeras.join(', ') + ' o ' + ultima + ' viandas';
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -308,7 +347,6 @@ function renderizarCombosDelPlan(idPlan) {
   combosDelPlan.forEach(combo => {
     const fotoHtml = armarFotoTarjeta([combo], combo.plan_imagen, 'Combo ' + combo.plan);
     const precio = Number(combo.precio);
-    const textoPrecio = precio.toLocaleString('es-AR');
     const textoPorVianda = Math.round(precio / combo.cantidad).toLocaleString('es-AR');
 
     let claseDestacada = '';
@@ -320,8 +358,9 @@ function renderizarCombosDelPlan(idPlan) {
     }
 
     // acá se dibuja una tarjeta por cada combo de idPlan
+    // (12/11, diseño nuevo) sin el precio total: solo el precio por vianda, grande, y "¡Lo quiero!" al costado
     htmlCombos += `
-      <button type="button" class="tarjeta-combo revelar${claseDestacada}" data-accion="armar-combo" data-id-combo="${escHtml(combo.id)}">
+      <button type="button" class="tarjeta-combo tarjeta-combo-del-plan revelar${claseDestacada}" data-accion="armar-combo" data-id-combo="${escHtml(combo.id)}">
         <span class="tarjeta-combo-foto">
           ${fotoHtml}
           <span class="tarjeta-combo-cantidad">${escHtml(combo.cantidad)} viandas</span>
@@ -330,8 +369,8 @@ function renderizarCombosDelPlan(idPlan) {
         </span>
         <span class="tarjeta-combo-datos">
           <span class="tarjeta-combo-precios">
-            <span class="tarjeta-combo-precio">$ ${escHtml(textoPrecio)}</span>
-            <span class="tarjeta-combo-por-vianda">$ ${escHtml(textoPorVianda)} por vianda</span>
+            <span class="tarjeta-combo-precio">$ ${escHtml(textoPorVianda)}</span>
+            <span class="tarjeta-combo-por-vianda">por vianda</span>
           </span>
           <span class="tarjeta-combo-boton" aria-hidden="true">¡Lo quiero!<span class="tarjeta-combo-flecha">→</span></span>
         </span>

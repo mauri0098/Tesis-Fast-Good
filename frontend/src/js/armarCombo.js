@@ -4,9 +4,8 @@
 // Funciones:
 //   abrirModalCombo              → abre la ventana con el menú de un combo, con todo en 0, y calcula
 //                                  el tope de cada plato (descontando lo que ya está en el carrito)
-//   renderizarMenuCombo          → dibuja los platos con sus botones − / +, los personalizados,
-//                                  el "X de N", la barra y si se puede agregar al pedido
-//                                  (con los textos de compu o los del celu: "Elegí 7 platos más" / "Mandar pedido · $…")
+//   renderizarMenuCombo          → dibuja los platos con sus botones − / +, el "X de N", la barra
+//                                  y si se puede agregar al pedido ("Elegí 7 platos más" / "Agregar al pedido · $…")
 //   cambiarCantidadPlato         → suma o resta 1 vianda de heladera de un plato, respetando los límites
 //   armarloPorMi                 → "✨ Armalo por mí": completa el combo repartiendo de a un plato, en orden,
 //                                  con la misma función del + (respeta lo que queda de cada plato y el máximo)
@@ -93,11 +92,11 @@ function abrirModalCombo(idCombo) {
     topePorPlato[plato.id] = tope;
   });
 
-  // Encabezado (textContent muestra el texto tal cual, no hace falta escHtml)
-  // Con categoría: "Viandas Saludables · PLAN VEGGIE" · sin categoría: solo "MANTENIMIENTO"
-  const encabezadoCombo = combo.categoria ? combo.categoria.nombre + ' · ' + combo.plan : combo.plan;
-  document.getElementById('modal-combo-categoria').textContent = encabezadoCombo;
-  document.getElementById('modal-combo-titulo').textContent = combo.nombre;
+  // Encabezado (diseño nuevo): arriba el plan chiquito en gris y abajo "10 viandas · $ 137.000"
+  // (textContent muestra el texto tal cual, no hace falta escHtml)
+  const precioEncabezado = '$ ' + Number(combo.precio).toLocaleString('es-AR');   // solo para mostrar
+  document.getElementById('modal-combo-categoria').textContent = combo.plan;
+  document.getElementById('modal-combo-titulo').textContent = `${combo.cantidad} viandas · ${precioEncabezado}`;
 
   // Arriba de los platos (se ve solo en el celu): la foto del combo (con la misma regla de las tarjetas,
   // armarFotoTarjeta de renderizadoCatalogo.js, que ya pasa los datos por escHtml), el nombre, el precio y
@@ -117,43 +116,19 @@ function abrirModalCombo(idCombo) {
 
 // ── Dibuja los platos, el progreso y el botón de agregar ──────────────────
 // ENTRADA: nada (usa comboEnArmado, cantidadesElegidas, personalizados, platoPersonalizando, topePorPlato y totalElegido)
-// SALIDA:  nada (dibuja la lista de platos, escribe "3 de 10" y "Te faltan 7", llena la barra
+// SALIDA:  nada (dibuja la lista de platos, escribe "Elegí 10 platos" y "3 de 10", llena la barra
 //          y prende o apaga "Agregar al pedido")
 // Ej: combo x10 con 4 fideos elegidos y 3 tartas en la heladera → fideos resaltado con un 4, la tarta con
-//     "Quedan 3", "4 de 10", "Te faltan 6" y la barra llena al 40 %
+//     "Quedan 3", "4 de 10", el botón "Elegí 6 platos más" y la barra llena al 40 %
 function renderizarMenuCombo() {
   const lista = document.getElementById('lista-platos');
   const cantidadDelCombo = comboEnArmado.cantidad;
   const completo = totalElegido === cantidadDelCombo;
 
-  // Con el combo completo se apagan los botones que suman (+ personalizado, Agregar, Personalizar)
-  const apagadoSiCompleto = completo ? 'disabled' : '';
+  // (12/11, diseño nuevo) Los personalizados ya no se dibujan: no hay renglones "⚠ sin sal", ni "✎ Personalizar",
+  // ni la nota del día de producción. Sus variables y funciones siguen en el archivo, sin usarse.
 
-  // 1. Los renglones personalizados ya dibujados, juntos por plato: { idPlato: html }.
-  //    Así no hace falta recorrer "personalizados" adentro del recorrido de los platos.
-  //    El índice es la posición del renglón en "personalizados" (lo usan sus botones − y +).
-  //    Ej: [{ idPlato: 5, texto: 'sin sal', cantidad: 2 }] → { 5: '<div class="renglon-personalizado">⚠ sin sal … 2 …</div>' }
-  const personalizadosPorPlato = {};
-  personalizados.forEach((renglon, indice) => {
-    const yaDibujados = personalizadosPorPlato[renglon.idPlato] || '';   // los de antes de ese plato (o nada)
-    personalizadosPorPlato[renglon.idPlato] = yaDibujados + `
-          <div class="renglon-personalizado">
-            <span class="renglon-personalizado-texto">⚠ ${escHtml(renglon.texto)}</span>
-            <div class="selector-cantidad">
-              <button type="button" class="boton-cantidad" data-accion="personalizado-restar" data-indice="${indice}"
-                      aria-label="Sacar una personalizada">
-                <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-menos"></use></svg>
-              </button>
-              <span class="numero-cantidad">${renglon.cantidad}</span>
-              <button type="button" class="boton-cantidad boton-sumar" data-accion="personalizado-sumar" data-indice="${indice}"
-                      aria-label="Sumar una personalizada" ${apagadoSiCompleto}>
-                <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-mas"></use></svg>
-              </button>
-            </div>
-          </div>`;
-  });
-
-  // 2. Un renglón por plato del menú
+  // Un renglón por plato del menú
   let html = '';
   comboEnArmado.menu.forEach(plato => {
     const cantidad = cantidadesElegidas[plato.id] || 0;
@@ -168,49 +143,38 @@ function renderizarMenuCombo() {
     const apagadoRestar = puedeRestar ? '' : 'disabled';
     const apagadoSumar = puedeSumar ? '' : 'disabled';
 
-    // Aviso de stock, solo si hay menos viandas que las del combo: "Sin stock…" (en rojo) o "Quedan N"
-    const sinStock = tope === 0;
+    // Aviso de stock (diseño nuevo): "Hay stock" en gris, "Quedan N" en verde o "Sin stock" en rojo
+    let avisoStock = '<p class="plato-quedan plato-hay-stock">Hay stock</p>';
+    let claseAgotado = '';
+    if (tope === 0) {                       // ¿no queda ninguna? SÍ: 0 · NO: 3
+      avisoStock = '<p class="plato-quedan plato-sin-stock">Sin stock</p>';
+      claseAgotado = ' plato-agotado';      // foto más clarita
+    }
     const quedanPocas = tope > 0 && tope < cantidadDelCombo;
-    const avisoSinStock = sinStock ? '<p class="plato-quedan plato-sin-stock">Sin stock · podés pedirlo personalizado</p>' : '';
-    const avisoQuedan = quedanPocas ? `<p class="plato-quedan">Quedan ${escHtml(tope)}</p>` : '';
-
-    // Descripción solo si tiene
-    const descripcion = plato.descripcion ? `<p>${escHtml(plato.descripcion)}</p>` : '';
+    if (quedanPocas) {                      // ¿quedan menos que las del combo? SÍ: 3 de un x10 · NO: 12 de un x10
+      avisoStock = `<p class="plato-quedan">Quedan ${escHtml(tope)}</p>`;
+    }
 
     // Foto del plato, o el logo si no tiene (con foto-logo se ve entero, sin recortar). Si la foto no carga, también el logo.
     const imagen = plato.imagen || IMAGEN_POR_DEFECTO;
     const claseLogo = plato.imagen ? '' : ' foto-logo';
+    let fotoPlato = `<img class="foto${claseLogo}" src="${escHtml(imagen)}" alt="" loading="lazy"
+             onerror="this.onerror = null; this.src = '${IMAGEN_POR_DEFECTO}'; this.classList.add('foto-logo');">`;
+    // Sin foto pero con código: un cuadradito con el código ("F1") en vez del logo
+    const sinFotoConCodigo = !plato.imagen && plato.codigo_plato;
+    if (sinFotoConCodigo) {                 // ¿no tiene foto y sí código? SÍ: sin foto y "F1" · NO: con foto
+      fotoPlato = `<span class="foto foto-plato-codigo">${escHtml(plato.codigo_plato)}</span>`;
+    }
 
-    // Sus renglones personalizados (los del paso 1), o nada
-    const personalizadosDelPlato = personalizadosPorPlato[plato.id] || '';
-
-    // Debajo del plato: el campo para escribir cómo lo quiere (si es el que se está personalizando)
-    // o el botón "✎ Personalizar" que abre ese campo
-    const campoPersonalizar = `
-          <div class="personalizar-plato">
-            <input type="text" class="casillero" id="texto-personalizado"
-                   maxlength="${LARGO_MAXIMO_PERSONALIZADO}" placeholder="Ej: sin sal"
-                   aria-label="Cómo querés ${escHtml(plato.nombre)}">
-            <button type="button" class="boton boton-principal" data-accion="personalizado-agregar"
-                    data-id-plato="${escHtml(plato.id)}" ${apagadoSiCompleto}>Agregar</button>
-            <button type="button" class="boton boton-secundario" data-accion="personalizado-cancelar">Cancelar</button>
-          </div>`;
-    const botonPersonalizar = `
-          <button type="button" class="boton-enlace" data-accion="personalizado-abrir"
-                  data-id-plato="${escHtml(plato.id)}" ${apagadoSiCompleto}>✎ Personalizar</button>`;
-    const estaPersonalizando = platoPersonalizando === plato.id;
-    const personalizar = estaPersonalizando ? campoPersonalizar : botonPersonalizar;
     // 28/10: el código del plato ("F3") adelante del nombre, salvo que el nombre ya lo traiga ("F3 - …"): pastillaCodigo
     const codigoPlato = pastillaCodigo(plato.codigo_plato, plato.nombre);
 
     html += `
-      <li class="plato${claseElegido}">
-        <img class="foto${claseLogo}" src="${escHtml(imagen)}" alt="" loading="lazy"
-             onerror="this.onerror = null; this.src = '${IMAGEN_POR_DEFECTO}'; this.classList.add('foto-logo');">
+      <li class="plato${claseElegido}${claseAgotado}">
+        ${fotoPlato}
         <div class="plato-datos">
           <h3>${codigoPlato}${escHtml(plato.nombre)}</h3>
-          ${descripcion}
-          ${avisoSinStock}${avisoQuedan}
+          ${avisoStock}
         </div>
         <div class="selector-cantidad">
           <button type="button" class="boton-cantidad" data-accion="restar" data-id-plato="${escHtml(plato.id)}"
@@ -223,50 +187,24 @@ function renderizarMenuCombo() {
             <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-mas"></use></svg>
           </button>
         </div>
-        <div class="plato-personalizados">
-          ${personalizadosDelPlato}
-          ${personalizar}
-        </div>
       </li>`;
   });
-
-  // Aviso de entrega: solo si hay algún plato personalizado (con el estilo "nota": recuadro verde clarito)
-  if (personalizados.length > 0) {
-    html += `
-      <li class="nota">
-        Los platos personalizados se cocinan aparte: hay un día de producción en el medio (si pedís un martes, se cocina el miércoles y te llega desde el jueves).
-      </li>`;
-  }
   lista.innerHTML = html;
 
-  // Si el campo de texto está abierto, el cursor va directo ahí
-  const campoTexto = document.getElementById('texto-personalizado');
-  if (campoTexto) {
-    campoTexto.focus();
-  }
-
-  // Progreso: "3 de 10" y el texto de al lado, y el texto del botón. Cambian según la pantalla (tabla de abajo):
-  // en compu, los de siempre ("Te faltan 7" o "¡Combo completo!" y "Agregar al pedido"); en el celu, los de la
-  // referencia ("Tus platos" o "¡Listo! Ya podés mandarlo", y "Elegí 7 platos más" o "Mandar pedido · $ 137.000").
-  // matchMedia pregunta si la pantalla cumple esa medida. Ej: celular de 390 px → true · compu de 1440 px → false
+  // Progreso y botón (diseño nuevo, los mismos textos en compu y celu):
+  // a la izquierda "Elegí 10 platos", a la derecha "7 de 10"; el botón dice "Elegí 3 platos más"
+  // o, con el combo completo, "Agregar al pedido · $ 137.000"
   const faltan = cantidadDelCombo - totalElegido;
-  const esCelu = window.matchMedia('(max-width: 767px)').matches;
-  const pantalla = esCelu ? 'celu' : 'compu';
   const palabraPlatos = faltan === 1 ? 'plato' : 'platos';                              // "1 plato" o "7 platos"
   const precioDelCombo = '$ ' + Number(comboEnArmado.precio).toLocaleString('es-AR');  // solo para mostrar
-  // La tabla se arma acá adentro (y no arriba de todo) porque usa cuántos faltan y el precio de este combo
-  const textosPorPantalla = {
-    compu: { falta: `Te faltan ${faltan}`, completo: '¡Combo completo!',
-             boton: 'Agregar al pedido', botonCompleto: 'Agregar al pedido' },
-    celu:  { falta: 'Tus platos', completo: '¡Listo! Ya podés mandarlo',
-             boton: `Elegí ${faltan} ${palabraPlatos} más`, botonCompleto: 'Mandar pedido · ' + precioDelCombo }
-  };
-  const textos = textosPorPantalla[pantalla];
-  const textoFalta = completo ? textos.completo : textos.falta;
+  let textoBoton = `Elegí ${faltan} ${palabraPlatos} más`;
+  if (completo) {                           // ¿ya eligió todos? SÍ: 10 de 10 · NO: 7 de 10
+    textoBoton = 'Agregar al pedido · ' + precioDelCombo;
+  }
   document.getElementById('modal-combo-cuenta').textContent = `${totalElegido} de ${cantidadDelCombo}`;
-  document.getElementById('modal-combo-falta').textContent = textoFalta;
-  // En el celu, "Mandar pedido" agrega el combo y abre "Finalizar pedido" directo (agregarAlCarrito, de carritoCombos.js)
-  document.getElementById('boton-agregar-combo').textContent = completo ? textos.botonCompleto : textos.boton;
+  document.getElementById('modal-combo-falta').textContent = `Elegí ${cantidadDelCombo} platos`;
+  // En el celu, este botón agrega el combo y abre "Finalizar pedido" directo (agregarAlCarrito, de carritoCombos.js)
+  document.getElementById('boton-agregar-combo').textContent = textoBoton;
   // Con el combo completo, el progreso lleva la clase "progreso-completo" (el texto se pone verde).
   // toggle(clase, true) la pone y toggle(clase, false) la saca. Ej: 10 de 10 → la pone · 4 de 10 → la saca
   document.getElementById('modal-combo-progreso').classList.toggle('progreso-completo', completo);
