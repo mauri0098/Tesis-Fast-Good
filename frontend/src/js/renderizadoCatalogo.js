@@ -175,7 +175,7 @@ function renderizarTarjetasDelIndex() {
     let descripcionHtml = '';
     // ¿tiene frase? SÍ: "Para toda la semana" · NO: null
     if (tarjeta.descripcion) {
-      descripcionHtml = `<small class="tarjeta-combo-descripcion">${escHtml(tarjeta.descripcion)}</small>`;
+      descripcionHtml = `<span class="tarjeta-combo-descripcion">${escHtml(tarjeta.descripcion)}</span>`;
     }
 
     // El dato de abajo: una categoría muestra sus planes ("2 planes") y un plan, sus tamaños ("5, 10 o 20 viandas")
@@ -189,13 +189,15 @@ function renderizarTarjetasDelIndex() {
     const fotoHtml = armarFotoTarjeta(tarjeta.combos, tarjeta.imagen, 'Categoría ' + tarjeta.nombre);
 
     // acá se dibuja la tarjeta de un plan suelto (data-id-plan) o de una categoría (data-id-categoria)
-    // (13/11, diseño nuevo) la foto con el nombre y la descripción encima; abajo la cajita con el dato y el botón chico
+    // (13/11, diseño v2 "la foto manda") la foto sola, sin nada encima; debajo el nombre, la descripción
+    // y la fila con la cajita, el dato y el botón
     html += `
       <button type="button" class="tarjeta-combo tarjeta-del-index revelar" ${tarjeta.atributoId}="${escHtml(tarjeta.id)}">
         <span class="tarjeta-combo-foto">
           ${fotoHtml}
-          <span class="tarjeta-combo-nombre">${escHtml(tarjeta.nombre)}${descripcionHtml}</span>
         </span>
+        <span class="tarjeta-combo-nombre">${escHtml(tarjeta.nombre)}</span>
+        ${descripcionHtml}
         <span class="tarjeta-combo-datos">
           <span class="dato-tarjeta">
             <svg class="icono-cajita" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -358,15 +360,16 @@ function renderizarCombosDelPlan(idPlan) {
     }
 
     // acá se dibuja una tarjeta por cada combo de idPlan
-    // (12/11, diseño nuevo) sin el precio total: solo el precio por vianda, grande, y "¡Lo quiero!" al costado
+    // (13/11, diseño v2) igual a la tarjeta del nivel 1: la foto sola (solo lleva el sello "Más elegido");
+    // debajo el nombre, "10 viandas" y la fila con el precio por vianda y "¡Lo quiero!"
     htmlCombos += `
       <button type="button" class="tarjeta-combo tarjeta-combo-del-plan revelar${claseDestacada}" data-accion="armar-combo" data-id-combo="${escHtml(combo.id)}">
         <span class="tarjeta-combo-foto">
           ${fotoHtml}
-          <span class="tarjeta-combo-cantidad">${escHtml(combo.cantidad)} viandas</span>
           ${selloHtml}
-          <span class="tarjeta-combo-nombre">${escHtml(combo.nombre)}</span>
         </span>
+        <span class="tarjeta-combo-nombre">${escHtml(combo.nombre)}</span>
+        <span class="tarjeta-combo-descripcion">${escHtml(combo.cantidad)} viandas</span>
         <span class="tarjeta-combo-datos">
           <span class="tarjeta-combo-precios">
             <span class="tarjeta-combo-precio">$ ${escHtml(textoPorVianda)}</span>

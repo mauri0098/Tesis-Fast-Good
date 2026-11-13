@@ -22,7 +22,7 @@
 
   /* ── PERILLAS: tamaños ─────────────────────────────────────────────────────────── */
   --titulo-portada-tamano: min(19cqi, 5.25rem);         /* "Fast & Good" de la portada en el celu: si la subís, se ve más grande (nunca más ancho que su columna) */
-  --titulo-seccion-tamano: clamp(1.625rem, 5vw, 2.25rem); /* "Elegí tu categoría", "Dónde estamos", "Preguntas frecuentes": si la subís, más grandes */
+  --titulo-seccion-tamano: 46px;                        /* "Elegí tu categoría", "Dónde estamos", "Preguntas frecuentes" (13/11: antes 26 a 36; en el celu 30) */
   --titulo-combos-tamano: clamp(1.25rem, 4vw, 1.5rem);    /* "Combos …", arriba de las tarjetas: si la subís, más grande */
   --boton-alto: 44px;                                   /* alto de los botones comunes (44 px es lo mínimo cómodo para el dedo): si la subís, más altos */
   --boton-grande-alto: 50px;                            /* alto de "Pedir ahora" y de "Confirmar pedido" */
@@ -47,7 +47,9 @@
   --tarjetas-separacion: 24px;                          /* espacio entre tarjetas */
   --tarjeta-radio: 24px;                                /* lo redondeado de sus esquinas: si la subís, más redondas */
   --tarjeta-foto-proporcion: 4 / 3;                     /* forma de la foto (ancho / alto): si subís el 3, la foto queda más alta */
-  --tarjeta-nombre-tamano: 20px;                        /* el nombre del combo, en blanco sobre la foto */
+  --tarjeta-nombre-tamano: 28px;                        /* el nombre de la categoría, del plan o del combo, debajo de la foto (13/11: antes 20, en blanco sobre la foto) */
+  --tarjeta-foto-radio: 26px;                           /* (13/11) lo redondeado de la foto de las tarjetas de categoría, plan y combo */
+  --tarjetas-foto-separacion: 36px;                     /* (13/11) espacio entre esas tarjetas (las del nivel 2 siguen con --tarjetas-separacion) */
   --tarjeta-precio-tamano: 24px;                        /* el precio grande, abajo de la foto */
   --lo-quiero-alto: 44px;                               /* alto del botón "¡Lo quiero!" */
 
@@ -138,7 +140,10 @@
     --titulo-portada-tamano: 2.75rem;
     --tarjeta-foto-proporcion: 16 / 10;
     --tarjetas-separacion: 16px;
-    --tarjeta-nombre-tamano: 19px;
+    --titulo-seccion-tamano: 30px;
+    --tarjeta-nombre-tamano: 22px;
+    --tarjeta-foto-radio: 20px;
+    --tarjetas-foto-separacion: 28px;
     --tarjeta-precio-tamano: 22px;
   }
 }
@@ -243,8 +248,12 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 .seccion-fondo-verde { background: var(--fondo); }
 .titulo-seccion {
   color: var(--titulo-suave);
-  font-size: var(--titulo-seccion-tamano); font-weight: 800; line-height: 1.08; letter-spacing: -.03em;
+  font-size: var(--titulo-seccion-tamano); font-weight: 900; line-height: 1.08; letter-spacing: -.03em;
 }
+/* (13/11) La frase debajo de "Elegí tu categoría" ("Cada una tiene sus combos…") */
+.bajada-seccion { margin-top: 10px; color: var(--texto-suave); font-size: 17px; line-height: 1.45; }
+.bajada-seccion + .tarjetas-del-index { margin-top: 28px; }
+@media (max-width: 767px) { .bajada-seccion { margin-top: 8px; font-size: 15px; } .bajada-seccion + .tarjetas-del-index { margin-top: 20px; } }
 .titulo-seccion + .tarjetas-del-index, .titulo-seccion + .donde-columnas, .titulo-seccion + .preguntas-columnas { margin-top: 20px; }
 @media (min-width: 768px) {
   .seccion { padding: var(--seccion-espacio-compu) 0; }
@@ -738,11 +747,9 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
    min(…, 100%): en un celu muy angosto la tarjeta se achica al ancho de la pantalla (sin scroll de costado) */
 .grilla-tarjetas-del-index {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--tarjeta-categoria-ancho-minimo), 100%), 1fr));
-  gap: var(--tarjetas-separacion); align-items: stretch;
+  gap: var(--tarjetas-foto-separacion); align-items: stretch;
 }
-/* Lo que la tarjeta de categoría tiene de más: la descripción debajo del nombre, "DESDE" arriba del precio
-   y el precio por vianda en verde ("o $ 11.600 por vianda") */
-.tarjeta-combo-descripcion { display: block; margin-top: 2px; font-size: 13px; font-weight: 600; letter-spacing: 0; opacity: .9; }
+/* "DESDE" arriba del precio (tarjeta del plan, nivel 2) */
 .tarjeta-desde { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--texto-suave); }
 .tarjeta-combo-por-vianda b { color: var(--verde-texto); }
 
@@ -753,7 +760,8 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 /* El nivel 2: los planes de una categoría, escondidos hasta que se toca una */
 .zona-planes { display: none; }
 .mostrando-planes .zona-planes { display: block; }
-.seccion-catalogo.mostrando-planes .titulo-seccion, .seccion-catalogo.mostrando-combos .titulo-seccion { display: none; }
+.seccion-catalogo.mostrando-planes .titulo-seccion, .seccion-catalogo.mostrando-combos .titulo-seccion,
+.seccion-catalogo.mostrando-planes .bajada-seccion, .seccion-catalogo.mostrando-combos .bajada-seccion { display: none; }
 .zona-planes h3, .zona-combos h3 { color: var(--titulo-suave); font-size: var(--titulo-combos-tamano); font-weight: 800; line-height: 1.1; letter-spacing: -.025em; }
 .zona-planes > p, .zona-combos > p { margin: 6px 0 20px; font-size: 1rem; color: var(--texto-suave); }
 /* El nombre de la categoría en la barra y "¿Cuántas viandas?" van solo en el celu (sección 5) */
@@ -818,13 +826,7 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
 .como-funciona { display: none; }
 @media (max-width: 767px) {
   .seccion-catalogo { padding-top: 24px; }
-  .seccion-catalogo .titulo-seccion {
-    display: flex; align-items: center; gap: .35em; margin: 0 2px;
-    font-size: 13px; font-weight: 800; line-height: 1.3; letter-spacing: .04em; text-transform: uppercase; color: var(--texto-suave);
-  }
-  .seccion-catalogo .titulo-seccion::after { content: ""; flex: 1; height: 1px; margin-left: .3em; background: var(--borde); }
-  .seccion-catalogo .titulo-seccion .palabra-verde { color: inherit; }
-  .seccion-catalogo .titulo-seccion + .tarjetas-del-index { margin-top: 12px; }
+  /* (13/11) "Elegí tu categoría" ya no es un rótulo chiquito en mayúsculas: es un título grande como los demás */
   /* Mientras cargan los combos, "Cargando combos..." guarda lugar: con la portada compacta la página queda corta y
      "Dónde estamos" entraba en la pantalla antes de tiempo (después ya no aparecía con su animación al bajar) */
   .aviso-cargando { min-height: 70vh; }
@@ -850,73 +852,78 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
    a la fila de abajo. En el celu, una por fila */
 .grilla-combos {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(var(--tarjeta-ancho-minimo), 1fr));
-  gap: var(--tarjetas-separacion); align-items: stretch;
+  gap: var(--tarjetas-foto-separacion); align-items: stretch;
 }
 /* En compu, con 1 o 2 combos las tarjetas miden lo mismo que cuando hay 3 (si no, se estiran a todo el ancho y
    quedan enormes). Se angosta la grilla: con 2 combos, 2 tercios del ancho; con 1, un tercio (descontando los espacios).
    :has(> :only-child) = "la grilla tiene un solo combo"; :has(> :nth-child(2):last-child) = "tiene exactamente 2" */
 @media (min-width: 1024px) {
-  .grilla-combos:has(> :only-child) { max-width: calc((100% - 2 * var(--tarjetas-separacion)) / 3); }
-  .grilla-combos:has(> :nth-child(2):last-child) { max-width: calc((200% - var(--tarjetas-separacion)) / 3); }
+  .grilla-combos:has(> :only-child) { max-width: calc((100% - 2 * var(--tarjetas-foto-separacion)) / 3); }
+  .grilla-combos:has(> :nth-child(2):last-child) { max-width: calc((200% - var(--tarjetas-foto-separacion)) / 3); }
 }
+/* (13/11, diseño v2 "la foto manda": docs/diseno-tienda-v2) La tarjeta de categoría, de plan suelto y de combo es la
+   misma: SIN recuadro, sin sombra y sin borde. Arriba la foto sola; debajo, directo sobre el fondo de la página,
+   el nombre, un texto gris y la fila con el dato y el botón. La tarjeta entera es el botón */
 .tarjeta-combo {
   position: relative; display: flex; flex-direction: column; align-items: stretch;
-  width: 100%; padding: 8px; text-align: left; cursor: pointer; color: inherit;
-  background: var(--blanco); border: 1px solid #e9eee8; border-radius: var(--tarjeta-radio);
-  box-shadow: 0 1px 2px rgb(22 32 26 / .05), 0 12px 28px -12px rgb(22 32 26 / .22);
-  transition: transform .3s var(--curva), box-shadow .3s;
+  width: 100%; padding: 0; text-align: left; cursor: pointer; color: inherit;
+  background: none; border: 0;
 }
-/* Al pasar el mouse sube un poquito y la sombra crece; al tocarla, se hunde apenas.
-   (hover: hover) = "la pantalla tiene mouse": en el celu, después de tocar una tarjeta, el efecto quedaba pegado */
-@media (hover: hover) {
-  .tarjeta-combo:hover { transform: translateY(-4px); box-shadow: 0 2px 4px rgb(22 32 26 / .05), 0 22px 40px -14px rgb(22 32 26 / .3); }
-}
-.tarjeta-combo:active { transform: translateY(-1px) scale(.99); }
 
-/* La foto, con un degradé oscuro abajo para que se lea el nombre en blanco */
+/* La foto: a todo el ancho, 4:3 en compu y 16:10 en el celu (perilla --tarjeta-foto-proporcion), sin nada encima
+   (solo el sello "Más elegido" del combo destacado) */
 .tarjeta-combo-foto {
   position: relative; display: block; aspect-ratio: var(--tarjeta-foto-proporcion);
-  border-radius: 18px; overflow: hidden; background: var(--gris);
-}
-.tarjeta-combo-foto::after {
-  content: ""; position: absolute; inset: 0;
-  background: linear-gradient(to top, rgb(8 20 12 / .72), rgb(8 20 12 / 0) 55%);
+  border-radius: var(--tarjeta-foto-radio); overflow: hidden; background: var(--gris);
 }
 .tarjeta-combo-foto img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .6s var(--curva); }
+/* Al pasar el mouse la foto se acerca un poquito. (hover: hover) = "la pantalla tiene mouse": en el celu, después
+   de tocar una tarjeta, el efecto quedaba pegado */
 @media (hover: hover) { .tarjeta-combo:hover .tarjeta-combo-foto img { transform: scale(1.05); } }
 /* Sin foto: el recuadro gris "foto del combo" llena todo el lugar. Si la foto no carga: el logo entero */
 .tarjeta-combo-foto .foto { height: 100%; aspect-ratio: auto; border-radius: 0; font-size: .9375rem; }
 .tarjeta-combo-foto img.foto-logo { object-fit: contain; }
-
-/* Encima de la foto: el nombre (abajo), "N viandas" (arriba a la izquierda) y "Más elegido" (arriba a la derecha) */
-.tarjeta-combo-nombre {
-  position: absolute; left: 16px; right: 16px; bottom: 14px; z-index: 1;
-  color: #fff; font-size: var(--tarjeta-nombre-tamano); font-weight: 800; letter-spacing: -.02em; line-height: 1.15;
-  text-shadow: 0 1px 10px rgb(0 0 0 / .25);
-}
-.tarjeta-combo-cantidad {
-  position: absolute; top: 12px; left: 12px; z-index: 1; padding: 5px 11px; border-radius: 999px;
-  background: rgb(255 255 255 / .88); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  color: var(--texto); font-size: 12px; font-weight: 800;
-}
+/* "Más elegido": lo único que va encima de la foto (arriba a la derecha) */
 .tarjeta-combo-sello {
-  position: absolute; top: 12px; right: 12px; z-index: 1; padding: 3px 10px; border-radius: 999px;
-  background: var(--naranja); color: var(--texto); font-size: .75rem; font-weight: 800;
+  position: absolute; top: 12px; right: 12px; z-index: 1; padding: 4px 11px; border-radius: 999px;
+  background: var(--naranja); color: var(--texto); font-size: 13px; font-weight: 800;
   box-shadow: 0 2px 8px rgb(0 0 0 / .18);
 }
-/* Combo destacado ("Más elegido"): un borde naranja de 2px hecho con sombra (así no corre nada de lugar) */
-.tarjeta-combo-destacada, .tarjeta-combo-destacada:hover {
-  border-color: transparent; box-shadow: 0 0 0 2px var(--naranja), 0 12px 28px -12px rgb(255 152 0 / .45);
-}
 
-/* Abajo de la foto: el precio a la izquierda y el botón a la derecha */
-.tarjeta-combo-datos { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 6px 6px 10px; }
-.tarjeta-combo-precios { display: grid; }
+/* Debajo de la foto: el nombre (28 px en compu, 22 px en el celu: perilla --tarjeta-nombre-tamano) y el texto gris
+   (la descripción de la categoría o del plan; en el combo, "10 viandas"). Los 4 px de los costados son para que
+   no queden pegados al borde de la foto */
+.tarjeta-combo-nombre {
+  display: block; margin: 18px 4px 0;
+  color: var(--titulo); font-size: var(--tarjeta-nombre-tamano); font-weight: 800; letter-spacing: -.03em; line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+.tarjeta-combo-descripcion { display: block; margin: 8px 4px 0; color: var(--texto-suave); font-size: 16px; font-weight: 400; line-height: 1.45; }
+
+/* La fila de abajo: a la izquierda el dato (o el precio) y a la derecha el botón. margin-top: auto la empuja al fondo:
+   así los botones de una misma fila de tarjetas quedan a la misma altura aunque una tenga más texto.
+   Ni el dato ni el botón se cortan: si los dos no entran en un renglón, el botón baja (flex-wrap) y queda a la derecha */
+.tarjeta-combo-datos {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: auto; padding: 18px 4px 0;
+}
+.tarjeta-combo-datos .tarjeta-combo-boton { margin-left: auto; }
+/* El dato de la categoría o del plan: la cajita verde y "5, 10 o 20 viandas" / "2 planes" */
+.dato-tarjeta { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.icono-cajita { flex: none; width: 18px; height: 18px; color: #12893a; }
+.dato-tarjeta-texto { color: #374151; font-size: 14px; font-weight: 600; line-height: 1.3; }
+/* El precio del combo: "$ 13.700" grande y verde, con "por vianda" al lado */
+.tarjeta-combo-precios { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
 .tarjeta-combo-precio {
   font-size: var(--tarjeta-precio-tamano); font-weight: 800; line-height: 1.1; letter-spacing: -.02em;
-  color: var(--verde-fuerte); font-variant-numeric: tabular-nums;
+  color: #12893a; font-variant-numeric: tabular-nums;
 }
-.tarjeta-combo-por-vianda { font-size: 13px; color: var(--texto-suave); }
+.tarjeta-combo-por-vianda { font-size: 14px; font-weight: 600; color: var(--texto-suave); }
+@media (max-width: 767px) {
+  .tarjeta-combo-nombre { margin-top: 14px; }
+  .tarjeta-combo-descripcion { margin-top: 6px; font-size: 15px; }
+  .tarjeta-combo-datos { padding-top: 14px; }
+}
 
 /* "¡Lo quiero! →": pastilla verde con degradé (del verde de marca al verde principal: perillas --verde y --verde-fuerte)
    y la flecha en un círculo blanco. La sombra es el verde principal al 60 %.
@@ -941,37 +948,6 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
   .tarjeta-combo:hover .tarjeta-combo-boton { transform: scale(1.04); }
   .tarjeta-combo:hover .tarjeta-combo-flecha { transform: translateX(3px); }
 }
-/* El botón del destacado va en naranja */
-.tarjeta-combo-destacada .tarjeta-combo-boton {
-  background: linear-gradient(135deg, #ffa726, #f57c00);
-  box-shadow: 0 8px 18px -6px rgb(245 124 0 / .6), inset 0 1px 0 rgb(255 255 255 / .3);
-}
-.tarjeta-combo-destacada .tarjeta-combo-flecha { color: #f57c00; }
-
-/* En el celu es la misma tarjeta (de combo y de categoría), un poco más chica, como la referencia: nombre de 19 px
-   y precio de 22 px (perillas del :root), la foto más apaisada y un poco menos de aire */
-@media (max-width: 767px) {
-  .tarjeta-combo-nombre { left: 14px; right: 14px; bottom: 12px; }
-  .tarjeta-combo-datos { padding: 12px 6px 4px 8px; }
-  .tarjeta-combo-por-vianda { font-size: 12.5px; }
-}
-
-/* (12/11) DISEÑO NUEVO (docs/diseno-tienda). Cada regla va con la clase de SU tarjeta adelante,
-   así la tarjeta del plan y la del combo no se pisan (las dos usan las clases tarjeta-combo-*) */
-
-/* Tarjeta del plan / categoría (portada): foto de 260 px con el nombre y la descripción encima, y el botón grande abajo */
-.tarjeta-del-index .tarjeta-combo-foto { aspect-ratio: auto; height: 260px; }
-.tarjeta-del-index .tarjeta-combo-foto::after { background: linear-gradient(to top, rgb(0 0 0 / .78), rgb(0 0 0 / 0) 65%); }
-.tarjeta-del-index .tarjeta-combo-nombre { font-size: 22px; font-weight: 800; }
-.tarjeta-del-index .tarjeta-combo-descripcion { margin-top: 6px; font-size: 13px; font-weight: 500; line-height: 1.35; opacity: 1; }
-/* (13/11) Abajo de la foto, una fila: a la izquierda la cajita con el dato ("5, 10 o 20 viandas" / "2 planes"),
-   a la derecha el botón corto "Ver combos" con el diseño de "¡Lo quiero!" (.tarjeta-combo-boton y
-   .tarjeta-combo-flecha, que ya traen flex: none y nowrap: nunca se achica). Si el dato no entra, baja de línea */
-.tarjeta-del-index .tarjeta-combo-datos { padding: 12px 4px 2px; }
-.tarjeta-del-index .dato-tarjeta { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.tarjeta-del-index .icono-cajita { flex: none; width: 16px; height: 16px; color: #12893a; }
-.tarjeta-del-index .dato-tarjeta-texto { color: #374151; font-size: 14px; font-weight: 600; line-height: 1.3; }
-
 /* (13/11) COMPU: "Ver combos" y "¡Lo quiero!" más grandes (50 px de alto, letra 16 px, círculo de 38 px).
    En el celu siguen de 44 px */
 @media (min-width: 768px) {
@@ -979,20 +955,6 @@ img.foto-logo { object-fit: contain; padding: 12%; background: var(--gris); }
   .tarjeta-combo-boton { font-size: 16px; }
   .tarjeta-combo-flecha { width: 38px; height: 38px; }
 }
-
-/* Tarjeta del combo (adentro del plan): solo el precio por vianda, grande y verde, con "por vianda" al lado */
-.tarjeta-combo-del-plan .tarjeta-combo-precios { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.tarjeta-combo-del-plan .tarjeta-combo-precio { font-size: 22px; color: #12893a; }
-.tarjeta-combo-del-plan .tarjeta-combo-por-vianda { font-size: 13px; color: #4b5563; }
-/* "Más elegido": el sello sigue naranja, pero la tarjeta lleva un borde VERDE de 2px y su botón es verde como los demás */
-.tarjeta-combo-del-plan.tarjeta-combo-destacada, .tarjeta-combo-del-plan.tarjeta-combo-destacada:hover {
-  box-shadow: 0 0 0 2px #26b04f, 0 12px 28px -12px rgb(22 32 26 / .22);
-}
-.tarjeta-combo-del-plan.tarjeta-combo-destacada .tarjeta-combo-boton {
-  background: linear-gradient(135deg, var(--verde), var(--verde-fuerte));
-  box-shadow: 0 8px 18px -6px color-mix(in srgb, var(--verde-fuerte) 60%, transparent), inset 0 1px 0 rgb(255 255 255 / .25);
-}
-.tarjeta-combo-del-plan.tarjeta-combo-destacada .tarjeta-combo-flecha { color: var(--verde-fuerte); }
 
 /* ===================================================================================
    5. PANTALLAS DEL CELU (menos de 768 px), como la referencia:
