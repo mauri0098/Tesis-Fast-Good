@@ -51,7 +51,7 @@ function abrirVentanaCombo(combo) {
 
   // (13/11, diseño nuevo) Arriba el plan chiquito en gris y abajo "10 viandas · $ 137.000"
   const precioEncabezado = '$ ' + Number(combo.precio).toLocaleString('es-AR');
-  document.getElementById('modal-combo-categoria').textContent = combo.plan;
+  document.getElementById('modal-combo-plan').textContent = combo.plan;
   document.getElementById('modal-combo-titulo').textContent = `${combo.cantidad} viandas · ${precioEncabezado}`;
   document.getElementById('armar-combo-foto').innerHTML = armarFotoTarjeta([combo], combo.plan_imagen, '');
   document.getElementById('armar-combo-nombre').textContent = combo.nombre;
@@ -345,7 +345,7 @@ function cambiarPersonalizado(indice, cambio) {
 
 document.addEventListener('DOMContentLoaded', () => {
   // ACÁ SE ABRE LA VENTANA: tocaron "¡Lo quiero!" (los platos ya vienen en combo.menu)
-  document.getElementById('combos').addEventListener('click', (evento) => {
+  document.getElementById('cantidad-productos').addEventListener('click', (evento) => {
     const boton = evento.target.closest('[data-accion="armar-combo"]');
     if (!boton) {
       return;

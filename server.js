@@ -23,8 +23,7 @@ const { opcionesCors } = require('./backend/config/cors');
 app.use(cors(opcionesCors));
 // Tamaño máximo del cuerpo: 6 MB solo para subir imágenes de recetas (base64, máx. 2MB + overhead); el resto, 100 KB
 app.use('/api/productos/:id/imagen', express.json({ limit: '6mb' }));
-app.use('/api/planes/:id/imagen', express.json({ limit: '6mb' }));       // la foto de un plan (Planes y categorías)
-app.use('/api/categorias/:id/imagen', express.json({ limit: '6mb' }));   // la foto de una categoría (Planes y categorías)
+app.use('/api/planes/:id/imagen', express.json({ limit: '6mb' }));       // la foto de un plan (Catálogo)
 app.use('/api/combos/:id/imagen', express.json({ limit: '6mb' }));       // (13/11) la foto de un combo (Catálogo)
 app.use(express.json({ limit: '100kb' }));
 
@@ -1558,7 +1557,7 @@ app.get('/api/cocineros', requireAuth, requireRol(6, 5), async (req, res) => {
 app.get('/api/planes/cocineros', requireAuth, requireRol(6, 5), async (req, res) => {
   const { data: planes, error: errorPlanes } = await supabase
     .from('planes')
-    .select('id, nombre, activo, id_cocinero, id_cocinero_suplente, categorias(nombre)')
+    .select('id, nombre, activo, id_cocinero, id_cocinero_suplente')
     .order('nombre', { ascending: true });
 
   if (errorPlanes) return errorInterno(res, errorPlanes);
@@ -1981,9 +1980,7 @@ app.get('/api/recetas', requireAuth, requireRol(6, 5), async (req, res) => {
       plan:planes (
         id,
         nombre,
-        codigo_plan,
-        id_categoria,
-        categoria:categorias ( nombre )
+        codigo_plan
       ),
       insumos:producto_insumo (
         id_insumo,
@@ -2012,9 +2009,7 @@ app.get('/api/recetas', requireAuth, requireRol(6, 5), async (req, res) => {
     plan: p.plan ? {
       id:           p.plan.id,                                    // 28/10: para que "Editar" arranque con su plan elegido…
       nombre:       p.plan.nombre,
-      codigo:       p.plan.codigo_plan || null,
-      id_categoria: p.plan.id_categoria,                          // …y con su categoría
-      categoria:    p.plan.categoria ? p.plan.categoria.nombre : null
+      codigo:       p.plan.codigo_plan || null
     } : null,
     insumos: (p.insumos || []).map(ins => ({
       id_insumo:          ins.id_insumo,
@@ -3985,13 +3980,13 @@ app.post('/api/pedidos/:id/armado', requireAuth, requireRol(...ROLES_ARMADO), as
    ====================================================== */
 
 // GET /api/planes → planes activos con su abreviatura (codigo_plan) y su contador de platos
-// SALIDA: [{ id, nombre, codigo_plan, id_categoria, ultimo_numero_plato }]. Lo usan Combos (el select de planes)
+// SALIDA: [{ id, nombre, codigo_plan, ultimo_numero_plato }]. Lo usan Combos (el select de planes)
 //         y la ventana "Abreviaturas de los planes" de Generar Receta.
 // 28/10 (código de plato): se suma ultimo_numero_plato (el último número que se dio en el plan).
 app.get('/api/planes', requireAuth, requireRol(6, 5), async (req, res) => {
   const { data, error } = await supabase
     .from('planes')
-    .select('id, nombre, codigo_plan, id_categoria, ultimo_numero_plato')
+    .select('id, nombre, codigo_plan, ultimo_numero_plato')
     .eq('activo', true)
     .order('nombre', { ascending: true });
   if (error) return errorInterno(res, error);
@@ -4066,16 +4061,15 @@ app.put('/api/planes/:id/abreviatura', requireAuth, requireRol(6, 5), async (req
 });
 
 /* ======================================================
-   API PLANES Y CATEGORÍAS (pantalla "Planes y categorías": pages/planesCategorias.html)
+   API PLANES (pantalla "Catálogo": pantallas/catalogo/catalogo.html)
    Mismos roles que Combos y Generar Receta (6, 5). Nada se borra: se desactiva.
    Cada ruta escribe en UNA sola tabla con UNA sola instrucción: no hace falta una función de la base.
-   Regla: un plan activo nunca queda en una categoría desactivada. Así, lo desactivado no sale en la web
-   y tampoco se puede comprar: una categoría desactivada no tiene planes activos, y por eso tampoco combos a la venta.
+   (16/11) Sin categorías: la tienda muestra los planes y sus combos. La tabla categorias queda en la base, sin usarse.
    La abreviatura de un plan que ya existe se cambia en "Abreviaturas de los planes" (también cambia el código de sus platos).
-   Funciones de ayuda: leerNombreCatalogo, leerFraseCatalogo, nombreYaUsado, leerCategoriaElegida y subirFotoCatalogo.
+   Funciones de ayuda: leerNombreCatalogo, leerFraseCatalogo, nombreYaUsado y subirFotoCatalogo.
    ====================================================== */
 
-const LARGO_MAXIMO_NOMBRE_CATALOGO = 100;   // el nombre de un plan o una categoría
+const LARGO_MAXIMO_NOMBRE_CATALOGO = 100;   // el nombre de un plan
 const LARGO_MAXIMO_FRASE_CATALOGO  = 200;   // la frase corta de la tarjeta
 
 // leerNombreCatalogo → controla un nombre
@@ -4101,8 +4095,8 @@ function leerFraseCatalogo(valor) {
   return { frase: frase || null };
 }
 
-// nombreYaUsado → mira si otro plan u otra categoría ya tiene ese nombre (sin importar mayúsculas)
-// ENTRADA: tabla ('planes' o 'categorias', la escribe cada ruta), el nombre y el id propio (null al crear)
+// nombreYaUsado → mira si otro plan ya tiene ese nombre (sin importar mayúsculas)
+// ENTRADA: tabla ('planes', la escribe cada ruta), el nombre y el id propio (null al crear)
 // SALIDA:  true o false. Si falla la base, lanza el error (lo atrapa el try de la ruta)
 // Ej: 'keto' con un plan 4 llamado 'KETO': al crear → true · al editar el plan 4 → false
 async function nombreYaUsado(tabla, nombre, idPropio) {
@@ -4113,26 +4107,7 @@ async function nombreYaUsado(tabla, nombre, idPropio) {
   return (data || []).some(fila => fila.id !== idPropio && String(fila.nombre).toLowerCase() === buscado);
 }
 
-// leerCategoriaElegida → controla la categoría de un plan: null ("Sin categoría") o una que exista y esté activa
-// ENTRADA: lo que vino en el body (un número de verdad, o null)
-// SALIDA:  { idCategoria: número o null } · o { error } si no sirve. Si falla la base, lanza el error
-// Ej: null → { idCategoria: null } · 3 (activa) → { idCategoria: 3 } · 3 (desactivada), '3' o sin mandar → { error }
-async function leerCategoriaElegida(valor) {
-  if (valor === null) return { idCategoria: null };
-  const numeroValido = Number.isInteger(valor) && valor > 0 && valor <= ENTERO_MAXIMO_BASE;
-  if (!numeroValido) return { error: 'Elegí una categoría o "Sin categoría"' };
-
-  const { data: categoria, error } = await supabase
-    .from('categorias')
-    .select('id, activo')
-    .eq('id', valor)
-    .maybeSingle();
-  if (error) throw error;
-  if (!categoria || !categoria.activo) return { error: 'La categoría elegida no existe o está desactivada' };
-  return { idCategoria: valor };
-}
-
-// subirFotoCatalogo → sube la foto de un plan o una categoría y guarda su dirección (como la foto de un plato)
+// subirFotoCatalogo → sube la foto de un plan o un combo y guarda su dirección (como la foto de un plato)
 // ENTRADA: req y res de la ruta, la tabla y la carpeta del Storage (las escribe cada ruta).
 //          En el body: { imagen_base64, tipo }. Formatos: JPG, PNG o WebP, hasta 2 MB.
 // SALIDA:  responde { mensaje, imagen } · 400 dato inválido · 404 no existe · 500
@@ -4175,127 +4150,21 @@ async function subirFotoCatalogo(req, res, tabla, carpeta) {
   }
 }
 
-// GET /api/categorias → todas las categorías (activas y desactivadas) para la pantalla del panel
-// SALIDA: [{ id, nombre, imagen, descripcion, activo }]
-app.get('/api/categorias', requireAuth, requireRol(6, 5), async (req, res) => {
-  const { data, error } = await supabase
-    .from('categorias')
-    .select('id, nombre, imagen, descripcion, activo')
-    .order('id', { ascending: true });
-  if (error) return errorInterno(res, error);
-  res.json(data || []);
-});
-
-// POST /api/categorias → crea una categoría activa
-// ENTRADA: { nombre, descripcion } (descripcion puede ser null)
-// SALIDA:  { mensaje, categoria } · 400 dato inválido · 409 nombre repetido · 500
-// Ej: { nombre: 'Veggie', descripcion: null } → { mensaje: 'Categoría creada', categoria: { id: 6, … } }
-app.post('/api/categorias', requireAuth, requireRol(6, 5), async (req, res) => {
-  const nombre = leerNombreCatalogo(req.body?.nombre);   // ?. = "si vino body, su nombre"
-  if (nombre === null) return res.status(400).json({ error: `Escribí un nombre de hasta ${LARGO_MAXIMO_NOMBRE_CATALOGO} caracteres` });
-  const lecturaFrase = leerFraseCatalogo(req.body.descripcion);
-  if (lecturaFrase.error) return res.status(400).json({ error: lecturaFrase.error });
-
-  try {
-    if (await nombreYaUsado('categorias', nombre, null)) return res.status(409).json({ error: 'Ya hay una categoría con ese nombre' });
-
-    const { data, error } = await supabase
-      .from('categorias')
-      .insert({ nombre, descripcion: lecturaFrase.frase, activo: true })
-      .select('id, nombre, imagen, descripcion, activo')
-      .single();
-    if (error) return errorInterno(res, error);
-    res.json({ mensaje: 'Categoría creada', categoria: data });
-  } catch (e) {
-    errorInterno(res, e);
-  }
-});
-
-// PUT /api/categorias/:id → edita el nombre y la frase de una categoría
-// ENTRADA: el número en la dirección y { nombre, descripcion }
-// SALIDA:  { mensaje, categoria } · 400 dato inválido · 404 no existe · 409 nombre repetido · 500
-app.put('/api/categorias/:id', requireAuth, requireRol(6, 5), async (req, res) => {
-  const idCategoria = leerIdPlan(req.params.id);   // la misma regla para cualquier número de la dirección
-  if (idCategoria === null) return res.status(400).json({ error: 'Categoría inválida' });
-  const nombre = leerNombreCatalogo(req.body?.nombre);
-  if (nombre === null) return res.status(400).json({ error: `Escribí un nombre de hasta ${LARGO_MAXIMO_NOMBRE_CATALOGO} caracteres` });
-  const lecturaFrase = leerFraseCatalogo(req.body.descripcion);
-  if (lecturaFrase.error) return res.status(400).json({ error: lecturaFrase.error });
-
-  try {
-    if (await nombreYaUsado('categorias', nombre, idCategoria)) return res.status(409).json({ error: 'Ya hay una categoría con ese nombre' });
-
-    const { data, error } = await supabase
-      .from('categorias')
-      .update({ nombre, descripcion: lecturaFrase.frase })
-      .eq('id', idCategoria)
-      .select('id, nombre, imagen, descripcion, activo')
-      .maybeSingle();
-    if (error) return errorInterno(res, error);
-    if (!data) return res.status(404).json({ error: 'Categoría no encontrada' });
-    res.json({ mensaje: 'Categoría actualizada', categoria: data });
-  } catch (e) {
-    errorInterno(res, e);
-  }
-});
-
-// PUT /api/categorias/:id/activo → activa o desactiva una categoría (nunca se borra)
-// ENTRADA: el número en la dirección y { activo: true o false }
-// SALIDA:  { mensaje, categoria } · 400 dato inválido · 404 no existe · 409 todavía tiene planes activos · 500
-// Ej: desactivar "Viandas Saludables" con PLAN VEGGIE activo adentro → 409 "Todavía tiene planes activos: PLAN VEGGIE…"
-app.put('/api/categorias/:id/activo', requireAuth, requireRol(6, 5), async (req, res) => {
-  const idCategoria = leerIdPlan(req.params.id);   // la misma regla para cualquier número de la dirección
-  if (idCategoria === null) return res.status(400).json({ error: 'Categoría inválida' });
-  const activo = req.body?.activo;
-  if (typeof activo !== 'boolean') return res.status(400).json({ error: 'El estado tiene que ser true o false' });
-
-  try {
-    // Sin esto, un plan activo quedaría a la venta dentro de una categoría que ya no se ve
-    const { data: planesActivos, error: errorPlanes } = await supabase
-      .from('planes')
-      .select('nombre')
-      .eq('id_categoria', idCategoria)
-      .eq('activo', true);
-    if (errorPlanes) return errorInterno(res, errorPlanes);
-    const quedanPlanes = !activo && (planesActivos || []).length > 0;
-    if (quedanPlanes) {
-      const nombres = planesActivos.map(plan => plan.nombre).join(', ');   // ej: 'PLAN VEGGIE, PLAN KIDS'
-      return res.status(409).json({ error: `Todavía tiene planes activos: ${nombres}. Pasalos a otra categoría o a "Sin categoría" primero.` });
-    }
-
-    const { data, error } = await supabase
-      .from('categorias')
-      .update({ activo })
-      .eq('id', idCategoria)
-      .select('id, nombre, activo')
-      .maybeSingle();
-    if (error) return errorInterno(res, error);
-    if (!data) return res.status(404).json({ error: 'Categoría no encontrada' });
-    const mensaje = activo ? 'Categoría activada' : 'Categoría desactivada';
-    res.json({ mensaje, categoria: data });
-  } catch (e) {
-    errorInterno(res, e);
-  }
-});
-
-// POST /api/categorias/:id/imagen → la foto de una categoría. Ver subirFotoCatalogo
-app.post('/api/categorias/:id/imagen', requireAuth, requireRol(6, 5), (req, res) => subirFotoCatalogo(req, res, 'categorias', 'categorias'));
-
 // GET /api/planes/todos → todos los planes (activos y desactivados) para la pantalla del panel
-// SALIDA: [{ id, nombre, codigo_plan, id_categoria, imagen, descripcion, activo }]
+// SALIDA: [{ id, nombre, codigo_plan, imagen, descripcion, activo }]
 app.get('/api/planes/todos', requireAuth, requireRol(6, 5), async (req, res) => {
   const { data, error } = await supabase
     .from('planes')
-    .select('id, nombre, codigo_plan, id_categoria, imagen, descripcion, activo')
+    .select('id, nombre, codigo_plan, imagen, descripcion, activo')
     .order('id', { ascending: true });
   if (error) return errorInterno(res, error);
   res.json(data || []);
 });
 
 // POST /api/planes → crea un plan activo
-// ENTRADA: { nombre, abreviatura, id_categoria, descripcion } (id_categoria y descripcion pueden ser null)
+// ENTRADA: { nombre, abreviatura, descripcion } (descripcion puede ser null)
 // SALIDA:  { mensaje, plan } · 400 dato inválido · 409 nombre o abreviatura repetidos · 500
-// Ej: { nombre: 'Keto', abreviatura: 'ke', id_categoria: null, descripcion: null } → plan con codigo_plan 'KE' y contador en 0 (su primer plato es KE1)
+// Ej: { nombre: 'Keto', abreviatura: 'ke', descripcion: null } → plan con codigo_plan 'KE' y contador en 0 (su primer plato es KE1)
 // El cocinero no se manda: queda vacío, como un plan sin asignar. Cada plato lleva el suyo o se asigna después.
 app.post('/api/planes', requireAuth, requireRol(6, 5), async (req, res) => {
   const nombre = leerNombreCatalogo(req.body?.nombre);
@@ -4307,8 +4176,6 @@ app.post('/api/planes', requireAuth, requireRol(6, 5), async (req, res) => {
   if (lecturaFrase.error) return res.status(400).json({ error: lecturaFrase.error });
 
   try {
-    const lecturaCategoria = await leerCategoriaElegida(req.body.id_categoria);
-    if (lecturaCategoria.error) return res.status(400).json({ error: lecturaCategoria.error });
     if (await nombreYaUsado('planes', nombre, null)) return res.status(409).json({ error: 'Ya hay un plan con ese nombre' });
 
     const { data: usada, error: errorUsada } = await supabase.from('planes').select('id').eq('codigo_plan', abreviatura).maybeSingle();
@@ -4320,12 +4187,11 @@ app.post('/api/planes', requireAuth, requireRol(6, 5), async (req, res) => {
       .insert({
         nombre,
         codigo_plan:         abreviatura,
-        id_categoria:        lecturaCategoria.idCategoria,
         descripcion:         lecturaFrase.frase,
         ultimo_numero_plato: 0,      // el contador del plan: su primer plato va a ser el 1
         activo:              true
       })
-      .select('id, nombre, codigo_plan, id_categoria, imagen, descripcion, activo')
+      .select('id, nombre, codigo_plan, imagen, descripcion, activo')
       .single();
     // 23505 = la base rechazó un dato repetido: si dos personas crean la misma abreviatura a la vez, el índice único frena a la segunda
     if (error && error.code === '23505') return res.status(409).json({ error: `La abreviatura ${abreviatura} ya la usa otro plan` });
@@ -4336,8 +4202,8 @@ app.post('/api/planes', requireAuth, requireRol(6, 5), async (req, res) => {
   }
 });
 
-// PUT /api/planes/:id → edita el nombre, la categoría y la frase de un plan (la abreviatura va por su ruta propia)
-// ENTRADA: el número en la dirección y { nombre, id_categoria, descripcion } (id_categoria y descripcion pueden ser null)
+// PUT /api/planes/:id → edita el nombre y la frase de un plan (la abreviatura va por su ruta propia)
+// ENTRADA: el número en la dirección y { nombre, descripcion } (descripcion puede ser null)
 // SALIDA:  { mensaje, plan } · 400 dato inválido · 404 no existe · 409 nombre repetido · 500
 app.put('/api/planes/:id', requireAuth, requireRol(6, 5), async (req, res) => {
   const idPlan = leerIdPlan(req.params.id);
@@ -4348,15 +4214,13 @@ app.put('/api/planes/:id', requireAuth, requireRol(6, 5), async (req, res) => {
   if (lecturaFrase.error) return res.status(400).json({ error: lecturaFrase.error });
 
   try {
-    const lecturaCategoria = await leerCategoriaElegida(req.body.id_categoria);
-    if (lecturaCategoria.error) return res.status(400).json({ error: lecturaCategoria.error });
     if (await nombreYaUsado('planes', nombre, idPlan)) return res.status(409).json({ error: 'Ya hay un plan con ese nombre' });
 
     const { data, error } = await supabase
       .from('planes')
-      .update({ nombre, id_categoria: lecturaCategoria.idCategoria, descripcion: lecturaFrase.frase })
+      .update({ nombre, descripcion: lecturaFrase.frase })
       .eq('id', idPlan)
-      .select('id, nombre, codigo_plan, id_categoria, imagen, descripcion, activo')
+      .select('id, nombre, codigo_plan, imagen, descripcion, activo')
       .maybeSingle();
     if (error) return errorInterno(res, error);
     if (!data) return res.status(404).json({ error: 'Plan no encontrado' });
@@ -4366,35 +4230,9 @@ app.put('/api/planes/:id', requireAuth, requireRol(6, 5), async (req, res) => {
   }
 });
 
-// PUT /api/planes/:id/categoria → cambia solo la categoría de un plan (el desplegable de la lista: así se agrupan)
-// ENTRADA: el número en la dirección y { id_categoria: número o null }. Hay que mandarlo: si falta, no se borra nada
-// SALIDA:  { mensaje, plan } · 400 dato inválido · 404 no existe · 500
-// Ej: plan 2, { id_categoria: null } → MANTENIMIENTO queda "Sin categoría" y tiene su propia tarjeta en la web
-app.put('/api/planes/:id/categoria', requireAuth, requireRol(6, 5), async (req, res) => {
-  const idPlan = leerIdPlan(req.params.id);
-  if (idPlan === null) return res.status(400).json({ error: 'ID de plan inválido' });
-
-  try {
-    const lecturaCategoria = await leerCategoriaElegida(req.body?.id_categoria);
-    if (lecturaCategoria.error) return res.status(400).json({ error: lecturaCategoria.error });
-
-    const { data, error } = await supabase
-      .from('planes')
-      .update({ id_categoria: lecturaCategoria.idCategoria })
-      .eq('id', idPlan)
-      .select('id, nombre, id_categoria')
-      .maybeSingle();
-    if (error) return errorInterno(res, error);
-    if (!data) return res.status(404).json({ error: 'Plan no encontrado' });
-    res.json({ mensaje: 'Categoría del plan actualizada', plan: data });
-  } catch (e) {
-    errorInterno(res, e);
-  }
-});
-
 // PUT /api/planes/:id/activo → activa o desactiva un plan (nunca se borra)
 // ENTRADA: el número en la dirección y { activo: true o false }
-// SALIDA:  { mensaje, plan } · 400 dato inválido · 404 no existe · 409 su categoría está desactivada · 500
+// SALIDA:  { mensaje, plan } · 400 dato inválido · 404 no existe · 500
 // Al desactivarlo, sus combos dejan de verse en la web y de poder comprarse (crear_pedido_combos pide un plan activo).
 app.put('/api/planes/:id/activo', requireAuth, requireRol(6, 5), async (req, res) => {
   const idPlan = leerIdPlan(req.params.id);
@@ -4403,16 +4241,14 @@ app.put('/api/planes/:id/activo', requireAuth, requireRol(6, 5), async (req, res
   if (typeof activo !== 'boolean') return res.status(400).json({ error: 'El estado tiene que ser true o false' });
 
   try {
-    // Al activarlo, su categoría tiene que estar activa. Un plan sin categoría pasa siempre
+    // El plan tiene que existir (16/11: sin categorías, ya no se mira si su categoría está activa)
     const { data: plan, error: errorPlan } = await supabase
       .from('planes')
-      .select('id, categorias ( nombre, activo )')
+      .select('id')
       .eq('id', idPlan)
       .maybeSingle();
     if (errorPlan) return errorInterno(res, errorPlan);
     if (!plan) return res.status(404).json({ error: 'Plan no encontrado' });
-    const categoriaApagada = activo && plan.categorias && !plan.categorias.activo;
-    if (categoriaApagada) return res.status(409).json({ error: `Su categoría (${plan.categorias.nombre}) está desactivada: activala primero.` });
 
     const { data, error } = await supabase
       .from('planes')
@@ -4431,7 +4267,7 @@ app.put('/api/planes/:id/activo', requireAuth, requireRol(6, 5), async (req, res
 // POST /api/planes/:id/imagen → la foto de un plan. Ver subirFotoCatalogo
 app.post('/api/planes/:id/imagen', requireAuth, requireRol(6, 5), (req, res) => subirFotoCatalogo(req, res, 'planes', 'planes'));
 
-// POST /api/combos/:id/imagen → (13/11) la foto de un combo. Ver subirFotoCatalogo (la misma de planes y categorías:
+// POST /api/combos/:id/imagen → (13/11) la foto de un combo. Ver subirFotoCatalogo (la misma de los planes:
 // JPG, PNG o WebP, hasta 2 MB; queda en combos/ID.ext y su dirección en combos.imagen)
 app.post('/api/combos/:id/imagen', requireAuth, requireRol(6, 5), (req, res) => subirFotoCatalogo(req, res, 'combos', 'combos'));
 
@@ -4717,7 +4553,7 @@ app.delete('/api/usuarios/:id', requireAuth, requireRol(6, 5), async (req, res) 
    Van ANTES de los archivos estáticos.
    ====================================================== */
 app.use(rutasCombos);   // las 7 rutas de la pantalla Combos (/api/combos...)
-app.use(rutasCatalogo); // la ruta de la web del cliente (/api/v1/combos). (12/11) Las 6 viejas de /api/v1 se borraron
+app.use(rutasCatalogo); // las rutas de la web del cliente (/api/v1/planes y /api/v1/combos). (12/11) Las 6 viejas de /api/v1 se borraron
 
 /* ======================================================
    SERVIR FRONTEND (ESTÁTICO)

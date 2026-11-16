@@ -1,5 +1,5 @@
 // ============================================================================
-// modelo.planesCategorias.js — las consultas a la base del módulo PLANES Y CATEGORÍAS.
+// modelo.planesCategorias.js — las consultas a la base del módulo PLANES (16/11: sin categorías).
 // QUÉ VA: SOLO supabase.from / supabase.rpc / supabase.storage. Devuelve { data, error }.
 // QUÉ NO VA: req, res, códigos (400, 500…) ni mensajes para el usuario.
 // Funciones: se listan acá cuando se mude el módulo.

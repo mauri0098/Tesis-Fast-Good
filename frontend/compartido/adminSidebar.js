@@ -43,7 +43,7 @@
     { ruta: 'pantallas/stock/stock.html',                 grupo: 'Stock',          icono: 'icono-menu-stock',       nombre: 'Gestión de Stock' },
     { ruta: 'pantallas/compras/compras.html',             grupo: 'Stock',          icono: 'icono-menu-compras',     nombre: 'Compras' },
     { ruta: 'pantallas/movimientos/MovimientosStockNuevo.html', grupo: 'Stock',    icono: 'icono-menu-movimientos', nombre: 'Movimientos de Stock' },
-    // (11/11) Categorías, planes y combos, juntos en una sola pantalla (antes: "Combos" y "Planes y categorías")
+    // (11/11) Planes y combos, juntos en una sola pantalla (16/11: sin categorías)
     { ruta: 'pantallas/catalogo/catalogo.html',           grupo: 'Catálogo',       icono: 'icono-menu-combos',      nombre: 'Catálogo' },
     { ruta: 'pantallas/recetas/generarReceta.html',       grupo: 'Catálogo',       icono: 'icono-menu-receta',      nombre: 'Generar Receta' },
     { ruta: 'pantallas/usuarios/gestionUsuarios.html',    grupo: 'Administración', icono: 'icono-menu-usuarios',    nombre: 'Gestión de Usuarios' },

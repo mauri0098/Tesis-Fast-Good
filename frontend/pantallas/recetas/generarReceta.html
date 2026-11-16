@@ -37,9 +37,6 @@
       <div class="tabla-header">
         <div class="filtros-container">
           <input type="text" id="filtroNombre" class="filtro-input" placeholder="Buscar por nombre...">
-          <select id="filtroCategoria" class="filtro-input">
-            <option value="">Todas las categorías</option>
-          </select>
           <select id="filtroPlan" class="filtro-input">
             <option value="">Todos los planes</option>
           </select>
@@ -60,7 +57,6 @@
         <thead>
           <tr>
             <th>Código</th>
-            <th>Categoría</th>
             <th>Plan</th>
             <th>Nombre Producto</th>
             <th>Cocinero</th>
@@ -72,7 +68,7 @@
         </thead>
         <tbody id="recetasBody">
           <tr>
-            <td colspan="9" class="loading-text">Cargando datos...</td>
+            <td colspan="8" class="loading-text">Cargando datos...</td>
           </tr>
         </tbody>
       </table>
@@ -135,7 +131,7 @@
         </div>
       </div>
 
-      <!-- PLAN Y CÓDIGO: en los dos modos (28/10: al editar también se puede cambiar el plan). El plan se elige directo, tenga o no categoría.
+      <!-- PLAN Y CÓDIGO: en los dos modos (28/10: al editar también se puede cambiar el plan). El plan se elige directo.
            El código no se escribe: lo arma el servidor (abreviatura del plan + el siguiente número) -->
       <div id="bloquePlanCodigo">
         <div class="modal-grid">

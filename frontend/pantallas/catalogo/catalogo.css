@@ -177,10 +177,10 @@
   text-align: right;
 }
 
-/* (11/11) Planes: Nombre y Categoría más juntos. Nombre ya no se queda con todo lo que sobra: tiene su ancho fijo,
+/* (11/11) Planes: Nombre tiene su ancho fijo (16/11: ya sin la columna Categoría),
    y lo que sobra se lo lleva Acciones (que igual va pegada a la derecha). Ej: antes el desplegable quedaba lejísimos */
 .pagina-catalogo .tabla-planes th:nth-child(1) { width: 300px; }   /* Nombre */
-.pagina-catalogo .tabla-planes th:nth-child(6) { width: auto; }    /* Acciones: lo que sobra (13/11: la 6, por la columna Foto) */
+.pagina-catalogo .tabla-planes th:nth-child(5) { width: auto; }    /* Acciones: lo que sobra (16/11: la 5, sin Categoría) */
 
 
 /* ===== 5. FILTROS Y BOTONES DE ARRIBA ===== */

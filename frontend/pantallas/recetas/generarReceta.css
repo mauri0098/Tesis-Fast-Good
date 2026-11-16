@@ -100,33 +100,31 @@ body {
 
 /* Encabezado, celdas, bordes y hover: clase compartida .grilla-fg (global.css) */
 
-/* Anchos por columna — 9 columnas (con table-layout fixed mandan los % de los títulos; los mínimos ya no hacen falta) */
+/* Anchos por columna — 8 columnas (16/11: sin Categoría; su 8,5 % pasó a Nombre Producto)
+   (con table-layout fixed mandan los % de los títulos; los mínimos ya no hacen falta) */
 .standard-table thead th:nth-child(1),
 .standard-table tbody td:nth-child(1) { width: 6.5%; min-width: 58px;  white-space: nowrap; }  /* Código (24/10: 5 → 6,5, así entra el título CÓDIGO) */
 
 .standard-table thead th:nth-child(2),
-.standard-table tbody td:nth-child(2) { width: 8.5%; min-width: 85px; }   /* Categoría */
+.standard-table tbody td:nth-child(2) { width: 9.5%; min-width: 90px; }   /* Plan */
 
 .standard-table thead th:nth-child(3),
-.standard-table tbody td:nth-child(3) { width: 9.5%; min-width: 90px; }   /* Plan */
+.standard-table tbody td:nth-child(3) { width: 20.5%; min-width: 110px; } /* Nombre Producto (16/11: 12 → 20,5) */
 
 .standard-table thead th:nth-child(4),
-.standard-table tbody td:nth-child(4) { width: 12%; min-width: 110px; }  /* Nombre Producto (24/10: 14 → 12) */
+.standard-table tbody td:nth-child(4) { width: 10%; min-width: 95px; }   /* Cocinero (24/10: 11 → 10) */
 
 .standard-table thead th:nth-child(5),
-.standard-table tbody td:nth-child(5) { width: 10%; min-width: 95px; }   /* Cocinero (24/10: 11 → 10) */
+.standard-table tbody td:nth-child(5) { width: 7%;  min-width: 72px; }   /* Precio */
 
 .standard-table thead th:nth-child(6),
-.standard-table tbody td:nth-child(6) { width: 7%;  min-width: 72px; }   /* Precio */
+.standard-table tbody td:nth-child(6) { width: 8.5%; min-width: 72px; }  /* Descuento (24/10: 7 → 8,5, así entra el título DESCUENTO) */
 
 .standard-table thead th:nth-child(7),
-.standard-table tbody td:nth-child(7) { width: 8.5%; min-width: 72px; }  /* Descuento (24/10: 7 → 8,5, así entra el título DESCUENTO) */
+.standard-table tbody td:nth-child(7) { width: 8%;  min-width: 80px; }   /* Cant. Posible */
 
 .standard-table thead th:nth-child(8),
-.standard-table tbody td:nth-child(8) { width: 8%;  min-width: 80px; }   /* Cant. Posible */
-
-.standard-table thead th:nth-child(9),
-.standard-table tbody td:nth-child(9) { width: 19%; min-width: 220px; }  /* Acciones (24/10: 18 → 19, por los botones de 26 px) */
+.standard-table tbody td:nth-child(8) { width: 19%; min-width: 220px; }  /* Acciones (24/10: 18 → 19, por los botones de 26 px) */
 
 /* Plato sin cocinero propio: lo ve el cocinero del plan */
 .td-del-plan {

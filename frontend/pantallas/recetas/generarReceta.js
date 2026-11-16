@@ -5,7 +5,8 @@
 // Funciones nuevas o cambiadas por el código de plato (28/10):
 //   crearFilaReceta            → la columna Código muestra la pastillita ("F3")
 //   abrirModalEditar           → arranca con el plan del plato y su código
-//   cargarPlanesEnSelect       → llena el select de planes del modal (GET /api/planes): el plan se elige directo, tenga o no categoría
+//   cargarPlanesEnSelect       → llena el select de planes del modal (GET /api/planes)
+// (16/11) Sin categorías: se sacaron la columna "Categoría", su filtro y cargarCategoriasEnFiltro.
 //   actualizarCodigoAutomatico → muestra el código que tendría con el plan elegido; al editar, el aviso "F3 → K5"
 //   actualizarRecetaExistente  → si cambió el plan, pregunta y lo cambia primero (con cambiarPlanDelPlato)
 //   cambiarPlanDelPlato        → PUT /api/productos/:id/plan: el servidor da el código nuevo
@@ -81,12 +82,11 @@ async function fetchRecetas() {
 
     todasRecetas = data;
     cargarPlanesEnFiltro();
-    cargarCategoriasEnFiltro();
     renderizarRecetas(todasRecetas);
 
   } catch (error) {
     console.error('Error al traer recetas:', error);
-    tbody.innerHTML = '<tr><td colspan="9" class="celda-error-carga">Error al conectar con el servidor</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="celda-error-carga">Error al conectar con el servidor</td></tr>';
   }
 }
 
@@ -101,7 +101,7 @@ function renderizarRecetas(recetas) {
     contenedorTabla:      document.getElementById('recetasBody'),
     contenedorPaginacion: document.getElementById('paginacion'),
     funcionRenderFila:    crearFilaReceta,
-    filaVacia:            '<tr><td colspan="9" class="loading-text">No existen productos que cumplan los filtros especificados</td></tr>'
+    filaVacia:            '<tr><td colspan="8" class="loading-text">No existen productos que cumplan los filtros especificados</td></tr>'
   });
 }
 
@@ -114,10 +114,6 @@ function crearFilaReceta(receta) {
   tdCodigo.className = 'td-codigo';
   const codigo = receta.codigo_plato !== '-' ? receta.codigo_plato : null;
   tdCodigo.innerHTML = pastillaCodigo(codigo, '') || '—';     // pastillaCodigo ya pasa el código por escHtml
-
-  // — Categoría —
-  const tdCategoria = document.createElement('td');
-  tdCategoria.textContent = (receta.plan && receta.plan.categoria) ? receta.plan.categoria : '-';
 
   // — Plan (sin (null) si el código no existe) —
   const tdPlan = document.createElement('td');
@@ -194,7 +190,6 @@ function crearFilaReceta(receta) {
   tdAcciones.appendChild(grupoAcciones);
 
   tr.appendChild(tdCodigo);
-  tr.appendChild(tdCategoria);
   tr.appendChild(tdPlan);
   tr.appendChild(tdNombre);
   tr.appendChild(tdCocinero);
@@ -247,48 +242,26 @@ function cargarPlanesEnFiltro() {
   });
 }
 
-function cargarCategoriasEnFiltro() {
-  const select = document.getElementById('filtroCategoria');
-  select.innerHTML = '<option value="">Todas las categorías</option>';
-
-  const categoriasVistas = [];
-
-  todasRecetas.forEach(function (receta) {
-    if (!receta.plan || !receta.plan.categoria) return;
-    const cat = receta.plan.categoria;
-    if (categoriasVistas.indexOf(cat) !== -1) return;
-    categoriasVistas.push(cat);
-
-    const option       = document.createElement('option');
-    option.value       = cat;
-    option.textContent = cat;
-    select.appendChild(option);
-  });
-}
-
 function iniciarFiltros() {
   const filtroNombre         = document.getElementById('filtroNombre');
   const filtroPlan           = document.getElementById('filtroPlan');
-  const filtroCategoria      = document.getElementById('filtroCategoria');
   const filtroDisponibilidad = document.getElementById('filtroDisponibilidad');
 
   function aplicarFiltros() {
     const texto         = filtroNombre.value.toLowerCase();
     const plan          = filtroPlan.value;
-    const categoria     = filtroCategoria.value;
     const disponibilidad = filtroDisponibilidad.value;
 
     const filtradas = todasRecetas.filter(function (receta) {
       const cumpleNombre     = receta.nombre_producto.toLowerCase().includes(texto);
       const cumplePlan       = !plan      || (receta.plan && receta.plan.nombre === plan);
-      const cumpleCategoria  = !categoria || (receta.plan && receta.plan.categoria === categoria);
 
       const posible = calcularCantidadPosible(receta.insumos || []);
       let cumpleDisp = true;
       if (disponibilidad === 'disponible') cumpleDisp = posible > 0;
       if (disponibilidad === 'sin_stock')  cumpleDisp = posible === 0;
 
-      return cumpleNombre && cumplePlan && cumpleCategoria && cumpleDisp;
+      return cumpleNombre && cumplePlan && cumpleDisp;
     });
 
     renderizarRecetas(filtradas);
@@ -296,7 +269,6 @@ function iniciarFiltros() {
 
   filtroNombre.addEventListener('input',   aplicarFiltros);
   filtroPlan.addEventListener('change',    aplicarFiltros);
-  filtroCategoria.addEventListener('change', aplicarFiltros);
   filtroDisponibilidad.addEventListener('change', aplicarFiltros);
 }
 
@@ -588,10 +560,10 @@ async function cargarCocinerosEnSelect(idAsignado, nombreAsignado) {
 // ==========================================
 // CARGAR PLANES (select del modal)
 // ==========================================
-// cargarPlanesEnSelect → llena el select con los planes activos, tengan o no categoría
+// cargarPlanesEnSelect → llena el select con los planes activos
 // ENTRADA: nada
 // SALIDA:  nada. Llena #edPlan con GET /api/planes y lo deja listo para elegir ("Error al cargar" si falló)
-// Ej: planes MANTENIMIENTO (sin categoría) y PLAN VEGGIE (con categoría) → los dos salen en la lista
+// Ej: planes MANTENIMIENTO y PLAN VEGGIE activos → los dos salen en la lista
 async function cargarPlanesEnSelect() {
   const planSelect = document.getElementById('edPlan');
   planSelect.innerHTML = '<option value="">Cargando planes...</option>';

@@ -1,5 +1,5 @@
 // ============================================================================
-// controlador.planesCategorias.js — lo que hace cada ruta del módulo PLANES Y CATEGORÍAS.
+// controlador.planesCategorias.js — lo que hace cada ruta del módulo PLANES (16/11: sin categorías).
 // QUÉ VA: leer y validar req (params, query, body), tomar el usuario de req.usuario (nunca del body),
 //         llamar al modelo y decidir qué responder (200, 201, 400, 404, 409, 500).
 // QUÉ NO VA: supabase.from(...) ni supabase.rpc(...): eso es del modelo.

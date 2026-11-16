@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<!-- ESTA PÁGINA TIENE TODO EL CATÁLOGO, EN 3 NIVELES (renderizadoCatalogo.js):
-     NIVEL 1: planes sueltos y categorías · NIVEL 2: los planes de una categoría · NIVEL 3: los combos de un plan -->
+<!-- ESTA PÁGINA TIENE TODO EL CATÁLOGO, EN 2 NIVELES (renderizadoCatalogo.js):
+     NIVEL 1: los planes (renderizarPlanes) · NIVEL 2: las cantidades de un plan (renderizarCantidadProductos). (16/11: sin categorías) -->
 <html lang="es-AR">
 
 <head>
@@ -14,8 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/webp" href="./src/assets/img/logo.webp">
 
-  <!-- CSS de esta página: UNA sola hoja, index.css. No usa global.css.
-       Todos los estilos están ahí (también el que esconde la página hasta que termina de cargar) -->
+  <!-- CSS de esta página: UNA sola hoja, index.css, ordenada por secciones. No usa global.css -->
   <link rel="stylesheet" href="/pantallas/tienda/index.css">
 </head>
 
@@ -83,11 +82,11 @@
         <span class="logo-texto">Fast <span class="palabra-verde">&amp; Good</span></span>
       </a>
 
-      <!-- En el celu el menú no se ve (como la referencia). "Combos" lleva a las categorías: los combos se ven
-           recién al tocar una (la zona #combos está escondida hasta entonces) -->
+      <!-- En el celu el menú no se ve (como la referencia). "Combos" lleva a los planes: los combos se ven
+           recién al tocar uno (la zona #cantidad-productos está escondida hasta entonces) -->
       <nav class="menu-principal" aria-label="Principal">
-        <a href="#catalogo">Categorías</a>
-        <a href="#catalogo">Combos</a>
+        <a href="#planes">Planes</a>
+        <a href="#planes">Combos</a>
         <a href="#preguntas">Preguntas</a>
         <a href="#donde-estamos">Contacto</a>
       </nav>
@@ -124,9 +123,9 @@
           <h1>Fast <span class="palabra-verde">&amp; Good</span></h1>
           <p class="portada-subtitulo">Viandas saludables, caseras y congeladas. Elegís tu combo y te lo llevamos.</p>
           <div class="portada-botones">
-            <a class="boton boton-principal boton-grande" href="#catalogo">Pedir ahora</a>
-            <!-- "Ver categorías": lleva al mismo lugar que "Pedir ahora" (se ve en compu) -->
-            <a class="boton boton-secundario boton-grande boton-ver-categorias" href="#catalogo">Ver categorías</a>
+            <a class="boton boton-principal boton-grande" href="#planes">Pedir ahora</a>
+            <!-- "Ver planes": lleva al mismo lugar que "Pedir ahora" (se ve en compu). La clase sigue igual (la usa el CSS) -->
+            <a class="boton boton-secundario boton-grande boton-ver-planes" href="#planes">Ver planes</a>
             <!-- "Combos desde $…": lo completa renderizadoCatalogo.js con el precio más bajo. En compu no se ve (19/10) -->
             <p class="combos-desde" id="combos-desde" hidden>Combos desde <strong id="combos-desde-precio"></strong></p>
           </div>
@@ -173,22 +172,19 @@
     </section>
 
     <!-- 3. CATÁLOGO: los 3 niveles (renderizadoCatalogo.js) -->
-    <section class="seccion seccion-fondo-blanco seccion-catalogo" id="catalogo" aria-labelledby="titulo-categorias">
+    <section class="seccion seccion-fondo-blanco seccion-planes" id="planes" aria-labelledby="titulo-planes">
       <div class="contenedor">
-        <h2 id="titulo-categorias" class="titulo-seccion revelar">Elegí tu <span class="palabra-verde">categoría</span></h2>
-        <p class="bajada-seccion revelar">Cada una tiene sus combos. Elegís uno y después armás tus platos.</p>
-        <!-- NIVEL 1: lo dibuja renderizarTarjetasDelIndex() -->
-        <div class="tarjetas-del-index" id="tarjetas-del-index" role="group" aria-label="Elegí una categoría">
+        <h2 id="titulo-planes" class="titulo-seccion revelar">Elegí tu <span class="palabra-verde">plan</span></h2>
+        <p class="bajada-seccion revelar">Cada plan tiene sus combos. Elegís uno y después armás tus platos.</p>
+        <!-- NIVEL 1: los planes, los dibuja renderizarPlanes (el id del título sigue igual: lo usa aria-labelledby) -->
+        <div class="tarjetas-planes" id="tarjetas-planes" role="group" aria-label="Elegí un plan">
           <p class="aviso-combos aviso-cargando">Cargando combos...</p>
         </div>
 
-        <!-- NIVEL 2: lo dibuja renderizarPlanesDeLaCategoria(idCategoria) -->
-        <div class="zona-planes" id="planes-de-la-categoria"></div>
+        <!-- NIVEL 2: las cantidades del plan elegido (x5, x10…), las dibuja renderizarCantidadProductos -->
+        <div class="zona-cantidad-productos" id="cantidad-productos"></div>
 
-        <!-- NIVEL 3: lo dibuja renderizarCombosDelPlan(idPlan) -->
-        <div class="zona-combos" id="combos"></div>
-
-        <!-- "Cómo funciona": solo en el celu, debajo de las categorías (en compu están los 3 pasos de la portada) -->
+        <!-- "Cómo funciona": solo en el celu, debajo de los planes (en compu están los 3 pasos de la portada) -->
         <div class="como-funciona">
           <p class="rotulo">Cómo funciona</p>
           <ol class="como-funciona-pasos">
@@ -296,9 +292,9 @@
       </div>
       <nav class="pie-columna" aria-label="Pie de página">
         <h2>Navegación</h2>
-        <a href="#catalogo">Categorías</a>
-        <!-- Lleva a las categorías: los combos se ven al tocar una (la zona #combos está escondida hasta entonces) -->
-        <a href="#catalogo">Combos</a>
+        <a href="#planes">Planes</a>
+        <!-- Lleva a los planes: los combos se ven al tocar uno (la zona #cantidad-productos está escondida hasta entonces) -->
+        <a href="#planes">Combos</a>
         <a href="#donde-estamos">Dónde estamos</a>
         <a href="#preguntas">Preguntas frecuentes</a>
       </nav>
@@ -322,7 +318,7 @@
   <dialog class="modal modal-armar" id="modal-combo" aria-labelledby="modal-combo-titulo">
     <div class="modal-encabezado">
       <div class="armar-titulos">
-        <p class="modal-categoria" id="modal-combo-categoria"></p>
+        <p class="modal-plan" id="modal-combo-plan"></p>
         <h2 id="modal-combo-titulo"></h2>
       </div>
       <!-- Título de la barra en el celu (ahí el nombre del combo va abajo, con su foto y su precio) -->

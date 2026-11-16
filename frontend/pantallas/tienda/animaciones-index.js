@@ -11,7 +11,7 @@
 //
 // Es el animaciones-index.js del diseño final tal cual (su carpeta de referencia se borró el 17/10: está en git);
 // lo único distinto es el nombre del contador: ".contador" → ".contador-combos" (regla "Nombres claros" del CLAUDE.md).
-// Lo que hace cada clase (js, visible, salta) está en index.css.
+// Lo que hace cada clase (js, visible, salta) está en index.css (sección 13 ANIMACIONES).
 
 function iniciarAnimacionesIndex() {
   const sinMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

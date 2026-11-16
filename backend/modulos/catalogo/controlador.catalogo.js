@@ -3,7 +3,9 @@
 // Cada función SIEMPRE con los mismos pasos: 1. LEER · 2. REVISAR · 3. PEDIR · 4. RESPONDER
 // (y si hay que acomodar los datos antes de contestar: 4. ARMAR · 5. RESPONDER).
 // Funciones:
-//   listarCombos → GET /api/v1/combos → los combos con su plan, su categoría y su menú (con esto se dibuja la tienda)
+//   listarPlanes → GET /api/v1/planes → (16/11) los planes activos (la tienda dibuja una tarjeta por plan)
+//   listarCombos → GET /api/v1/combos → los combos con su plan y su menú (con esto se dibuja la tienda)
+// (16/11) Sin categorías: cada combo ya no trae "categoria" (la tienda muestra planes → combos).
 // (12/11) Las 6 rutas viejas del catálogo (/api/v1/catalogo, categorias, planes, productos) se borraron: la tienda
 // vende COMBOS y no las usaba nadie. GET /api/barrios sigue en server.js hasta que el formulario deje de pedir el barrio.
 // ============================================================================
@@ -12,10 +14,104 @@ const modelo = require('./modelo.catalogo');                 // las consultas a 
 const { errorInterno } = require('../../utils/errores');     // el 500 con mensaje simple (el detalle va al log)
 
 
+// listarPlanes → GET /api/v1/planes (16/11: la tienda dibuja una tarjeta por plan con esto, ya armada)
+// ENTRADA: nada · SALIDA: 200 con el arreglo · 500 si falla la base (y 429 si se pasa del límite: eso lo hace la ruta)
+// Ej: → [ { id: 2, nombre: "MANTENIMIENTO", imagen: "https://…", descripcion: null, texto_tamanios: "5 o 10 viandas" } ]
+// Un elemento = una tarjeta de la tienda. Solo los planes ACTIVOS que tienen al menos un combo a la venta
+// (activo y con algún plato para elegir: la misma regla que listarCombos). Solo esos 5 datos: es pública.
+async function listarPlanes(req, res) {
+  // 1. LEER: nada
+  // 2. REVISAR: nada
+
+  // 3. PEDIR: los planes activos con sus combos y el menú de cada combo
+  const { data, error } = await modelo.traerPlanesBD();
+  // ¿falló la base? SÍ: se cayó Supabase · NO: vinieron los planes
+  if (error) {
+    return errorInterno(res, error);
+  }
+
+  // 4. ARMAR: un elemento por plan que tenga combos a la venta, con el texto de sus tamaños
+  const planes = [];
+  data.forEach((plan) => {
+    // 4a. Los tamaños de sus combos a la venta, sin repetir. tamaniosVistos = los que ya están ({ 10: true })
+    //     Y de paso, la foto de repuesto: la del primer plato con foto (por si el plan no tiene foto propia)
+    const tamaniosVistos = {};
+    const tamanios = [];
+    let fotoDeUnPlato = null;
+    plan.combos.forEach((combo) => {
+      // ¿El combo tiene algún plato para elegir? (en el menú, y el plato activo). find = el primero que cumple, o undefined
+      // Ej: Fideos en el menú y activo → lo encuentra · todos quitados o desactivados → undefined
+      const platoParaElegir = combo.combo_productos.find((renglon) => {
+        const sePuedeElegir = Boolean(renglon.activo) && Boolean(renglon.productos) && Boolean(renglon.productos.activo);
+        return sePuedeElegir;
+      });
+      const seVende = Boolean(combo.activo) && platoParaElegir !== undefined;
+      // ¿el combo NO se vende? SÍ: desactivado o sin platos · NO: activo y con platos → sigue
+      if (seVende === false) {
+        return;                                            // return adentro del forEach = saltear este combo y seguir con el siguiente
+      }
+      const tamanioNuevo = tamaniosVistos[combo.cantidad] === undefined;
+      // ¿este tamaño todavía no está? SÍ: el primer x10 · NO: el segundo x10
+      if (tamanioNuevo) {
+        tamaniosVistos[combo.cantidad] = true;
+        tamanios.push(combo.cantidad);
+      }
+
+      // La foto de repuesto: el primer plato de este combo que se puede elegir y tiene foto (o undefined)
+      const platoConFoto = combo.combo_productos.find((renglon) => {
+        const tieneFoto = Boolean(renglon.activo) && Boolean(renglon.productos) && Boolean(renglon.productos.activo) && Boolean(renglon.productos.imagen);
+        return tieneFoto;
+      });
+      const faltaFoto = fotoDeUnPlato === null && platoConFoto !== undefined;
+      // ¿todavía no hay foto de repuesto y este combo tiene un plato con foto? SÍ: se guarda esa · NO: se sigue igual
+      if (faltaFoto) {
+        fotoDeUnPlato = platoConFoto.productos.imagen;
+      }
+    });
+
+    // 4b. ¿El plan no tiene ningún combo a la venta? Entonces no lleva tarjeta (no tendría nada para elegir)
+    // ¿quedó sin tamaños? SÍ: PROMO SEMANAL sin combos · NO: MANTENIMIENTO con su x10
+    if (tamanios.length === 0) {
+      return;                                              // saltear este plan
+    }
+
+    // 4c. "5, 10 o 20 viandas": de menor a mayor. Ej: 10 − 5 = 5 → positivo → el 5 va primero
+    tamanios.sort((cantidadA, cantidadB) => cantidadA - cantidadB);
+    // Todas menos la última con ", " y la última con " o ". Ej: [5, 10, 20] → "5, 10 o 20 viandas" · [7] → "7 viandas"
+    const ultima = tamanios[tamanios.length - 1];
+    const primeras = tamanios.slice(0, tamanios.length - 1);
+    let textoTamanios = ultima + ' viandas';
+    // ¿hay más de un tamaño? SÍ: [5, 10, 20] · NO: [7]
+    if (primeras.length > 0) {
+      textoTamanios = primeras.join(', ') + ' o ' + ultima + ' viandas';
+    }
+
+    // 4d. La foto de la tarjeta: la del plan; si no tiene, la de un plato (y si tampoco, null)
+    let fotoDeLaTarjeta = fotoDeUnPlato;
+    // ¿el plan tiene foto propia? SÍ: va esa · NO: la de un plato
+    if (plan.imagen) {
+      fotoDeLaTarjeta = plan.imagen;
+    }
+
+    // 4e. La tarjeta, solo con lo que muestra la tienda
+    planes.push({
+      id: plan.id,
+      nombre: plan.nombre,
+      imagen: fotoDeLaTarjeta,                             // la foto del plan, o la de un plato, o null
+      descripcion: plan.descripcion,                       // la frase del plan, o null
+      texto_tamanios: textoTamanios,                       // ej: "5, 10 o 20 viandas"
+    });
+  });
+
+  // 5. RESPONDER
+  res.json(planes);
+}
+
+
 // listarCombos → GET /api/v1/combos (la tienda dibuja sus tarjetas con esto)
 // ENTRADA: nada · SALIDA: 200 con el arreglo · 500 si falla la base (y 429 si se pasa del límite: eso lo hace la ruta)
 // Ej: → [ { id: 9, nombre: "Keto x3", cantidad: 3, precio: 3000, destacado: false, plan: "Keto", id_plan: 9,
-//          plan_imagen: null, plan_descripcion: null, categoria: { id: 3, nombre: "Saludable", … },
+//          plan_imagen: null, plan_descripcion: null, imagen: null,
 //          menu: [ { id: 9, nombre: "Fideos", codigo_plato: "F1", descripcion, imagen, disponibles: 3 } ] } ]
 // No se muestra: un combo sin plan o de un plan desactivado, ni un combo que se queda sin platos para elegir.
 // "disponibles" = las viandas de la heladera, con un tope igual a la cantidad del combo (así no se ve el stock real).
@@ -105,13 +201,14 @@ async function listarCombos(req, res) {
       nombre: combo.nombre,
       cantidad: combo.cantidad,
       precio: Number(combo.precio),
+      // (16/11) El precio de cada vianda, redondeado, para la tarjeta (las cuentas las hace el servidor). Ej: 151000 / 10 → 15100
+      precio_por_vianda: Math.round(Number(combo.precio) / combo.cantidad),
       destacado: combo.destacado === true,                  // true = lleva "Más elegido" (sin el dato, false)
       imagen: combo.imagen,                                 // (13/11) la foto del combo, o null (la web usa entonces la del plan)
       plan: combo.planes.nombre,
       id_plan: combo.planes.id,                             // la tienda agrupa las tarjetas con esto
       plan_imagen: combo.planes.imagen,                     // la foto del plan, o null
       plan_descripcion: combo.planes.descripcion,           // la frase del plan, o null
-      categoria: combo.planes.categorias,                   // { id, nombre, imagen, descripcion }, o null
       menu: menu,
     });
   });
@@ -121,4 +218,4 @@ async function listarCombos(req, res) {
 }
 
 
-module.exports = { listarCombos };
+module.exports = { listarPlanes, listarCombos };

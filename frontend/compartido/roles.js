@@ -36,7 +36,7 @@ var FG_ROLES = (function () {
     { ruta: 'pantallas/recetas/generarReceta.html',     menu: '📝 Generar Receta',       roles: [6, 5] },
     { ruta: 'pantallas/catalogo/catalogo.html',        menu: '🗂️ Catálogo',             roles: [6, 5] },          // (11/11) categorías, planes y combos en una sola pantalla
     { ruta: 'pantallas/combos/combos.html',            menu: '🍱 Combos',               roles: [6, 5] },          // armar los combos y su menú
-    { ruta: 'pantallas/planesCategorias/planesCategorias.html',  menu: '🗂️ Planes y categorías',  roles: [6, 5] },          // crear, editar, agrupar y desactivar
+    { ruta: 'pantallas/planesCategorias/planesCategorias.html',  menu: '🗂️ Planes',               roles: [6, 5] },          // crear, editar y desactivar planes (16/11: sin categorías)
     { ruta: 'pantallas/movimientos/MovimientosStockNuevo.html', menu: '📋 Movimientos de Stock', roles: [6, 5, 1] },  // insumos y viandas, todo junto (H8)
     { ruta: 'pantallas/compras/compras.html', menu: '🛒 Compras',              roles: [6, 5, 1] },          // qué compré, qué gasté y qué tengo que reponer
     { ruta: 'pantallas/cocineros/AsignarCocinero.html',   menu: '👨‍🍳 Asignar Cocineros',   roles: [6, 5] },

@@ -10,6 +10,7 @@ const router = express.Router();
 const { limiteCatalogo } = require('../../middlewares/limites');   // el límite de consultas por IP
 const controlador = require('./controlador.catalogo');
 
+router.get('/api/v1/planes', limiteCatalogo, controlador.listarPlanes);   // (16/11) los planes activos (las tarjetas de la tienda)
 router.get('/api/v1/combos', limiteCatalogo, controlador.listarCombos);   // los combos con su menú (lo usa la tienda)
 
 module.exports = router;

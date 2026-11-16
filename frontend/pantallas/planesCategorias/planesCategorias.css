@@ -52,24 +52,16 @@
 .tabla-con-desplazamiento {
   overflow-x: auto;
 }
-.tabla-categorias {
-  min-width: 680px;
-}
 .tabla-planes {
-  min-width: 760px;   /* 11/11: sin Foto ni Frase, entra en menos */
+  min-width: 640px;   /* 16/11: sin la columna Categoría, entra en menos */
 }
 
-/* Anchos de las columnas (11/11: el orden nuevo, el de la maqueta de Catálogo). Nombre y Planes adentro se quedan
-   con lo que sobra.  Categorías: Nombre · Planes adentro · Foto · Estado · Acciones
-                      Planes:     Nombre · Categoría · Abreviatura · Estado · Acciones */
-.tabla-categorias th:nth-child(3) { width: 90px; }   /* Foto */
-.tabla-categorias th:nth-child(4) { width: 130px; }  /* Estado */
-.tabla-categorias th:nth-child(5) { width: 210px; }  /* Acciones */
-.tabla-planes th:nth-child(2) { width: 220px; }      /* Categoría */
-.tabla-planes th:nth-child(3) { width: 120px; }      /* Abreviatura */
-.tabla-planes th:nth-child(4) { width: 90px; }       /* Foto (13/11) */
-.tabla-planes th:nth-child(5) { width: 130px; }      /* Estado */
-.tabla-planes th:nth-child(6) { width: 210px; }      /* Acciones */
+/* Anchos de las columnas. Nombre se queda con lo que sobra.
+   Planes (16/11, sin Categoría): Nombre · Abreviatura · Foto · Estado · Acciones */
+.tabla-planes th:nth-child(2) { width: 120px; }      /* Abreviatura */
+.tabla-planes th:nth-child(3) { width: 90px; }       /* Foto */
+.tabla-planes th:nth-child(4) { width: 130px; }      /* Estado */
+.tabla-planes th:nth-child(5) { width: 210px; }      /* Acciones */
 
 /* La foto de cada fila de las listas */
 .foto-lista {
@@ -82,17 +74,6 @@
 .sin-foto {
   color: #6c757d;
   font-size: 0.75rem;
-}
-
-/* El desplegable de categoría de cada plan */
-.desplegable-categoria-plan {
-  width: 100%;
-  padding: 0.3rem 0.4rem;
-  border: 1px solid #ced4da;
-  border-radius: 6px;
-  background: #fff;
-  font-family: inherit;
-  font-size: 0.85rem;
 }
 
 /* La abreviatura se escribe en mayúscula */

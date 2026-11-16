@@ -160,16 +160,16 @@ async function testCatalogo() {
   console.log('\n══════ 2. CATÁLOGO (la web del cliente: GET /api/v1/combos) ══════');
 
   // 2a. Combos de la tienda: es la única ruta del catálogo (12/11: las 6 viejas de /api/v1 se borraron).
-  //     Cada combo trae su plan, la categoría del plan (o null) y su menú con "disponibles".
+  //     Cada combo trae su plan (id_plan) y su menú con "disponibles". (16/11: sin categoría)
   const r1 = await get('/api/v1/combos');
   const vinoUnaLista = r1.status === 200 && Array.isArray(r1.data);
   if (vinoUnaLista && r1.data.length > 0) {
     const combo = r1.data[0];
-    const tieneLaForma = typeof combo.id === 'number' && typeof combo.precio === 'number' && Array.isArray(combo.menu) && 'categoria' in combo;
+    const tieneLaForma = typeof combo.id === 'number' && typeof combo.precio === 'number' && Array.isArray(combo.menu) && typeof combo.id_plan === 'number';
     if (tieneLaForma) {
       ok('GET /api/v1/combos', `${r1.data.length} combos · el primero: ${combo.nombre} (${combo.menu.length} platos en el menú)`);
     } else {
-      fail('GET /api/v1/combos', 'Los combos no traen id, precio, menu y categoria');
+      fail('GET /api/v1/combos', 'Los combos no traen id, precio, menu e id_plan');
     }
   } else if (vinoUnaLista) {
     warn('GET /api/v1/combos', 'Responde OK pero vacío (no hay combos activos con menú)');
