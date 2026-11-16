@@ -19,6 +19,7 @@ async function traerCombosBD() {
       cantidad,
       precio,
       destacado,
+      imagen,
       planes (
         id,
         nombre,

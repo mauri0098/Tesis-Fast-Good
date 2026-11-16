@@ -25,6 +25,7 @@ app.use(cors(opcionesCors));
 app.use('/api/productos/:id/imagen', express.json({ limit: '6mb' }));
 app.use('/api/planes/:id/imagen', express.json({ limit: '6mb' }));       // la foto de un plan (Planes y categorías)
 app.use('/api/categorias/:id/imagen', express.json({ limit: '6mb' }));   // la foto de una categoría (Planes y categorías)
+app.use('/api/combos/:id/imagen', express.json({ limit: '6mb' }));       // (13/11) la foto de un combo (Catálogo)
 app.use(express.json({ limit: '100kb' }));
 
 const supabase   = require('./backend/config/supabaseClient');// Cliente de Supabase para interactuar con la base de datos
@@ -4429,6 +4430,10 @@ app.put('/api/planes/:id/activo', requireAuth, requireRol(6, 5), async (req, res
 
 // POST /api/planes/:id/imagen → la foto de un plan. Ver subirFotoCatalogo
 app.post('/api/planes/:id/imagen', requireAuth, requireRol(6, 5), (req, res) => subirFotoCatalogo(req, res, 'planes', 'planes'));
+
+// POST /api/combos/:id/imagen → (13/11) la foto de un combo. Ver subirFotoCatalogo (la misma de planes y categorías:
+// JPG, PNG o WebP, hasta 2 MB; queda en combos/ID.ext y su dirección en combos.imagen)
+app.post('/api/combos/:id/imagen', requireAuth, requireRol(6, 5), (req, res) => subirFotoCatalogo(req, res, 'combos', 'combos'));
 
 // POST /api/productos/con-receta → crea producto nuevo + receta de forma atómica
 // Body: { nombre, id_plan, precio, insumos: [{ id_insumo, cantidad_necesaria, unidad_medida }] }

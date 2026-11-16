@@ -106,6 +106,7 @@ async function listarCombos(req, res) {
       cantidad: combo.cantidad,
       precio: Number(combo.precio),
       destacado: combo.destacado === true,                  // true = lleva "Más elegido" (sin el dato, false)
+      imagen: combo.imagen,                                 // (13/11) la foto del combo, o null (la web usa entonces la del plan)
       plan: combo.planes.nombre,
       id_plan: combo.planes.id,                             // la tienda agrupa las tarjetas con esto
       plan_imagen: combo.planes.imagen,                     // la foto del plan, o null

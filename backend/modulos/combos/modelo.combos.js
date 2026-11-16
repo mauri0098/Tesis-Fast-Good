@@ -43,6 +43,7 @@ async function traerCombosPanel() {
       precio,
       activo,
       destacado,
+      imagen,
       planes ( nombre, activo ),
       combo_productos ( activo, productos ( activo ) ),
       pedido_combos ( count )
@@ -85,13 +86,14 @@ async function quitarProductoDelComboBD(idCombo, idProducto) {
 
 // ----------------------------------------------------------------------------
 // traerComboBD → un combo por su id (lo usan editar, ver menú y agregar al menú).
-// ENTRADA: idCombo · SALIDA: { data, error }. data = { id, nombre, cantidad, destacado } o null si no existe.
-//   Ej: (7) → { data: { id: 7, nombre: '10 viandas sin gluten', cantidad: 10, destacado: false }, error: null }
+// ENTRADA: idCombo · SALIDA: { data, error }. data = { id, nombre, cantidad, destacado, id_plan, plan_nombre } o null si no existe.
+//   Ej: (7) → { data: { id: 7, nombre: '10 viandas sin gluten', cantidad: 10, destacado: false, id_plan: 3, plan_nombre: 'SIN TACC' }, error: null }
+//   (13/11) id_plan y plan_nombre: la pantalla del menú avisa si se elige un plato de otro plan
 // ----------------------------------------------------------------------------
 async function traerComboBD(idCombo) {
   return await supabase
     .from('combos')
-    .select('id, nombre, cantidad, destacado')
+    .select('id, nombre, cantidad, destacado, id_plan, ...planes ( plan_nombre:nombre )')
     .eq('id', idCombo)
     .maybeSingle();
 }
@@ -166,11 +168,12 @@ async function traerMenuDelComboBD(idCombo) {
 
 // traerPlatosActivosBD → todos los platos activos, de cualquier plan, ordenados por nombre (para elegir cuál agregar).
 // ...planes ( plan:nombre ) → el plan viene como texto (igual que en traerMenuDelComboBD).
-// ENTRADA: nada · SALIDA: { data, error }. Ej: data = [{ id: 9, nombre: 'Arroz', codigo_plato: 'M2', plan: 'MANTENIMIENTO' }]
+// ENTRADA: nada · SALIDA: { data, error }. Ej: data = [{ id: 9, nombre: 'Arroz', codigo_plato: 'M2', id_plan: 1, plan: 'MANTENIMIENTO' }]
+// (13/11) con su id_plan: la pantalla avisa si se elige uno de otro plan
 async function traerPlatosActivosBD() {
   return await supabase
     .from('productos')
-    .select('id, nombre, codigo_plato, ...planes ( plan:nombre )')
+    .select('id, nombre, codigo_plato, id_plan, ...planes ( plan:nombre )')
     .eq('activo', true)
     .order('nombre', { ascending: true });
 }

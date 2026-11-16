@@ -82,6 +82,7 @@ async function listarCombos(req, res) {
         precio:         Number(combo.precio),
         activo:         combo.activo,
         destacado:      combo.destacado === true, // "Más elegido"
+        imagen:         combo.imagen,             // (13/11) la foto del combo, o null
         platos_en_menu: platosEnMenu,
         veces_vendido:  vecesVendido
       };
@@ -340,7 +341,8 @@ async function editarCombo(req, res) {
 //         menu: [{ id_producto: 6, nombre: 'Tarta', codigo: 'S1', plan: 'SIN TACC', plato_activo: true }],
 //         disponibles: [{ id: 9, nombre: 'Arroz', codigo: 'M2', plan: 'MANTENIMIENTO' }] }
 // menu: si un plato se desactivó después (Generar Receta), aparece con plato_activo: false, para poder sacarlo.
-// disponibles: platos activos de CUALQUIER plan que todavía no están en el menú.
+// disponibles: platos activos de CUALQUIER plan que todavía no están en el menú (13/11: con su id_plan; la pantalla
+// avisa si se elige uno de otro plan y deja agregarlo igual). combo: también su id_plan y plan_nombre.
 // Lo llama: rutas.combos.js · Llama a: modelo.traerComboBD, traerMenuDelComboBD, traerPlatosActivosBD.
 // ----------------------------------------------------------------------------
 async function verMenuCombo(req, res) {
@@ -402,7 +404,7 @@ async function verMenuCombo(req, res) {
   const disponibles = platos
     .filter(plato => !enElMenu[plato.id])
     .map(plato => {
-      return { id: plato.id, nombre: plato.nombre, codigo: plato.codigo_plato, plan: plato.plan };
+      return { id: plato.id, nombre: plato.nombre, codigo: plato.codigo_plato, plan: plato.plan, id_plan: plato.id_plan };
     });
 
   res.json({ combo: combo, menu: menu, disponibles: disponibles });
