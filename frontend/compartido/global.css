@@ -15,14 +15,13 @@
      0. Perillas (colores, tamaños y letra)
      1. Base: letra, márgenes y fondo
      2. Título de cada pantalla (<header>)
-     3. Pie
-     4. Secciones y tarjetas
+     3. y 4. (16/11: se borraron el pie, .section y .card: no los usaba ninguna pantalla, eran del index)
      5. Botones
      6. Casilleros y etiquetas
      7. Ventanas
      8. Tablas
      9. Paginación (los números debajo de las tablas)
-    10. Utilidades y menú viejo
+    10. Utilidades (16/11: se borraron .icon y el menú viejo .sidebar: no los usaba ninguna pantalla)
     11. Animaciones
     12. Celular (hasta 768 px)
     13. Piezas del panel nuevo (el molde, 27/10): botones de arriba, pestañas, buscador, pastillas,
@@ -36,7 +35,6 @@
     --verde-principal: #12893a;   /* botones verdes, la pantalla actual del menú, lo elegido (4,5:1 con el blanco) */
     --verde-texto: #127f36;       /* textos verdes CHICOS: un poco más oscuro, así se leen bien también sobre el verde suave */
     --verde-hondo: #0f7330;       /* el verde un poco más oscuro de los botones al pasar el mouse */
-    --verde-marca: #26b04f;       /* verde de marca, para acentos */
     --verde-suave: #e8f5eb;       /* fondo verde suave: al pasar el mouse, franjas y la X de las ventanas */
     --titulo: #3a4640;            /* títulos grandes ("Administración de Pedidos") */
     --texto: #111a14;             /* texto común */
@@ -144,10 +142,7 @@
     /* ── Las variables de antes (en inglés) ─────────────────────────────────────── */
     /* Las usan los CSS de cada pantalla y login.css: siguen con el mismo nombre y ahora toman el valor de las perillas nuevas */
     --color-primary:        var(--verde-principal);  /* antes #28a745 */
-    --color-primary-dark:   var(--verde-hondo);      /* antes #388E3C */
-    --color-primary-glass:  rgb(18 137 58 / .97);    /* el verde principal casi sin transparencia (antes el verde viejo) */
     --color-secondary:      var(--naranja);          /* igual que antes: #ff9800 */
-    --color-accent:         var(--verde-marca);      /* antes #00ff22 (verde flúor) */
     --color-bg:             var(--fondo);            /* antes #f8f9fa (gris clarito) */
     --color-white:          var(--blanco);
     --color-text:           var(--texto);            /* antes #2a2a2a */
@@ -161,13 +156,9 @@
     --radius-pill: var(--radio-pastilla);            /* antes 30px */
 
     --shadow-sm:         var(--sombra-suave);
-    --shadow-md:         var(--sombra-suave);
-    --shadow-lg:         var(--sombra-ventana);
-    --shadow-card-hover: 0 18px 40px rgb(22 50 30 / .14);
     --shadow-btn-hover:  0 6px 18px rgb(18 137 58 / .30);  /* sombra verde de los botones al pasar el mouse */
 
     --transition-fast:   0.28s ease;
-    --easing-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);  /* se pasa un poquito y vuelve (efecto resorte) */
     --easing-out:        cubic-bezier(0.22, 1, 0.36, 1);     /* arranca rápido y frena suave */
 }
 
@@ -286,90 +277,6 @@ header nav > a:last-child   { animation: fade-up 0.45s 0.57s var(--easing-out) b
 header nav a:hover {
     color: var(--verde-texto);
     transform: translateY(-2px);
-}
-
-
-/* ===== 3. PIE ===== */
-
-/* Desde el 19/10 ninguna pantalla del panel tiene pie (se sacó el "© 2024…"). Queda por si alguna lo vuelve a usar */
-footer {
-    width: 100%;
-    margin-top: auto;
-    padding: 24px var(--espacio-pantalla);
-    border-top: 1px solid var(--borde-gris);
-    background: var(--fondo);
-    color: var(--texto-gris);
-    font-size: 14px;
-    text-align: center;
-}
-
-
-/* ===== 4. SECCIONES Y TARJETAS ===== */
-
-/* Una sección con su título centrado */
-.section {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 5rem 2rem;
-}
-
-.section h2 {
-    margin-bottom: 2.8rem;
-    font-size: 2.2rem;
-    font-weight: 900;
-    color: var(--titulo);
-    text-align: center;
-    position: relative;
-}
-
-/* La rayita naranja debajo del título de la sección */
-.section h2::after {
-    content: '';
-    display: block;
-    width: 56px;
-    height: 4px;
-    margin: 0.55rem auto 0;
-    background: var(--naranja);
-    border-radius: 4px;
-}
-
-/* Tarjeta blanca con borde finito; al pasar el mouse sube un poquito */
-.card {
-    overflow: hidden;
-    border: 1px solid var(--borde-gris);
-    border-radius: var(--radio-tarjeta);
-    background: var(--blanco);
-    text-align: center;
-    transition:
-        transform   0.3s var(--easing-out),
-        box-shadow  0.3s ease,
-        opacity     0.55s var(--easing-out);
-}
-
-.card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-card-hover);
-    transition-delay: 0s;
-}
-
-/* La foto de la tarjeta, con un zoom suave al pasar el mouse */
-.card img {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
-    transition: transform 0.45s var(--easing-out);
-    display: block;
-}
-
-.card:hover img {
-    transform: scale(1.05);
-}
-
-.card h3 {
-    margin: 1rem 0 0.25rem;
-    font-size: 1.2rem;
-    font-weight: 800;
-    color: var(--color-text);
 }
 
 
@@ -868,7 +775,7 @@ table {
     border-bottom: 1px solid var(--linea-titulos-tabla);
 }
 
-/* --- Las celdas de TODAS las tablas del panel (24/10: también las de las ventanas): letra de 13 px, filas de 44 px,
+/* --- Las celdas de TODAS las tablas del panel (24/10: también las de las ventanas): letra de 14 px (11/11), filas de 44 px,
    aire de 5 px arriba y abajo y 12 a los costados, y una línea finita entre filas ---
    height en una celda de tabla es el alto MÍNIMO: si tiene más cosas adentro, la fila crece sola */
 .admin-content table tbody td {
@@ -1102,7 +1009,7 @@ table.grilla-fg tbody tr:hover {
 }
 
 
-/* ===== 10. UTILIDADES Y MENÚ VIEJO ===== */
+/* ===== 10. UTILIDADES ===== */
 
 /* La fila de adentro del título: lo de la izquierda y lo de la derecha, separados */
 .container-centrado {
@@ -1110,43 +1017,6 @@ table.grilla-fg tbody tr:hover {
     justify-content: space-between;
     align-items: center;
     width: 100%;
-}
-
-.icon {
-    width: 24px;
-    height: 24px;
-    margin-right: 10px;
-    vertical-align: middle;
-}
-
-/* Menú lateral viejo (.sidebar): ninguna pantalla lo usa hoy (el menú lo arma adminSidebar.js) */
-.sidebar {
-    position: fixed;
-    z-index: 1000;
-    top: 0;
-    left: 0;
-    width: 0;
-    height: 100%;
-    padding-top: 60px;
-    overflow-x: hidden;
-    background: var(--color-primary-dark);
-    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.25);
-    transition: width 0.4s var(--easing-out);
-}
-
-.sidebar a {
-    display: block;
-    padding: 15px 25px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    color: var(--color-white);
-    font-size: 1.1rem;
-    text-decoration: none;
-    transition: background var(--transition-fast), padding-left var(--transition-fast);
-}
-
-.sidebar a:hover {
-    background: rgba(255, 255, 255, 0.08);
-    padding-left: 35px;
 }
 
 
@@ -1219,18 +1089,6 @@ table.grilla-fg tbody tr:hover {
 
     header > div > nav a {
         margin-left: 0;
-    }
-
-    .section {
-        padding: 3rem 1rem;
-    }
-
-    .section h2 {
-        font-size: 1.7rem;
-    }
-
-    .card img {
-        height: 180px;
     }
 
     .modal-content {

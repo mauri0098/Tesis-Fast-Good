@@ -8,7 +8,6 @@
    ========================================= */
 :root {
   --primary-green: #28a745;
-  --bg-color: #f4f6f9;
   --white: #ffffff;
   --text-dark: #343a40;
   --text-muted: #6c757d;
@@ -18,10 +17,7 @@
 }
 
 body {
-  font-family: var(--fuente);   /* (11/11) Inter, la letra general (global.css) */
-  background-color: var(--fondo);   /* (11/11) el blanco general del panel (global.css), como Consultar Pedidos */
   color: var(--text-dark);
-  margin: 0;
   display: flex;
   flex-direction: column;
   min-height: 100vh;

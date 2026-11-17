@@ -538,7 +538,7 @@ table.tabla-pedidos .col-costo {
     display: none;
 }
 
-/* (05/11) Un pedido con algún plato personalizado: toda la fila en ámbar, con la línea naranja a la izquierda.
+/* (05/11) Un pedido con algún plato personalizado: toda la fila en rosa suave, con la línea rosa a la izquierda (11/11: antes ámbar).
    La clase la pone crearFilaPedido (ListarPedidos.js). Un pedido anulado no la lleva: queda gris */
 .tabla-pedidos tbody tr.fila-personalizada > td {
     background: var(--fila-personalizada-fondo);
@@ -1004,7 +1004,7 @@ table.tabla-pedidos .col-costo {
     margin: 0;
     padding: 14px;
     border-radius: var(--radio-recuadro);
-    background: #fff3df;
+    background: var(--estado-preparacion-fondo);   /* el mismo naranja suave de "En preparación" (#fff3df) */
     color: #8a4f00;
     font-size: 15px;
     font-weight: 600;
@@ -1194,17 +1194,12 @@ table.tabla-pedidos .col-costo {
         display: none;
     }
 
-    /* La fila personalizada: Acciones (fija) también en ámbar */
+    /* La fila personalizada: Acciones (fija) también en rosa suave */
     table.tabla-pedidos tbody tr.fila-personalizada .col-acciones {
         background: var(--fila-personalizada-fondo);
     }
 
     /* F9 (05/11): la regla de Asignar Cocineros (su tabla de 1000 px en el celu) se mudó a AsignarCocinero.css */
-
-    /* La tabla de pedidos, con su propio ancho mínimo */
-    .tabla-pedidos {
-        min-width: var(--tabla-ancho-minimo);
-    }
 
     /* Los avisos flotantes, de lado a lado */
     .toast-exito,

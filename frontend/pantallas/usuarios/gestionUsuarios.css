@@ -3,7 +3,6 @@
    ========================================= */
 :root {
   --primary-green: #28a745;
-  --bg-color:      #f4f6f9;
   --white:         #ffffff;
   --text-dark:     #343a40;
   --text-muted:    #6c757d;
@@ -13,7 +12,6 @@
 }
 
 body {
-  background-color: var(--fondo);   /* (11/11) el blanco general del panel (global.css), como Consultar Pedidos */
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -27,7 +25,6 @@ body {
   max-width: 1350px;
   margin: 0 auto;
   width: 95%;
-  flex: 1;
 }
 
 .table-wrapper {
