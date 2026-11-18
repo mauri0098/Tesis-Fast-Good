@@ -18,6 +18,13 @@
 - ANTES de escribir un archivo nuevo, mostrame la lista de funciones que va a tener (nombre + una línea).
 - Pocas funciones, grandes pero claras. NO crear funciones chiquitas de ayuda (ej: precioMasBajo, textoPlural):
   ese cálculo va escrito adentro de la función que lo usa. Si creés que hace falta una función nueva, PREGUNTAME antes.
+- SIEMPRE que propongas crear, sacar, juntar o separar funciones, ANTES de todo respondé estas 3 preguntas
+  para cada función, en una tabla (función · respuesta a cada pregunta · qué hago con ella):
+    1. ¿Tiene un TRABAJO distinto? (traer, filtrar, armar, renderizar, guardar, cambiar lo elegido) → SÍ: va aparte, aunque sea corta.
+    2. ¿Se usa en MÁS DE UN lugar? → SÍ: va aparte (si no, se copia y un día se cambia en un lugar y en otro no).
+    3. ¿Es CORTITA y se usa UNA sola vez, del mismo trabajo que la que la llama? → SÍ: va ADENTRO de esa.
+  Una función larga está bien si se lee de arriba a abajo en partes numeradas (// 1. … // 2. …). Lo malo es lo MEZCLADO, no lo largo.
+  En el JS de una pantalla, las 5 clases de "El JavaScript de una pantalla, a mi manera" son trabajos: no se meten una adentro de otra.
 - Comentarios en español en cada parte.
 - Respetá mis funciones y mi estilo. Cambiá lo mínimo posible. Si algo hay que reescribir, preguntame antes.
 - Nada de trucos difíciles de leer. Prefiero más líneas claras que pocas líneas complicadas.
