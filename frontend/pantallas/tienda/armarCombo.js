@@ -1,17 +1,33 @@
-// armarCombo.js — La ventana donde el cliente elige los platos de un combo
+// ============================================================================
+// armarCombo.js — La ventana "Armar combo": el cliente elige los platos de UN combo
+//
+// EL RECORRIDO:
+//   "¡Lo quiero!" → abrirVentanaCombo → armarStockDePlatos → renderizarVentanaCombo
+//   "+" / "−"     → contarPlato → renderizarVentanaCombo
+//   "Agregar"     → agregarComboAlCarrito → Mi pedido → cerrarVentanaCombo
+//
+// Viene de otros archivos: combosDisponibles, armarFotoTarjeta, IMAGEN_POR_DEFECTO (renderizadoCatalogo.js)
+//   · carritoCombos, agregarAlCarrito (carritoCombos.js) · escHtml, pastillaCodigo (escape.js)
+// ============================================================================
+
+
+// ---------- 1. LOS DATOS ----------
+// Ejemplo: Keto x10 con Bondiola (hay 5, ya tiene 3 en Mi pedido) y Arroz (hay 10)
+
+// comboEnArmado: el combo que tocó. Sale de: combosDisponibles
+// Termina: { id: 13, nombre: "Keto x10", cantidad: 10, precio: 151000, menu: [Bondiola, Arroz] }
 let comboEnArmado = null;
 
-// EL ARRAY de los platos que va eligiendo el cliente
-let platosElegidos = [];
+// platosDelCombo: los platos con su tope y lo que eligió. Sale de: armarStockDePlatos · Lo cambia: contarPlato
+// Termina: [{ nombre: "Bondiola", tope: 2, cantidad: 2 }, { nombre: "Arroz", tope: 10, cantidad: 8 }]
+let platosDelCombo = [];
 
+// totalElegido: la suma de lo que eligió. Lo cambia: contarPlato
+// Termina: 10 (2 + 8)
 let totalElegido = 0;
-let platoPersonalizando = null;
-let topePorPlato = {};
 
-const LARGO_MAXIMO_PERSONALIZADO = 150;
 
-const ATRIBUTO_APAGADO = { true: '', false: 'disabled' };
-const CLASE_PLATO_ELEGIDO = { true: ' plato-elegido', false: '' };
+// ---------- 2. LOS ELEMENTOS DEL HTML ----------
 
 const ventanaCombo = document.getElementById('modal-combo');
 const listaPlatosCombo = document.getElementById('lista-platos');
@@ -19,136 +35,127 @@ const botonAgregarCombo = document.getElementById('boton-agregar-combo');
 const botonArmarPorMi = document.getElementById('boton-armar-por-mi');
 const avisoSalir = document.getElementById('aviso-salir');
 
-function abrirVentanaCombo(combo) {
-  comboEnArmado = combo;
-  platosElegidos = [];
-  totalElegido = 0;
-  platoPersonalizando = null;
 
-  const enCarritoPorPlato = {};
+// ---------- 3. ARMAR ----------
+
+// armarStockDePlatos → cuántas puede elegir de cada plato (heladera − Mi pedido)
+// Usa: combo + carritoCombos
+// Termina: [{ nombre: "Bondiola", tope: 2, cantidad: 0 }, { nombre: "Arroz", tope: 10, cantidad: 0 }]
+function armarStockDePlatos(combo, carritoCombos) {
+  // 1. Un contador por plato → { 6: 0, 9: 0 }
+  const yaEnMiPedido = {};
   combo.menu.forEach((plato) => {
-    enCarritoPorPlato[plato.id] = 0;
-  });
-  let platosDelCarrito = [];
-  carritoCombos.forEach((comboDelCarrito) => {
-    platosDelCarrito = platosDelCarrito.concat(comboDelCarrito.platos);
-  });
-  platosDelCarrito.forEach((platoDelCarrito) => {
-    const cuentaParaElTope = !platoDelCarrito.personalizado && enCarritoPorPlato[platoDelCarrito.producto_id] !== undefined;
-    if (cuentaParaElTope) {
-      enCarritoPorPlato[platoDelCarrito.producto_id] = enCarritoPorPlato[platoDelCarrito.producto_id] + platoDelCarrito.cantidad;
-    }
+    yaEnMiPedido[plato.id] = 0;
   });
 
-  topePorPlato = {};
+  // 2. Los platos de Mi pedido en una sola lista → [Bondiola x3]
+  let platosDeMiPedido = [];
+  carritoCombos.forEach((comboDeMiPedido) => {
+    platosDeMiPedido = platosDeMiPedido.concat(comboDeMiPedido.platos);
+  });
+
+  // 3. Se suman los de este menú → { 6: 3, 9: 0 }
+  platosDeMiPedido.forEach((platoDeMiPedido) => {
+    const esDeEsteMenu = yaEnMiPedido[platoDeMiPedido.producto_id] !== undefined;
+    const esPersonalizado = Boolean(platoDeMiPedido.personalizado);
+    const noCuenta = !esDeEsteMenu || esPersonalizado;
+    if (noCuenta) {
+      return;
+    }
+    yaEnMiPedido[platoDeMiPedido.producto_id] = yaEnMiPedido[platoDeMiPedido.producto_id] + platoDeMiPedido.cantidad;
+  });
+
+  // 4. El tope de cada plato → Bondiola 5 − 3 = 2 · Arroz 10
+  const platos = [];
   combo.menu.forEach((plato) => {
     let tope = plato.disponibles;
-    if (plato.disponibles < combo.cantidad) {
-      tope = Math.max(0, plato.disponibles - enCarritoPorPlato[plato.id]);
+    const hayMenosQueElCombo = plato.disponibles < combo.cantidad;
+    if (hayMenosQueElCombo) {
+      tope = plato.disponibles - yaEnMiPedido[plato.id];
     }
-    topePorPlato[plato.id] = tope;
+    if (tope < 0) {
+      tope = 0;
+    }
+    platos.push({
+      id: plato.id,
+      nombre: plato.nombre,
+      codigo_plato: plato.codigo_plato,
+      imagen: plato.imagen,
+      tope: tope,
+      sinStock: tope === 0,
+      quedanPocas: tope > 0 && tope < combo.cantidad,
+      cantidad: 0,
+    });
   });
-
-  // (13/11, diseño nuevo) Arriba el plan chiquito en gris y abajo "10 viandas · $ 137.000"
-  const precioEncabezado = '$ ' + Number(combo.precio).toLocaleString('es-AR');
-  document.getElementById('modal-combo-plan').textContent = combo.plan;
-  document.getElementById('modal-combo-titulo').textContent = `${combo.cantidad} viandas · ${precioEncabezado}`;
-  document.getElementById('armar-combo-foto').innerHTML = armarFotoTarjeta([combo], combo.plan_imagen, '');
-  document.getElementById('armar-combo-nombre').textContent = combo.nombre;
-  document.getElementById('armar-combo-precio').textContent = '$ ' + Number(combo.precio).toLocaleString('es-AR');
-  document.getElementById('armar-combo-rotulo').textContent = `Elegí tus ${combo.cantidad} platos · podés repetir`;
-  botonAgregarCombo.hidden = false;
-  avisoSalir.hidden = true;
-
-  renderizarVentanaCombo();
-  ventanaCombo.showModal();
+  return platos;
 }
 
-function renderizarVentanaCombo() {
-  const cantidadDelCombo = comboEnArmado.cantidad;
-  const completo = totalElegido === cantidadDelCombo;
-  const apagadoSiCompleto = ATRIBUTO_APAGADO[!completo];
 
-  const cantidadPorPlato = {};
-  const personalizadosPorPlato = {};
-  comboEnArmado.menu.forEach((plato) => {
-    cantidadPorPlato[plato.id] = 0;
-    personalizadosPorPlato[plato.id] = '';
-  });
-  let indicePersonalizado = 0;
-  platosElegidos.forEach((renglon) => {
-    if (renglon.texto === '') {
-      cantidadPorPlato[renglon.idPlato] = renglon.cantidad;
-    } else {
-      personalizadosPorPlato[renglon.idPlato] = personalizadosPorPlato[renglon.idPlato] + `
-          <div class="renglon-personalizado">
-            <span class="renglon-personalizado-texto">⚠ ${escHtml(renglon.texto)}</span>
-            <div class="selector-cantidad">
-              <button type="button" class="boton-cantidad" data-accion="personalizado-restar" data-indice="${indicePersonalizado}"
-                      aria-label="Sacar una personalizada">
-                <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-menos"></use></svg>
-              </button>
-              <span class="numero-cantidad">${renglon.cantidad}</span>
-              <button type="button" class="boton-cantidad boton-sumar" data-accion="personalizado-sumar" data-indice="${indicePersonalizado}"
-                      aria-label="Sumar una personalizada" ${apagadoSiCompleto}>
-                <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-mas"></use></svg>
-              </button>
-            </div>
-          </div>`;
-      indicePersonalizado = indicePersonalizado + 1;
-    }
-  });
+// ---------- 4. RENDERIZAR ----------
 
+// renderizarVentanaCombo → dibuja toda la ventana
+// Usa: comboEnArmado + platosDelCombo + totalElegido
+// Termina: KETO · Bondiola − 2 + · Arroz − 8 + · "10 de 10" · "Agregar al pedido · $ 151.000"
+function renderizarVentanaCombo(combo, platosDelCombo, totalElegido) {
+  const completo = totalElegido === combo.cantidad;
+  const precio = '$ ' + Number(combo.precio).toLocaleString('es-AR');
+
+  // 1. Arriba: el plan, la foto, el nombre y el precio
+  document.getElementById('modal-combo-plan').textContent = combo.plan;
+  document.getElementById('modal-combo-titulo').textContent = `${combo.cantidad} viandas · ${precio}`;
+  document.getElementById('armar-combo-foto').innerHTML = armarFotoTarjeta([combo], combo.plan_imagen, '');
+  document.getElementById('armar-combo-nombre').textContent = combo.nombre;
+  document.getElementById('armar-combo-precio').textContent = precio;
+  document.getElementById('armar-combo-rotulo').textContent = `Elegí tus ${combo.cantidad} platos · podés repetir`;
+
+  // 2. Los platos: stock, botones "−" y "+", y foto
   let contenidoHTML = '';
-  comboEnArmado.menu.forEach((plato) => {
-    const cantidad = cantidadPorPlato[plato.id];
-    const tope = topePorPlato[plato.id];
-    const tieneElegidas = cantidad > 0;
-    const puedeSumar = !completo && cantidad < tope;
-    const quedanPocas = tope > 0 && tope < cantidadDelCombo;
-    const tieneFoto = Boolean(plato.imagen);
-    const estaPersonalizando = platoPersonalizando === plato.id;
+  platosDelCombo.forEach((plato) => {
     const nombre = escHtml(plato.nombre);
     const idPlato = escHtml(plato.id);
+    const cantidad = escHtml(plato.cantidad);
+    const codigoPlato = pastillaCodigo(plato.codigo_plato, plato.nombre);
 
-    // (13/11, diseño nuevo) Aviso de stock: "Hay stock" en gris, "Quedan N" en verde o "Sin stock" en rojo
     let avisoStock = '<p class="plato-quedan plato-hay-stock">Hay stock</p>';
     let claseAgotado = '';
-    if (tope === 0) { // ¿no queda ninguna? SÍ: 0 · NO: 3
-      // Personalizado no sale de la heladera: se puede pedir igual
-      avisoStock = '<p class="plato-quedan plato-sin-stock">Sin stock · podés pedirlo personalizado</p>';
+    if (plato.sinStock) {
+      avisoStock = '<p class="plato-quedan plato-sin-stock">Sin stock</p>';
       claseAgotado = ' plato-agotado';
     }
-    if (quedanPocas) { // ¿quedan menos que las del combo? SÍ: 3 de un x10 · NO: 12 de un x10
-      avisoStock = `<p class="plato-quedan">Quedan ${escHtml(tope)}</p>`;
-    }
-    const imagen = escHtml({ true: plato.imagen, false: IMAGEN_POR_DEFECTO }[tieneFoto]);
-    const claseLogo = { true: '', false: ' foto-logo' }[tieneFoto];
-    const codigoPlato = pastillaCodigo(plato.codigo_plato, plato.nombre);
-    // (13/11) Sin foto pero con código: un cuadradito con el código ("F1") en vez del logo
-    let fotoPlato = `<img class="foto${claseLogo}" src="${imagen}" alt="" loading="lazy"
-             onerror="this.onerror = null; this.src = '${IMAGEN_POR_DEFECTO}'; this.classList.add('foto-logo');">`;
-    const sinFotoConCodigo = !tieneFoto && Boolean(plato.codigo_plato);
-    if (sinFotoConCodigo) { // ¿no tiene foto y sí código? SÍ: sin foto y "F1" · NO: con foto
-      fotoPlato = `<span class="foto foto-plato-codigo">${escHtml(plato.codigo_plato)}</span>`;
+    if (plato.quedanPocas) {
+      const topeSeguro = escHtml(plato.tope);
+      avisoStock = `<p class="plato-quedan">Quedan ${topeSeguro}</p>`;
     }
 
-    const campoPersonalizar = `
-          <div class="personalizar-plato">
-            <input type="text" class="casillero" id="texto-personalizado"
-                   maxlength="${LARGO_MAXIMO_PERSONALIZADO}" placeholder="Ej: sin sal, sin cebolla"
-                   aria-label="Cómo querés ${nombre}">
-            <button type="button" class="boton boton-principal" data-accion="personalizado-agregar"
-                    data-id-plato="${idPlato}" ${apagadoSiCompleto}>Agregar</button>
-            <button type="button" class="boton boton-secundario" data-accion="personalizado-cancelar">Cancelar</button>
-          </div>`;
-    const botonPersonalizar = `
-          <button type="button" class="boton-enlace" data-accion="personalizado-abrir"
-                  data-id-plato="${idPlato}" ${apagadoSiCompleto}>✎ Personalizar</button>`;
-    const personalizar = { true: campoPersonalizar, false: botonPersonalizar }[estaPersonalizando];
+    let claseElegido = '';
+    let apagadoRestar = 'disabled';
+    if (plato.cantidad > 0) {
+      claseElegido = ' plato-elegido';
+      apagadoRestar = '';
+    }
+    let apagadoSumar = 'disabled';
+    const puedeSumar = !completo && plato.cantidad < plato.tope;
+    if (puedeSumar) {
+      apagadoSumar = '';
+    }
+
+    let imagen = IMAGEN_POR_DEFECTO;
+    let claseLogo = ' foto-logo';
+    if (plato.imagen) {
+      imagen = plato.imagen;
+      claseLogo = '';
+    }
+    const imagenSegura = escHtml(imagen);
+    let fotoPlato = `<img class="foto${claseLogo}" src="${imagenSegura}" alt="" loading="lazy"
+             onerror="this.onerror = null; this.src = '${IMAGEN_POR_DEFECTO}'; this.classList.add('foto-logo');">`;
+    const sinFotoConCodigo = !plato.imagen && Boolean(plato.codigo_plato);
+    if (sinFotoConCodigo) {
+      const codigoSeguro = escHtml(plato.codigo_plato);
+      fotoPlato = `<span class="foto foto-plato-codigo">${codigoSeguro}</span>`;
+    }
 
     contenidoHTML += `
-      <li class="plato${CLASE_PLATO_ELEGIDO[tieneElegidas]}${claseAgotado}">
+      <li class="plato${claseElegido}${claseAgotado}">
         ${fotoPlato}
         <div class="plato-datos">
           <h3>${codigoPlato}${nombre}</h3>
@@ -156,47 +163,31 @@ function renderizarVentanaCombo() {
         </div>
         <div class="selector-cantidad">
           <button type="button" class="boton-cantidad" data-accion="restar" data-id-plato="${idPlato}"
-                  aria-label="Sacar una de ${nombre}" ${ATRIBUTO_APAGADO[tieneElegidas]}>
+                  aria-label="Sacar una de ${nombre}" ${apagadoRestar}>
             <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-menos"></use></svg>
           </button>
           <span class="numero-cantidad">${cantidad}</span>
           <button type="button" class="boton-cantidad boton-sumar" data-accion="sumar" data-id-plato="${idPlato}"
-                  aria-label="Sumar una de ${nombre}" ${ATRIBUTO_APAGADO[puedeSumar]}>
+                  aria-label="Sumar una de ${nombre}" ${apagadoSumar}>
             <svg class="icono" aria-hidden="true" focusable="false"><use href="#icono-mas"></use></svg>
           </button>
         </div>
-        <div class="plato-personalizados">
-          ${personalizadosPorPlato[plato.id]}
-          ${personalizar}
-        </div>
       </li>`;
   });
-
-  const hayPersonalizados = indicePersonalizado > 0;
-  contenidoHTML += { true: `
-      <li class="nota">
-        Los platos personalizados se cocinan aparte: te llegan un día hábil más tarde
-        (si pedís un martes, se cocina el miércoles y te llega desde el jueves).
-      </li>`, false: '' }[hayPersonalizados];
-  // ACÁ SE RENDERIZAN los platos del combo
   listaPlatosCombo.innerHTML = contenidoHTML;
 
-  const campoTexto = document.getElementById('texto-personalizado');
-  if (campoTexto) {
-    campoTexto.focus();
+  // 3. Abajo: "7 de 10", la barra y los botones
+  const faltan = combo.cantidad - totalElegido;
+  let palabraPlatos = 'platos';
+  if (faltan === 1) {
+    palabraPlatos = 'plato';
   }
-
-  const faltan = cantidadDelCombo - totalElegido;
-  // (13/11, diseño nuevo) Los mismos textos en compu y celu: a la izquierda "Elegí 10 platos", a la derecha "7 de 10";
-  // el botón dice "Elegí 3 platos más" o, con el combo completo, "Agregar al pedido · $ 137.000"
-  const palabraPlatos = { true: 'plato', false: 'platos' }[faltan === 1];
-  const precioDelCombo = '$ ' + Number(comboEnArmado.precio).toLocaleString('es-AR');
   let textoBoton = `Elegí ${faltan} ${palabraPlatos} más`;
-  if (completo) { // ¿ya eligió todos? SÍ: 10 de 10 · NO: 7 de 10
-    textoBoton = 'Agregar al pedido · ' + precioDelCombo;
+  if (completo) {
+    textoBoton = 'Agregar al pedido · ' + precio;
   }
-  document.getElementById('modal-combo-cuenta').textContent = `${totalElegido} de ${cantidadDelCombo}`;
-  document.getElementById('modal-combo-falta').textContent = `Elegí ${cantidadDelCombo} platos`;
+  document.getElementById('modal-combo-cuenta').textContent = `${totalElegido} de ${combo.cantidad}`;
+  document.getElementById('modal-combo-falta').textContent = `Elegí ${combo.cantidad} platos`;
   botonAgregarCombo.textContent = textoBoton;
 
   const progreso = document.getElementById('modal-combo-progreso');
@@ -205,79 +196,81 @@ function renderizarVentanaCombo() {
   } else {
     progreso.classList.remove('progreso-completo');
   }
-
   const barra = document.getElementById('modal-combo-barra');
-  barra.setAttribute('aria-valuemax', cantidadDelCombo);
+  barra.setAttribute('aria-valuemax', combo.cantidad);
   barra.setAttribute('aria-valuenow', totalElegido);
-  document.getElementById('modal-combo-relleno').style.transform = 'scaleX(' + (totalElegido / cantidadDelCombo) + ')';
+  document.getElementById('modal-combo-relleno').style.transform = 'scaleX(' + (totalElegido / combo.cantidad) + ')';
 
   botonAgregarCombo.disabled = !completo;
   botonArmarPorMi.disabled = completo;
 }
 
-function cambiarCantidad(idPlato, cambio, texto) {
-  const plato = comboEnArmado.menu.find((p) => p.id === idPlato);
-  let renglon = platosElegidos.find((r) => r.idPlato === idPlato && r.texto.toLowerCase() === texto.toLowerCase());
-  const esNuevo = renglon === undefined;
-  if (esNuevo) {
-    renglon = { idPlato: idPlato, nombre: plato?.nombre, texto: texto, cantidad: 0 };
-  }
 
-  const nuevaCantidad = renglon.cantidad + cambio;
-  const noEstaEnElMenu = plato === undefined;
-  const quedariaNegativo = nuevaCantidad < 0;
-  const pasaElTope = texto === '' && nuevaCantidad > topePorPlato[idPlato];
-  const pasaElCombo = totalElegido + cambio > comboEnArmado.cantidad;
-  const noSePuede = noEstaEnElMenu || quedariaNegativo || pasaElTope || pasaElCombo;
-  if (noSePuede) {
-    return false;
-  }
+// ---------- 5. LOS EVENTOS ----------
 
-  if (esNuevo) {
-    // ACÁ SE PUSHEA: el plato elegido se agrega al array platosElegidos
-    platosElegidos.push(renglon);
-  }
-  renglon.cantidad = nuevaCantidad;
-  totalElegido = totalElegido + cambio;
-  platosElegidos = platosElegidos.filter((r) => r.cantidad > 0);
-  return true;
+// abrirVentanaCombo → llena los datos, dibuja y abre
+// Usa: combo (de combosDisponibles) + carritoCombos
+// Termina: comboEnArmado = Keto x10 · platosDelCombo = [Bondiola 0, Arroz 0] · totalElegido = 0
+function abrirVentanaCombo(combo) {
+  // 1. Se llenan los datos
+  comboEnArmado = combo;
+  platosDelCombo = armarStockDePlatos(combo, carritoCombos);
+  totalElegido = 0;
+
+  // 2. Se dibuja y se abre
+  renderizarVentanaCombo(comboEnArmado, platosDelCombo, totalElegido);
+  botonAgregarCombo.hidden = false;
+  avisoSalir.hidden = true;
+  ventanaCombo.showModal();
 }
 
-function armarloPorMi() {
-  if (comboEnArmado === null) {
-    return false;
-  }
-  platoPersonalizando = null;
-
-  const vueltas = Array.from({ length: comboEnArmado.cantidad });
-  vueltas.forEach(() => {
-    comboEnArmado.menu.forEach((plato) => {
-      cambiarCantidad(plato.id, 1, '');
-    });
-  });
-  return true;
-}
-
-function confirmarCombo() {
-  const comboCompleto = comboEnArmado !== null && totalElegido === comboEnArmado.cantidad;
-  if (!comboCompleto) {
+// contarPlato → +1 o −1 a un plato, si no pasa su tope ni el combo
+// Usa: platosDelCombo + totalElegido + comboEnArmado
+// Termina: "+" en Bondiola → Bondiola 1 → 2 · totalElegido 9 → 10
+function contarPlato(idPlato, cuenta) {
+  // 1. Se busca el plato
+  const plato = platosDelCombo.find((platoDelCombo) => platoDelCombo.id === idPlato);
+  if (!plato) {
     return;
   }
 
+  // 2. ¿Se puede?
+  const nuevaCantidad = plato.cantidad + cuenta;
+  const nuevoTotal = totalElegido + cuenta;
+  const quedariaNegativo = nuevaCantidad < 0;
+  const pasaElTope = nuevaCantidad > plato.tope;
+  const pasaElCombo = nuevoTotal > comboEnArmado.cantidad;
+  const noSePuede = quedariaNegativo || pasaElTope || pasaElCombo;
+  if (noSePuede) {
+    return;
+  }
+
+  // 3. Se guarda y se dibuja
+  plato.cantidad = nuevaCantidad;
+  totalElegido = nuevoTotal;
+  renderizarVentanaCombo(comboEnArmado, platosDelCombo, totalElegido);
+}
+
+// agregarComboAlCarrito → manda el combo a Mi pedido y cierra
+// Usa: comboEnArmado + platosDelCombo
+// Termina: Mi pedido recibe { id_combo: 13, cantidad: 10, platos: [Bondiola 2, Arroz 8] }
+function agregarComboAlCarrito() {
+  // 1. ¿Está completo?
+  const faltanPlatos = totalElegido !== comboEnArmado.cantidad;
+  if (faltanPlatos) {
+    return;
+  }
+
+  // 2. Solo los platos que eligió
   const platos = [];
-  comboEnArmado.menu.forEach((plato) => {
-    const renglon = platosElegidos.find((r) => r.idPlato === plato.id && r.texto === '');
-    if (renglon === undefined) {
+  platosDelCombo.forEach((plato) => {
+    if (plato.cantidad === 0) {
       return;
     }
-    platos.push({ producto_id: plato.id, nombre: plato.nombre, cantidad: renglon.cantidad, personalizado: null });
+    platos.push({ producto_id: plato.id, nombre: plato.nombre, cantidad: plato.cantidad, personalizado: null });
   });
 
-  platosElegidos.filter((r) => r.texto !== '').forEach((renglon) => {
-    platos.push({ producto_id: renglon.idPlato, nombre: renglon.nombre, cantidad: renglon.cantidad, personalizado: renglon.texto });
-  });
-
-  // ACÁ SE PASA AL CARRITO (carritoCombos.js)
+  // 3. A Mi pedido y se cierra
   agregarAlCarrito({
     id_combo: comboEnArmado.id,
     nombre:   comboEnArmado.nombre,
@@ -288,20 +281,9 @@ function confirmarCombo() {
   cerrarVentanaCombo(true);
 }
 
-function agregarPersonalizado(idPlato, textoEscrito) {
-  const textoLimpio = String(textoEscrito).trim();
-  const textoNoSirve = textoLimpio === '' || textoLimpio.length > LARGO_MAXIMO_PERSONALIZADO;
-  if (textoNoSirve) {
-    document.getElementById('texto-personalizado').focus();
-    return false;
-  }
-  const seAgrego = cambiarCantidad(idPlato, 1, textoLimpio);
-  if (seAgrego) {
-    platoPersonalizando = null;
-  }
-  return seAgrego;
-}
-
+// cerrarVentanaCombo → cierra y vacía los datos (si eligió algo, primero pregunta "¿salís?")
+// Usa: totalElegido + comboEnArmado
+// Termina: comboEnArmado = null · platosDelCombo = [] · totalElegido = 0
 function cerrarVentanaCombo(forzar) {
   const hayQuePreguntar = !forzar && totalElegido > 0;
   if (hayQuePreguntar) {
@@ -315,82 +297,69 @@ function cerrarVentanaCombo(forzar) {
   avisoSalir.hidden = true;
   ventanaCombo.close();
   comboEnArmado = null;
-  platosElegidos = [];
+  platosDelCombo = [];
   totalElegido = 0;
-  platoPersonalizando = null;
-}
-
-const BOTONES_DE_LA_VENTANA = {
-  'sumar':                  (boton) => cambiarCantidad(Number(boton.dataset.idPlato), 1, ''),
-  'restar':                 (boton) => cambiarCantidad(Number(boton.dataset.idPlato), -1, ''),
-  'personalizado-abrir':    (boton) => { platoPersonalizando = Number(boton.dataset.idPlato); return true; },
-  'personalizado-cancelar': () => { platoPersonalizando = null; return true; },
-  'personalizado-agregar':  (boton) => agregarPersonalizado(Number(boton.dataset.idPlato), document.getElementById('texto-personalizado').value),
-  'personalizado-sumar':    (boton) => cambiarPersonalizado(Number(boton.dataset.indice), 1),
-  'personalizado-restar':   (boton) => cambiarPersonalizado(Number(boton.dataset.indice), -1),
-  'armar-por-mi':           () => armarloPorMi(),
-  'agregar-combo':          () => { confirmarCombo(); return false; },
-  'cerrar':                 () => { cerrarVentanaCombo(false); return false; },
-  'combo-salir':            () => { cerrarVentanaCombo(true); return false; },
-  'combo-seguir':           () => { avisoSalir.hidden = true; botonAgregarCombo.hidden = false; return false; }
-};
-
-function cambiarPersonalizado(indice, cambio) {
-  const renglon = platosElegidos.filter((r) => r.texto !== '')[indice];
-  if (renglon === undefined) {
-    return false;
-  }
-  return cambiarCantidad(renglon.idPlato, cambio, renglon.texto);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // ACÁ SE ABRE LA VENTANA: tocaron "¡Lo quiero!" (los platos ya vienen en combo.menu)
+  // "¡Lo quiero!" → busca el combo en combosDisponibles → abrirVentanaCombo
   document.getElementById('cantidad-productos').addEventListener('click', (evento) => {
     const boton = evento.target.closest('[data-accion="armar-combo"]');
     if (!boton) {
       return;
     }
-    const combo = combosDisponibles.find((c) => c.id === Number(boton.dataset.idCombo));
+    const combo = combosDisponibles.find((comboDisponible) => comboDisponible.id === Number(boton.dataset.idCombo));
     if (combo === undefined) {
       return;
     }
     abrirVentanaCombo(combo);
   });
 
+  // Los botones de la ventana
   ventanaCombo.addEventListener('click', (evento) => {
     if (evento.target === ventanaCombo) {
       cerrarVentanaCombo(false);
       return;
     }
-    const hacer = BOTONES_DE_LA_VENTANA[evento.target.closest('[data-accion]')?.dataset.accion];
-    if (hacer === undefined) {
+    const boton = evento.target.closest('[data-accion]');
+    if (!boton) {
       return;
     }
-    const hayQueDibujar = hacer(evento.target.closest('[data-accion]'));
-    if (hayQueDibujar) {
-      renderizarVentanaCombo();
+    const idPlato = Number(boton.dataset.idPlato);
+
+    switch (boton.dataset.accion) {
+      case 'sumar':          // "+"
+        contarPlato(idPlato, 1);
+        break;
+      case 'restar':         // "−"
+        contarPlato(idPlato, -1);
+        break;
+      case 'armar-por-mi':   // "Armalo por mí": +1 a cada plato, vuelta por vuelta, hasta completar
+        Array.from({ length: comboEnArmado.cantidad }).forEach(() => {
+          platosDelCombo.forEach((plato) => {
+            contarPlato(plato.id, 1);
+          });
+        });
+        break;
+      case 'agregar-combo':  // "Agregar al pedido"
+        agregarComboAlCarrito();
+        break;
+      case 'cerrar':         // la X
+        cerrarVentanaCombo(false);
+        break;
+      case 'combo-salir':    // "Salir"
+        cerrarVentanaCombo(true);
+        break;
+      case 'combo-seguir':   // "Seguir armando"
+        avisoSalir.hidden = true;
+        botonAgregarCombo.hidden = false;
+        break;
     }
   });
 
+  // Esc
   ventanaCombo.addEventListener('cancel', (evento) => {
     evento.preventDefault();
-    if (platoPersonalizando !== null) {
-      platoPersonalizando = null;
-      renderizarVentanaCombo();
-      return;
-    }
     cerrarVentanaCombo(false);
-  });
-
-  ventanaCombo.addEventListener('keydown', (evento) => {
-    const esEnterEnElCampo = evento.key === 'Enter' && evento.target.id === 'texto-personalizado';
-    if (!esEnterEnElCampo) {
-      return;
-    }
-    evento.preventDefault();
-    const seAgrego = agregarPersonalizado(platoPersonalizando, evento.target.value);
-    if (seAgrego) {
-      renderizarVentanaCombo();
-    }
   });
 });
